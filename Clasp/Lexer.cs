@@ -1,0 +1,67 @@
+﻿namespace Clasp
+{
+    internal static class Lexer
+    {
+        public static IEnumerable<Token> Lex(string input)
+        {
+            string spaced = input
+                .Replace("(", " ( ")
+                .Replace(")", " ) ")
+                .Replace("'", " ' ");
+
+            IEnumerable<string> pieces = spaced.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            return pieces.Select(x => Token.Tokenize(x));
+        }
+
+
+
+
+    }
+
+    [System.Diagnostics.DebuggerDisplay("{Text}")]
+    internal class Token
+    {
+        public readonly string Text;
+        public readonly TokenType TType;
+
+        protected Token(string s, TokenType t)
+        {
+            Text = s;
+            TType = t;
+        }
+
+        public static Token Tokenize(string s)
+        {
+            if (s[0] == '(')
+            {
+                return new Token("(", TokenType.LeftParen);
+            }
+            else if (s[0] == ')')
+            {
+                return new Token(")", TokenType.RightParen);
+            }
+            else if (s[0] == '\'')
+            {
+                return new Token("'", TokenType.QuoteMarker);
+            }
+            else if (char.IsDigit(s[0]))
+            {
+                return new Token(s, TokenType.Number);
+            }
+            else
+            {
+                return new Token(s, TokenType.Symbol);
+            }
+        }
+
+        public override string ToString() => $"{{{Text}}}";
+    }
+
+    internal enum TokenType
+    {
+        LeftParen, RightParen,
+        Symbol, Number,
+        QuoteMarker, DotMarker
+    }
+}
