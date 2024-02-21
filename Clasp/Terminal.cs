@@ -59,6 +59,7 @@
 
                         Expression expr = Parser.Parse(input);
                         writer.WriteLine($"----> {expr}");
+                        writer.WriteLine($"------> {expr.ToStringent()}");
 
                         Expression result = expr.Evaluate(global);
                         writer.WriteLine(result);

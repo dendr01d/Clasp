@@ -24,7 +24,7 @@
         {
             if (tokens.Count <= 0)
             {
-                throw new Exception("Parsing error: unexpected EOF");
+                throw new ParsingException("Unexpected end of token stream");
             }
             else
             {
@@ -33,12 +33,12 @@
                 return current.TType switch
                 {
                     TokenType.LeftParen => ParseList(ref tokens),
-                    TokenType.RightParen => throw new Exception("Parsing error: unexpected ')'"),
-                    TokenType.DotMarker => throw new Exception("Parsing error: unexpected '.'"),
-                    TokenType.QuoteMarker => SpecialForm.CreateForm("quote", [ParseStack(ref tokens)]),
+                    TokenType.RightParen => throw new ParsingException("Unexpected ')' in token stream"),
+                    TokenType.DotMarker => throw new ParsingException("Unexpected '.' in token stream"),
+                    TokenType.QuoteMarker => SpecialForm.CreateForm(new("quote"), SList.ConstructLinked(ParseStack(ref tokens))), //ensure lists aren't merged
                     TokenType.Symbol => new Symbol(current.Text),
                     TokenType.Number => new Number(double.Parse(current.Text)),
-                    _ => throw new Exception($"Parsing error: unknown token type {current.TType}")
+                    _ => throw new ParsingException($"Unknown token type {current.TType}")
                 };
             }
         }
@@ -55,11 +55,11 @@
             if (tokens.Peek().TType == TokenType.DotMarker)
             {
                 tokens.Pop(); //remove dot marker
-                newList.Push(Pair.Cons(newList.Pop(), ParseStack(ref tokens))); //combine last two items into pair
+                newList.Push(Pair.Cons(newList.Pop(), ParseStack(ref tokens)));
 
                 if (tokens.Peek().TType != TokenType.RightParen)
                 {
-                    throw new Exception("Parsing error: expected ')' after dotted pair");
+                    throw new ParsingException("Expected ')' following dotted pair");
                 }
             }
 
@@ -69,7 +69,13 @@
 
             if (exprs.Length > 0 && exprs[0] is Symbol sym && SpecialForm.IsSpecialKeyword(sym))
             {
-                return SpecialForm.CreateForm(sym, exprs[1..]);
+                return SpecialForm.CreateForm(sym, SList.ConstructLinked(exprs[1..]));
+            }
+            else if (exprs.Length == 1 && exprs[0] is SList l && l.IsDotted)
+            {
+                //this stack-method of building lists implicity assumes we're building a linked list
+                //if it's ONLY a dotted pair though then it's just a single cons cell with no links
+                return exprs[0];
             }
             else
             {

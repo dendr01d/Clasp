@@ -1,4 +1,6 @@
-﻿namespace Clasp
+﻿using System.Diagnostics;
+
+namespace Clasp
 {
     internal abstract class Expression
     {
@@ -8,19 +10,33 @@
         public static readonly Symbol FalseValue = new("#f");
         public static readonly Empty Nil = new();
 
+        #region Logical Type-Checking
+
         public abstract bool IsAtom { get; }
         public abstract bool IsList { get; }
-        public bool IsFalse => ReferenceEquals(this, FalseValue);
+        public bool IsFalse => ReferenceEquals(this, FalseValue) || IsNil;
         public bool IsTrue => !IsFalse;
         public bool IsNil => ReferenceEquals(this, Nil);
 
+        public bool IsSymbol => this is Symbol;
+        public bool IsProcedure => this is Procedure || (this is Symbol sym && SpecialForm.IsSpecialKeyword(sym));
+        public bool IsNumber => this is Number;
+        public bool IsPair => this is Pair;
 
-        #region Type-Checking
+        #endregion
 
-        public virtual Symbol ExpectSymbol() => ExpectDerived<Symbol>();
-        public virtual Procedure ExpectProcedure() => ExpectDerived<Procedure>();
-        public virtual SList ExpectList() => ExpectDerived<SList>();
+        #region Runtime Type-Checking
 
+        [DebuggerStepThrough]
+        public Symbol AsSymbol() => ExpectDerived<Symbol>();
+        [DebuggerStepThrough]
+        public Procedure AsProc() => ExpectDerived<Procedure>();
+        [DebuggerStepThrough]
+        public Number AsNumber() => ExpectDerived<Number>();
+        [DebuggerStepThrough]
+        public SList AsList() => ExpectDerived<SList>();
+
+        [DebuggerStepThrough]
         private T ExpectDerived<T>() where T : Expression
         {
             if (this is T derived)
@@ -29,27 +45,18 @@
             }
             else
             {
-                throw new Exception($"Expected {typeof(T).Name}: {this}");
+                throw new ExpectedTypeException(typeof(T).Name, this.ToString());
             }
         }
 
-        public virtual Expression ExpectCar() => throw new Exception($"Tried to take car of atom: {this}");
-        public virtual Expression ExpectCdr() => throw new Exception($"Tried to take cdr of atom: {this}");
+        [DebuggerStepThrough]
+        public virtual Expression Car() => ExpectDerived<SList>();
+        [DebuggerStepThrough]
+        public virtual Expression Cdr() => ExpectDerived<SList>();
 
         #endregion
 
-        #region Equality Checks
-
-        public virtual bool ValueEquals(Expression other) => other.ValueEquals(this);
-        public virtual bool ValueEquals(Symbol other) => this is Symbol sym && sym.Name == other.Name;
-        public virtual bool ValueEquals(Procedure other) => this is Procedure proc && ReferenceEquals(proc, other);
-        public virtual bool ValueEquals(Number other) => this is Number num && num.Value == other.Value;
-        public virtual bool ValueEquals(Empty other) => this is Empty;
-        public virtual bool ValueEquals(Pair other) => this is Pair pair
-            && pair.ExpectCar().ValueEquals(other.ExpectCar())
-            && pair.ExpectCdr().ValueEquals(other.ExpectCdr());
-
-        #endregion
+        public abstract bool EqualsByValue(Expression? other);
 
         #region Default Conversions
 
@@ -57,11 +64,14 @@
         public static implicit operator Expression(int i) => new Number(i);
         public static implicit operator Expression(char c) => new Character(c);
         public static implicit operator Expression(string s) => new Symbol(s);
+        public static implicit operator Expression(bool b) => b ? TrueValue : FalseValue;
 
         #endregion
 
         public abstract Expression Evaluate(Environment env);
 
         public abstract override string ToString();
+
+        public virtual string ToStringent() => ToString();
     }
 }

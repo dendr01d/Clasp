@@ -4,6 +4,14 @@
     {
         public static IEnumerable<Token> Lex(string input)
         {
+            int lParens = input.Count(x => x == '(');
+            int rParens = input.Count(x => x == ')');
+
+            if (lParens != rParens)
+            {
+                throw new LexingException($"Missing one or more {(lParens < rParens ? "L-parens" : "R-parens")}");
+            }
+
             string spaced = input
                 .Replace("(", " ( ")
                 .Replace(")", " ) ")
@@ -13,10 +21,6 @@
 
             return pieces.Select(x => Token.Tokenize(x));
         }
-
-
-
-
     }
 
     [System.Diagnostics.DebuggerDisplay("{Text}")]
@@ -45,9 +49,13 @@
             {
                 return new Token("'", TokenType.QuoteMarker);
             }
-            else if (char.IsDigit(s[0]))
+            else if (s[0] == '.')
             {
-                return new Token(s, TokenType.Number);
+                return new Token(".", TokenType.DotMarker);
+            }
+            else if (double.TryParse(s, out double result))
+            {
+                return new Token(result.ToString(), TokenType.Number);
             }
             else
             {
