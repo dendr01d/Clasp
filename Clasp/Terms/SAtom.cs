@@ -1,92 +1,59 @@
 ﻿namespace Clasp
 {
-    internal abstract class SAtom : Expression
+    internal abstract record SAtom() : Expression()
     {
-        protected SAtom() { }
-
         public override bool IsAtom => true;
         public override bool IsList => false;
-
-        public override Expression Evaluate(Environment env) => this;
+        protected override Recurrence Evaluate(Environment env) => FinishedEval(this);
 
     }
 
-    internal class Symbol : SAtom
+    internal sealed record Symbol(string Name) : SAtom()
     {
-        public readonly string Name;
-        public Symbol(string name) => Name = name;
-
-        public override bool EqualsByValue(Expression? other) => other is Symbol sym && sym.Name == Name;
-
-        public override Expression Evaluate(Environment env) => env.Lookup(this);
-        public override string ToString() => Name;
+        protected override Recurrence Evaluate(Environment env) => FinishedEval(env.Lookup(this));
+        protected override string FormatString() => Name;
     }
 
-    internal class Procedure : SAtom
+    internal abstract record Operator(string Name) : SAtom()
     {
-        public readonly string Name;
-        private readonly Func<SList, Environment, Expression> _operation;
-
-        #region construction
-
-        public Procedure(string name, Func<SList, Environment, Expression> op)
+        public abstract Recurrence Apply(SList args, Environment env);
+        protected override string FormatString() => $"<{Name}>";
+        public static Recurrence StdApply(Operator op, Expression expr, Environment env)
         {
-            Name = name;
-            _operation = op;
+            return op.Apply(expr.The<SList>(), env);
         }
+    }
 
-        public Procedure(string name, Func<SList, Expression> op) : this(name, (l, _) => op.Invoke(l)) { }
-        public Procedure(string name, Action<SList> op) : this(name, Funcify(op)) { }
-        public Procedure(string name, Action<SList, Environment> op) : this(name, Funcify(op)) { }
-
-        private static Func<SList, Expression> Funcify(Action<SList> action)
+    internal sealed record Procedure(string Name, Func<SList, Environment, Expression> Proc) : Operator(Name)
+    {
+        public override Recurrence Apply(SList args, Environment env)
         {
-            return l => { action.Invoke(l); return TrueValue; };
+            return FinishedEval(Proc(args, env));
         }
-        private static Func<SList, Environment, Expression> Funcify(Action<SList, Environment> action)
+    }
+
+    internal sealed record Lambda(Symbol[] Parameters, Expression Body, Environment Closure) : Operator(FormatLambda(Parameters, Body))
+    {
+        public override Recurrence Apply(SList args, Environment env)
         {
-            return (l, a) => { action.Invoke(l, a); return TrueValue; };
-        }
-
-        #endregion
-
-        public Expression Apply(SList args, Environment env)
-        {
-            return _operation(args, env);
-        }
-
-        public Expression Apply(Expression arg, Environment env)
-        {
-            return arg.IsAtom
-                ? Apply(Pair.Cons(arg, Nil), env)
-                : Apply(arg.AsList(), env);
-        }
-
-        public static Procedure BuildLambda(Symbol[] parameters, Expression body, Environment closure)
-        {
-            string name = $"lambda ({string.Join(' ', parameters.AsEnumerable())}) {body}";
-
-            return new Procedure(name, (SList l, Environment _) =>
+            if (args.IsNil || Parameters.Length == 0)
             {
-                Environment env = new(closure);
-                for (int i = 0; i < parameters.Length; ++i)
+                return ContinueWith(Body, env, StdEval);
+            }
+            else
+            {
+                Environment local = new Environment(env);
+                for (int i = 0; i < Parameters.Length; ++i)
                 {
-                    //Expression def = i + 1 < parameters.Length
-                    //    ? l.AtIndex(i)
-                    //    : l.FromIndex(i); //for the last parameter, grab everything left
-                    env.Extend(parameters[i], l.AtIndex(i));
+                    local.Extend(Parameters[i], args[i]);
                 }
-                return body.Evaluate(env);
-            });
+                return ContinueWith(Body, local, StdEval);
+            }
         }
 
-        public override string ToString() => $"<{Name}>";
-
-        public override bool EqualsByValue(Expression? other)
+        private static string FormatLambda(Symbol[] parameters, Expression body)
         {
-            return other is Procedure p
-                && p.Name == Name
-                && p._operation == _operation;
+            return $"lambda ({string.Join(' ', parameters.AsEnumerable())}) {body}";
         }
     }
 
@@ -95,28 +62,21 @@
 
     //}
 
-    internal abstract class Literal<T> : SAtom
-        where T : struct
+    internal abstract record Literal<T>(T Value) : SAtom() where T : struct { }
+
+    internal sealed record Number(double d) : Literal<double>(d)
     {
-        public readonly T Value;
-        protected Literal(T val)
-        {
-            Value = val;
-        }
-        public override bool EqualsByValue(Expression? other) => other is Literal<T> lt && lt.Value.Equals(Value);
+        protected override string FormatString() => Value.ToString();
     }
 
-    internal class Number : Literal<double>
+    internal sealed record Character(char c) : Literal<char>(c)
     {
-        public Number(double d) : base(d) { }
-
-        public override string ToString() => Value.ToString();
+        protected override string FormatString() => $"\\{Value}";
     }
 
-    internal class Character : Literal<char>
+    internal sealed record Boolean(bool b) : Literal<bool>(b)
     {
-        public Character(char c) : base(c) { }
-        public override string ToString() => $"\\{Value}";
+        protected override string FormatString() => Value ? TrueValue.Name : FalseValue.Name;
     }
 
     //internal abstract class SVector<T> : Constant

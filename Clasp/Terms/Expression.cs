@@ -2,61 +2,53 @@
 
 namespace Clasp
 {
-    internal abstract class Expression
+    internal abstract record class Expression()
     {
-        protected Expression() { }
+
+        #region Class-Specific Methods
+        public abstract bool IsAtom { get; }
+        public abstract bool IsList { get; }
+        protected abstract Recurrence Evaluate(Environment env);
+        protected abstract string FormatString();
+        #endregion
+        public sealed override string ToString() => FormatString();
+
 
         public static readonly Symbol TrueValue = new("#t");
         public static readonly Symbol FalseValue = new("#f");
         public static readonly Empty Nil = new();
 
-        #region Logical Type-Checking
+        #region Logical Checking
 
-        public abstract bool IsAtom { get; }
-        public abstract bool IsList { get; }
+        public bool IsNil => ReferenceEquals(this, Nil);
         public bool IsFalse => ReferenceEquals(this, FalseValue) || IsNil;
         public bool IsTrue => !IsFalse;
-        public bool IsNil => ReferenceEquals(this, Nil);
-
-        public bool IsSymbol => this is Symbol;
-        public bool IsProcedure => this is Procedure || (this is Symbol sym && SpecialForm.IsSpecialKeyword(sym));
-        public bool IsNumber => this is Number;
-        public bool IsPair => this is Pair;
-
-        #endregion
-
-        #region Runtime Type-Checking
 
         [DebuggerStepThrough]
-        public Symbol AsSymbol() => ExpectDerived<Symbol>();
-        [DebuggerStepThrough]
-        public Procedure AsProc() => ExpectDerived<Procedure>();
-        [DebuggerStepThrough]
-        public Number AsNumber() => ExpectDerived<Number>();
-        [DebuggerStepThrough]
-        public SList AsList() => ExpectDerived<SList>();
+        public Expression GetCar() => The<SList>().Car;
 
         [DebuggerStepThrough]
-        private T ExpectDerived<T>() where T : Expression
+        public Expression GetCdr() => The<SList>().Cdr;
+
+        [DebuggerStepThrough]
+        public bool IsA<T>() where T : Expression => this is T;
+
+        [DebuggerStepThrough]
+        public T The<T>()
+            where T : Expression
         {
-            if (this is T derived)
+            if (this is T expr)
             {
-                return derived;
+                return expr;
             }
             else
             {
-                throw new ExpectedTypeException(typeof(T).Name, this.ToString());
+                throw new ExpectedTypeException(typeof(T).Name, ToString());
             }
         }
 
-        [DebuggerStepThrough]
-        public virtual Expression Car() => ExpectDerived<SList>();
-        [DebuggerStepThrough]
-        public virtual Expression Cdr() => ExpectDerived<SList>();
-
         #endregion
 
-        public abstract bool EqualsByValue(Expression? other);
 
         #region Default Conversions
 
@@ -68,10 +60,36 @@ namespace Clasp
 
         #endregion
 
-        public abstract Expression Evaluate(Environment env);
 
-        public abstract override string ToString();
+        #region Evaluation Helpers
 
-        public virtual string ToStringent() => ToString();
+        public Expression CallEval(Environment env)
+        {
+            Recurrence recur = Evaluate(env);
+
+            while (recur.NextFunc is not null && recur.NextEnv is not null)
+            {
+                recur = recur.NextFunc(recur.Result, recur.NextEnv);
+            }
+
+            return recur.Result;
+        }
+
+        protected static Recurrence StdEval(Expression expr, Environment env)
+        {
+            return expr.Evaluate(env);
+        }
+
+        protected static Recurrence ContinueWith(Expression expr, Environment env, Continuation cont)
+        {
+            return new Recurrence(expr, env, cont);
+        }
+
+        protected static Recurrence FinishedEval(Expression expr)
+        {
+            return new Recurrence(expr, null, null);
+        }
+
+        #endregion
     }
 }

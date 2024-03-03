@@ -59,9 +59,8 @@
 
                         Expression expr = Parser.Parse(input);
                         writer.WriteLine($"----> {expr}");
-                        writer.WriteLine($"------> {expr.ToStringent()}");
 
-                        Expression result = expr.Evaluate(global);
+                        Expression result = expr.CallEval(global);
                         writer.WriteLine(result);
                     }
                     catch (Exception ex)
@@ -86,7 +85,7 @@
                 {
                     try
                     {
-                        Parser.Parse(line).Evaluate(env);
+                        Parser.Parse(line).CallEval(env);
                     }
                     catch (Exception ex)
                     {

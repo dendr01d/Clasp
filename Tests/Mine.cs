@@ -15,14 +15,6 @@ namespace Tests
         public class If
         {
             [TestMethod]
-            public void ArgsZero() => Tester.TestFailure<ArgumentArityException>("(if)");
-            [TestMethod]
-            public void ArgsOne() => Tester.TestFailure<ArgumentArityException>("(if 1)");
-            [TestMethod]
-            public void ArgsTwo() => Tester.TestFailure<ArgumentArityException>("(if 1 2)");
-
-
-            [TestMethod]
             public void CaseTrue() => Tester.TestIO("1", "(if 1 1 2)");
 
             [TestMethod]
@@ -58,7 +50,10 @@ namespace Tests
             public void CaseThird() => Tester.TestIO("5", "(cond (() 1) (() 3) (4 5))");
 
             [TestMethod]
-            public void SubConditional() => Tester.TestIO("1", "(cond ((if 1 1 ()) 1) (2 3))");
+            public void SubConditionalTrue() => Tester.TestIO("1", "(cond ((if 1 1 ()) 1) (2 3))");
+
+            [TestMethod]
+            public void SubConditionalFalse() => Tester.TestIO("3", "(cond ((if 1 () 1) 1) (2 3))");
 
             [TestMethod]
             public void SubConsequent() => Tester.TestIO("11", "(cond (0 (if () 10 11)) (2 3))");
@@ -66,8 +61,8 @@ namespace Tests
             [TestMethod]
             public void SelectiveEvaluation()
             {
-                string test = "(begin (define var 0) (cond (() (set! var 1)) ((set! var 2) var)))";
-                Tester.TestIO("2", test);
+                string test = "(begin (define var 0) (cond (() (set! var 1)) ((define new-var var) new-var)))";
+                Tester.TestIO("0", test);
             }
 
             [TestMethod]

@@ -1,89 +1,11 @@
 ﻿namespace Clasp
 {
-    internal abstract class SList : Expression
+    internal abstract record SList(Expression Car, Expression Cdr) : Expression()
     {
-        protected readonly Expression CarField;
-        protected readonly Expression CdrField;
-
-        protected SList(Expression car, Expression cdr)
-        {
-            CarField = car;
-            CdrField = cdr;
-        }
-
-        public bool IsEmpty => IsNil;
-        public bool IsDotted => !CdrField.IsList;
-        public bool IsAnteNil => CdrField.IsNil;
-
         public override bool IsAtom => false;
         public override bool IsList => true;
 
-
-        public override Expression Car() => CarField;
-        public override Expression Cdr() => CdrField;
-
-
-        public Expression AtIndex(int i)
-        {
-            if (i == 0 || IsEmpty)
-            {
-                return Car();
-            }
-            else if (IsDotted && i == 1)
-            {
-                return Cdr();
-            }
-            else
-            {
-                return CdrField.AsList().AtIndex(i - 1);
-            }
-        }
-
-        public Expression FromIndex(int i)
-        {
-            if (i == 0)
-            {
-                return this;
-            }
-            else
-            {
-                return Cdr().AsList().FromIndex(i - 1);
-            }
-        }
-
-        public static SList ConstructLinked(params Expression[] exprs)
-        {
-            if (exprs.Length == 0)
-            {
-                return Nil;
-            }
-            else if (exprs.Length == 1)
-            {
-                return Pair.Cons(exprs[0], Nil);
-            }
-            else
-            {
-                return Pair.Cons(exprs.First(), ConstructLinked(exprs[1..]));
-            }
-        }
-
-        public static Expression ConstructDotted(params Expression[] exprs)
-        {
-            if (exprs.Length == 0)
-            {
-                return Nil;
-            }
-            else if (exprs.Length == 1)
-            {
-                return exprs[0];
-            }
-            else
-            {
-                return Pair.Cons(exprs.First(), ConstructDotted(exprs[1..]));
-            }
-        }
-
-        public override string ToString() => IsNil ? "()" : $"({CarField}{FormatContents(CdrField)})";
+        protected override string FormatString() => IsNil ? "()" : $"({Car}{FormatContents(Cdr)})";
 
         private static string FormatContents(Expression expr)
         {
@@ -93,7 +15,7 @@
             }
             else if (expr is Pair p)
             {
-                return $" {p.CarField}{FormatContents(p.CdrField)}";
+                return $" {p.Car}{FormatContents(p.Cdr)}";
             }
             else
             {
@@ -101,99 +23,101 @@
             }
         }
 
-        public override string ToStringent()
+        #region Helpers
+
+        public Expression this[int i] => AtIndex(i);
+
+        private Expression AtIndex(int i)
         {
-            if (IsEmpty)
+            if (i <= 0 || IsNil)
             {
-                return "()";
+                return Car;
+            }
+            else if (i == 1 && Cdr.IsAtom)
+            {
+                return Cdr;
             }
             else
             {
-                return $"({CarField.ToStringent()} . {CdrField.ToStringent()})";
+                return Cdr.The<SList>().AtIndex(i - 1);
             }
         }
 
-        public override bool EqualsByValue(Expression? other)
+        public IEnumerable<Expression> Contents()
         {
-            return other is Pair p
-                && p.CarField.EqualsByValue(CarField)
-                && p.CdrField.EqualsByValue(CdrField);
+            Expression target = this;
+
+            while (!target.IsAtom)
+            {
+                yield return target.GetCar();
+                target = target.GetCdr();
+            }
+
+            if (!target.IsNil) yield return target;
         }
+
+        public static SList Proper(IEnumerable<Expression> exprs)
+        {
+            return exprs.Reverse().Aggregate(Nil.The<SList>(), (a, b) => new Pair(b, a));
+        }
+
+        public static Expression Improper(IEnumerable<Expression> exprs)
+        {
+            return exprs.Reverse().Aggregate((a, b) => new Pair(b, a));
+        }
+
+        public SList EvLis(Environment env) => Proper(Contents().Select(x => x.CallEval(env)));
+        public SList QEvList(Environment env) => Proper(Contents().Select(x => QuasiEval(x, env)));
+
+        private static Expression QuasiEval(Expression expr, Environment env)
+        {
+            if (expr.IsA<SList>() && expr.The<SList>().Car is SPUnQuote)
+            {
+                return expr.CallEval(env);
+            }
+            else
+            {
+                return expr;
+            }
+        }
+
+        #endregion
     }
 
-    internal class Empty : SList
+    internal sealed record Empty() : SList(Nil, Nil)
     {
-        public Empty() : base(Nil, Nil) { } //is this allowed?
         public override bool IsAtom => true;
-        public override Expression Car() => Nil;
-        public override Expression Cdr() => Nil;
-        public override Expression Evaluate(Environment env) => this;
-
-        public override bool EqualsByValue(Expression? other) => other is Empty;
+        protected override Recurrence Evaluate(Environment env) => FinishedEval(Nil);
     }
 
-    internal class Pair : SList
+    internal record Pair(Expression Car, Expression Cdr) : SList(Car, Cdr)
     {
-        protected Pair(Expression car, Expression cdr) : base(car, cdr) { }
-
-        public static SList Cons(Expression car, Expression cdr)
+        protected override Recurrence Evaluate(Environment env)
         {
-            return (car.IsNil && cdr.IsNil)
-                ? Nil
-                : new Pair(car, cdr);
-        }
+            Operator op = Car.CallEval(env).The<Operator>();
 
-        public override Expression Evaluate(Environment env)
-        {
-            Procedure op = CarField.Evaluate(env).AsProc();
-            SList args = CdrField.AsList().EvLis(env);
-
-            return op.Apply(args, env);
+            if (op.IsA<SpecialForm>())
+            {
+                SList args = Cdr.The<SList>();
+                return op.Apply(args, env);
+            }
+            else
+            {
+                SList args = Cdr.The<SList>().EvLis(env);
+                return op.Apply(args, env);
+            }
         }
     }
 
     internal static class SListExtensions
     {
-        /// <summary>
-        /// Transform a list by evaluating all of its elements, without evaluating the list itself
-        /// </summary>
-        public static SList EvLis(this SList list, Environment env)
-        {
-            if (list.IsEmpty) return list;
-
-            Expression car = list.Car().Evaluate(env);
-            if (list.Cdr().IsList)
-            {
-                return Pair.Cons(car, list.Cdr().AsList().EvLis(env));
-            }
-            else
-            {
-                return Pair.Cons(car, list.Cdr().Evaluate(env));
-            }
-        }
-
         public static IEnumerable<Expression> Select(this SList list) => Select(list, x => x);
-        public static IEnumerable<T> Select<T>(this SList list, Func<Expression, T> op)
-        {
-            SList target = list;
+        public static IEnumerable<T> Select<T>(this SList list, Func<Expression, T> op) => list.Contents().Select(op);
 
-            while (!target.IsEmpty)
-            {
-                yield return op.Invoke(target.Car());
-
-                if (target.IsDotted)
-                {
-                    yield return op.Invoke(target.Cdr());
-                    yield break;
-                }
-                else
-                {
-                    target = target.Cdr().AsList();
-                }
-            }
-        }
-
-        public static IEnumerable<double> AsNumbers(this SList list) => list.Select(x => x.AsNumber().Value);
-        public static double AggregateNumbers(this SList list, Func<double, double, double> op) => list.AsNumbers().Aggregate(op);
+        public static IEnumerable<double> AsNumbers(this SList list) => list.Select(x => x.The<Number>().Value);
+        public static T Aggregate<T>(this SList list, Func<T, T, T> op)
+            where T : Expression => list.Select(x => x.The<T>()).Aggregate(op);
+        public static TO Aggregate<T, TO>(this SList list, TO seed, Func<TO, T, TO> op)
+            where T : Expression => list.Select(x => x.The<T>()).Aggregate(seed, op);
     }
 }

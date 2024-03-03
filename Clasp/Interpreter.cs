@@ -10,7 +10,7 @@ namespace Clasp
     {
         public static string Interpret(string input)
         {
-            return Parser.Parse(input).Evaluate(Environment.StdEnv()).ToString();
+            return Parser.Parse(input).CallEval(Environment.StdEnv()).ToString();
             //try
             //{
             //    return Parser.Parse(input).Evaluate(Environment.StdEnv()).ToString();

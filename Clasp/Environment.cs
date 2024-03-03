@@ -37,22 +37,13 @@ namespace Clasp
             _bindings.Add(sym.Name, definition);
         }
 
-        //public void ExtendMany(Expression keyList, Expression defList)
-        //{
-        //    if (!keyList.IsNil && !defList.IsNil)
-        //    {
-        //        Extend(keyList.ExpectCar().ExpectSymbol(), defList.ExpectCar());
-        //        ExtendMany(keyList.ExpectCdr(), defList.ExpectCdr());
-        //    }
-        //    else if (keyList.ExpectCdr().IsNil ^ keyList.ExpectCdr().IsNil)
-        //    {
-        //        throw new Exception("Mismatched list arg lengths in environment extension");
-        //    }
-        //}
-
         public void Set(Symbol sym, Expression definition)
         {
             _bindings[sym.Name] = definition;
+            //if (_lexicalContext is not null)
+            //{
+            //    _lexicalContext.Set(sym, definition);
+            //}
         }
 
         public Expression Lookup(Symbol sym)
@@ -89,87 +80,70 @@ namespace Clasp
         {
             Environment std = new(writer);
 
-            std.BindSpecialForm("if");
-            std.BindSpecialForm("cond");
-            std.BindSpecialForm("case");
-            std.BindSpecialForm("quote");
-            std.BindSpecialForm("define");
-            std.BindSpecialForm("set!");
-            std.BindSpecialForm("eq?");
-            std.BindSpecialForm("car");
-            std.BindSpecialForm("cdr");
-            std.BindSpecialForm("cons");
-            std.BindSpecialForm("lambda");
-            std.BindSpecialForm("let");
+            foreach(SpecialForm form in SpecialForm.Forms)
+            {
+                std.BindOp(form);
+            }
 
-            std.BindProcedure(StdOps.Add);
-            std.BindProcedure(StdOps.Subtract);
-            std.BindProcedure(StdOps.Multiply);
-            std.BindProcedure(StdOps.Divide);
-            std.BindProcedure(StdOps.Modulo);
-            std.BindProcedure(StdOps.Expt);
-            std.BindProcedure(StdOps.AbsoluteValue);
+            std.BindOp(StdOps.Add);
+            std.BindOp(StdOps.Subtract);
+            std.BindOp(StdOps.Multiply);
+            std.BindOp(StdOps.Divide);
+            std.BindOp(StdOps.Modulo);
+            std.BindOp(StdOps.Expt);
+            std.BindOp(StdOps.AbsoluteValue);
 
-            std.BindProcedure(StdOps.NumEqual);
-            std.BindProcedure(StdOps.NumGreater);
-            std.BindProcedure(StdOps.NumLesser);
-            std.BindProcedure(StdOps.NumGEq);
-            std.BindProcedure(StdOps.NumLEq);
-            std.BindProcedure(StdOps.NumNotEqual);
+            std.BindOp(StdOps.NumEqual);
+            std.BindOp(StdOps.NumGreater);
+            std.BindOp(StdOps.NumLesser);
+            std.BindOp(StdOps.NumGEq);
+            std.BindOp(StdOps.NumLEq);
+            std.BindOp(StdOps.NumNotEqual);
 
-            std.BindProcedure(StdOps.NumMax);
-            std.BindProcedure(StdOps.NumMin);
+            std.BindOp(StdOps.NumMax);
+            std.BindOp(StdOps.NumMin);
 
-            std.BindProcedure(StdOps.And);
-            std.BindProcedure(StdOps.Or);
-            std.BindProcedure(StdOps.Xor);
-            std.BindProcedure(StdOps.Not);
+            std.BindOp(StdOps.Xor);
+            std.BindOp(StdOps.Not);
 
-            std.BindProcedure(StdOps.IsAtom);
-            std.BindProcedure(StdOps.IsSymbol);
-            std.BindProcedure(StdOps.IsProcedure);
-            std.BindProcedure(StdOps.IsNumber);
-            std.BindProcedure(StdOps.IsList);
-            std.BindProcedure(StdOps.IsNil);
-            std.BindProcedure(StdOps.IsPair);
+            std.BindOp(StdOps.IsAtom);
+            std.BindOp(StdOps.IsSymbol);
+            std.BindOp(StdOps.IsProcedure);
+            std.BindOp(StdOps.IsNumber);
+            std.BindOp(StdOps.IsList);
+            std.BindOp(StdOps.IsNil);
+            std.BindOp(StdOps.IsPair);
 
-            std.BindProcedure(StdOps.Eqv);
-            std.BindProcedure(StdOps.Equal);
+            //std.BindOp(StdOps.Eqv);
+            std.BindOp(StdOps.Equal);
 
-            std.BindProcedure(StdOps.Eval);
-            std.BindProcedure(StdOps.Apply);
-            std.BindProcedure(StdOps.Begin);
-            std.BindProcedure(StdOps.List);
-            std.BindProcedure(StdOps.ListStar);
-            std.BindProcedure(StdOps.Length);
-            std.BindProcedure(StdOps.Append);
-            std.BindProcedure(StdOps.Map);
+            std.BindOp(StdOps.Eval);
+            std.BindOp(StdOps.Apply);
+            std.BindOp(StdOps.List);
+            std.BindOp(StdOps.ListStar);
+            std.BindOp(StdOps.Length);
+            std.BindOp(StdOps.Append);
+            std.BindOp(StdOps.Map);
 
-            std.BindProcedure(StdOps.Caar );
-            std.BindProcedure(StdOps.Cadr );
-            std.BindProcedure(StdOps.Cdar );
-            std.BindProcedure(StdOps.Cddr );
-            std.BindProcedure(StdOps.Caaar);
-            std.BindProcedure(StdOps.Caadr);
-            std.BindProcedure(StdOps.Cadar);
-            std.BindProcedure(StdOps.Caddr);
-            std.BindProcedure(StdOps.Cdaar);
-            std.BindProcedure(StdOps.Cdadr);
-            std.BindProcedure(StdOps.Cddar);
-            std.BindProcedure(StdOps.Cdddr);
+            std.BindOp(StdOps.Caar );
+            std.BindOp(StdOps.Cadr );
+            std.BindOp(StdOps.Cdar );
+            std.BindOp(StdOps.Cddr );
+            std.BindOp(StdOps.Caaar);
+            std.BindOp(StdOps.Caadr);
+            std.BindOp(StdOps.Cadar);
+            std.BindOp(StdOps.Caddr);
+            std.BindOp(StdOps.Cdaar);
+            std.BindOp(StdOps.Cdadr);
+            std.BindOp(StdOps.Cddar);
+            std.BindOp(StdOps.Cdddr);
 
-            return std;
+            return new Environment(std);
         }
 
-        private void BindSpecialForm(string formName)
+        private void BindOp(Operator op)
         {
-            Symbol sym = new(formName);
-            Extend(sym, sym);
-        }
-
-        private void BindProcedure(Procedure proc)
-        {
-            Extend(new(proc.Name), proc);
+            Extend(new(op.Name), op);
         }
 
         #endregion
