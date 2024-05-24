@@ -1,79 +1,157 @@
 ﻿namespace Clasp
 {
-    internal class Environment
+    internal abstract class Environment
     {
-        private readonly Dictionary<string, Expression> _bindings;
-        private readonly Environment? _lexicalContext;
-        public readonly StreamWriter? OutputStream;
+        protected readonly Dictionary<string, Expression> _bindings;
+        public abstract Environment GlobalContext { get; }
 
-        public Environment()
+        protected Environment()
         {
-            _bindings = [];
-            _lexicalContext = null;
-            OutputStream = null;
+            _bindings = new Dictionary<string, Expression>();
         }
 
-        public Environment(StreamWriter streamOut) : this()
-        {
-            OutputStream = streamOut;
-        }
+        #region Dictionary Access
 
-        public Environment(Environment context) : this()
+        public abstract Expression LookUp(Symbol sym);
+        public abstract void SetBang(Symbol sym, Expression def);
+        public void Define(Symbol sym, Expression def)
         {
-            _lexicalContext = context;
-            OutputStream = context.OutputStream;
-        }
-
-        public static Environment StdEnv(StreamWriter writer)
-        {
-            return new Environment(writer);
-        }
-
-        public void Extend(Symbol sym, Expression definition)
-        {
-            if (_bindings.TryGetValue(sym.Name, out Expression? errant))
+            if (_bindings.ContainsKey(sym.Name))
             {
-                throw new Exception($"Tried to re-bind symbol {sym} bound to {errant}");
-            }
-            _bindings.Add(sym.Name, definition);
-        }
-
-        public void ExtendMany(Expression keyList, Expression defList)
-        {
-            if (!keyList.IsNil && !defList.IsNil)
-            {
-                Extend(keyList.ExpectCar().ExpectSymbol(), defList.ExpectCar());
-                ExtendMany(keyList.ExpectCdr(), defList.ExpectCdr());
-            }
-            else if (keyList.ExpectCdr().IsNil ^ keyList.ExpectCdr().IsNil)
-            {
-                throw new Exception("Mismatched list arg lengths in environment extension");
-            }
-        }
-
-        public Expression Lookup(Symbol sym)
-        {
-            if (_bindings.TryGetValue(sym.Name, out Expression? expr) && expr is not null)
-            {
-                return expr;
-            }
-            else if (_lexicalContext is not null)
-            {
-                return _lexicalContext.Lookup(sym);
+                throw new DuplicateBindingException(sym);
             }
             else
             {
-                throw new Exception($"Tried to reference un-bound symbol {sym}");
+                _bindings[sym.Name] = def;
             }
         }
 
-        private void Print(string s)
+        public Environment DefineMany(Pair keys, Pair values)
         {
-            if (OutputStream is null)
-            {
-                throw new Exception("Tried to write to non-existent output stream");
-            }
-            OutputStream.Write($"~ {s}");
+            return Close().BindSeries(keys, values);
         }
+        private Environment BindSeries(Expression keys, Expression values)
+        {
+            if (keys.IsNil && values.IsNil)
+            {
+                return this;
+            }
+            else if (keys.IsAtom && values.IsList)
+            {
+                //if the keys list ends in a dotted pair, the last arg
+                //encapsulates the remaining values
+                Define(keys.Expect<Symbol>(), values);
+                return this;
+            }
+            else if (keys.IsNil || values.IsNil)
+            {
+                throw new MissingArgumentException("C# DefineMany");
+            }
+            else
+            {
+                Define(keys.Car.Expect<Symbol>(), values.Car);
+                return BindSeries(keys.Cdr, values.Cdr);
+            }
+        }
+
+        public abstract int CountBindings();
+
+        #endregion
+
+        public Frame Close()
+        {
+            return new Frame(this);
+        }
+    }
+
+    internal class GlobalEnvironment : Environment
+    {
+        public override Environment GlobalContext => this;
+
+        private GlobalEnvironment() { }
+
+        public override Expression LookUp(Symbol sym)
+        {
+            if (_bindings.TryGetValue(sym.Name, out Expression? expr))
+            {
+                return expr;
+            }
+            else
+            {
+                throw new MissingBindingException(sym);
+            }
+        }
+
+        public override void SetBang(Symbol sym, Expression def)
+        {
+            if (_bindings.ContainsKey(sym.Name))
+            {
+                _bindings[sym.Name] = def;
+            }
+            else
+            {
+                throw new MissingBindingException(sym);
+            }
+        }
+
+        public override int CountBindings() => _bindings.Count();
+
+        public static Environment Empty()
+        {
+            return new GlobalEnvironment();
+        }
+
+        public static Environment Standard()
+        {
+            GlobalEnvironment ge = new GlobalEnvironment();
+            foreach(var def in PrimitiveProcedure.NativeOps)
+            {
+                ge.Define(Symbol.New(def.Key), def.Value);
+            }
+
+            foreach(var def in CompoundProcedure.DerivedOps)
+            {
+                ge.Define(Symbol.New(def.Key), Evaluator.Evaluate(Parser.Parse(def.Value), ge));
+            }
+
+            return ge.Close();
+        }
+    }
+
+    internal class Frame : Environment
+    {
+        private readonly Environment _ancestor;
+
+        public Frame(Environment ancestor) : base()
+        {
+            _ancestor = ancestor;
+        }
+
+        public override Environment GlobalContext => _ancestor.GlobalContext;
+
+        public override Expression LookUp(Symbol sym)
+        {
+            if (_bindings.TryGetValue(sym.Name, out Expression? expr))
+            {
+                return expr;
+            }
+            else
+            {
+                return _ancestor.LookUp(sym);
+            }
+        }
+
+        public override void SetBang(Symbol sym, Expression def)
+        {
+            if (_bindings.ContainsKey(sym.Name))
+            {
+                _bindings[sym.Name] = def;
+            }
+            else
+            {
+                _ancestor.SetBang(sym, def);
+            }
+        }
+        public override int CountBindings() => _bindings.Count() + _ancestor.CountBindings();
     }
 }

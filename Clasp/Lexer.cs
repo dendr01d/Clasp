@@ -45,6 +45,18 @@
             {
                 return new Token("'", TokenType.QuoteMarker);
             }
+            else if (s == ".")
+            {
+                return new Token(s, TokenType.DotMarker);
+            }
+            else if (s == "#t" || s == "#f")
+            {
+                return new Token(s, TokenType.Boolean);
+            }
+            else if (s == "#error")
+            {
+                return new Token(s, TokenType.Error);
+            }
             else if (char.IsDigit(s[0]))
             {
                 return new Token(s, TokenType.Number);
@@ -61,7 +73,8 @@
     internal enum TokenType
     {
         LeftParen, RightParen,
-        Symbol, Number,
-        QuoteMarker, DotMarker
+        Symbol, Number, Boolean,
+        QuoteMarker, DotMarker,
+        Error
     }
 }

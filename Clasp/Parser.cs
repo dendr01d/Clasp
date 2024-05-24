@@ -35,9 +35,11 @@
                     TokenType.LeftParen => ParseList(ref tokens),
                     TokenType.RightParen => throw new Exception("Parsing error: unexpected ')'"),
                     TokenType.DotMarker => throw new Exception("Parsing error: unexpected '.'"),
-                    TokenType.QuoteMarker => SpecialForm.CreateForm("quote", [ParseStack(ref tokens)]),
-                    TokenType.Symbol => new Symbol(current.Text),
+                    TokenType.QuoteMarker => Pair.List(Symbol.New("quote"), ParseStack(ref tokens)),
+                    TokenType.Symbol => Symbol.New(current.Text),
                     TokenType.Number => new Number(double.Parse(current.Text)),
+                    TokenType.Boolean => Boolean.Not(current.Text == "#f"),
+                    TokenType.Error => Expression.Error,
                     _ => throw new Exception($"Parsing error: unknown token type {current.TType}")
                 };
             }
@@ -45,7 +47,14 @@
 
         private static Expression ParseList(ref Stack<Token> tokens)
         {
+
+            if (tokens.Peek().TType == TokenType.DotMarker)
+            {
+                throw new Exception("Parsing error: expected car expression of dotted pair");
+            }
+
             Stack<Expression> newList = new();
+            bool proper = true;
 
             while (tokens.Peek().TType != TokenType.RightParen && tokens.Peek().TType != TokenType.DotMarker)
             {
@@ -54,8 +63,10 @@
 
             if (tokens.Peek().TType == TokenType.DotMarker)
             {
+                proper = false;
                 tokens.Pop(); //remove dot marker
-                newList.Push(Pair.Cons(newList.Pop(), ParseStack(ref tokens))); //combine last two items into pair
+                //newList.Push(Pair.Cons(newList.Pop(), ParseStack(ref tokens))); //combine last two items into pair
+                newList.Push(ParseStack(ref tokens)); //grab the rest
 
                 if (tokens.Peek().TType != TokenType.RightParen)
                 {
@@ -67,14 +78,18 @@
 
             Expression[] exprs = newList.Reverse().ToArray();
 
-            if (exprs.Length > 0 && exprs[0] is Symbol sym && SpecialForm.IsSpecialKeyword(sym))
-            {
-                return SpecialForm.CreateForm(sym, exprs[1..]);
-            }
-            else
-            {
-                return SList.ConstructLinked(exprs);
-            }
+            return proper
+                ? Pair.List(exprs)
+                : Pair.ListStar(exprs);
+
+            //if (exprs.Length > 0 && exprs[0] is Symbol sym && SpecialForm.IsSpecialKeyword(sym))
+            //{
+            //    return SpecialForm.CreateForm(sym, exprs[1..]);
+            //}
+            //else
+            //{
+            //    return Pair.ConstructLinked(exprs);
+            //}
         }
 
     }

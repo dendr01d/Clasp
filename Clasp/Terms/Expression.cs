@@ -4,63 +4,53 @@
     {
         protected Expression() { }
 
-        public static readonly Symbol TrueValue = new("#t");
-        public static readonly Symbol FalseValue = new("#f");
-        public static readonly Empty Nil = new();
+        #region Static Terms
+        public static readonly Empty Nil = Empty.Instance;
+        public static readonly Error Error = Error.Instance;
+        #endregion
 
-        public abstract bool IsAtom { get; }
+        #region Predicate Fields
         public abstract bool IsList { get; }
-        public bool IsFalse => ReferenceEquals(this, FalseValue);
-        public bool IsTrue => !IsFalse;
         public bool IsNil => ReferenceEquals(this, Nil);
+        public bool IsAtom => !IsList && !IsNil;
+        public bool IsFalse => ReferenceEquals(this, Boolean.False);
+        public bool IsTrue => !IsFalse;
+        public bool Is<T>() where T : Expression => this is T;
+        #endregion
 
+        #region Structural Access
+        public abstract Expression Car { get; }
+        public abstract Expression Cdr { get; }
+        public abstract void SetCar(Expression expr);
+        public abstract void SetCdr(Expression expr);
 
-        #region Type-Checking
+        public Expression Caar => Car.Car;
+        public Expression Cadr => Cdr.Car;
+        public Expression Cdar => Car.Cdr;
+        public Expression Cddr => Cdr.Cdr;
+        public Expression Cdddr => Cdr.Cdr.Cdr;
+        public Expression Cadar => Car.Cdr.Car;
+        public Expression Caddr => Cdr.Cdr.Car;
+        public Expression Cadddr => Cdr.Cdr.Cdr.Car;
 
-        public virtual Symbol ExpectSymbol() => ExpectDerived<Symbol>();
-        public virtual Procedure ExpectProcedure() => ExpectDerived<Procedure>();
-        public virtual SList ExpectList() => ExpectDerived<SList>();
+        #endregion
 
-        private T ExpectDerived<T>() where T : Expression
+        #region Conversions
+
+        public T Expect<T>()
+            where T : Expression
         {
-            if (this is T derived)
-            {
-                return derived;
-            }
-            else
-            {
-                throw new Exception($"Expected {typeof(T).Name}: {this}");
-            }
+            return this is T output
+                ? output
+                : throw new ExpectedTypeException<T>(this);
         }
 
-        public virtual Expression ExpectCar() => throw new Exception($"Tried to take car of atom: {this}");
-        public virtual Expression ExpectCdr() => throw new Exception($"Tried to take cdr of atom: {this}");
+        //public static implicit operator Expression(double d) => new Number(d);
+        //public static implicit operator Expression(int i) => new Number(i);
+        //public static implicit operator Expression(char c) => new Character(c);
+        //public static implicit operator Expression(string s) => new Symbol(s);
 
         #endregion
-
-        #region Equality Checks
-
-        public virtual bool ValueEquals(Expression other) => other.ValueEquals(this);
-        public virtual bool ValueEquals(Symbol other) => this is Symbol sym && sym.Name == other.Name;
-        public virtual bool ValueEquals(Procedure other) => this is Procedure proc && ReferenceEquals(proc, other);
-        public virtual bool ValueEquals(Number other) => this is Number num && num.Value == other.Value;
-        public virtual bool ValueEquals(Empty other) => this is Empty;
-        public virtual bool ValueEquals(Pair other) => this is Pair pair
-            && pair.ExpectCar().ValueEquals(other.ExpectCar())
-            && pair.ExpectCdr().ValueEquals(other.ExpectCdr());
-
-        #endregion
-
-        #region Default Conversions
-
-        public static implicit operator Expression(double d) => new Number(d);
-        public static implicit operator Expression(int i) => new Number(i);
-        public static implicit operator Expression(char c) => new Character(c);
-        public static implicit operator Expression(string s) => new Symbol(s);
-
-        #endregion
-
-        public abstract Expression Evaluate(Environment env);
 
         public abstract override string ToString();
     }
