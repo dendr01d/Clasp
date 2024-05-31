@@ -109,12 +109,12 @@ namespace Clasp
             GlobalEnvironment ge = new GlobalEnvironment();
             foreach(var def in PrimitiveProcedure.NativeOps)
             {
-                ge.Define(Symbol.New(def.Key), def.Value);
+                ge.Define(Symbol.Ize(def.Key), def.Value);
             }
 
             foreach(var def in CompoundProcedure.DerivedOps)
             {
-                ge.Define(Symbol.New(def.Key), Evaluator.Evaluate(Parser.Parse(def.Value), ge));
+                ge.Define(Symbol.Ize(def.Key), Evaluator.Evaluate(Parser.Parse(def.Value), ge));
             }
 
             return ge.Close();

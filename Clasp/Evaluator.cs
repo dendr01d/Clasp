@@ -245,9 +245,9 @@ namespace Clasp
 
         private static void Primitive_Apply(Machine mx)
         {
-            mx.Val.Assign(mx.Proc.Expect<PrimitiveProcedure>().Apply(mx.ArgL.Expect<Pair>()));
-            mx.Continue.Restore();
-            mx.GoTo.Assign(mx.Continue);
+            mx.Assign_Val(mx.Proc.Expect<PrimitiveProcedure>().Apply(mx.Argl.Expect<Pair>()));
+            mx.Restore_Continue();
+            mx.GoTo_Continue();
         }
 
         private static void Compound_Apply(Machine mx)
@@ -536,14 +536,14 @@ namespace Clasp
 
         private static void Err_Unknown_Expression(Machine mx)
         {
-            mx.Val.Assign(Expression.Error);
-            mx.GoTo.Clear();
+            mx.Assign_Val(Expression.Error);
+            mx.Assign_GoTo(null);
         }
 
         private static void Err_Procedure(Machine mx)
         {
-            mx.Val.Assign(Expression.Error);
-            mx.GoTo.Clear();
+            mx.Assign_Val(Expression.Error);
+            mx.Assign_GoTo(null);
         }
 
         #endregion

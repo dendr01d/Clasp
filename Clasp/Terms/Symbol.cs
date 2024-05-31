@@ -12,7 +12,7 @@ namespace Clasp
 
         public readonly string Name;
         protected Symbol(string name) => Name = name;
-        public static Symbol New(string name)
+        public static Symbol Ize(string name)
         {
             if (_internment.TryGetValue(name, out Symbol? interred))
             {
@@ -30,19 +30,26 @@ namespace Clasp
 
         #region Standard Symbols
 
-        public static readonly Symbol Lambda = New("lambda");
-        public static readonly Symbol If = New("if");
-        public static readonly Symbol Cond = New("cond");
-        public static readonly Symbol Begin = New("begin");
-        public static readonly Symbol Eq = New("eq?");
-        public static readonly Symbol Case = New("case");
+        public static readonly Symbol Lambda = Ize("lambda");
+        public static readonly Symbol If = Ize("if");
+        public static readonly Symbol Cond = Ize("cond");
+        public static readonly Symbol Begin = Ize("begin");
+        public static readonly Symbol Eq = Ize("eq?");
+        public static readonly Symbol Case = Ize("case");
 
-        public static readonly Symbol And = New("and");
-        public static readonly Symbol Or = New("or");
+        public static readonly Symbol And = Ize("and");
+        public static readonly Symbol Or = Ize("or");
 
-        public static readonly Symbol Ok = New("ok");
-        public static readonly Symbol CondElse = New("else");
-        //public static readonly Symbol RestArgs = New("&rest");
+        public static readonly Symbol Ok = Ize("ok");
+        public static readonly Symbol CondElse = Ize("else");
+
+        public static readonly Symbol Quote = Ize("quote");
+        public static readonly Symbol Quasiquote = Ize("quasiquote");
+        public static readonly Symbol Unquote = Ize("unquote");
+        public static readonly Symbol UnquoteSplicing = Ize("unquote-splicing");
+
+        public static readonly Symbol Ellipsis = Ize("...");
+        public static readonly Symbol Underscore = Ize("_");
 
         #endregion
     }
