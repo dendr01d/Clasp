@@ -28,7 +28,9 @@ namespace Clasp
 
         public Machine(Expression exp, Environment env, Action<Machine> ptr) : this()
         {
-            { }
+            Assign_Exp(exp);
+            ReplaceScope(env);
+            Assign_GoTo(ptr);
         }
 
 
@@ -112,12 +114,12 @@ namespace Clasp
             : throw new StackUnderflowException<Expression>(_expStack);
 
         public void Save_GoTo() => _ptrStack.Push(GoTo);
-        public void Restore_GoTo() => _goto = _ptrStack.TryPop(out var ptr) && ptr is not null
+        public void Restore_GoTo() => _goto = _ptrStack.TryPop(out var ptr)
             ? ptr
             : throw new StackUnderflowException<Action<Machine>?>(_ptrStack);
 
         public void Save_Continue() => _ptrStack.Push(Continue);
-        public void Restore_Continue() => _continue = _ptrStack.TryPop(out var ptr) && ptr is not null
+        public void Restore_Continue() => _continue = _ptrStack.TryPop(out var ptr)
             ? ptr
             : throw new StackUnderflowException<Action<Machine>?>(_ptrStack);
 
@@ -156,6 +158,7 @@ namespace Clasp
         private string FormatFunctor(Action<Machine>? ptr) => ptr?.Method.Name ?? "*0";
 
         public string GoingTo => FormatFunctor(_goto);
+        public string ContinueTo => FormatFunctor(_continue);
 
         public void Print(TextWriter tw)
         {
@@ -164,15 +167,30 @@ namespace Clasp
             tw.WriteLine($"Unev: {FormatRegister(_unev)}");
             tw.WriteLine($"Argl: {FormatRegister(_argl)}");
             tw.WriteLine($" Val: {FormatRegister(_val)}");
+            if (_expStack.Any())
+            {
+                tw.WriteLine();
+                tw.WriteLine("Exp Stack:");
+                foreach(Expression expr in _expStack)
+                {
+                    tw.WriteLine($"<| {expr}");
+                }
+            }
             tw.WriteLine();
             tw.WriteLine($"Env w/ {_env.CountBindings()} defs");
+            tw.WriteLine($"{_envStack.Count} stacked environments");
             tw.WriteLine();
             tw.WriteLine($"GoTo -> {FormatFunctor(_goto)}");
             tw.WriteLine($"Cont -> {FormatFunctor(_continue)}");
-            tw.WriteLine();
-            tw.WriteLine($"{_expStack.Count} stacked expressions");
-            tw.WriteLine($"{_envStack.Count} stacked environments");
-            tw.WriteLine($"{_ptrStack.Count} stacked functors");
+            if (_ptrStack.Any())
+            {
+                tw.WriteLine();
+                tw.WriteLine("Ptr Stack:");
+                foreach (Action<Machine>? ptr in _ptrStack)
+                {
+                    tw.WriteLine($"<| {FormatFunctor(ptr)}");
+                }
+            }
         }
 
         #endregion

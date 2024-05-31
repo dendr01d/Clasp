@@ -50,11 +50,24 @@
             }
         }
 
-        public static Pair Append(Expression ls, Expression t)
+        public static Expression Append(Expression ls, Expression t)
         {
-            return ls.IsNil
-                ? Cons(t, Nil)
-                : Cons(ls.Car, Append(ls.Cdr, t));
+            return (ls, t) switch
+            {
+                (Empty, Empty) => Expression.Nil,
+                (Empty, Atom) => List(t),
+                (Empty, Pair) => t,
+
+                (Atom, Empty) => List(ls),
+                (Pair, Empty) => ls,
+
+                (Pair, _) => Cons(ls.Car, Append(ls.Cdr, t)),
+
+                (Atom, _) => Append(List(ls), t),
+
+                (_, _) => throw new Exception("can't append to atom")
+
+            };
         }
 
         public static Expression FoldL(Expression ls, Expression seed, Func<Expression, Expression, Expression> op)

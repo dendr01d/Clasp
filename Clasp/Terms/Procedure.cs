@@ -53,7 +53,7 @@ namespace Clasp
 
             Define("foldl", "(lambda (ls op t) (if (null? ls) t (foldl (cdr ls) op (op t (car ls)))))");
             Define("foldr", "(lambda (ls op t) (if (null? ls) t (op (car ls) (foldr (cdr ls) op t))))");
-            Define("mapcar", "(lambda (ls op) (if (null? ls) '() (cons (op (car ls)) (mapcar (cdr ls) op)))))");
+            Define("mapcar", "(lambda (ls op) (if (null? ls) '() (cons (op (car ls)) (mapcar (cdr ls) op))))");
 
             Define("cond", "(lambda (first . rest) (if (or (eq? (car first) 'else) (true? (car first))) (cadr first) (if (null? rest) #error ('cond . rest))))");
 
