@@ -1,4 +1,6 @@
-﻿namespace Clasp
+﻿using System.Diagnostics;
+
+namespace Clasp
 {
     internal abstract class Expression
     {
@@ -59,5 +61,7 @@
         #endregion
 
         public abstract override string ToString();
+
+        public virtual string ToStringent() => ToString();
     }
 }

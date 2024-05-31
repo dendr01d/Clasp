@@ -1,4 +1,6 @@
-﻿namespace Clasp
+﻿using System;
+
+namespace Clasp
 {
     internal abstract class Environment
     {

@@ -24,7 +24,7 @@
         {
             if (tokens.Count <= 0)
             {
-                throw new Exception("Parsing error: unexpected EOF");
+                throw new ParsingException("Unexpected end of token stream");
             }
             else
             {
@@ -70,7 +70,7 @@
 
                 if (tokens.Peek().TType != TokenType.RightParen)
                 {
-                    throw new Exception("Parsing error: expected ')' after dotted pair");
+                    throw new ParsingException("Expected ')' following dotted pair");
                 }
             }
 
