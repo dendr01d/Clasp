@@ -6,6 +6,16 @@ using System.Threading.Tasks;
 
 namespace Clasp
 {
+    public class LexingException : Exception
+    {
+        public LexingException(string msg) : base($"Lexing error: {msg}") { }
+    }
+
+    public class ParsingException : Exception
+    {
+        public ParsingException(string msg) : base($"Parsing error: {msg}") { }
+    }
+
     internal class ExpectedTypeException<T> : Exception
         where T : Expression
     {
