@@ -136,8 +136,10 @@ namespace Clasp
             Define("eq?", (a, b) => Boolean.Judge(ReferenceEquals(a, b)));
 
             Define("atom?", x => x.IsAtom);
-            Define("list?", x => x.IsList);
             Define("null?", x => x.IsNil);
+            Define("pair?", x => x is Pair);
+            Define("symbol?", x => x is Symbol);
+            Define("procedure?", x => x is Procedure);
 
         }
 
