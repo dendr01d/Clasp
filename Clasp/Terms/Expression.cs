@@ -2,94 +2,66 @@
 
 namespace Clasp
 {
-    internal abstract record class Expression()
+    internal abstract class Expression
     {
+        protected Expression() { }
 
-        #region Class-Specific Methods
-        public abstract bool IsAtom { get; }
-        public abstract bool IsList { get; }
-        protected abstract Recurrence Evaluate(Environment env);
-        protected abstract string FormatString();
+        #region Static Terms
+        public static readonly Empty Nil = Empty.Instance;
+        public static readonly Error Error = Error.Instance;
         #endregion
-        public sealed override string ToString() => FormatString();
 
-
-        public static readonly Symbol TrueValue = new("#t");
-        public static readonly Symbol FalseValue = new("#f");
-        public static readonly Empty Nil = new();
-
-        #region Logical Checking
-
+        #region Native Predicate Fields
+        public abstract bool IsAtom { get; }
         public bool IsNil => ReferenceEquals(this, Nil);
-        public bool IsFalse => ReferenceEquals(this, FalseValue) || IsNil;
+        public bool IsFalse => ReferenceEquals(this, Boolean.False);
         public bool IsTrue => !IsFalse;
+        #endregion
 
-        [DebuggerStepThrough]
-        public Expression GetCar() => The<SList>().Car;
+        #region Structural Access
+        public abstract Expression Car { get; }
+        public abstract Expression Cdr { get; }
+        public abstract void SetCar(Expression expr);
+        public abstract void SetCdr(Expression expr);
 
-        [DebuggerStepThrough]
-        public Expression GetCdr() => The<SList>().Cdr;
+        public Expression Caar => Car.Car;
+        public Expression Cadr => Cdr.Car;
+        public Expression Cdar => Car.Cdr;
+        public Expression Cddr => Cdr.Cdr;
+        public Expression Cdddr => Cdr.Cdr.Cdr;
+        public Expression Cadar => Car.Cdr.Car;
+        public Expression Caddr => Cdr.Cdr.Car;
+        public Expression Cadddr => Cdr.Cdr.Cdr.Car;
 
-        [DebuggerStepThrough]
-        public bool IsA<T>() where T : Expression => this is T;
+        #endregion
 
-        [DebuggerStepThrough]
-        public T The<T>()
+        #region Conversions
+
+        public T Expect<T>()
             where T : Expression
         {
-            if (this is T expr)
-            {
-                return expr;
-            }
-            else
-            {
-                throw new ExpectedTypeException(typeof(T).Name, ToString());
-            }
+            return this is T output
+                ? output
+                : throw new ExpectedTypeException<T>(this);
         }
+
+        //public static implicit operator Expression(double d) => new Number(d);
+        //public static implicit operator Expression(int i) => new Number(i);
+        //public static implicit operator Expression(char c) => new Character(c);
+        //public static implicit operator Expression(string s) => new Symbol(s);
 
         #endregion
 
+        #region Equality
 
-        #region Default Conversions
-
-        public static implicit operator Expression(double d) => new Number(d);
-        public static implicit operator Expression(int i) => new Number(i);
-        public static implicit operator Expression(char c) => new Character(c);
-        public static implicit operator Expression(string s) => new Symbol(s);
-        public static implicit operator Expression(bool b) => b ? TrueValue : FalseValue;
+        public bool IsEq(Expression other) => ReferenceEquals(this, other);
+        public bool IsEqv(Expression other) => false;
+        public bool IsEqual(Expression other) => false;
 
         #endregion
 
+        public abstract override string ToString();
 
-        #region Evaluation Helpers
-
-        public Expression CallEval(Environment env)
-        {
-            Recurrence recur = Evaluate(env);
-
-            while (recur.NextFunc is not null && recur.NextEnv is not null)
-            {
-                recur = recur.NextFunc(recur.Result, recur.NextEnv);
-            }
-
-            return recur.Result;
-        }
-
-        protected static Recurrence StdEval(Expression expr, Environment env)
-        {
-            return expr.Evaluate(env);
-        }
-
-        protected static Recurrence ContinueWith(Expression expr, Environment env, Continuation cont)
-        {
-            return new Recurrence(expr, env, cont);
-        }
-
-        protected static Recurrence FinishedEval(Expression expr)
-        {
-            return new Recurrence(expr, null, null);
-        }
-
-        #endregion
+        public virtual string ToStringent() => ToString();
     }
 }

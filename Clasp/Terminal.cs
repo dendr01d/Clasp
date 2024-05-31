@@ -24,25 +24,25 @@
 
             string? input = string.Empty;
 
-            Environment global = Environment.StdEnv(writer);
+            Environment scope = GlobalEnvironment.Standard();
 
-            try
-            {
-                ReadDefinitionsIntoEnvironment("StdDefs.lsp", global);
-            }
-            catch (AggregateException exs)
-            {
-                writer.WriteLine("\nError reading standard definitions:");
+            //try
+            //{
+            //    ReadDefinitionsIntoEnvironment("StdDefs.lsp", scope);
+            //}
+            //catch (AggregateException exs)
+            //{
+            //    writer.WriteLine("\nError reading standard definitions:");
 
-                foreach (Exception ex in exs.InnerExceptions)
-                {
-                    writer.WriteLine($"ERROR: {ex.Message}");
-                }
+            //    foreach (Exception ex in exs.InnerExceptions)
+            //    {
+            //        writer.WriteLine($"ERROR: {ex.Message}");
+            //    }
 
-                writer.Write("\n\nPress any key to exit...");
-                reader.Read();
-                return;
-            }
+            //    writer.Write("\n\nPress any key to exit...");
+            //    reader.Read();
+            //    return;
+            //}
 
             while (input != "quit")
             {
@@ -59,8 +59,9 @@
 
                         Expression expr = Parser.Parse(input);
                         writer.WriteLine($"----> {expr}");
+                        writer.WriteLine($"------> {expr.ToStringent()}");
 
-                        Expression result = expr.CallEval(global);
+                        Expression result = Evaluator.Evaluate(expr, scope, writer, true);
                         writer.WriteLine(result);
                     }
                     catch (Exception ex)
@@ -74,7 +75,7 @@
             return;
         }
 
-        private static void ReadDefinitionsIntoEnvironment(string fileName, Environment env)
+        private static void ReadDefinitionsIntoEnvironment(string fileName, Frame env)
         {
             if (File.Exists(fileName))
             {
@@ -85,7 +86,7 @@
                 {
                     try
                     {
-                        Parser.Parse(line).CallEval(env);
+                        Evaluator.Evaluate(Parser.Parse(line), env);
                     }
                     catch (Exception ex)
                     {

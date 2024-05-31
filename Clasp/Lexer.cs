@@ -35,8 +35,6 @@
             TType = t;
         }
 
-        private const string RegAccessPattern = @"^c(a|d)+r$";
-
         public static Token Tokenize(string s)
         {
             if (s[0] == '(')
@@ -49,21 +47,21 @@
             }
             else if (s[0] == '\'')
             {
-                return new Token("'", TokenType.Quote);
+                return new Token("'", TokenType.QuoteMarker);
             }
-            else if (s[0] == '.')
+            else if (s == ".")
             {
-                return new Token(".", TokenType.Dot);
+                return new Token(s, TokenType.DotMarker);
             }
-            else if (s[0] == '`')
+            else if (s == "#t" || s == "#f")
             {
-                return new Token("`", TokenType.QuasiQuote);
+                return new Token(s, TokenType.Boolean);
             }
-            else if (s[0] == ',')
+            else if (s == "#error")
             {
-                return new Token(",", TokenType.UnQuote);
+                return new Token(s, TokenType.Error);
             }
-            else if (double.TryParse(s, out double result))
+            else if (char.IsDigit(s[0]))
             {
                 return new Token(result.ToString(), TokenType.Number);
             }
@@ -79,8 +77,8 @@
     internal enum TokenType
     {
         LeftParen, RightParen,
-        Symbol, Number,
-        Quote, QuasiQuote, UnQuote,
-        Dot
+        Symbol, Number, Boolean,
+        QuoteMarker, DotMarker,
+        Error
     }
 }

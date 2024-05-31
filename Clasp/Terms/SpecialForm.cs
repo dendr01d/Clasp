@@ -1,258 +1,145 @@
-﻿namespace Clasp
-{
-    internal abstract record SpecialForm(string Name, int Arity) : Operator(Name)
-    {
-        public static readonly SpecialForm[] Forms = new SpecialForm[]
-        {
-            new SPBegin(),
-            new SPIf(), new SPCond(), //new SPCase(),
-            new SPQuote(),
-            new SPDefine(), new SPSet(), new SPLet(),
-            new SPEq(),
-            new SPCar(), new SPCdr(), new SPCons(),
-            new SPLambda(),
-            new SPAnd(), new SPOr()
-            
-        };
-    }
+﻿//namespace Clasp
+//{
+//    internal abstract class SpecialForm : Pair
+//    {
+//        protected abstract int Arity { get; }
+//        protected abstract string OpName { get; }
 
-    internal sealed record SPBegin() : SpecialForm("begin", 1)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            Expression current = args[0].CallEval(env);
+//        protected SpecialForm(Symbol sym, Expression[] exprs) : base(sym, ConstructLinked(exprs))
+//        {
+//            if (exprs.Length < Arity)
+//            {
+//                throw new Exception($"Special form '{OpName}' requires (at least) {Arity} argument{(Arity == 1 ? string.Empty : "s")}");
+//            }
+//        }
 
-            if (args.Cdr.IsNil)
-            {
-                return FinishedEval(current);
-            }
-            else
-            {
-                return StdApply(this, args.Cdr, env);
-            }
-        }
-    }
+//        private static readonly Dictionary<string, Func<Symbol, Expression[], SpecialForm>> _constructors = new()
+//        {
+//            ["if"] = (x, y) => new SPIf(x, y),
+//            ["quote"] = (x, y) => new SPQuote(x, y),
+//            ["define"] = (x, y) => new SPDefine(x, y),
+//            ["car"] = (x, y) => new SPCar(x, y),
+//            ["cdr"] = (x, y) => new SPCdr(x, y),
+//            ["cons"] = (x, y) => new SPCons(x, y),
+//            ["lambda"] = (x, y) => new SPLambda(x, y)
+//        };
 
-    internal sealed record SPIf() : SpecialForm("if", 3)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            bool condition = args[0].CallEval(env).IsTrue;
+//        public static bool IsSpecialKeyword(Expression s)
+//        {
+//            return (s is Symbol sym && _constructors.ContainsKey(sym.Name));
+//        }
 
-            if (condition)
-            {
-                return ContinueWith(args[1], env, StdEval);
-            }
-            else
-            {
-                return ContinueWith(args[2], env, StdEval);
-            }
-        }
-    }
+//        public static SpecialForm CreateForm(Expression title, Expression[] exprs)
+//        {
+//            Symbol sym = title.ExpectSymbol();
+//            if (_constructors.TryGetValue(sym.Name, out var constructor) && constructor is not null)
+//            {
+//                return constructor.Invoke(sym, exprs);
+//            }
+//            else
+//            {
+//                throw new Exception($"Tried to create special form with keyword '{sym}'");
+//            }
+//        }
 
-    internal sealed record SPCond() : SpecialForm("cond", 1)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            if (args.IsNil)
-            {
-                throw new ControlFalloutException(Name);
-            }
+//        public abstract override Expression Evaluate(Frame env);
 
-            bool condition = args[0].The<SList>()[0].CallEval(env).IsTrue;
+//    }
 
-            if (condition)
-            {
-                return ContinueWith(args[0].The<SList>()[1], env, StdEval);
-            }
-            else
-            {
-                return StdApply(this, args.Cdr, env);
-            }
-        }
-    }
+//    internal class SPIf : SpecialForm
+//    {
+//        protected override int Arity => 3;
+//        protected override string OpName => "if";
+//        public SPIf(Symbol sym, Expression[] exprs) : base(sym, exprs) { }
+//        public override Expression Evaluate(Frame env)
+//        {
+//            return ExpectArg(1).Evaluate(env).IsTrue
+//                ? ExpectArg(2).Evaluate(env)
+//                : ExpectArg(3).Evaluate(env);
+//        }
+//    }
 
-    //internal sealed record SPCase() : SpecialForm("case", 2)
-    //{
-    //    public override Recurrence Apply(SList args, Environment env)
-    //    {
-    //        Expression example = args[0].CallEval(env);
+//    internal class SPQuote : SpecialForm
+//    {
+//        protected override int Arity => 1;
+//        protected override string OpName => "quote";
+//        public SPQuote(Symbol sym, Expression[] exprs) : base(sym, exprs) { }
+//        public override Expression Evaluate(Frame env)
+//        {
+//            return ExpectArg(1);
+//        }
+//    }
 
-    //        return ContinueWith(args.Cdr, env, CheckCases);
-    //    }
+//    internal class SPDefine : SpecialForm
+//    {
+//        protected override int Arity => 2;
+//        protected override string OpName => "define";
+//        public SPDefine(Symbol sym, Expression[] exprs) : base(sym, exprs) { }
+//        public override Expression Evaluate(Frame env)
+//        {
+//            if (ExpectArg(1).IsAtom)
+//            {
+//                env.Extend(ExpectArg(1).ExpectSymbol(), ExpectArg(2));
+//            }
+//            else
+//            {
+//                Symbol key = ExpectArg(1).ExpectCar().ExpectSymbol();
+//                Pair parameters = ExpectArg(1).ExpectCdr().ExpectList();
+//                Expression body = ExpectArg(2);
+//                Procedure lambda = Procedure.BuildLambda(parameters, body, env);
 
-    //    private static Recurrence CheckCases(Expression example, Environment env)
-    //    {
-    //        if (example.IsNil)
-    //        {
-    //            throw new ControlFalloutException("case");
-    //        }
-    //        else if (example.The<SList>()[0].The<SList>()[0].The<SList>().Contents().Contains(example))
-    //        {
-    //            return StdEval(example.The<SList>()[0].The<SList>()[1], env);
-    //        }
-    //        else
-    //        {
-    //            return ContinueWith(example.The<SList>().Cdr, env, CheckCases);
-    //        }
-    //    }
-    //}
+//                env.Extend(key, lambda);
+//            }
 
-    internal sealed record SPQuote() : SpecialForm("quote", 1)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            return FinishedEval(args[0]);
-        }
-    }
+//            return TrueValue;
+//        }
+//    }
 
-    internal sealed record SPQuasiQuote() : SpecialForm("quasiquote", 1)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            return FinishedEval(new Pair(new SPQuote(), args[0].The<SList>().QEvList(env)));
-        }
-    }
+//    internal class SPCar : SpecialForm
+//    {
+//        protected override int Arity => 1;
+//        protected override string OpName => "car";
+//        public SPCar(Symbol sym, Expression[] exprs) : base(sym, exprs) { }
+//        public override Expression Evaluate(Frame env)
+//        {
+//            return ExpectArg(1).Evaluate(env).ExpectCar();
+//        }
+//    }
 
-    internal sealed record SPUnQuote() : SpecialForm("unquote", 1)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            return StdEval(args[0], env);
-        }
-    }
+//    internal class SPCdr : SpecialForm
+//    {
+//        protected override int Arity => 1;
+//        protected override string OpName => "cdr";
+//        public SPCdr(Symbol sym, Expression[] exprs) : base(sym, exprs) { }
+//        public override Expression Evaluate(Frame env)
+//        {
+//            return ExpectArg(1).Evaluate(env).ExpectCdr();
+//        }
+//    }
 
-    internal sealed record SPDefine() : SpecialForm("define", 2)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            if (args[0].IsAtom)
-            {
-                env.Extend(args[0].The<Symbol>(), args[1].CallEval(env));
-            }
-            else
-            {
-                IEnumerable<Symbol> syms = args[0].The<SList>().Contents().Select(x => x.The<Symbol>()).ToArray();
-                Lambda lam = new Lambda(syms.Skip(1).ToArray(), args[1], env);
+//    internal class SPCons : SpecialForm
+//    {
+//        protected override int Arity => 2;
+//        protected override string OpName => "cons";
+//        public SPCons(Symbol sym, Expression[] exprs) : base(sym, exprs) { }
+//        public override Expression Evaluate(Frame env)
+//        {
+//            return Pair.Cons(ExpectArg(1).Evaluate(env), ExpectArg(2).Evaluate(env));
+//        }
+//    }
 
-                env.Extend(syms.First(), lam);
-            }
+//    internal class SPLambda : SpecialForm
+//    {
+//        protected override int Arity => 1;
+//        protected override string OpName => "lambda";
+//        public SPLambda(Symbol sym, Expression[] exprs) : base(sym, exprs) { }
+//        public override Expression Evaluate(Frame env)
+//        {
+//            Pair parameters = ExpectArg(1).ExpectList();
+//            Expression body = ExpectArg(2);
+//            Procedure lambda = Procedure.BuildLambda(parameters, body, env);
 
-            return FinishedEval(TrueValue);
-        }
-    }
-
-    internal sealed record SPSet() : SpecialForm("set!", 2)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            env.Set(args[0].The<Symbol>(), args[1]);
-            return FinishedEval(TrueValue);
-        }
-    }
-
-    internal sealed record SPLet() : SpecialForm("let", 2)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            Environment local = new(env);
-            foreach (SList binding in args[0].The<SList>().Contents().Select(x => x.The<SList>()))
-            {
-                local.Extend(binding[0].The<Symbol>(), binding[1].CallEval(local));
-            }
-
-            return StdApply(new SPBegin(), args.Cdr, local);
-        }
-    }
-
-    internal sealed record SPEq() : SpecialForm("eq?", 2)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            return FinishedEval(ReferenceEquals(args[0].CallEval(env), args[1].CallEval(env)));
-        }
-    }
-
-    internal sealed record SPCar() : SpecialForm("car", 1)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            return FinishedEval(args[0].CallEval(env).GetCar());
-        }
-    }
-
-    internal sealed record SPCdr() : SpecialForm("cdr", 1)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            return FinishedEval(args[0].CallEval(env).GetCdr());
-        }
-    }
-
-    internal sealed record SPCons() : SpecialForm("cons", 2)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            Expression car = args[0].CallEval(env);
-            Expression cdr = args[1].CallEval(env);
-
-            if (car.IsNil && cdr.IsNil)
-            {
-                return FinishedEval(Nil);
-            }
-            else
-            {
-                return FinishedEval(new Pair(car, cdr));
-            }
-        }
-    }
-
-    internal sealed record SPLambda() : SpecialForm("lambda", 2)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            IEnumerable<Symbol> syms = args[0].The<SList>().Contents().Select(x => x.The<Symbol>()).ToArray();
-            Lambda lam = new Lambda(syms.ToArray(), args[1], env);
-
-            return FinishedEval(lam);
-        }
-    }
-
-    internal sealed record SPAnd() : SpecialForm("and", 2)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            if (args.IsNil)
-            {
-                return FinishedEval(TrueValue);
-            }
-            else if (args[0].CallEval(env).IsFalse)
-            {
-                return FinishedEval(FalseValue);
-            }
-            else
-            {
-                return StdApply(this, args.Cdr, env);
-            }
-        }
-    }
-
-    internal sealed record SPOr() : SpecialForm("or", 2)
-    {
-        public override Recurrence Apply(SList args, Environment env)
-        {
-            if (args.IsNil)
-            {
-                return FinishedEval(FalseValue);
-            }
-            else if (args[0].CallEval(env).IsTrue)
-            {
-                return FinishedEval(TrueValue);
-            }
-            else
-            {
-                return StdApply(this, args.Cdr, env);
-            }
-        }
-    }
-}
+//            return lambda;
+//        }
+//    }
+//}

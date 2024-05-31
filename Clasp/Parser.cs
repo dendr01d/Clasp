@@ -7,7 +7,7 @@
             Stack<Token> stack = new(tokens.Reverse());
             if (tokens.Any())
             {
-                return ParseStack(stack, false);
+                return ParseStack(ref stack);
             }
             else
             {
@@ -20,7 +20,7 @@
             return Parse(Lexer.Lex(input));
         }
 
-        private static Expression ParseStack(Stack<Token> tokens, bool quasi)
+        private static Expression ParseStack(ref Stack<Token> tokens)
         {
             if (tokens.Count <= 0)
             {
@@ -32,64 +32,41 @@
 
                 return current.TType switch
                 {
-                    TokenType.LeftParen => ParseList(tokens, false),
-                    TokenType.RightParen => throw new ParsingException("Unexpected ')' in token stream"),
-                    TokenType.Dot => throw new ParsingException("Unexpected '.' in token stream"),
-                    TokenType.Quote => ExpandForm(new SPQuote(), ParseStack(tokens, false)),
-                    TokenType.QuasiQuote => ParseQuasi(tokens),
-                    TokenType.UnQuote => throw new ParsingException("Unexpected ',' in token stream"),
-                    TokenType.Symbol => new Symbol(current.Text),
+                    TokenType.LeftParen => ParseList(ref tokens),
+                    TokenType.RightParen => throw new Exception("Parsing error: unexpected ')'"),
+                    TokenType.DotMarker => throw new Exception("Parsing error: unexpected '.'"),
+                    TokenType.QuoteMarker => Pair.List(Symbol.New("quote"), ParseStack(ref tokens)),
+                    TokenType.Symbol => Symbol.New(current.Text),
                     TokenType.Number => new Number(double.Parse(current.Text)),
-                    _ => throw new ParsingException($"Unknown token type {current.TType}")
+                    TokenType.Boolean => Boolean.Not(current.Text == "#f"),
+                    TokenType.Error => Expression.Error,
+                    _ => throw new Exception($"Parsing error: unknown token type {current.TType}")
                 };
             }
         }
 
-        private static Expression ExpandForm(SpecialForm form, Expression args)
+        private static Expression ParseList(ref Stack<Token> tokens)
         {
-            return new Pair(form, new Pair(args, Expression.Nil));
-        }
 
-        private static Expression ParseQuasi(Stack<Token> tokens)
-        {
-            if (tokens.Pop().TType != TokenType.LeftParen)
+            if (tokens.Peek().TType == TokenType.DotMarker)
             {
-                throw new Exception("Expected '(' following quasi-quote");
+                throw new Exception("Parsing error: expected car expression of dotted pair");
             }
-            return ExpandForm(new SPQuasiQuote(), ParseList(tokens, true));
-        }
 
-        private static Expression ParseList(Stack<Token> tokens, bool quasi)
-        {
             Stack<Expression> newList = new();
-            bool dotted = false;
+            bool proper = true;
 
-            while (tokens.Peek().TType != TokenType.RightParen && tokens.Peek().TType != TokenType.Dot)
+            while (tokens.Peek().TType != TokenType.RightParen && tokens.Peek().TType != TokenType.DotMarker)
             {
-                if (tokens.Peek().TType == TokenType.UnQuote)
-                {
-                    if (!quasi)
-                    {
-                        throw new Exception("Unexpected ',' in token stream");
-                    }
-                    else
-                    {
-                        tokens.Pop(); //remove comma
-                        //because it's unquoted, we turn the quasi context off for it
-                        newList.Push(ExpandForm(new SPUnQuote(), ParseStack(tokens, false)));
-                    }
-                }
-                else
-                {
-                    newList.Push(ParseStack(tokens, quasi));
-                }
+                newList.Push(ParseStack(ref tokens));
             }
 
-            if (tokens.Peek().TType == TokenType.Dot)
+            if (tokens.Peek().TType == TokenType.DotMarker)
             {
-                dotted = true;
+                proper = false;
                 tokens.Pop(); //remove dot marker
-                newList.Push(ParseStack(tokens, quasi));
+                //newList.Push(Pair.Cons(newList.Pop(), ParseStack(ref tokens))); //combine last two items into pair
+                newList.Push(ParseStack(ref tokens)); //grab the rest
 
                 if (tokens.Peek().TType != TokenType.RightParen)
                 {
@@ -99,25 +76,19 @@
 
             tokens.Pop(); //remove right paren
 
-            IEnumerable<Expression> exprs = newList.Reverse();
+            Expression[] exprs = newList.Reverse().ToArray();
 
-            return dotted
-                ? SList.Improper(exprs)
-                : SList.Proper(exprs);
+            return proper
+                ? Pair.List(exprs)
+                : Pair.ListStar(exprs);
 
             //if (exprs.Length > 0 && exprs[0] is Symbol sym && SpecialForm.IsSpecialKeyword(sym))
             //{
-            //    return SpecialForm.CreateForm(sym, SList.ConstructLinked(exprs[1..]));
-            //}
-            //else if (exprs.Length == 1 && exprs[0] is SList l && l.IsDotted)
-            //{
-            //    //this stack-method of building lists implicity assumes we're building a linked list
-            //    //if it's ONLY a dotted pair though then it's just a single cons cell with no links
-            //    return exprs[0];
+            //    return SpecialForm.CreateForm(sym, exprs[1..]);
             //}
             //else
             //{
-            //    return SList.ConstructLinked(exprs);
+            //    return Pair.ConstructLinked(exprs);
             //}
         }
 
