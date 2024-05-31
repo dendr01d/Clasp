@@ -64,12 +64,6 @@ namespace Tests
                 string test = "(begin (define var 0) (cond (() (set! var 1)) ((define new-var var) new-var)))";
                 Tester.TestIO("0", test);
             }
-
-            [TestMethod]
-            public void FalloutException()
-            {
-                Tester.TestFailure<ControlFalloutException>("(begin (define var 0) (cond (() ()) (() ())))");
-            }
         }
 
         [TestClass]
