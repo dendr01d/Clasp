@@ -11,7 +11,7 @@
             _cdr = cdr;
         }
 
-        public override bool IsList => _cdr.IsNil || _cdr.IsList;
+        public override bool IsAtom => false;
         public override Expression Car => _car;
         public override Expression Cdr => _cdr;
         public override void SetCar(Expression expr) => _car = expr;
@@ -102,13 +102,13 @@
             {
                 return string.Empty;
             }
-            else if (expr.IsList)
+            else if (expr.IsAtom)
             {
-                return $" {expr.Car}{FormatContents(expr.Cdr)}";
+                return " . " + expr.ToString();
             }
             else
             {
-                return " . " + expr.ToString();
+                return $" {expr.Car}{FormatContents(expr.Cdr)}";
             }
         }
     }

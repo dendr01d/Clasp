@@ -4,7 +4,7 @@
     {
         protected Atom() { }
 
-        public override bool IsList => false;
+        public override bool IsAtom => true;
 
         public override Expression Car => throw new ExpectedTypeException<Pair>(this);
         public override Expression Cdr => throw new ExpectedTypeException<Pair>(this);

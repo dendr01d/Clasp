@@ -155,6 +155,8 @@ namespace Clasp
         private string FormatRegister(Expression? x) => x?.ToString() ?? "*0";
         private string FormatFunctor(Action<Machine>? ptr) => ptr?.Method.Name ?? "*0";
 
+        public string GoingTo => FormatFunctor(_goto);
+
         public void Print(TextWriter tw)
         {
             tw.WriteLine($" Exp: {FormatRegister(_exp)}");

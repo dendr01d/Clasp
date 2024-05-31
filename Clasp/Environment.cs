@@ -28,15 +28,16 @@
 
         public Environment DefineMany(Pair keys, Pair values)
         {
-            return Close().BindSeries(keys, values);
+            return BindSeries(keys, values);
         }
+
         private Environment BindSeries(Expression keys, Expression values)
         {
             if (keys.IsNil && values.IsNil)
             {
                 return this;
             }
-            else if (keys.IsAtom && values.IsList)
+            else if (keys.IsAtom && !values.IsAtom)
             {
                 //if the keys list ends in a dotted pair, the last arg
                 //encapsulates the remaining values

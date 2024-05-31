@@ -9,13 +9,11 @@
         public static readonly Error Error = Error.Instance;
         #endregion
 
-        #region Predicate Fields
-        public abstract bool IsList { get; }
+        #region Native Predicate Fields
+        public abstract bool IsAtom { get; }
         public bool IsNil => ReferenceEquals(this, Nil);
-        public bool IsAtom => !IsList && !IsNil;
         public bool IsFalse => ReferenceEquals(this, Boolean.False);
         public bool IsTrue => !IsFalse;
-        public bool Is<T>() where T : Expression => this is T;
         #endregion
 
         #region Structural Access
@@ -49,6 +47,14 @@
         //public static implicit operator Expression(int i) => new Number(i);
         //public static implicit operator Expression(char c) => new Character(c);
         //public static implicit operator Expression(string s) => new Symbol(s);
+
+        #endregion
+
+        #region Equality
+
+        public bool IsEq(Expression other) => ReferenceEquals(this, other);
+        public bool IsEqv(Expression other) => false;
+        public bool IsEqual(Expression other) => false;
 
         #endregion
 
