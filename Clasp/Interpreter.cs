@@ -10,15 +10,14 @@ namespace Clasp
     {
         public static string Interpret(string input)
         {
-            return Parser.Parse(input).CallEval(Environment.StdEnv()).ToString();
-            //try
-            //{
-            //    return Parser.Parse(input).Evaluate(Environment.StdEnv()).ToString();
-            //}
-            //catch (Exception ex)
-            //{
-            //    return ex.Message;
-            //}
+            try
+            {
+                return Evaluator.Evaluate(Parser.Parse(input), GlobalEnvironment.Standard()).ToString();
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
         }
 
 
