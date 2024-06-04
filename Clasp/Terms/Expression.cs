@@ -13,6 +13,9 @@ namespace Clasp
 
         #region Native Predicate Fields
         public abstract bool IsAtom { get; }
+
+        public bool IsList => IsNil || (!IsAtom && Cdr.IsList);
+
         public bool IsNil => ReferenceEquals(this, Nil);
         public bool IsFalse => ReferenceEquals(this, Boolean.False);
         public bool IsTrue => !IsFalse;

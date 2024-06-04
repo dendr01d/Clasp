@@ -199,6 +199,25 @@ namespace Clasp
 
         public void GoTo_Continue() => Assign_GoTo(Continue);
 
+        public void Build_Argl(Expression newArg)
+        {
+            if (Argl.IsNil)
+            {
+                if (newArg.IsAtom)
+                {
+                    Assign_Argl(Pair.List(newArg));
+                }
+                else
+                {
+                    Assign_Argl(newArg);
+                }
+            }
+            else
+            {
+                Assign_Argl(Pair.Append(Argl, Pair.List(newArg)));
+            }
+        }
+
         #endregion
 
 
