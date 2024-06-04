@@ -148,124 +148,151 @@ namespace Clasp
         private static void Eval_Quasiquoted(Machine mx)
         {
             mx.Assign_Exp(mx.Exp.Cadr);
-            mx.Assign_GoTo(Expand_Quasiquoted);
+            mx.Assign_GoTo(Expand_Dispatch);
         }
 
-        private static void Expand_Quasiquoted(Machine mx)
+        private static void Expand_Dispatch(Machine mx)
         {
-            if (mx.Exp.IsAtom || mx.Exp.IsNil)
+            if (mx.Exp.IsAtom)
             {
                 mx.Assign_Val(mx.Exp);
                 mx.GoTo_Continue();
             }
+            else if (mx.Exp.Car == Symbol.Quasiquote)
+            {
+                mx.Assign_Exp(mx.Exp.Cadr);
+                mx.Save_Continue();
+                mx.Assign_Continue(Expand_Nested);
+                mx.Assign_GoTo(Expand_Dispatch);
+            }
             else if (mx.Exp.Car == Symbol.Unquote)
             {
-                mx.Assign_Val(mx.Exp.Cadr);
-                mx.GoTo_Continue();
+                mx.Assign_Exp(mx.Exp.Cadr);
+                mx.Assign_GoTo(Eval_Dispatch);
             }
             else if (mx.Exp.Car == Symbol.UnquoteSplicing)
             {
                 mx.Assign_GoTo(Err_Illegal_Operation);
             }
-            else if (mx.Exp.Car == Symbol.Quasiquote)
-            {
-                mx.Save_Continue();
-                mx.Assign_Continue(Expand_Quasiquoted);
-                mx.Save_Continue();
-                mx.Assign_Continue(Expand_Quasiquoted_Continue);
-
-                mx.Assign_Exp(mx.Exp.Cadr);
-                mx.Assign_GoTo(Expand_Quasiquoted);
-            }
             else
             {
-                mx.Save_Continue();
-                mx.Assign_Continue(Expand_Quasiquoted_Did_Car);
-
                 mx.Save_Exp();
-
                 mx.Assign_Exp(mx.Exp.Car);
-                mx.Assign_GoTo(Expand_Quasiquoted_List);
+                mx.Save_Continue();
+                mx.Assign_Continue(Expand_Did_Car);
+                mx.Assign_GoTo(Expand_List_Dispatch);
             }
         }
 
-        private static void Expand_Quasiquoted_Continue(Machine mx)
+        private static void Expand_Nested(Machine mx)
         {
+            mx.Restore_Continue();
             mx.Assign_Exp(mx.Val);
-            mx.Restore_Continue();
-            mx.GoTo_Continue();
-            mx.Restore_Continue();
+            mx.Assign_GoTo(Expand_Dispatch);
         }
 
-        private static void Expand_Quasiquoted_Did_Car(Machine mx)
+        private static void Expand_Did_Car(Machine mx)
         {
             mx.Restore_Exp();
+            mx.Assign_Exp(mx.Exp.Cdr);
 
             mx.Assign_Argl(mx.Val);
-            mx.Save_Argl();
 
-            mx.Assign_Exp(mx.Exp.Cdr);
-            mx.Assign_Continue(Expand_Quasiquoted_Did_Cdr);
-            mx.Assign_GoTo(Expand_Quasiquoted);
+            mx.Save_Argl();
+            mx.Assign_Continue(Expand_Did_Cdr);
+            mx.Assign_GoTo(Expand_Dispatch);
         }
 
-        private static void Expand_Quasiquoted_Did_Cdr(Machine mx)
+        private static void Expand_Did_Cdr(Machine mx)
         {
             mx.Restore_Argl();
-
             mx.Assign_Val(Pair.Append(mx.Argl, mx.Val));
-
             mx.Restore_Continue();
             mx.GoTo_Continue();
         }
 
-        private static void Expand_Quasiquoted_List(Machine mx)
+        private static void Expand_List_Dispatch(Machine mx)
         {
-            if (mx.Exp.IsAtom || mx.Exp.IsNil)
+            if (mx.Exp.IsAtom)
             {
                 mx.Assign_Val(Pair.List(mx.Exp));
                 mx.GoTo_Continue();
             }
+            else if (mx.Exp.Car == Symbol.Quasiquote)
+            {
+                mx.Assign_Exp(mx.Exp.Cadr);
+                mx.Save_Continue();
+                mx.Assign_Continue(Expand_List_Nested);
+                mx.Assign_GoTo(Expand_Dispatch);
+            }
             else if (mx.Exp.Car == Symbol.Unquote)
             {
-                mx.Assign_Val(Pair.List(mx.Exp.Cadr));
-                mx.GoTo_Continue();
+                mx.Assign_Exp(mx.Exp.Cadr);
+                mx.Save_Continue();
+                mx.Assign_Continue(Expand_List_Result);
+                mx.Assign_GoTo(Eval_Dispatch);
             }
             else if (mx.Exp.Car == Symbol.UnquoteSplicing)
             {
-                mx.Assign_Val(mx.Exp.Cadr);
-                mx.GoTo_Continue();
-            }
-            else if (mx.Exp.Car == Symbol.Quasiquote)
-            {
-                mx.Save_Continue();
-                mx.Assign_Continue(Expand_Quasiquoted_List);
-                mx.Save_Continue();
-                mx.Assign_Continue(Expand_Quasiquoted_Continue);
-
-                mx.Assign_Exp(mx.Exp.Cadr);
-                mx.Assign_GoTo(Expand_Quasiquoted);
+                mx.Assign_Unev(mx.Exp.Cadr);
+                mx.Assign_Argl(Expression.Nil);
+                mx.Assign_GoTo(Expand_List_Spliced);
             }
             else
             {
-                mx.Save_Continue();
-                mx.Assign_Continue(Expand_Quasiquoted_Did_Pair);
-
-                mx.Save_Continue();
-                mx.Assign_Continue(Expand_Quasiquoted_Did_Car);
-
                 mx.Save_Exp();
-
                 mx.Assign_Exp(mx.Exp.Car);
-                mx.Assign_GoTo(Expand_Quasiquoted_List);
+                mx.Save_Continue();
+                mx.Assign_Continue(Expand_List_Result);
+                mx.Save_Continue();
+                mx.Assign_Continue(Expand_Did_Car);
+                mx.Assign_GoTo(Expand_List_Dispatch);
             }
         }
 
-        private static void Expand_Quasiquoted_Did_Pair(Machine mx)
+        private static void Expand_List_Nested(Machine mx)
+        {
+            mx.Restore_Continue();
+            mx.Assign_Exp(mx.Val);
+            mx.Assign_GoTo(Expand_List_Dispatch);
+        }
+
+        private static void Expand_List_Result(Machine mx)
         {
             mx.Assign_Val(Pair.List(mx.Val));
             mx.Restore_Continue();
             mx.GoTo_Continue();
+        }
+
+        private static void Expand_List_Spliced(Machine mx)
+        {
+            if (mx.Unev.IsNil)
+            {
+                mx.Assign_Val(mx.Argl);
+                mx.GoTo_Continue();
+            }
+            else
+            {
+                mx.Assign_Exp(mx.Unev.Car);
+                mx.Assign_Unev(mx.Unev.Cdr);
+
+                mx.Save_Unev();
+                mx.Save_Argl();
+
+                mx.Save_Continue();
+                mx.Assign_Continue(Expand_List_Spliced_Continue);
+                mx.Assign_GoTo(Eval_Dispatch);
+            }
+        }
+
+        private static void Expand_List_Spliced_Continue(Machine mx)
+        {
+            mx.Restore_Continue();
+            mx.Restore_Argl();
+            mx.Restore_Unev();
+
+            mx.Build_Argl(mx.Val);
+            mx.Assign_GoTo(Expand_List_Spliced);
         }
 
         #endregion
@@ -335,7 +362,7 @@ namespace Clasp
             mx.LeaveScope();
             mx.Restore_Argl();
 
-            mx.Assign_Argl(Pair.Append(mx.Argl, mx.Val));
+            mx.Build_Argl(mx.Val);
             mx.Assign_Unev(mx.Unev.Cdr);
 
             mx.Assign_GoTo(Eval_Apply_Operand_Loop);
@@ -344,7 +371,7 @@ namespace Clasp
         private static void Eval_Apply_Accumulate_Last_Arg(Machine mx)
         {
             mx.Restore_Argl();
-            mx.Assign_Argl(Pair.Append(mx.Argl, mx.Val));
+            mx.Build_Argl(mx.Val);
 
             mx.Restore_Proc();
 
@@ -463,6 +490,11 @@ namespace Clasp
 
         #endregion
 
+        #region Pattern Matching
+
+
+
+        #endregion
 
         #region Variable Assignment & Definition
 
