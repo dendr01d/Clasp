@@ -199,24 +199,13 @@ namespace Clasp
 
         public void GoTo_Continue() => Assign_GoTo(Continue);
 
-        public void Build_Argl(Expression newArg)
+        public void AppendArgl(Expression newArg)
         {
-            if (Argl.IsNil)
-            {
-                if (newArg.IsAtom)
-                {
-                    Assign_Argl(Pair.List(newArg));
-                }
-                else
-                {
-                    Assign_Argl(newArg);
-                }
-            }
-            else
-            {
-                Assign_Argl(Pair.Append(Argl, Pair.List(newArg)));
-            }
+            Assign_Argl(Pair.AppendLast(Argl, newArg));
         }
+
+        public void NextArgl() => Assign_Argl(Argl.Cdr);
+        public void NextUnev() => Assign_Unev(Unev.Cdr);
 
         #endregion
 

@@ -60,4 +60,46 @@ namespace Clasp
 
         public GenSym() : base($"${++counter}") { }
     }
+
+    
+    internal class Identifier : Atom
+    {
+        public readonly Symbol SymbolicName;
+        public Symbol BindingName { get; private set; }
+        public readonly HashSet<int> Marks;
+
+        private Identifier(Symbol s1, Symbol s2, params int[] marks)
+        {
+            SymbolicName = s1;
+            BindingName = s2;
+            Marks = new HashSet<int>(marks);
+        }
+
+        public static implicit operator Identifier(Symbol s) => new Identifier(s, s);
+
+        public Identifier Mark(params int[] marks)
+        {
+            Marks.SymmetricExceptWith(marks);
+            return this;
+        }
+
+        public Identifier Substitute(Identifier i2, Symbol s)
+        {
+            if (BindingName == i2.BindingName
+                && Marks.SetEquals(i2.Marks))
+            {
+                BindingName = s;
+            }
+            return this;
+        }
+
+        public Symbol Strip() => SymbolicName;
+        public Symbol Resolve() => BindingName;
+
+
+        public override string ToString()
+        {
+            return $"<{SymbolicName}, {BindingName}, {{{string.Join(", ", Marks)}}}>";
+        }
+    }
 }

@@ -61,7 +61,7 @@
                         writer.WriteLine($"----> {expr}");
                         writer.WriteLine($"------> {expr.ToStringent()}");
 
-                        Expression result = Evaluator.Evaluate(expr, scope, writer, true);
+                        Expression result = Evaluator.Evaluate(expr, scope, writer, false);
                         writer.WriteLine(result);
                     }
                     catch (Exception ex)

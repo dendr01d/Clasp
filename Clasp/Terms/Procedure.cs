@@ -145,4 +145,21 @@ namespace Clasp
 
         #endregion
     }
+
+    internal class Macro : Procedure
+    {
+        public readonly Pair Transformers;
+        public readonly Environment Closure;
+
+        public Macro(Pair transformers, Environment closure)
+        {
+            Transformers = transformers;
+            Closure = closure;
+        }
+
+        public override string ToString()
+        {
+            return $"{{macro {Transformers}}}";
+        }
+    }
 }

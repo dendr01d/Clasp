@@ -5,7 +5,7 @@
         private Expression _car;
         private Expression _cdr;
 
-        private Pair(Expression car, Expression cdr)
+        protected Pair(Expression car, Expression cdr)
         {
             _car = car;
             _cdr = cdr;
@@ -22,32 +22,22 @@
 
         public static Pair Cons(Expression car, Expression cdr) => new Pair(car, cdr);
 
-        public static Expression List(params Expression[] terms)
+        public static Expression List(params Expression[] es)
         {
-            if (terms.Length == 0)
-            {
-                return Nil;
-            }
-            else
-            {
-                return Cons(terms[0], List(terms[1..]));
-            }
+            return es.Length == 0
+                ? Nil
+                : Cons(es[0], List(es[1..]));
         }
 
-        public static Pair ListStar(params Expression[] terms)
+        public static Expression ListStar(params Expression[] es)
         {
-            if (terms.Length < 2)
+            return es.Length switch
             {
-                throw new MissingArgumentException("C# List*");
-            }
-            else if (terms.Length == 2)
-            {
-                return Cons(terms[0], terms[1]);
-            }
-            else
-            {
-                return Cons(terms[0], ListStar(terms[1..]));
-            }
+                0 => Nil,
+                1 => es[0],
+                2 => Cons(es[0], es[1]),
+                _ => Cons(es[0], ListStar(es[1..]))
+            };
         }
 
         public static Expression Append(Expression ls, Expression t)
@@ -57,39 +47,20 @@
                 : Cons(ls.Car, Append(ls.Cdr, t));
         }
 
-        public static Expression FoldL(Expression ls, Expression seed, Func<Expression, Expression, Expression> op)
+        public static Expression AppendLast(Expression ls, Expression t)
         {
-            while (!ls.IsNil)
-            {
-                seed = op(seed, ls.Car);
-                ls = ls.Cdr;
-            }
-            return seed;
+            return ls.IsNil
+                ? Cons(t, Nil)
+                : Cons(ls.Car, AppendLast(ls.Cdr, t));
         }
 
-        public static Expression FoldR(Expression ls, Expression seed, Func<Expression, Expression, Expression> op)
+        public static Boolean Member(Expression ls, Expression e)
         {
-            if (ls.IsNil)
-            {
-                return seed;
-            }
-            else
-            {
-                Expression sub = FoldR(ls.Cdr, seed, op);
-                return op(ls.Car, sub);
-            }
-        }
-
-        public static Expression MapCar(Expression ls, Func<Expression, Expression> map)
-        {
-            if (ls.IsNil)
-            {
-                return ls;
-            }
-            else
-            {
-                return Cons(map(ls.Car), MapCar(ls.Cdr, map));
-            }
+            return ls.IsNil
+                ? Boolean.False
+                : Pred_Equal(ls.Car, e)
+                    ? Boolean.True
+                    : Member(ls.Cdr, e);
         }
 
         #endregion
@@ -111,5 +82,30 @@
                 return $" {expr.Car}{FormatContents(expr.Cdr)}";
             }
         }
+    }
+
+    internal class Quoted : Pair
+    {
+        public Quoted(Expression exp) : base(Symbol.Quote, Cons(exp, Nil)) { }
+    }
+
+    internal class Quasiquoted : Pair
+    {
+        public Quasiquoted(Expression exp) : base(Symbol.Quasiquote, Cons(exp, Nil)) { }
+    }
+
+    internal class Unquoted : Pair
+    {
+        public Unquoted(Expression exp) : base(Symbol.Unquote, Cons(exp, Nil)) { }
+    }
+
+    internal class UnquotedSpliced : Pair
+    {
+        public UnquotedSpliced(Expression exp) : base(Symbol.UnquoteSplicing, Cons(exp, Nil)) { }
+    }
+
+    internal class EllipticPattern : Pair
+    {
+        public EllipticPattern(Expression exp) : base(exp, Cons(Symbol.Ellipsis, Nil)) { }
     }
 }

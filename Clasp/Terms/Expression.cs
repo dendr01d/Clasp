@@ -57,9 +57,26 @@ namespace Clasp
 
         #region Equality
 
-        public bool IsEq(Expression other) => ReferenceEquals(this, other);
-        public bool IsEqv(Expression other) => false;
-        public bool IsEqual(Expression other) => false;
+        public static bool Pred_Eq(Expression e1, Expression e2) => ReferenceEquals(e1, e2);
+        public static bool Pred_Eqv(Expression e1, Expression e2)
+        {
+            return (e1, e2) switch
+            {
+                (FixNum f1, FixNum f2) => f1.Value == f2.Value,
+                (Number n1, Number n2) => n1.Value == n2.Value,
+                (Character c1, Character c2) => c1.Value == c2.Value,
+                (_, _) => Pred_Eq(e1, e2)
+            };
+        }
+        public static bool Pred_Equal(Expression e1, Expression e2)
+        {
+            return (e1, e2) switch
+            {
+                //(CString c1, CString c2) => c1.Value == c2.Value,
+                (Pair p1, Pair p2) => Pred_Equal(p1.Car, p2.Car) && Pred_Equal(p1.Cdr, p2.Cdr),
+                (_, _) => Pred_Eqv(e1, e2)
+            };
+        }
 
         #endregion
 
