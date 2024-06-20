@@ -1,4 +1,8 @@
-﻿namespace Clasp
+﻿using static System.Formats.Asn1.AsnWriter;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Reflection.PortableExecutable;
+
+namespace Clasp
 {
     public static class Terminal
     {
@@ -9,8 +13,14 @@
             Run(input, output, output);
         }
 
+        private const string _SHOW_MACHINE_CMD = "show";
+        private const string _PAUSE_MACHINE_CMD = "pause";
+        private const string _QUIT_CMD = "quit";
 
-        public static void Run(Stream inputStream, Stream outputStream, Stream errorStream)
+        private static bool _showingSteps = false;
+        private static bool _pausing = false;
+
+        private static void Run(Stream inputStream, Stream outputStream, Stream errorStream)
         {
             StreamReader reader = new(inputStream);
             StreamWriter writer = new(outputStream);
@@ -20,85 +30,58 @@
             errors.AutoFlush = true;
 
             writer.WriteLine("CLASP Terminal");
-            writer.WriteLine("\"quit\" to exit");
+            writer.WriteLine($"* \"{_SHOW_MACHINE_CMD}\" to toggle machine printing");
+            writer.WriteLine($"* \"{_PAUSE_MACHINE_CMD}\" to toggle step-by-step pausing");
+            writer.WriteLine($"* \"{_QUIT_CMD}\" to exit");
 
             string? input = string.Empty;
+            string output = string.Empty;
 
             Environment scope = GlobalEnvironment.Standard();
 
-            //try
-            //{
-            //    ReadDefinitionsIntoEnvironment("StdDefs.lsp", scope);
-            //}
-            //catch (AggregateException exs)
-            //{
-            //    writer.WriteLine("\nError reading standard definitions:");
-
-            //    foreach (Exception ex in exs.InnerExceptions)
-            //    {
-            //        writer.WriteLine($"ERROR: {ex.Message}");
-            //    }
-
-            //    writer.Write("\n\nPress any key to exit...");
-            //    reader.Read();
-            //    return;
-            //}
-
-            while (input != "quit")
+            while (input != _QUIT_CMD)
             {
                 writer.WriteLine();
                 writer.Write("> ");
                 input = reader.ReadLine();
+                output = string.Empty;
 
-                if (!string.IsNullOrWhiteSpace(input))
+                switch (input)
                 {
-                    try
-                    {
-                        Token[] tokens = Lexer.Lex(input).ToArray();
-                        writer.WriteLine($"--> {string.Join(", ", tokens.AsEnumerable())}");
+                    case _SHOW_MACHINE_CMD:
+                        _showingSteps = !_showingSteps;
+                        output = "ok";
+                        break;
 
-                        Expression expr = Parser.Parse(input);
-                        writer.WriteLine($"----> {expr}");
-                        writer.WriteLine($"------> {expr.ToStringent()}");
+                    case _PAUSE_MACHINE_CMD:
+                        _pausing = !_pausing;
+                        output = "ok";
+                        break;
 
-                        Expression result = Evaluator.Evaluate(expr, scope, writer, false);
-                        writer.WriteLine(result);
-                    }
-                    catch (Exception ex)
-                    {
-                        errors.WriteLine("ERROR: " + ex.Message);
-                        errors.WriteLine(ex.StackTrace);
-                    }
+                    default:
+                        if (!string.IsNullOrWhiteSpace(input))
+                        {
+                            try
+                            {
+                                Expression result = Evaluator.Evaluate(Parser.Parse(input), scope);
+                                output = result.ToPrinted();
+                            }
+                            catch (Exception ex)
+                            {
+                                errors.WriteLine("ERROR: " + ex.Message);
+                                errors.WriteLine(ex.StackTrace);
+                            }
+                        }
+                        break;
+                }
+
+                if (!string.IsNullOrEmpty(output))
+                {
+                    writer.WriteLine(output);
                 }
             }
 
             return;
-        }
-
-        private static void ReadDefinitionsIntoEnvironment(string fileName, Frame env)
-        {
-            if (File.Exists(fileName))
-            {
-
-                List<Exception> errors = [];
-
-                foreach (string line in File.ReadAllLines(fileName).Where(x => !string.IsNullOrWhiteSpace(x)))
-                {
-                    try
-                    {
-                        Evaluator.Evaluate(Parser.Parse(line), env);
-                    }
-                    catch (Exception ex)
-                    {
-                        errors.Add(ex);
-                    }
-                }
-
-                if (errors.Count > 0)
-                {
-                    throw new AggregateException(errors);
-                }
-            }
         }
     }
 }

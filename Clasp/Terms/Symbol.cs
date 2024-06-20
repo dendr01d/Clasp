@@ -26,19 +26,12 @@ namespace Clasp
             }
         }
 
-        public override string ToString() => Name;
+        public override string ToPrinted() => Name;
+        public override string ToSerialized() => Name;
 
         #region Standard Symbols
 
         public static readonly Symbol Lambda = Ize("lambda");
-        public static readonly Symbol If = Ize("if");
-        public static readonly Symbol Cond = Ize("cond");
-        public static readonly Symbol Begin = Ize("begin");
-        public static readonly Symbol Eq = Ize("eq?");
-        public static readonly Symbol Case = Ize("case");
-
-        public static readonly Symbol And = Ize("and");
-        public static readonly Symbol Or = Ize("or");
 
         public static readonly Symbol Ok = Ize("ok");
         public static readonly Symbol CondElse = Ize("else");
@@ -59,47 +52,5 @@ namespace Clasp
         private static int counter = 0;
 
         public GenSym() : base($"${++counter}") { }
-    }
-
-    
-    internal class Identifier : Atom
-    {
-        public readonly Symbol SymbolicName;
-        public Symbol BindingName { get; private set; }
-        public readonly HashSet<int> Marks;
-
-        private Identifier(Symbol s1, Symbol s2, params int[] marks)
-        {
-            SymbolicName = s1;
-            BindingName = s2;
-            Marks = new HashSet<int>(marks);
-        }
-
-        public static implicit operator Identifier(Symbol s) => new Identifier(s, s);
-
-        public Identifier Mark(params int[] marks)
-        {
-            Marks.SymmetricExceptWith(marks);
-            return this;
-        }
-
-        public Identifier Substitute(Identifier i2, Symbol s)
-        {
-            if (BindingName == i2.BindingName
-                && Marks.SetEquals(i2.Marks))
-            {
-                BindingName = s;
-            }
-            return this;
-        }
-
-        public Symbol Strip() => SymbolicName;
-        public Symbol Resolve() => BindingName;
-
-
-        public override string ToString()
-        {
-            return $"<{SymbolicName}, {BindingName}, {{{string.Join(", ", Marks)}}}>";
-        }
     }
 }

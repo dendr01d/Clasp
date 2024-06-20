@@ -21,49 +21,8 @@ namespace Clasp
             Body = body;
         }
 
-        public Expression AsExpression() => Pair.List(Symbol.Lambda, Parameters, Body);
-        public override string ToString()
-        {
-            return AsExpression().ToString();
-        }
-
-        #region Derived Operations
-
-        public static Dictionary<string, string> DerivedOps = new();
-
-        private static void Define(string name, string op) => DerivedOps.Add(name, op);
-
-        static CompoundProcedure()
-        {
-            Define("caar", "(lambda (x) (car (car x)))");
-            Define("cadr", "(lambda (x) (car (cdr x)))");
-            Define("cdar", "(lambda (x) (cdr (car x)))");
-            Define("cddr", "(lambda (x) (cdr (cdr x)))");
-
-            Define("caaar", "(lambda (x) (car (car (car x))))");
-            Define("caadr", "(lambda (x) (car (car (cdr x))))");
-            Define("cadar", "(lambda (x) (car (cdr (car x))))");
-            Define("caddr", "(lambda (x) (car (cdr (cdr x))))");
-
-            Define("cdaar", "(lambda (x) (cdr (car (car x))))");
-            Define("cdadr", "(lambda (x) (cdr (car (cdr x))))");
-            Define("cddar", "(lambda (x) (cdr (cdr (car x))))");
-            Define("cdddr", "(lambda (x) (cdr (cdr (cdr x))))");
-
-
-            Define("foldl", "(lambda (ls op t) (if (null? ls) t (foldl (cdr ls) op (op t (car ls)))))");
-            Define("foldr", "(lambda (ls op t) (if (null? ls) t (op (car ls) (foldr (cdr ls) op t))))");
-            Define("mapcar", "(lambda (ls op) (if (null? ls) '() (cons (op (car ls)) (mapcar (cdr ls) op))))");
-
-            Define("cond", "(lambda (first . rest) (if (or (eq? (car first) 'else) (true? (car first))) (cadr first) (if (null? rest) #error ('cond . rest))))");
-
-            Define("true?", "(lambda (x) (if x #t #f))");
-            Define("not?", "(lambda (x) (if x #f #t))");
-
-            Define("append", "(lambda (ls t) (if (null? ls) t (cons (car ls) (append (cdr ls) t))))");
-        }
-
-        #endregion
+        public override string ToPrinted() => $"<lambda {Parameters} {Body}>";
+        public override string ToSerialized() => Pair.MakeList(Symbol.Lambda, Parameters, Body).ToSerialized();
     }
 
     internal class PrimitiveProcedure : Procedure
@@ -83,7 +42,8 @@ namespace Clasp
             return _operation(args);
         }
 
-        public override string ToString() => $"<{_name}>";
+        public override string ToPrinted() => $"<{_name}>";
+        public override string ToSerialized() => _name;
 
         #region Native Operations
 
@@ -99,7 +59,7 @@ namespace Clasp
         private static void Define(string name, Func<Expression, bool> op)
             => Define(name, p => Boolean.Judge(op(p.Car)));
 
-        private static void Define(string name, Func<double, double, double> op)
+        private static void Define(string name, Func<int, int, int> op)
             => Define(name, (a, b) => new Number(op(a.Expect<Number>().Value, b.Expect<Number>().Value)));
 
         private static void Define(string name, Func<bool, bool, bool> op)
@@ -112,35 +72,43 @@ namespace Clasp
 
         static PrimitiveProcedure()
         {
-            Define("+", (a, b) => a + b);
+            //special form list ops
+            Define("car", p => p.Caar);
+            Define("cdr", p => p.Cadar);
+            Define("cons", p => Pair.Cons(p.Car, p.Cadr));
+
+            Define("set-car", p => p.Car.SetCar(p.Cadr));
+            Define("set-cdr", p => p.Car.SetCdr(p.Cadr));
+
+            //arithmetic ops
+            Define("+", p => Pair.Fold((a, b) => new Number(a.Expect<Number>().Value + b.Expect<Number>().Value), Number.Zero, p));
             Define("-", p => p.Cdr.IsNil
                 ? new Number(p.Car.Expect<Number>().Value * -1)
-                : new Number(p.Car.Expect<Number>().Value - p.Cadr.Expect<Number>().Value));
-            Define("*", (a, b) => a * b);
-            Define("/", (a, b) => a / b);
-            Define("mod", (a, b) => a % b);
+                : Pair.Fold((a, b) => new Number(p.Car.Expect<Number>().Value - p.Cadr.Expect<Number>().Value), Number.Zero, p));
+            Define("*", p => Pair.Fold((a, b) => new Number(a.Expect<Number>().Value * b.Expect<Number>().Value), Number.One, p));
+            Define("quotient", (a, b) => a / b);
+            Define("modulo", (a, b) => a % b);
 
-            Define("&&", (a, b) => a && b);
-            Define("||", (a, b) => a || b);
+            //object equivalence
+            Define("eq?", p => Pred_Eq(p.Car, p.Cadr));
+            Define("eqv?", p => Pred_Eqv(p.Car, p.Cadr));
+            Define("equal?", p => Pred_Equal(p.Car, p.Cadr));
 
+            //ordering/comparison
             Define("<", (a, b) => a < b);
             Define("<=", (a, b) => a <= b);
-            Define("==", (double a, double b) => Equals(a, b));
             Define(">=", (a, b) => a >= b);
             Define(">", (a, b) => a > b);
 
-            Define("car", p => p.Caar);
-            Define("cdr", p => p.Cdar);
-            Define("cons", p => Pair.Cons(p.Car, p.Cadr));
-
-            Define("eq?", (a, b) => Boolean.Judge(ReferenceEquals(a, b)));
-
+            //type predicates
             Define("atom?", x => x.IsAtom);
             Define("null?", x => x.IsNil);
             Define("pair?", x => x is Pair);
             Define("symbol?", x => x is Symbol);
-            Define("procedure?", x => x is Procedure);
-
+            Define("procedure?", x => x is Procedure or SpecialFormRef);
+            Define("vector?", x => x is Vector);
+            Define("boolean?", x => x is Boolean);
+            Define("number?", x => x is Number);
         }
 
         #endregion
@@ -148,18 +116,19 @@ namespace Clasp
 
     internal class Macro : Procedure
     {
+        private readonly string _name;
         public readonly Pair Transformers;
         public readonly Environment Closure;
 
-        public Macro(Pair transformers, Environment closure)
+        public Macro(string name, Pair transformers, Environment closure)
         {
+            _name = name;
             Transformers = transformers;
             Closure = closure;
         }
 
-        public override string ToString()
-        {
-            return $"{{macro {Transformers}}}";
-        }
+        public override string ToPrinted() => $"[macro '{_name}']";
+        public override string ToSerialized() => throw new NotImplementedException(); //idk lol
+
     }
 }

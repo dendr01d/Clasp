@@ -24,8 +24,8 @@ namespace Clasp
         #region Structural Access
         public abstract Expression Car { get; }
         public abstract Expression Cdr { get; }
-        public abstract void SetCar(Expression expr);
-        public abstract void SetCdr(Expression expr);
+        public abstract Expression SetCar(Expression expr);
+        public abstract Expression SetCdr(Expression expr);
 
         public Expression Caar => Car.Car;
         public Expression Cadr => Cdr.Car;
@@ -62,8 +62,7 @@ namespace Clasp
         {
             return (e1, e2) switch
             {
-                (FixNum f1, FixNum f2) => f1.Value == f2.Value,
-                (Number n1, Number n2) => n1.Value == n2.Value,
+                (Number f1, Number f2) => f1.Value == f2.Value,
                 (Character c1, Character c2) => c1.Value == c2.Value,
                 (_, _) => Pred_Eq(e1, e2)
             };
@@ -80,8 +79,17 @@ namespace Clasp
 
         #endregion
 
-        public abstract override string ToString();
+        public sealed override string ToString() => ToPrinted();
 
-        public virtual string ToStringent() => ToString();
+        /// <summary>
+        /// Returns a string representing a prettier-printed form of the object
+        /// </summary>
+        /// <returns></returns>
+        public abstract string ToPrinted();
+
+        /// <summary>
+        /// Returns a string representing a more "real" representation of the object
+        /// </summary>
+        public abstract string ToSerialized();
     }
 }
