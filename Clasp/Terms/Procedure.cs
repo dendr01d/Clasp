@@ -162,4 +162,23 @@ namespace Clasp
             return $"{{macro {Transformers}}}";
         }
     }
+
+    internal class fLambda : Procedure
+    {
+        public readonly Expression Parameters;
+        public readonly Environment Closure;
+        public readonly Expression Body;
+        public fLambda(Pair parameters, Environment closure, Expression body)
+        {
+            Parameters = parameters;
+            Closure = closure;
+            Body = body;
+        }
+
+        public Expression AsExpression() => Pair.List(Symbol.Flambda, Parameters, Body);
+        public override string ToString()
+        {
+            return AsExpression().ToString();
+        }
+    }
 }

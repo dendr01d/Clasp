@@ -89,6 +89,9 @@ namespace Clasp
                 {
                     nextStep = sym.Name switch
                     {
+                        "eval" => Eval_Eval,
+                        "apply" => Eval_Raw_Apply,
+
                         "quote" => Eval_Quoted,
                         "quasiquote" => Eval_Quasiquoted,
 
@@ -98,6 +101,7 @@ namespace Clasp
 
                         "if" => Eval_If,
                         "lambda" => Eval_Lambda,
+                        "flambda" => Eval_Flambda,
                         "begin" => Eval_Begin,
 
                         "match" => Eval_Match,
@@ -115,6 +119,18 @@ namespace Clasp
             }
 
             mx.Assign_GoTo(nextStep);
+        }
+
+        private static void Eval_Eval(Machine mx)
+        {
+            mx.Assign_Exp(Pair.Cons(Symbol.Begin, mx.Exp.Cdr));
+            mx.Assign_GoTo(Eval_Dispatch);
+        }
+
+        private static void Eval_Raw_Apply(Machine mx)
+        {
+            mx.Assign_Exp(Pair.Cons(mx.Exp.Cadr, mx.Exp.Cddr));
+            mx.Assign_GoTo(Eval_Dispatch);
         }
 
         #region Evaluate Terminal Value
@@ -140,6 +156,15 @@ namespace Clasp
         private static void Eval_Lambda(Machine mx)
         {
             mx.Assign_Val(new CompoundProcedure(
+                mx.Exp.Cadr.Expect<Pair>(),
+                mx.Env,
+                mx.Exp.Cddr));
+            mx.GoTo_Continue();
+        }
+
+        private static void Eval_Flambda(Machine mx)
+        {
+            mx.Assign_Val(new fLambda(
                 mx.Exp.Cadr.Expect<Pair>(),
                 mx.Env,
                 mx.Exp.Cddr));
@@ -329,7 +354,7 @@ namespace Clasp
 
             mx.Assign_Argl(Expression.Nil); //empty list
 
-            if (mx.Proc is Macro)
+            if (mx.Proc is Macro || mx.Proc is fLambda)
             {
                 mx.Restore_Continue();
                 mx.Assign_GoTo(Apply_Dispatch);
