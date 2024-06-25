@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -11,9 +12,21 @@ namespace Clasp
         public LexingException(string msg) : base($"Lexing error: {msg}") { }
     }
 
-    public class ParsingException : Exception
+    internal class ParsingException : Exception
     {
-        public ParsingException(string msg) : base($"Parsing error: {msg}") { }
+        public ParsingException(string msg, Token? problem) : base($"Parsing error{FormatToken(problem)}): {msg}") { }
+
+        private static string FormatToken(Token? t)
+        {
+            if (t is null)
+            {
+                return string.Empty;
+            }
+            else
+            {
+                return $" @ Token {t} (line {t.SourceLine}, index {t.SourceIndex}";
+            }
+        }
     }
 
     internal class ExpectedTypeException<T> : Exception

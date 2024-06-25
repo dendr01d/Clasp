@@ -7,7 +7,7 @@
             Stack<Token> stack = new(tokens.Reverse());
             if (tokens.Any())
             {
-                return ParseStack(stack);
+                return ParseTokens(stack);
             }
             else
             {
@@ -20,12 +20,17 @@
             return Parse(Lexer.Lex(input));
         }
 
+        public static Expression ParseFile(string path)
+        {
+            string raw = File.ReadAllText(path);
+            return Parse($"({raw})");
+        }
 
-        private static Expression ParseStack(Stack<Token> tokens)
+        private static Expression ParseTokens(Stack<Token> tokens)
         {
             if (tokens.Count <= 0)
             {
-                throw new ParsingException("Unexpected end of token stream");
+                throw new ParsingException("Unexpected end of token stream", null);
             }
             else
             {
@@ -33,74 +38,91 @@
 
                 return current.TType switch
                 {
+                    TokenType.VecParen => ParseVector(tokens),
                     TokenType.LeftParen => ParseList(tokens),
-                    TokenType.RightParen => throw new ParsingException("Unexpected ')'"),
+                    TokenType.RightParen => throw new ParsingException("Unexpected ')'", current),
 
-                    TokenType.DotMarker => throw new ParsingException("Unexpected '.'"),
+                    TokenType.DotMarker => throw new ParsingException("Unexpected '.'", current),
 
-                    TokenType.QuoteMarker => Pair.List(Symbol.Quote, ParseStack(tokens)),
-
-                    TokenType.QuasiquoteMarker => Pair.List(Symbol.Quasiquote, ParseStack(tokens)),
-                    TokenType.UnquoteMarker => Pair.List(Symbol.Unquote, ParseStack(tokens)),
-                    TokenType.UnquoteSplicingMarker => Pair.List(Symbol.UnquoteSplicing, ParseStack(tokens)),
-                    TokenType.Ellipsis => Pair.List(Symbol.Ellipsis, ParseStack(tokens)),
+                    //TokenType.QuoteMarker => Pair.List(Symbol.Quote, ParseTokens(tokens)),
+                    //TokenType.QuasiquoteMarker => Pair.List(Symbol.Quasiquote, ParseTokens(tokens)),
+                    //TokenType.UnquoteMarker => Pair.List(Symbol.Unquote, ParseTokens(tokens)),
+                    //TokenType.UnquoteSplicingMarker => Pair.List(Symbol.UnquoteSplicing, ParseTokens(tokens)),
+                    TokenType.QuoteMarker => new Quoted(ParseTokens(tokens)),
+                    TokenType.QuasiquoteMarker => new Quasiquoted(ParseTokens(tokens)),
+                    TokenType.UnquoteMarker => new Unquoted(ParseTokens(tokens)),
+                    TokenType.UnquoteSplicingMarker => new UnquoteSpliced(ParseTokens(tokens)),
+                    TokenType.Ellipsis => Symbol.Ellipsis,
 
                     TokenType.Symbol => Symbol.Ize(current.Text),
-                    TokenType.Number => new Number(double.Parse(current.Text)),
+                    TokenType.Number => new Number(int.Parse(current.Text)),
                     TokenType.Boolean => Boolean.Judge(current.Text == Boolean.True.ToString()),
 
                     TokenType.Error => Expression.Error,
 
-                    _ => throw new ParsingException($"Unknown token type {current.TType}")
+                    _ => throw new ParsingException($"Unknown token type {current.TType}", current)
                 };
             }
         }
 
         private static Expression ParseList(Stack<Token> tokens)
         {
-
             if (tokens.Peek().TType == TokenType.DotMarker)
             {
-                throw new ParsingException("Expected Car arg of dotted pair");
+                throw new ParsingException("Expected Car of dotted pair", tokens.Peek());
             }
 
-            Stack<Expression> newList = new();
-            bool proper = true;
+            List<Expression> exprs = new List<Expression>();
+            bool specialTerminator = false;
 
-            while (tokens.Peek().TType != TokenType.RightParen && tokens.Peek().TType != TokenType.DotMarker)
+            while (tokens.Peek().TType != TokenType.RightParen
+                && tokens.Peek().TType != TokenType.DotMarker
+                && tokens.Peek().TType != TokenType.Ellipsis)
             {
-                newList.Push(ParseStack(tokens));
+                exprs.Add(ParseTokens(tokens));
             }
 
-            if (tokens.Peek().TType == TokenType.DotMarker)
+            if (tokens.Peek().TType != TokenType.RightParen)
             {
-                proper = false;
-                tokens.Pop(); //remove dot marker
-                //newList.Push(Pair.Cons(newList.Pop(), ParseStack(ref tokens))); //combine last two items into pair
-                newList.Push(ParseStack(tokens)); //grab the rest
+                specialTerminator = true;
+
+                if (tokens.Peek().TType == TokenType.DotMarker)
+                {
+                    tokens.Pop(); //remove dot marker
+                    exprs.Add(ParseTokens(tokens)); //grab the rest
+                }
+                else //it must be an ellipsis
+                {
+                    tokens.Pop();
+                    //convert the last item in the list to an elliptic pattern
+                    exprs[exprs.Count - 1] = new EllipticPattern(exprs[exprs.Count - 1]);
+                }
 
                 if (tokens.Peek().TType != TokenType.RightParen)
                 {
-                    throw new ParsingException("Expected ')' following dotted pair");
+                    throw new ParsingException("Expected ')' after list-terminating structure", tokens.Peek());
                 }
             }
 
             tokens.Pop(); //remove right paren
 
-            Expression[] exprs = newList.Reverse().ToArray();
+            return specialTerminator
+                ? Pair.MakeImproperList(exprs.ToArray())
+                : Pair.MakeList(exprs.ToArray());
+        }
 
-            return proper
-                ? Pair.List(exprs)
-                : Pair.ListStar(exprs);
+        private static Expression ParseVector(Stack<Token> tokens)
+        {
+            List<Expression> newList = new();
 
-            //if (exprs.Length > 0 && exprs[0] is Symbol sym && SpecialForm.IsSpecialKeyword(sym))
-            //{
-            //    return SpecialForm.CreateForm(sym, exprs[1..]);
-            //}
-            //else
-            //{
-            //    return Pair.ConstructLinked(exprs);
-            //}
+            while (tokens.Peek().TType != TokenType.RightParen)
+            {
+                newList.Add(ParseTokens(tokens));
+            }
+
+            tokens.Pop(); //remove right paren
+
+            return Vector.MkVector(newList.ToArray());
         }
 
     }

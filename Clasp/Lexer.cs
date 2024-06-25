@@ -6,6 +6,7 @@ namespace Clasp
     {
         private static readonly string[] _regexes = new string[]
         {
+            rgx(TokenType.VecParen, @"\#\("),
             rgx(TokenType.LeftParen, @"\("),
             rgx(TokenType.RightParen, @"\)"),
             rgx(TokenType.QuoteMarker, @"\'"),
@@ -33,8 +34,20 @@ namespace Clasp
                 throw new LexingException($"Missing one or more {(lParens < rParens ? "L-parens" : "R-parens")}");
             }
 
-            return Regex.Matches(input, _grammar)
-                .Select(x => Token.Tokenize(getGroupName(x.Groups), x.Value, x.Index));
+            IEnumerable<string> lines = input.Split(System.Environment.NewLine);
+            int lineNo = 1;
+
+            List<Token> output = new List<Token>();
+
+            foreach(string line in lines)
+            {
+                var newTokens = Regex.Matches(line, _grammar)
+                    .Select(x => Token.Tokenize(getGroupName(x.Groups), x.Value, lineNo, x.Index + 1));
+                output.AddRange(newTokens);
+                lineNo++;
+            }
+
+            return output;
         }
 
         private static string getGroupName(GroupCollection groups)
@@ -49,20 +62,22 @@ namespace Clasp
         public readonly string Text;
         public readonly TokenType TType;
         public readonly int SourceIndex;
+        public readonly int SourceLine;
 
-        protected Token(string s, TokenType t, int index)
+        protected Token(string s, TokenType t, int line, int index)
         {
             Text = s;
             TType = t;
             SourceIndex = index;
+            SourceLine = line;
         }
 
-        public static Token Tokenize(string patternName, string s, int index)
+        public static Token Tokenize(string patternName, string s, int line, int index)
         {
-            return new Token(s, _reverseLookup[patternName], index);
+            return new Token(s, _reverseLookup[patternName], line, index);
         }
 
-        public override string ToString() => $"{{{Text}}}";
+        public override string ToString() => $"[{Text}]";
 
         private static readonly Dictionary<string, TokenType> _reverseLookup =
             Enum.GetValues<TokenType>()
@@ -73,7 +88,7 @@ namespace Clasp
 
     internal enum TokenType
     {
-        LeftParen, RightParen,
+        LeftParen, RightParen, VecParen,
         Symbol, Number, Boolean,
         QuoteMarker, DotMarker,
         QuasiquoteMarker, UnquoteMarker, UnquoteSplicingMarker, Ellipsis,

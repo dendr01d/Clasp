@@ -15,8 +15,8 @@ namespace Clasp
         #region Dictionary Access
 
         public abstract Expression LookUp(Symbol sym);
-        public abstract void SetBang(Symbol sym, Expression def);
-        public void Define(Symbol sym, Expression def)
+        public abstract void RebindExisting(Symbol sym, Expression def);
+        public void BindNew(Symbol sym, Expression def)
         {
             if (_bindings.ContainsKey(sym.Name))
             {
@@ -59,7 +59,12 @@ namespace Clasp
         //    }
         //}
 
-        public bool Unifies(Expression form, Expression pattern)
+        /// <summary>
+        /// Attempts to unify the two expressions by recursively binding elements of <paramref name="form"/>
+        /// to symbols in <paramref name="pattern"/>. Returns true if unification succeeds. May mutate the environment
+        /// even when unification does NOT succeed.
+        /// </summary>
+        public bool TryUnify(Expression form, Expression pattern)
         {
             return Unify(form, pattern, false);
         }
@@ -76,59 +81,61 @@ namespace Clasp
 
         private bool Unify(Expression form, Expression pattern, bool trailingContext)
         {
+            return pattern switch
+            {
+                Symbol s => UnifyWithSymbol(form, s, trailingContext),
+                Pair p => UnifyWithPair(form, p, trailingContext),
+                _ => Expression.Pred_Equal(form, pattern)
+            };
+        }
+
+        private bool UnifyWithSymbol(Expression form, Symbol pattern, bool trailingContext)
+        {
             if (pattern == Symbol.Underscore)
             {
                 return true;
             }
-            else if (pattern is Symbol sym)
+            else if (trailingContext)
             {
-                if (trailingContext)
-                {
-                    BindOrAppendLast(sym, form);
-                    return true;
-                }
-                else if (HasBound(sym))
-                {
-                    return Expression.Pred_Equal(this.LookUp(sym), form);
-                }
-                else
-                {
-                    Define(sym, form);
-                    return true;
-                }
+                RebindExisting(pattern, Pair.AppendLast(LookUp(pattern), form));
+                return true;
             }
-            else if (pattern is Pair p)
+            else if (HasBound(pattern))
             {
-                if (p.Car == Symbol.Quote && p.Cdr is Pair p2)
-                {
-                    return Expression.Pred_Eq(p2.Car, form);
-                }
-                else if (p.Cdr is Pair p3 && p3.Car == Symbol.Ellipsis && p3.Cdr.IsNil)
-                {
-                    InitializeListBindings(p.Car);
-                    return UnifyTrailing(form, p.Car);
-                }
-                else if (form is Pair f)
-                {
-                    return Unify(f.Car, p.Car, trailingContext)
-                        && Unify(f.Cdr, p.Cdr, trailingContext);
-                }
-                else
-                {
-                    return false;
-                }
+                return Expression.Pred_Equal(LookUp(pattern), form);
             }
             else
             {
-                return Expression.Pred_Equal(form, pattern);
+                BindNew(pattern, form);
+                return true;
             }
+        }
+
+        private bool UnifyWithPair(Expression form, Pair pattern, bool trailingContext)
+        {
+            if (pattern is Quoted quoted)
+            {
+                return Expression.Pred_Eq(quoted.TaggedValue, form);
+            }
+            else if (pattern is EllipticPattern elliptic)
+            {
+                InitializeListBindings(elliptic.TaggedValue);
+                return UnifyTrailing(form, elliptic.TaggedValue);
+            }
+            else if (form is Pair f)
+            {
+                return Unify(f.Car, pattern.Car, trailingContext)
+                    && Unify(f.Cdr, pattern.Cdr, trailingContext);
+            }
+
+            return false;
         }
 
         private void InitializeListBindings(Expression pattern)
         {
-            if (pattern is Symbol sym)
+            if (pattern is Symbol sym && sym != Symbol.Underscore)
             {
-                Define(sym, Expression.Nil);
+                BindNew(sym, Expression.Nil);
             }
             else if (pattern is Pair p)
             {
@@ -143,11 +150,6 @@ namespace Clasp
                 ? true
                 : Unify(form.Car, pattern, true)
                     && UnifyTrailing(form.Cdr, pattern);
-        }
-
-        private void BindOrAppendLast(Symbol key, Expression def)
-        {
-            SetBang(key, Pair.AppendLast(LookUp(key), def));
         }
 
         #endregion
@@ -172,7 +174,7 @@ namespace Clasp
             }
         }
 
-        public override void SetBang(Symbol sym, Expression def)
+        public override void RebindExisting(Symbol sym, Expression def)
         {
             if (_bindings.ContainsKey(sym.Name))
             {
@@ -191,17 +193,25 @@ namespace Clasp
             return new GlobalEnvironment();
         }
 
+        private const string _STD_LIBRARY = @".\StdLibrary.scm";
+
         public static Environment Standard()
         {
             GlobalEnvironment ge = new GlobalEnvironment();
             foreach(var def in PrimitiveProcedure.NativeOps)
             {
-                ge.Define(Symbol.Ize(def.Key), def.Value);
+                ge.BindNew(Symbol.Ize(def.Key), def.Value);
             }
 
-            foreach(var def in CompoundProcedure.DerivedOps)
+            if (File.Exists(_STD_LIBRARY))
             {
-                ge.Define(Symbol.Ize(def.Key), Evaluator.Evaluate(Parser.Parse(def.Value), ge));
+                Expression fileContents = Parser.ParseFile(_STD_LIBRARY);
+
+                while (!fileContents.IsNil)
+                {
+                    Evaluator.Evaluate(fileContents.Car, ge);
+                    fileContents = fileContents.Cdr;
+                }
             }
 
             return ge.Close();
@@ -231,7 +241,7 @@ namespace Clasp
             }
         }
 
-        public override void SetBang(Symbol sym, Expression def)
+        public override void RebindExisting(Symbol sym, Expression def)
         {
             if (_bindings.ContainsKey(sym.Name))
             {
@@ -239,7 +249,7 @@ namespace Clasp
             }
             else
             {
-                _ancestor.SetBang(sym, def);
+                _ancestor.RebindExisting(sym, def);
             }
         }
         public override int CountBindings() => _bindings.Count() + _ancestor.CountBindings();

@@ -14,34 +14,27 @@ namespace Clasp
         {
             Machine mx = new Machine(expr, env, Eval_Dispatch);
 
-            PrintStep(cout, pauseEachStep, "Start", mx);
+            PrintStep(cout, pauseEachStep, "Start", 0, mx);
+            int step = 1;
 
             while(mx.GoTo is not null)
             {
-                try
-                {
-                    string stepName = mx.GoingTo; //capture before the machine executes
-                    mx.GoTo.Invoke(mx);
-                    PrintStep(cout, pauseEachStep, stepName, mx);
-                }
-                catch (Exception ex)
-                {
-                    PrintError(cout, mx.GoingTo, mx, ex);
-                    return Expression.Error;
-                }
+                string stepName = mx.GoingTo; //capture before the machine executes
+                mx.GoTo.Invoke(mx);
+                PrintStep(cout, pauseEachStep, stepName, step++, mx);
             }
 
-            PrintStep(cout, pauseEachStep, "Final Result", null);
+            PrintStep(cout, pauseEachStep, "Final Result", step, null);
 
             return mx.Val ?? Expression.Error;
         }
 
-        private static void PrintStep(TextWriter? tw, bool pause, string stepName, Machine? mx)
+        private static void PrintStep(TextWriter? tw, bool pause, string stepName, int stepNum, Machine? mx)
         {
             if (tw is not null)
             {
                 tw.WriteLine(new string('_', 60));
-                tw.WriteLine($"Step '{stepName}'");
+                tw.WriteLine($"Step #{stepNum} - '{stepName}'");
                 tw.WriteLine();
                 mx?.Print(tw);
 
@@ -105,10 +98,6 @@ namespace Clasp
                         "begin" => Eval_Begin,
 
                         "match" => Eval_Match,
-                        //"cond" => Eval_Cond,
-                        //"let" => Eval_Let,
-                        //"and" => Eval_And,
-                        //"or" => Eval_Or,
                         _ => Eval_Application
                     };
                 }
@@ -247,7 +236,7 @@ namespace Clasp
         {
             if (mx.Exp.IsAtom)
             {
-                mx.Assign_Val(Pair.List(mx.Exp));
+                mx.Assign_Val(Pair.MakeList(mx.Exp));
                 mx.GoTo_Continue();
             }
             else if (mx.Exp.Car == Symbol.Quasiquote)
@@ -282,16 +271,9 @@ namespace Clasp
             }
         }
 
-        //private static void Expand_List_Nested(Machine mx)
-        //{
-        //    mx.Restore_Continue();
-        //    mx.Assign_Exp(mx.Val);
-        //    mx.Assign_GoTo(Expand_List_Dispatch);
-        //}
-
         private static void Expand_List_Result(Machine mx)
         {
-            mx.Assign_Val(Pair.List(mx.Val));
+            mx.Assign_Val(Pair.MakeList(mx.Val));
             mx.Restore_Continue();
             mx.GoTo_Continue();
         }
@@ -417,7 +399,7 @@ namespace Clasp
 
         #endregion
 
-        #region Primitive & Compound Procedure Application
+        #region Procedure Application
 
         private static void Apply_Dispatch(Machine mx)
         {
@@ -478,11 +460,11 @@ namespace Clasp
             {
                 if (mx.Unev.IsAtom)
                 {
-                    mx.Env.Define(mx.Unev.Expect<Symbol>(), mx.Argl);
+                    mx.Env.BindNew(mx.Unev.Expect<Symbol>(), mx.Argl);
                 }
                 else
                 {
-                    mx.Env.Define(mx.Unev.Car.Expect<Symbol>(), mx.Argl.Car);
+                    mx.Env.BindNew(mx.Unev.Car.Expect<Symbol>(), mx.Argl.Car);
                 }
 
                 mx.NextUnev();
@@ -513,7 +495,7 @@ namespace Clasp
             {
                 mx.EnterNewScope();
 
-                if (mx.Env.Unifies(mx.Exp.Cdr, mx.Unev.Car.Car.Cdr))
+                if (mx.Env.TryUnify(mx.Exp.Cdr, mx.Unev.Car.Car.Cdr))
                 {
                     mx.Assign_Unev(mx.Unev.Car.Cdr.Expect<Pair>());
 
@@ -621,12 +603,6 @@ namespace Clasp
 
         #endregion
 
-        #region Pattern Matching
-
-
-
-        #endregion
-
         #region Variable Assignment & Definition
 
         private static void Eval_Define(Machine mx)
@@ -634,13 +610,13 @@ namespace Clasp
             if (!mx.Exp.Cadr.IsAtom)
             {
                 //rewrite into a lambda
-                mx.Assign_Exp(Pair.List(
+                mx.Assign_Exp(Pair.MakeList(
                     mx.Exp.Car, //define
-                    mx.Exp.Cadar, //name of function
-                    Pair.List(
+                    mx.Exp.Cadr.Car, //name of function
+                    Pair.MakeImproperList(
                         Symbol.Lambda,
                         mx.Exp.Cadr.Cdr,
-                        mx.Exp.Caddr)));
+                        mx.Exp.Cddr)));
             }
 
             mx.Assign_GoTo(Eval_Definition);
@@ -666,7 +642,7 @@ namespace Clasp
             mx.LeaveScope();
             mx.Restore_Unev();
 
-            mx.Env.Define(mx.Unev.Expect<Symbol>(), mx.Val);
+            mx.Env.BindNew(mx.Unev.Expect<Symbol>(), mx.Val);
 
             mx.Assign_Val(Symbol.Ok);
             mx.GoTo_Continue();
@@ -676,9 +652,11 @@ namespace Clasp
 
         private static void Eval_DefMacro(Machine mx)
         {
-            mx.Env.Define(
-                mx.Exp.Cadr.Expect<Symbol>(),
+            Symbol name = mx.Exp.Cadr.Expect<Symbol>();
+            mx.Env.BindNew(
+                name,
                 new Macro(
+                    name.Name,
                     mx.Exp.Cddr.Expect<Pair>(),
                     mx.Env));
 
@@ -708,7 +686,7 @@ namespace Clasp
             mx.LeaveScope();
             mx.Restore_Unev();
 
-            mx.Env.SetBang(mx.Unev.Expect<Symbol>(), mx.Val);
+            mx.Env.RebindExisting(mx.Unev.Expect<Symbol>(), mx.Val);
 
             mx.Assign_Val(Symbol.Ok);
             mx.GoTo_Continue();
@@ -722,10 +700,10 @@ namespace Clasp
         {
             mx.Save_Continue();
 
-            mx.Assign_Argl(mx.Exp.Caddr.Expect<Pair>()); //pattern
+            mx.Assign_Argl(mx.Exp.Caddr); //pattern
             mx.Save_Argl();
 
-            mx.Assign_Unev(mx.Exp.Cdddr.Expect<Pair>()); //body
+            mx.Assign_Unev(mx.Exp.Cdddr); //body
             mx.Save_Unev();
 
             mx.Assign_Exp(mx.Exp.Cadr); //exp
@@ -741,7 +719,7 @@ namespace Clasp
 
             mx.EnterNewScope();
 
-            if (mx.Env.Unifies(mx.Val, mx.Argl))
+            if (mx.Env.TryUnify(mx.Val, mx.Argl))
             {
                 if (mx.Unev.IsNil)
                 {
