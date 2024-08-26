@@ -48,15 +48,6 @@
             };
         }
 
-        //left fold
-        //not necessary unto itself, but helpful for certain arithmetic operators
-        public static Expression Fold(Func<Expression, Expression, Expression> op, Expression init, Expression ls)
-        {
-            return ls.IsNil
-                ? init
-                : Fold(op, op(init, ls.Car), ls.Cdr);
-        }
-
         public static Expression Append(Expression ls, Expression t)
         {
             return ls.IsNil
@@ -79,6 +70,53 @@
         //            ? Boolean.True
         //            : Member(ls.Cdr, e);
         //}
+
+        #endregion
+
+        #region Helper Functions
+
+        //left fold
+        //not necessary unto itself, but helpful for certain arithmetic operators
+        public static Expression Fold(Func<Expression, Expression, Expression> op, Expression init, Expression ls)
+        {
+            return ls.IsNil
+                ? init
+                : Fold(op, op(init, ls.Car), ls.Cdr);
+        }
+
+        public static bool Memq(Expression obj, Expression ls)
+        {
+            if (ls.IsNil)
+            {
+                return false;
+            }
+            else if (ls.Car == obj) //ref equality, i.e. eq
+            {
+                return true;
+            }
+            else
+            {
+                return Memq(obj, ls.Cdr);
+            }
+        }
+
+        public static IEnumerable<Expression> Enumerate(Expression expr)
+        {
+            if (expr.IsNil)
+            {
+                yield break;
+            }
+            else if (expr is Pair p)
+            {
+                yield return p.Car;
+                foreach (Expression e in Enumerate(p.Cdr)) yield return e;
+            }
+            else
+            {
+                yield return expr;
+            }
+        }
+
 
         #endregion
 
