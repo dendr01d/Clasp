@@ -28,7 +28,8 @@ namespace Clasp
             }
         }
 
-        public bool HasBound(Symbol sym) => _bindings.ContainsKey(sym.Name);
+        public abstract bool HasBound(Symbol sym);
+        public bool HasLocal(Symbol sym) => _bindings.ContainsKey(sym.Name);
 
         //public Environment DefineMany(Pair keys, Pair values)
         //{
@@ -64,10 +65,6 @@ namespace Clasp
         /// to symbols in <paramref name="pattern"/>. Returns true if unification succeeds. May mutate the environment
         /// even when unification does NOT succeed.
         /// </summary>
-        public bool TryUnify(Expression form, Expression pattern)
-        {
-            return Unify(form, pattern, false);
-        }
 
         public abstract int CountBindings();
         public Frame Close()
@@ -76,6 +73,82 @@ namespace Clasp
         }
 
         #endregion
+
+        #region Secret Methods
+
+        /// <summary>
+        /// Copy the bindings from <paramref name="enriched"/> to this environment. If bindings already exist,
+        /// append the new definitions to the old ones to form a list.
+        /// </summary>
+        public void SubsumeAndAppend(Environment enriched)
+        {
+            foreach(var binding in enriched._bindings)
+            {
+                if (_bindings.TryGetValue(binding.Key, out Expression? extant))
+                {
+                    _bindings[binding.Key] = Pair.AppendLast(extant, binding.Value);
+                }
+                else
+                {
+                    _bindings[binding.Key] = binding.Value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Check to see if all the keys provided are bound to nil
+        /// </summary>
+        public bool AllKeysExhausted(IEnumerable<Symbol> keys)
+        {
+            return keys.All(x => _bindings.TryGetValue(x.Name, out Expression? def) && def.IsNil);
+        }
+
+        /// <summary>
+        /// Attempt to create a new environment where the specified keys are rebound to the cars
+        /// of their current binding values. The current environment will be mutated. The method 
+        /// fails if any of the keys are not bound to list values.
+        public bool TryBumpBindings(IEnumerable<Symbol> keys, out Environment output)
+        {
+            output = Close();
+
+            foreach(Symbol key in keys)
+            {
+                if (_bindings.TryGetValue(key.Name, out Expression? def)
+                    && def is Pair p)
+                {
+                    output.BindNew(key, p.Car);
+                    _bindings[key.Name] = p.Cdr;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Create a closure of this environment that replicates the bindings of the specified keys.
+        /// i.e. create a subset-copy of the environment you can fuck up withour remorse.
+        /// </summary>
+        public Environment DescendAndCopy(IEnumerable<Symbol> keys)
+        {
+            Environment output = Close();
+
+            foreach(Symbol key in keys)
+            {
+                if (_bindings.TryGetValue(key.Name, out Expression? value))
+                {
+                    output.BindNew(key, value);
+                }
+            }
+
+            return output;
+        }
+
+        #endregion
+
 
         #region Pattern Unification
 
@@ -186,6 +259,8 @@ namespace Clasp
             }
         }
 
+        public override bool HasBound(Symbol sym) => HasLocal(sym);
+
         public override int CountBindings() => _bindings.Count();
 
         public static Environment Empty()
@@ -252,6 +327,9 @@ namespace Clasp
                 _ancestor.RebindExisting(sym, def);
             }
         }
+
+        public override bool HasBound(Symbol sym) => HasLocal(sym) || _ancestor.HasBound(sym);
+
         public override int CountBindings() => _bindings.Count() + _ancestor.CountBindings();
     }
 }
