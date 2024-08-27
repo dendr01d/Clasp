@@ -158,7 +158,7 @@ namespace Clasp
             {
                 Symbol s => UnifyWithSymbol(form, s, trailingContext),
                 Pair p => UnifyWithPair(form, p, trailingContext),
-                _ => form.Equal(pattern)
+                _ => form.Equal_q(pattern)
             };
         }
 
@@ -175,7 +175,7 @@ namespace Clasp
             }
             else if (HasBound(pattern))
             {
-                return LookUp(pattern).Equal(form);
+                return LookUp(pattern).Equal_q(form);
             }
             else
             {
@@ -188,7 +188,7 @@ namespace Clasp
         {
             if (pattern is Quoted quoted)
             {
-                return quoted.TaggedValue.Equal(form);
+                return quoted.TaggedValue.Equal_q(form);
             }
             else if (pattern is EllipticPattern elliptic)
             {

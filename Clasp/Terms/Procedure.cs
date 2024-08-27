@@ -101,9 +101,9 @@ namespace Clasp
             Define(">", SimpleNum.GreatherThan);
 
             //object equivalence
-            Define("eq?", p => p.Car.Eq(p.Cadr));
-            Define("eqv?", p => p.Car.Eqv(p.Cadr));
-            Define("equal?", p => p.Car.Equal(p.Cadr));
+            Define("eq?", p => p.Car.Eq_q(p.Cadr));
+            Define("eqv?", p => p.Car.Eqv_q(p.Cadr));
+            Define("equal?", p => p.Car.Equal_q(p.Cadr));
 
             //type predicates
             Define("atom?", x => x.IsAtom);
