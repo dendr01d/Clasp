@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Clasp
 {
@@ -62,11 +63,11 @@ namespace Clasp
         private static void Define(string name, Func<bool, bool, bool> op)
             => Define(name, (a, b) => Boolean.Judge(op(a.IsTrue, b.IsTrue)));
 
-        private static void Define(string name, Func<decimal, decimal, decimal> op)
-            => Define(name, (a, b) => new PrimitiveNumber(op(a.Expect<PrimitiveNumber>().Value, b.Expect<PrimitiveNumber>().Value)));
+        private static void Define(string name, Func<SimpleNum, SimpleNum, SimpleNum> op)
+            => Define(name, (x, y) => op(x.Expect<SimpleNum>(), y.Expect<SimpleNum>()));
 
-        private static void Define(string name, Func<decimal, decimal, bool> op)
-            => Define(name, p => Boolean.Judge(op(p.Car.Expect<PrimitiveNumber>().Value, p.Cadr.Expect<PrimitiveNumber>().Value)));
+        private static void Define(string name, Func<SimpleNum, SimpleNum, Boolean> op)
+            => Define(name, (x, y) => op(x.Expect<SimpleNum>(), y.Expect<SimpleNum>()));
 
         #endregion
 
@@ -83,24 +84,26 @@ namespace Clasp
             Define("set-cdr", p => p.Car.SetCdr(p.Cadr));
 
             //arithmetic ops
-            Define("+", p => Pair.Fold((a, b) => new PrimitiveNumber(a.Expect<PrimitiveNumber>().Value + b.Expect<PrimitiveNumber>().Value), PrimitiveNumber.Zero, p));
+            Define("+", p => Pair.Fold((x, y) => SimpleNum.Add(x.Expect<SimpleNum>(), y.Expect<SimpleNum>()), SimpleNum.Zero, p));
             Define("-", p => p.Cdr.IsNil
-                ? new PrimitiveNumber(p.Car.Expect<PrimitiveNumber>().Value * -1)
-                : new PrimitiveNumber(p.Car.Expect<PrimitiveNumber>().Value - p.Cadr.Expect<PrimitiveNumber>().Value));
-            Define("*", p => Pair.Fold((a, b) => new PrimitiveNumber(a.Expect<PrimitiveNumber>().Value * b.Expect<PrimitiveNumber>().Value), PrimitiveNumber.One, p));
-            Define("quotient", (a, b) => a / b);
-            Define("modulo", (a, b) => a % b);
+                ? SimpleNum.Negate(p.Car.Expect<SimpleNum>())
+                : SimpleNum.Subtract(p.Car.Expect<SimpleNum>(), p.Cadr.Expect<SimpleNum>()));
+            Define("*", p => Pair.Fold((x, y) => SimpleNum.Multiply(x.Expect<SimpleNum>(), y.Expect<SimpleNum>()), SimpleNum.One, p));
+            Define("quotient", SimpleNum.Quotient);
+            Define("div", SimpleNum.IntDiv);
+            Define("modulo", SimpleNum.Modulo);
+            Define("expt", SimpleNum.Exponent);
+
+            //ordering/comparison
+            Define("<", SimpleNum.LessThan);
+            Define("<=", SimpleNum.Leq);
+            Define(">=", SimpleNum.Geq);
+            Define(">", SimpleNum.GreatherThan);
 
             //object equivalence
             Define("eq?", p => p.Car.Eq(p.Cadr));
             Define("eqv?", p => p.Car.Eqv(p.Cadr));
             Define("equal?", p => p.Car.Equal(p.Cadr));
-
-            //ordering/comparison
-            Define("<", (a, b) => a < b);
-            Define("<=", (a, b) => a <= b);
-            Define(">=", (a, b) => a >= b);
-            Define(">", (a, b) => a > b);
 
             //type predicates
             Define("atom?", x => x.IsAtom);
@@ -110,7 +113,7 @@ namespace Clasp
             Define("procedure?", x => x is Procedure or SpecialFormRef);
             Define("vector?", x => x is Vector);
             Define("boolean?", x => x is Boolean);
-            Define("number?", x => x is PrimitiveNumber);
+            Define("number?", x => x is SimpleNum);
         }
 
         #endregion
@@ -119,12 +122,14 @@ namespace Clasp
     internal class Macro : Procedure
     {
         private readonly string _name;
+        public readonly Expression LiteralSymbols;
         public readonly Pair Transformers;
         public readonly Environment Closure;
 
-        public Macro(string name, Pair transformers, Environment closure)
+        public Macro(string name, Expression literals, Pair transformers, Environment closure)
         {
             _name = name;
+            LiteralSymbols = literals;
             Transformers = transformers;
             Closure = closure;
         }
@@ -132,5 +137,21 @@ namespace Clasp
         public override string ToPrinted() => $"[macro '{_name}']";
         public override string ToSerialized() => throw new NotImplementedException(); //idk lol
 
+    }
+
+    internal class fLambda : Procedure
+    {
+        public readonly Expression Parameters;
+        public readonly Environment Closure;
+        public readonly Expression Body;
+        public fLambda(Pair parameters, Environment closure, Expression body)
+        {
+            Parameters = parameters;
+            Closure = closure;
+            Body = body;
+        }
+
+        public override string ToPrinted() => $"<ƒlambda {Parameters} {Body}>";
+        public override string ToSerialized() => Pair.MakeList(Symbol.Flambda, Parameters, Body).ToSerialized();
     }
 }
