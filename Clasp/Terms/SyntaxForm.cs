@@ -10,6 +10,12 @@ namespace Clasp
     using EnvBinding = KeyValuePair<Symbol, Tuple<int, Expression>>;
     using RecDef = Tuple<int, Expression>;
 
+    using EnvPrime = Tuple<IEnumerable<KeyValuePair<Symbol, int>>, IEnumerable<KeyValuePair<Symbol, Func<Expression, Expression>>>>;
+    using LvlEnv = IEnumerable<KeyValuePair<Symbol, int>>;
+    using LvlBinding = KeyValuePair<Symbol, int>;
+    using FunEnv = IEnumerable<KeyValuePair<Symbol, Func<Expression, Expression>>>;
+    using FunBinding = KeyValuePair<Symbol, Func<Expression, Expression>>;
+
     internal static class Env_Helper
     {
         public static Env MakeEmpty() => Array.Empty<EnvBinding>();
@@ -89,6 +95,60 @@ namespace Clasp
         }
     }
 
+    internal static class EnvPrime_Helper
+    {
+        public static bool TryLookup(this EnvPrime rho, Symbol key, out LvlBinding def1, out FunBinding def2)
+        {
+            if (rho.Item1.FirstOrDefault(x => x.Key == key) is LvlBinding lb
+                && !lb.Equals(default(LvlBinding))
+                && rho.Item2.FirstOrDefault(x => x.Key == key) is FunBinding fb
+                && !fb.Equals(default(FunBinding)))
+            {
+                def1 = lb;
+                def2 = fb;
+                return true;
+            }
+
+            def1 = default;
+            def2 = default;
+            return false;
+        }
+
+        public static Tuple<LvlBinding, FunBinding> Lookup(this EnvPrime rho, Symbol key)
+        {
+            if (TryLookup(rho, key, out LvlBinding lb, out FunBinding fb))
+            {
+                return new(lb, fb);
+            }
+
+            throw new Exception($"Key '{key}' isn't contained in Env {rho.Print()}");
+        }
+
+        public static string Print(this EnvPrime rho)
+        {
+            StringBuilder sb = new StringBuilder().AppendLine("Env {");
+
+            int keyWidth = rho.Item1.Select(x => x.Key).Union(rho.Item2.Select(y => y.Key)).Max(x => x.Name.Length);
+
+            foreach(LvlBinding lb in rho.Item1)
+            {
+                sb.Append(string.Format("\t{0," + keyWidth.ToString() + "} --> ", lb.Key.Name));
+                sb.AppendLine(lb.Value.ToString());
+            }
+
+            sb.AppendLine();
+
+            foreach (FunBinding fb in rho.Item2)
+            {
+                sb.Append(string.Format("\t{0," + keyWidth.ToString() + "} --> ", fb.Key.Name));
+                sb.AppendLine(fb.Value.Method.Name);
+            }
+
+            sb.AppendLine("}");
+            return sb.ToString();
+        }
+    }
+
     internal sealed class SyntaxRule : Expression
     {
         public readonly SyntaxForm Pattern;
@@ -146,6 +206,10 @@ namespace Clasp
         public abstract Env Delta(Expression s);
         public abstract Expression Tau(Env rho);
 
+        public EnvPrime DeltaPrime(Expression s) => new EnvPrime(DeltaPrime_1(s), DeltaPrime_2(s));
+        public abstract LvlEnv DeltaPrime_1(Expression s);
+        public abstract FunEnv DeltaPrime_2(Expression s);
+        public abstract Func<Expression, Expression> TauPrime(EnvPrime rho);
 
         public static SyntaxForm ParsePattern(Expression expr)
         {
@@ -222,6 +286,10 @@ namespace Clasp
         public override bool Beta(Expression s) => s.IsNil;
         public override Env Delta(Expression s) => Env_Helper.MakeEmpty();
         public override Expression Tau(Env rho) => Nil;
+
+        public override LvlEnv DeltaPrime_1(Expression s) => Array.Empty<LvlBinding>();
+        public override FunEnv DeltaPrime_2(Expression s) => Array.Empty<FunBinding>();
+        public override Func<Expression, Expression> TauPrime(EnvPrime rho) => s => Nil;
     }
 
     internal sealed class SyntacticIdentifier : SyntaxForm
@@ -253,6 +321,27 @@ namespace Clasp
             else
             {
                 return Identifier;
+            }
+        }
+
+        public override LvlEnv DeltaPrime_1(Expression s) => new Dictionary<Symbol, int>() { { Identifier, 0 } };
+        public override FunEnv DeltaPrime_2(Expression s) => new Dictionary<Symbol, Func<Expression, Expression>>() { { Identifier, x => x } };
+        public override Func<Expression, Expression> TauPrime(EnvPrime rho)
+        {
+            if (rho.TryLookup(Identifier, out LvlBinding lb, out FunBinding fb))
+            {
+                if (lb.Value == 0)
+                {
+                    return fb.Value;
+                }
+                else
+                {
+                    throw new Exception($"Tried to reference key '{Identifier}' with recurrence level {lb.Value} in {rho.Print()}");
+                }
+            }
+            else
+            {
+                return x => Identifier;
             }
         }
     }
@@ -295,6 +384,30 @@ namespace Clasp
         public override Expression Tau(Env rho) => Head is SyntacticRepeating
             ? Pair.Append(Head.Tau(rho), Tail.Tau(rho))
             : Pair.Cons(Head.Tau(rho), Tail.Tau(rho));
+
+        public override LvlEnv DeltaPrime_1(Expression s) => Head.DeltaPrime_1(s.Car).Union(Tail.DeltaPrime_1(s.Cdr));
+        public override FunEnv DeltaPrime_2(Expression s)
+        {
+            Dictionary<Symbol, Func<Expression, Expression>> output = new Dictionary<Symbol, Func<Expression, Expression>>();
+
+            foreach(var hb in Head.DeltaPrime_2(s))
+            {
+                output.Add(hb.Key, x => hb.Value.Invoke(s.Car));
+            }
+
+            foreach(var tb in Tail.DeltaPrime_2(s))
+            {
+                output.Add(tb.Key, x => tb.Value.Invoke(s.Cdr));
+            }
+
+            return output;
+        }
+        public override Func<Expression, Expression> TauPrime(EnvPrime rho)
+        {
+            return s => Head is SyntacticRepeating
+                ? Pair.Append(Head.TauPrime(rho).Invoke(s), Tail.TauPrime(rho).Invoke(s))
+                : Pair.Cons(Head.TauPrime(rho).Invoke(s), Tail.TauPrime(rho).Invoke(s));
+        }
     }
 
     internal sealed class SyntacticRepeating : SyntaxForm
@@ -339,6 +452,20 @@ namespace Clasp
             }
 
         }
+
+        public override LvlEnv DeltaPrime_1(Expression s) => RepeatingTerm.DeltaPrime_1(s).Select(x => new LvlBinding(x.Key, x.Value + 1));
+        public override FunEnv DeltaPrime_2(Expression s)
+        {
+            Dictionary<Symbol, Func<Expression, Expression>> output = new Dictionary<Symbol, Func<Expression, Expression>>();
+
+            foreach (var binding in RepeatingTerm.DeltaPrime_2(s))
+            {
+                output.Add(binding.Key, x => Pair.MakeList(Pair.Enumerate(s).Select(y => binding.Value(y)).ToArray()));
+            }
+
+            return output;
+        }
+        public override Func<Expression, Expression> TauPrime(EnvPrime rho) => throw new NotImplementedException();
     }
 
     internal sealed class SyntacticDatum : SyntaxForm
@@ -355,6 +482,10 @@ namespace Clasp
         public override bool Beta(Expression s) => Datum.Equal_q(s);
         public override Env Delta(Expression s) => Env_Helper.MakeEmpty();
         public override Expression Tau(Env rho) => Datum;
+
+        public override LvlEnv DeltaPrime_1(Expression s) => Array.Empty<LvlBinding>();
+        public override FunEnv DeltaPrime_2(Expression s) => Array.Empty<FunBinding>();
+        public override Func<Expression, Expression> TauPrime(EnvPrime rho) => s => Datum;
     }
 
 }
