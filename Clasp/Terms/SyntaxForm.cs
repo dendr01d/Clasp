@@ -120,20 +120,22 @@ namespace Clasp
                 return false;
             }
         }
+
+        public override Expression Car => throw new NotImplementedException();
+        public override Expression Cdr => throw new NotImplementedException();
+        public override Expression SetCar(Expression expr) => throw new NotImplementedException();
+        public override Expression SetCdr(Expression expr) => throw new NotImplementedException();
+        public override string ToSerialized() => Pair.MakeList(Pattern, Template).ToSerialized();
+        public override string ToPrinted() => Pair.MakeList(Pattern, Template).ToPrinted();
+        public override bool IsAtom => true;
     }
 
     internal abstract class SyntaxForm : Expression
     {
         public override Expression Car => throw new NotImplementedException();
         public override Expression Cdr => throw new NotImplementedException();
-        public override Expression SetCar(Expression expr)
-        {
-            throw new NotImplementedException();
-        }
-        public override Expression SetCdr(Expression expr)
-        {
-            throw new NotImplementedException();
-        }
+        public override Expression SetCar(Expression expr) => throw new NotImplementedException();
+        public override Expression SetCdr(Expression expr) => throw new NotImplementedException();
 
         public override bool IsAtom => false;
 
@@ -215,6 +217,7 @@ namespace Clasp
         public override IEnumerable<Symbol> Identifiers => Array.Empty<Symbol>();
 
         public override string ToSerialized() => "{}";
+        public override string ToPrinted() => Nil.ToPrinted();
 
         public override bool Beta(Expression s) => s.IsNil;
         public override Env Delta(Expression s) => Env_Helper.MakeEmpty();
@@ -230,6 +233,7 @@ namespace Clasp
         public SyntacticIdentifier(Symbol sym) => Identifier = sym;
 
         public override string ToSerialized() => Identifier.ToSerialized();
+        public override string ToPrinted() => Identifier.ToPrinted();
 
         public override bool Beta(Expression s) => true;
         public override Env Delta(Expression s) => Identifier == Symbol.Underscore ? Env_Helper.MakeEmpty() : Env_Helper.MakeSolo(Identifier, s);
@@ -271,6 +275,7 @@ namespace Clasp
         }
 
         public override string ToSerialized() => $"{{{Head.ToSerialized()}{SerializeTail(Tail)}}}";
+        public override string ToPrinted() => Pair.Cons(Head, Tail).ToPrinted();
 
         private static string SerializeTail(SyntaxForm sf)
         {
@@ -301,6 +306,7 @@ namespace Clasp
         public SyntacticRepeating(SyntaxForm rep) => RepeatingTerm = rep;
 
         public override string ToSerialized() => RepeatingTerm.ToSerialized() + " ...";
+        public override string ToPrinted() => RepeatingTerm.ToPrinted() + " ...";
 
         public override bool Beta(Expression s) => s.IsNil || (s is Pair p && RepeatingTerm.Beta(p.Car) && Beta(p.Cdr));
         public override Env Delta(Expression s)
@@ -346,7 +352,7 @@ namespace Clasp
         public override string ToSerialized() => Datum.ToSerialized();
         public override string ToPrinted() => ToSerialized();
 
-        public override bool Beta(Expression s) => Pred_Equal(Datum, s);
+        public override bool Beta(Expression s) => Datum.Equal_q(s);
         public override Env Delta(Expression s) => Env_Helper.MakeEmpty();
         public override Expression Tau(Env rho) => Datum;
     }
