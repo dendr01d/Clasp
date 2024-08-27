@@ -66,7 +66,7 @@ namespace Clasp
             return (e1, e2) switch
             {
                 (Boolean b1, Boolean b2) => b1.Value == b2.Value,
-                (PrimitiveNumber pn1, PrimitiveNumber pn2) => pn1.Value == pn2.Value,
+                (SimpleNum pn1, SimpleNum pn2) => pn1.Value == pn2.Value, 
                 (Character c1, Character c2) => c1.Value == c2.Value,
                 (_, _) => Eq(e1, e2)
             };
