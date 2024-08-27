@@ -12,13 +12,15 @@ namespace Clasp
     internal class CompoundProcedure : Procedure
     {
         public readonly Pair Parameters;
-        public readonly Environment Closure;
         public readonly Expression Body;
+        private readonly Environment _closure;
+
+        public Environment Closure { get => _closure; }
 
         public CompoundProcedure(Pair parameters, Environment closure, Expression body)
         {
             Parameters = parameters;
-            Closure = closure;
+            _closure = closure;
             Body = body;
         }
 
@@ -137,21 +139,5 @@ namespace Clasp
         public override string ToPrinted() => $"[macro '{_name}']";
         public override string ToSerialized() => throw new NotImplementedException(); //idk lol
 
-    }
-
-    internal class fLambda : Procedure
-    {
-        public readonly Expression Parameters;
-        public readonly Environment Closure;
-        public readonly Expression Body;
-        public fLambda(Pair parameters, Environment closure, Expression body)
-        {
-            Parameters = parameters;
-            Closure = closure;
-            Body = body;
-        }
-
-        public override string ToPrinted() => $"<ƒlambda {Parameters} {Body}>";
-        public override string ToSerialized() => Pair.MakeList(Symbol.Flambda, Parameters, Body).ToSerialized();
     }
 }
