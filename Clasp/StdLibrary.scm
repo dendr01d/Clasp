@@ -20,7 +20,25 @@
     (if (null? ls) init (foldl op (op init (car ls)) (cdr ls))))
 (define (foldr op init ls)
     (if (null? ls) init (op (car ls) (foldr op init (cdr ls)))))
-    
+
+(define (member t ls)
+    (cond
+        ((null? ls) #f)
+        ((equal? (car ls) t) ls)
+        (else (member t (cdr ls)))))
+
+(define (memq t ls)
+    (cond
+        ((null? ls) #f)
+        ((eq? (car ls) t) ls)
+        (else (member t (cdr ls)))))
+
+(define (memv t ls)
+    (cond
+        ((null? ls) #f)
+        ((eqv? (car ls) t) ls)
+        (else (member t (cdr ls)))))
+
 (define (reverse ls)
     (cons (reverse (cdr ls)) (list (car ls))))
     
@@ -29,6 +47,9 @@
         ((null? ls) (list t))
         ((null? t) ls)
         (else (cons (car ls) (append (cdr ls) t)))))
+
+(define (mapcar ls fun)
+    (if (null? ls) '() (cons (fun (car ls)) (mapcar (cdr ls) fun))))
 
 ;; Boolean-Logical Extensions
 (define (true? x) (if x #t #f))
@@ -55,6 +76,24 @@
 (defmacro let
     ((_ ((key def) ...) body1 body2 ...)
         `((lambda (,@key) ,body1 ,@body2) ,@def)))
+        
+(defmacro let*
+    ((_ () body1 body2 ...)
+        `(begin ,body1 ,@body2)))
+    ((_ ((key def) more ...) body1 body2 ...)
+        `((lambda (,key) (let* (,@more) ,body1 ,@body2)) ,def))
+
+(defmacro letrec
+    ((_ () body1 body2 ...)
+        `(begin ,body1 ,@body2))
+    ((_ ((keys defs) more ...) body1 body2 ...)
+        `((lambda (,key) ((lambda (,key) (letrec* (,@more) ,body1 ,@body2)) ,def)) ,key)))
+        
+(defmacro letrec*
+    ((_ () body1 body2 ...)
+        `(begin ,body1 ,@body2))
+    ((_ ((key def) more ...) body1 body2 ...)
+        `((lambda (,key) ()) undefined)))
 
 (defmacro or
     ((_ e1) e1)
@@ -78,5 +117,5 @@
     ((_ x ('else body1 body2 ...))
         `(begin ,body1 ,@body2))
     ((_ x ((p1 p2 ...) body1 body2 ...) clauses ...)
-        `(let ((temp ,x)) (if (member? temp (,p1 ,@p2)) (begin ,body1 ,@body2) (case temp ,@clauses))))
+        `(let ((temp ,x)) (if (member temp (,p1 ,@p2)) (begin ,body1 ,@body2) (case temp ,@clauses))))
     ((_) #f))
