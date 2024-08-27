@@ -55,7 +55,7 @@
                     TokenType.Ellipsis => Symbol.Ellipsis,
 
                     TokenType.Symbol => Symbol.Ize(current.Text),
-                    TokenType.Number => new Number(int.Parse(current.Text)),
+                    TokenType.Number => new SimpleNum(decimal.Parse(current.Text)),
                     TokenType.Boolean => Boolean.Judge(current.Text == Boolean.True.ToString()),
 
                     TokenType.Error => Expression.Error,

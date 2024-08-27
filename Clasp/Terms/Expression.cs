@@ -62,7 +62,7 @@ namespace Clasp
         {
             return (e1, e2) switch
             {
-                (Number f1, Number f2) => f1.Value == f2.Value,
+                (SimpleNum f1, SimpleNum f2) => SimpleNum.NumEquals(f1, f2).IsTrue,
                 (Character c1, Character c2) => c1.Value == c2.Value,
                 (_, _) => Pred_Eq(e1, e2)
             };
@@ -88,7 +88,7 @@ namespace Clasp
         public abstract string ToPrinted();
 
         /// <summary>
-        /// Returns a string representing a more "real" representation of the object
+        /// Returns a string that can be parsed back into the expression in question
         /// </summary>
         public abstract string ToSerialized();
     }
