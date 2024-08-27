@@ -6,299 +6,349 @@ using System.Threading.Tasks;
 
 namespace Clasp
 {
+    using Env = IEnumerable<KeyValuePair<Symbol, Tuple<int, Expression>>>;
+    using EnvBinding = KeyValuePair<Symbol, Tuple<int, Expression>>;
+    using RecDef = Tuple<int, Expression>;
+
+    internal static class Env_Helper
+    {
+        public static Env MakeEmpty() => Array.Empty<EnvBinding>();
+        public static Env MakeSolo(Symbol key, Expression def) => new Dictionary<Symbol, RecDef>()
+        {
+            { key, new RecDef(0, def) }
+        };
+
+        public static Dictionary<Symbol, RecDef> ToDictionary(this Env e) => e.ToDictionary(x => x.Key, x => x.Value);
+
+
+        private static readonly EnvBinding _nullBinding = new EnvBinding(Symbol.Underscore, new RecDef(-1, Expression.Nil));
+
+        public static bool TryLookup(this Env rho, Symbol key, out RecDef def)
+        {
+            if (rho.FirstOrDefault(x => x.Key == key, _nullBinding) is EnvBinding eb
+                && !eb.Equals(_nullBinding))
+            {
+                def = eb.Value;
+                return true;
+
+            }
+            def = _nullBinding.Value;
+            return false;
+        }
+
+        public static RecDef Lookup(this Env rho, Symbol key)
+        {
+            if (TryLookup(rho, key, out RecDef def))
+            {
+                return def;
+            }
+
+            throw new Exception($"Key '{key}' isn't contained in Env {rho.Print()}");
+        }
+
+        public static IEnumerable<Env> Decompose(this Env rho)
+        {
+            if (rho.All(x => x.Value.Item2.IsNil)) //stopnow?
+            {
+                return Array.Empty<Env>();
+            }
+            else if (!rho.All(x => x.Value.Item2 is Pair)) //unequal lengths?
+            {
+                throw new Exception($"Variable list lengths in recurrent elements of {rho.Print()}");
+            }
+            else
+            {
+                Env head = rho.Select(x => new EnvBinding(x.Key, Split(y => y.Car, x.Value)));
+                Env rest = rho.Select(x => new EnvBinding(x.Key, new RecDef(x.Value.Item1, x.Value.Item2.Cdr)));
+
+                return new Env[] { head }.Concat(Decompose(rest));
+            }
+        }
+
+        private static RecDef Split(Func<Expression, Expression> fun, RecDef tup)
+        {
+            return tup.Item1 == 0
+                ? tup
+                : new RecDef(tup.Item1 - 1, fun(tup.Item2));
+        }
+
+        public static string Print(this Env rho)
+        {
+            StringBuilder sb = new StringBuilder().AppendLine("Env {");
+
+            int keyWidth = rho.Max(x => x.Key.Name.Length);
+
+            foreach(EnvBinding binding in rho)
+            {
+                sb.Append(string.Format("\t{0," + keyWidth.ToString() + "} --> ", binding.Key.Name));
+                sb.AppendLine($"<{binding.Value.Item1}, {binding.Value.Item2.ToSerialized()}>");
+            }
+
+            sb.AppendLine("}");
+            return sb.ToString();
+        }
+    }
+
+    internal sealed class SyntaxRule : Expression
+    {
+        public readonly SyntaxForm Pattern;
+        public readonly SyntaxForm Template;
+
+        public SyntaxRule(SyntaxForm pat, SyntaxForm tem)
+        {
+            Pattern = pat;
+            Template = tem;
+        }
+
+        public SyntaxRule(Expression pat, Expression tem)
+        {
+            Pattern = SyntaxForm.ParsePattern(pat);
+            Template = SyntaxForm.ParseTemplate(tem);
+        }
+
+        public bool TryTransform(Expression input, Expression literalIDs, out Expression output)
+        {
+            if (Pattern.Beta(input))
+            {
+                Env mid = Pattern.Delta(input);
+                output = Template.Tau(mid);
+                return true;
+            }
+            else
+            {
+                output = Nil;
+                return false;
+            }
+        }
+    }
+
     internal abstract class SyntaxForm : Expression
     {
+        public override Expression Car => throw new NotImplementedException();
+        public override Expression Cdr => throw new NotImplementedException();
+        public override Expression SetCar(Expression expr)
+        {
+            throw new NotImplementedException();
+        }
+        public override Expression SetCdr(Expression expr)
+        {
+            throw new NotImplementedException();
+        }
+
         public override bool IsAtom => false;
-        public override Expression Car => throw new InvalidOperationException();
-        public override Expression Cdr => throw new InvalidOperationException();
-        public override Expression SetCar(Expression expr) => throw new InvalidOperationException();
-        public override Expression SetCdr(Expression expr) => throw new InvalidOperationException();
+
 
         public abstract IEnumerable<Symbol> Identifiers { get; }
 
-        protected static IEnumerable<Symbol> GetIdentifiers(Expression expr)
-        {
-            if (expr is SyntaxForm sf)
-            {
-                return sf.Identifiers;
-            }
-            else
-            {
-                List<Symbol> output = new List<Symbol>();
-                AccumulateIdentifiers(expr, output);
-                return output;
-            }
-        }
+        public abstract bool Beta(Expression s);
+        public abstract Env Delta(Expression s);
+        public abstract Expression Tau(Env rho);
 
-        private static void AccumulateIdentifiers(Expression expr, List<Symbol> destination)
+
+        public static SyntaxForm ParsePattern(Expression expr)
         {
-            if (expr is Symbol sym)
+            if (expr.IsNil)
             {
-                destination.Add(sym);
+                return new SyntacticEmpty();
             }
-            else if (expr is RepeatingTerm rt)
+            else if (expr is Symbol sym)
             {
-                AccumulateIdentifiers(rt.Term, destination);
+                return new SyntacticIdentifier(sym);
             }
             else if (expr is Pair p)
             {
-                AccumulateIdentifiers(p.Car, destination);
-                AccumulateIdentifiers(p.Cdr, destination);
-            }
-        }
-    }
-
-    internal sealed class RepeatingTerm : SyntaxForm
-    {
-        private IEnumerable<Symbol> _identifiers;
-        public readonly Expression Term;
-        public override IEnumerable<Symbol> Identifiers => _identifiers;
-
-        public RepeatingTerm(Expression term)
-        {
-            Term = term;
-            _identifiers = GetIdentifiers(term);
-        }
-
-        public override string ToSerialized() => Term.ToSerialized() + " ...";
-
-        public override string ToPrinted() => $"{{{Term.ToPrinted()} ...}}";
-    }
-
-    internal sealed class SyntaxPattern : SyntaxForm
-    {
-        private readonly List<Symbol> _identifiers;
-        public override IEnumerable<Symbol> Identifiers => _identifiers;
-
-        private Expression _pattern;
-
-        public SyntaxPattern(Expression pattern)
-        {
-            _identifiers = new List<Symbol>();
-            _pattern = ParsePattern(pattern, _identifiers);
-        }
-
-        public override string ToSerialized() => _pattern.ToSerialized();
-        public override string ToPrinted() => ToSerialized();
-
-        #region bullshit
-
-        private static Expression ParsePattern(Expression input, List<Symbol> ids)
-        {
-            if (input is Symbol sym)
-            {
-                ids.Add(sym);
-                return sym;
-            }
-            else if (input is Pair p)
-            {
-                Expression car = ParsePattern(p.Car, ids);
-
                 if (p.Cdr is Pair p2 && p2.Car == Symbol.Ellipsis && p2.Cdr.IsNil)
                 {
-                    return new RepeatingTerm(car);
+                    return new SyntacticRepeating(ParsePattern(p.Car));
                 }
                 else
                 {
-                    Expression cdr = ParsePattern(p.Cdr, ids);
-                    return Pair.Cons(car, cdr);
+                    return new SyntacticPair(
+                        ParsePattern(p.Car),
+                        ParsePattern(p.Cdr));
                 }
             }
             else
             {
-                return input;
+                return new SyntacticDatum(expr);
             }
         }
 
-        public bool TryUnify(Expression input, Expression literalIDs, Environment mutEnv)
+        public static SyntaxForm ParseTemplate(Expression expr)
         {
-            return literalIDs is Pair p
-                && TryUnify(input, _pattern, Pair.Enumerate(p).Select(x => x.Expect<Symbol>()), mutEnv);
-        }
-
-        private static bool TryUnify(Expression input, Expression pattern, IEnumerable<Symbol> literalIDs, Environment mutEnv)
-        {
-            if (pattern is Symbol sym)
+            if (expr.IsNil)
             {
-                if (sym == Symbol.Underscore)
-                {
-                    return true;
-                }
-                else if (literalIDs.Contains(sym))
-                {
-                    return input == sym;
-                }
-                else if (mutEnv.HasLocal(sym))
-                {
-                    return Pred_Equal(mutEnv.LookUp(sym), input);
-                }
-                else
-                {
-                    mutEnv.BindNew(sym, input);
-                    return true;
-                }
+                return new SyntacticEmpty();
             }
-            else if (pattern is RepeatingTerm rep)
+            else if (expr is Symbol sym)
             {
-                Environment listEnv = mutEnv.Close();
-
-                foreach(Symbol pVar in GetIdentifiers(rep))
-                {
-                    listEnv.BindNew(pVar, Expression.Nil); //initialize all pattern variables to "empty" lists
-                }
-
-                while (input is Pair p) //try to incorporate each term of the sequence
-                {
-                    Environment subEnv = listEnv.Close();
-
-                    if (TryUnify(p.Car, rep.Term, literalIDs, subEnv))
-                    {
-                        listEnv.SubsumeAndAppend(subEnv);
-                    }
-                    else
-                    {
-                        return false;
-                    }
-
-                    input = p.Cdr; //iterate
-                }
-
-                if (!input.IsNil) //ellipses can't be applied to improper lists
-                {
-                    return false;
-                }
-                else
-                {
-                    mutEnv.SubsumeAndAppend(listEnv);
-                    return true;
-                }
+                return new SyntacticIdentifier(sym);
             }
-            else if (pattern is Pair patPair)
+            else if (expr is Pair p)
             {
-                return input is Pair iptPair
-                    && TryUnify(iptPair.Car, patPair.Car, literalIDs, mutEnv)
-                    && TryUnify(iptPair.Cdr, patPair.Cdr, literalIDs, mutEnv);
-            }
-            else
-            {
-                return Pred_Equal(input, pattern);
-            }
-        }
-
-        #endregion
-    }
-
-    internal sealed class SyntaxTemplate : SyntaxForm
-    {
-        private readonly List<Symbol> _identifiers;
-        public override IEnumerable<Symbol> Identifiers => _identifiers;
-
-        private Expression _template;
-
-        public SyntaxTemplate(Expression pattern)
-        {
-            _identifiers = new List<Symbol>();
-            _template = ParseTemplate(pattern, _identifiers);
-        }
-
-        public override string ToSerialized() => _template.ToSerialized();
-        public override string ToPrinted() => ToSerialized();
-
-        #region bullshit
-
-        private static Expression ParseTemplate(Expression input, List<Symbol> ids)
-        {
-            if (input is Symbol sym)
-            {
-                ids.Add(sym);
-                return sym;
-            }
-            else if (input is Pair p)
-            {
-                Expression car = ParseTemplate(p.Car, ids);
+                SyntaxForm car = ParseTemplate(p.Car);
 
                 while (p.Cdr is Pair p2 && p2.Car == Symbol.Ellipsis)
                 {
-                    car = new RepeatingTerm(car);
+                    if (car is not SyntacticIdentifier sid || sid.Identifier != Symbol.Ellipsis)
+                    {
+                        car = new SyntacticRepeating(car);
+                    }
+
                     p = p2;
                 }
 
-                Expression cdr = ParseTemplate(p.Cdr, ids);
-
-                return Pair.Cons(car, cdr);
+                SyntaxForm cdr = ParseTemplate(p.Cdr);
+                return new SyntacticPair(car, cdr);
             }
             else
             {
-                return input;
+                return new SyntacticDatum(expr);
             }
         }
 
-        public bool TryExpand(IEnumerable<Symbol> patternVars, Environment context, out Expression result)
-        {
-            return TryExpand(_template, patternVars, context, out result);
-        }
-
-        private static bool TryExpand(Expression template, IEnumerable<Symbol> patternVars, Environment context, out Expression result)
-        {
-            if (template is Symbol sym)
-            {
-                if (!patternVars.Contains(sym)) //literal symbol
-                {
-                    result = sym;
-                    return true;
-                }
-                else if (!context.HasBound(sym)) //unbound pattern var
-                {
-                    result = Nil;
-                    return false;
-                }
-
-                result = context.LookUp(sym); //bound in pattern match
-                return true;
-            }
-            else if (template is RepeatingTerm rep)
-            {
-                List<Expression> seq = new List<Expression>();
-
-                IEnumerable<Symbol> templateVars = GetIdentifiers(rep).Intersect(patternVars);
-
-                Environment listEnv = context.DescendAndCopy(templateVars);
-
-                while (!listEnv.AllKeysExhausted(templateVars))
-                {
-                    if (listEnv.TryBumpBindings(templateVars, out Environment subEnv)
-                        && TryExpand(rep.Term, patternVars, subEnv, out Expression next))
-                    {
-                        seq.Add(next);
-                    }
-                    else
-                    {
-                        result = Nil;
-                        return false;
-                    }
-                }
-
-                result = Pair.MakeList(seq.ToArray());
-                return true;
-            }
-            else if (template is Pair tempPair)
-            {
-                if (TryExpand(tempPair.Car, patternVars, context, out Expression car)
-                    && TryExpand(tempPair.Cdr, patternVars, context, out Expression cdr))
-                {
-                    result = tempPair.Car is RepeatingTerm
-                        ? Pair.Append(car, cdr)
-                        : Pair.Cons(car, cdr);
-                }
-
-                result = Nil;
-                return false;
-            }
-
-            result = template;
-            return true;
-        }
-
-        #endregion
     }
+
+
+    internal sealed class SyntacticEmpty : SyntaxForm
+    {
+        public override IEnumerable<Symbol> Identifiers => Array.Empty<Symbol>();
+
+        public override string ToSerialized() => "{}";
+
+        public override bool Beta(Expression s) => s.IsNil;
+        public override Env Delta(Expression s) => Env_Helper.MakeEmpty();
+        public override Expression Tau(Env rho) => Nil;
+    }
+
+    internal sealed class SyntacticIdentifier : SyntaxForm
+    {
+        public override IEnumerable<Symbol> Identifiers => new Symbol[] { Identifier };
+
+        public readonly Symbol Identifier;
+
+        public SyntacticIdentifier(Symbol sym) => Identifier = sym;
+
+        public override string ToSerialized() => Identifier.ToSerialized();
+
+        public override bool Beta(Expression s) => true;
+        public override Env Delta(Expression s) => Identifier == Symbol.Underscore ? Env_Helper.MakeEmpty() : Env_Helper.MakeSolo(Identifier, s);
+        public override Expression Tau(Env rho)
+        {
+            if (rho.TryLookup(Identifier, out RecDef def))
+            {
+                if (def.Item1 == 0)
+                {
+                    return def.Item2;
+                }
+                else
+                {
+                    throw new Exception($"Tried to reference key '{Identifier}' with recurrence level {def.Item1} in {rho.Print()}");
+                }
+            }
+            else
+            {
+                return Identifier;
+            }
+        }
+    }
+
+    internal sealed class SyntacticPair : SyntaxForm
+    {
+        public override IEnumerable<Symbol> Identifiers => _identifiers;
+
+        private IEnumerable<Symbol> _identifiers;
+
+        public readonly SyntaxForm Head;
+        public readonly SyntaxForm Tail;
+
+        public SyntacticPair(SyntaxForm hd, SyntaxForm tl)
+        {
+            Head = hd;
+            Tail = tl;
+
+            _identifiers = hd.Identifiers.Union(tl.Identifiers);
+        }
+
+        public override string ToSerialized() => $"{{{Head.ToSerialized()}{SerializeTail(Tail)}}}";
+
+        private static string SerializeTail(SyntaxForm sf)
+        {
+            return sf switch
+            {
+                SyntacticEmpty => string.Empty,
+                SyntacticIdentifier sid => " " + sid.ToSerialized(),
+                SyntacticPair sp => " " + sp.Head.ToSerialized() + SerializeTail(sp.Tail),
+                SyntacticRepeating sr => " " + sr.ToSerialized(),
+                SyntacticDatum sd => " . " + sd.ToSerialized(),
+                _ => throw new Exception("Invalid Syntax")
+            };
+        }
+
+        public override bool Beta(Expression s) => s is Pair p && Head.Beta(p.Car) && Tail.Beta(p.Cdr);
+        public override Env Delta(Expression s) => Head.Delta(s.Car).Union(Tail.Delta(s.Car)); //check here for equivalent symbol bindings?
+        public override Expression Tau(Env rho) => Head is SyntacticRepeating
+            ? Pair.Append(Head.Tau(rho), Tail.Tau(rho))
+            : Pair.Cons(Head.Tau(rho), Tail.Tau(rho));
+    }
+
+    internal sealed class SyntacticRepeating : SyntaxForm
+    {
+        public override IEnumerable<Symbol> Identifiers => RepeatingTerm.Identifiers;
+
+        public readonly SyntaxForm RepeatingTerm;
+
+        public SyntacticRepeating(SyntaxForm rep) => RepeatingTerm = rep;
+
+        public override string ToSerialized() => RepeatingTerm.ToSerialized() + " ...";
+
+        public override bool Beta(Expression s) => s.IsNil || (s is Pair p && RepeatingTerm.Beta(p.Car) && Beta(p.Cdr));
+        public override Env Delta(Expression s)
+        {
+            var terms = Pair.Enumerate(s);
+            var splitEnvs = terms.Last().IsNil
+                ? terms.SkipLast(1).Select(x => RepeatingTerm.Delta(x))
+                : terms.Select(x => RepeatingTerm.Delta(x));
+
+            return Identifiers.Select(x => new EnvBinding(x, new RecDef(
+                splitEnvs.First().Lookup(x).Item1 + 1,
+                Pair.MakeList(splitEnvs.Select(y => y.Lookup(x).Item2).ToArray()))));
+        }
+        public override Expression Tau(Env rho)
+        {
+            var subset = rho.Where(x => Identifiers.Contains(x.Key));
+
+            if (!subset.Any(x => x.Value.Item1 > 0)) //controllable?
+            {
+                throw new Exception($"No key of recurrence level > 0 in {rho.Print()}");
+            }
+            else
+            {
+                var pieces = subset.Decompose();
+                IEnumerable<Expression> elements = pieces.Select(x => RepeatingTerm.Tau(x));
+
+                return RepeatingTerm is SyntacticRepeating
+                    ? elements.Aggregate(Nil as Expression, (x, y) => Pair.Append(x, y))
+                    : Pair.MakeList(elements.ToArray());
+            }
+
+        }
+    }
+
+    internal sealed class SyntacticDatum : SyntaxForm
+    {
+        public override IEnumerable<Symbol> Identifiers => Array.Empty<Symbol>();
+
+        public readonly Expression Datum;
+
+        public SyntacticDatum(Expression expr) => Datum = expr;
+
+        public override string ToSerialized() => Datum.ToSerialized();
+        public override string ToPrinted() => ToSerialized();
+
+        public override bool Beta(Expression s) => Pred_Equal(Datum, s);
+        public override Env Delta(Expression s) => Env_Helper.MakeEmpty();
+        public override Expression Tau(Env rho) => Datum;
+    }
+
 }
