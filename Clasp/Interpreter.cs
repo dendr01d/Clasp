@@ -10,16 +10,17 @@ namespace Clasp
     {
         public static string Interpret(string input)
         {
-            try
+            Environment env = GlobalEnvironment.LoadStandard();
+
+            string output = string.Empty;
+
+            foreach (Expression expr in Parser.ParseText(input))
             {
-                return Evaluator.Evaluate(Parser.Parse(input), GlobalEnvironment.Standard()).ToString();
+                Expression result = Evaluator.Evaluate(expr, env);
+                output = result.ToString();
             }
-            catch (Exception ex)
-            {
-                return ex.Message;
-            }
+
+            return output;
         }
-
-
     }
 }
