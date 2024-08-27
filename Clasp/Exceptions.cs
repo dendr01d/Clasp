@@ -40,6 +40,18 @@ namespace Clasp
         }        
     }
 
+    internal class IncompatibleTypeException<T, U> : Exception
+        where T : Expression
+        where U : Expression
+    {
+        public IncompatibleTypeException(T e1, U e2, string opName) : base(FormatMsg(e1, e2, opName)) { }
+
+        private static string FormatMsg(T e1, U e2, string opName)
+        {
+            return $"{e1} of type '{typeof(T).Name}' and {e2} of type '{typeof(U).Name}' are incompatible arguments to operation '{opName}'.";
+        }
+    }
+
     internal class MissingArgumentException : Exception
     {
         public MissingArgumentException(string funcName) :
