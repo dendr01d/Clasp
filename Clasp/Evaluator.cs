@@ -97,7 +97,7 @@ namespace Clasp
                         "flambda" => Eval_Flambda,
                         "begin" => Eval_Begin,
 
-                        "match" => Eval_Match,
+                        //"match" => Eval_Match,
                         _ => Eval_Application
                     };
                 }
@@ -451,24 +451,22 @@ namespace Clasp
 
         private static void Bind_Args(Machine mx)
         {
-            if (mx.Unev.IsNil)
+            if (mx.Unev.IsAtom)
             {
-                mx.Restore_Unev();
-                mx.Assign_GoTo(Eval_Sequence);
+                mx.Env.BindNew(mx.Unev.Expect<Symbol>(), mx.Argl);
+                mx.Assign_Unev(Expression.Nil);
             }
             else
             {
-                if (mx.Unev.IsAtom)
-                {
-                    mx.Env.BindNew(mx.Unev.Expect<Symbol>(), mx.Argl);
-                }
-                else
-                {
-                    mx.Env.BindNew(mx.Unev.Car.Expect<Symbol>(), mx.Argl.Car);
-                }
-
+                mx.Env.BindNew(mx.Unev.Car.Expect<Symbol>(), mx.Argl.Car);
                 mx.NextUnev();
                 mx.NextArgl();
+            }
+
+            if (mx.Unev.Cdr.IsNil)
+            {
+                mx.Restore_Unev();
+                mx.Assign_GoTo(Eval_Sequence);
             }
         }
 
@@ -480,6 +478,7 @@ namespace Clasp
 
             mx.EnterNewScope();
             mx.ReplaceScope(proc.Closure);
+            mx.Assign_Argl(proc.LiteralSymbols);
             mx.Assign_Unev(proc.Transformers);
 
             mx.Assign_GoTo(Eval_Macro_Clauses);
@@ -487,39 +486,29 @@ namespace Clasp
 
         private static void Eval_Macro_Clauses(Machine mx)
         {
-            if (mx.Unev.IsNil)
+            if (mx.Unev.Car is SyntaxRule sr)
             {
-                mx.Assign_GoTo(Err_Unknown_Expression);
-            }
-            else
-            {
-                mx.EnterNewScope();
-
-                if (mx.Env.TryUnify(mx.Exp.Cdr, mx.Unev.Car.Car.Cdr))
+                if (sr.TryTransform(mx.Exp, mx.Argl, out Expression result))
                 {
-                    mx.Assign_Unev(mx.Unev.Car.Cdr.Expect<Pair>());
-
-                    mx.Save_Continue();
-                    mx.Assign_Continue(Eval_Macro_Transformation);
-                    mx.Save_Continue();
-                    mx.Assign_GoTo(Eval_Sequence);
+                    mx.Assign_Val(result);
+                    mx.Assign_GoTo(Eval_Macro_Transformation);
                 }
                 else
                 {
-                    mx.LeaveScope();
                     mx.NextUnev();
                 }
+            }
+            else
+            {
+                mx.Assign_GoTo(Err_Unknown_Expression);
             }
         }
 
         private static void Eval_Macro_Transformation(Machine mx)
         {
             mx.Assign_Exp(mx.Val);
+            mx.LeaveScope(); //scope of macro closure
             mx.Restore_Continue();
-
-            mx.LeaveScope(); //scope of pattern matching
-            mx.LeaveScope(); //macro closure
-
             mx.Assign_GoTo(Eval_Dispatch);
         }
 
@@ -652,13 +641,46 @@ namespace Clasp
 
         private static void Eval_DefMacro(Machine mx)
         {
-            Symbol name = mx.Exp.Cadr.Expect<Symbol>();
-            mx.Env.BindNew(
-                name,
-                new Macro(
-                    name.Name,
-                    mx.Exp.Cddr.Expect<Pair>(),
-                    mx.Env));
+            //Symbol name = mx.Exp.Cadr.Expect<Symbol>();
+            //mx.Env.BindNew(
+            //    name,
+            //    new Macro(
+            //        name.Name,
+            //        mx.Exp.Cddr.Expect<Pair>(),
+            //        mx.Env));
+
+            //mx.Assign_Val(Symbol.Ok);
+            //mx.GoTo_Continue();
+
+            mx.Assign_Exp(mx.Exp.Cdr);
+            mx.Save_Exp();
+            mx.Assign_Argl(Expression.Nil);
+            mx.Assign_Unev(mx.Exp.Cddr.Expect<Pair>());
+        }
+
+        private static void Eval_Macro_Clause(Machine mx)
+        {
+            mx.Assign_Exp(mx.Unev.Car);
+            mx.AppendArgl(
+                new SyntaxRule(
+                    mx.Exp.Car,
+                    mx.Exp.Cadr));
+            mx.NextUnev();
+
+            if (mx.Unev.IsNil)
+            {
+                mx.Assign_GoTo(Eval_Macro_Binding);
+            }
+        }
+
+        private static void Eval_Macro_Binding(Machine mx)
+        {
+            mx.Restore_Exp();
+            mx.Assign_Unev(new Macro(
+                mx.Exp.Car.Expect<Symbol>().Name,
+                mx.Exp.Cadr,
+                mx.Argl.Expect<Pair>(),
+                mx.Env));
 
             mx.Assign_Val(Symbol.Ok);
             mx.GoTo_Continue();
@@ -696,51 +718,51 @@ namespace Clasp
 
         #region Pattern-Matching
 
-        private static void Eval_Match(Machine mx)
-        {
-            mx.Save_Continue();
+        //private static void Eval_Match(Machine mx)
+        //{
+        //    mx.Save_Continue();
 
-            mx.Assign_Argl(mx.Exp.Caddr); //pattern
-            mx.Save_Argl();
+        //    mx.Assign_Argl(mx.Exp.Caddr); //pattern
+        //    mx.Save_Argl();
 
-            mx.Assign_Unev(mx.Exp.Cdddr); //body
-            mx.Save_Unev();
+        //    mx.Assign_Unev(mx.Exp.Cdddr); //body
+        //    mx.Save_Unev();
 
-            mx.Assign_Exp(mx.Exp.Cadr); //exp
+        //    mx.Assign_Exp(mx.Exp.Cadr); //exp
 
-            mx.Assign_GoTo(Eval_Dispatch);
-            mx.Assign_Continue(Eval_Match_Continue);
-        }
+        //    mx.Assign_GoTo(Eval_Dispatch);
+        //    mx.Assign_Continue(Eval_Match_Continue);
+        //}
 
-        private static void Eval_Match_Continue(Machine mx)
-        {
-            mx.Restore_Unev();
-            mx.Restore_Argl();
+        //private static void Eval_Match_Continue(Machine mx)
+        //{
+        //    mx.Restore_Unev();
+        //    mx.Restore_Argl();
 
-            mx.EnterNewScope();
+        //    mx.EnterNewScope();
 
-            if (mx.Env.TryUnify(mx.Val, mx.Argl))
-            {
-                if (mx.Unev.IsNil)
-                {
-                    mx.LeaveScope();
-                    mx.Restore_Continue();
-                    mx.Assign_Val(Boolean.True);
-                    mx.GoTo_Continue();
-                }
-                else
-                {
-                    mx.Assign_GoTo(Eval_Sequence);
-                }
-            }
-            else
-            {
-                mx.LeaveScope();
-                mx.Restore_Continue();
-                mx.Assign_Val(Boolean.False);
-                mx.GoTo_Continue();
-            }
-        }
+        //    if (mx.Env.TryUnify(mx.Val, mx.Argl))
+        //    {
+        //        if (mx.Unev.IsNil)
+        //        {
+        //            mx.LeaveScope();
+        //            mx.Restore_Continue();
+        //            mx.Assign_Val(Boolean.True);
+        //            mx.GoTo_Continue();
+        //        }
+        //        else
+        //        {
+        //            mx.Assign_GoTo(Eval_Sequence);
+        //        }
+        //    }
+        //    else
+        //    {
+        //        mx.LeaveScope();
+        //        mx.Restore_Continue();
+        //        mx.Assign_Val(Boolean.False);
+        //        mx.GoTo_Continue();
+        //    }
+        //}
 
         #endregion
 
