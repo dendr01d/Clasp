@@ -80,14 +80,10 @@
 
                     TokenType.DotMarker => throw new ParsingException("Unexpected '.'", current),
 
-                    //TokenType.QuoteMarker => Pair.List(Symbol.Quote, ParseTokens(tokens)),
-                    //TokenType.QuasiquoteMarker => Pair.List(Symbol.Quasiquote, ParseTokens(tokens)),
-                    //TokenType.UnquoteMarker => Pair.List(Symbol.Unquote, ParseTokens(tokens)),
-                    //TokenType.UnquoteSplicingMarker => Pair.List(Symbol.UnquoteSplicing, ParseTokens(tokens)),
-                    TokenType.QuoteMarker => new Quoted(ParseTokens(tokens)),
-                    TokenType.QuasiquoteMarker => new Quasiquoted(ParseTokens(tokens)),
-                    TokenType.UnquoteMarker => new Unquoted(ParseTokens(tokens)),
-                    TokenType.UnquoteSplicingMarker => new UnquoteSpliced(ParseTokens(tokens)),
+                    TokenType.QuoteMarker => Pair.Cons(Symbol.Quote, ParseTokens(tokens)),
+                    TokenType.QuasiquoteMarker => Pair.Cons(Symbol.Quasiquote, ParseTokens(tokens)),
+                    TokenType.UnquoteMarker => Pair.Cons(Symbol.Unquote, ParseTokens(tokens)),
+                    TokenType.UnquoteSplicingMarker => Pair.Cons(Symbol.UnquoteSplicing, ParseTokens(tokens)),
                     TokenType.Ellipsis => Symbol.Ellipsis,
 
                     TokenType.Symbol => Symbol.Ize(current.Text),
@@ -112,8 +108,7 @@
             bool specialTerminator = false;
 
             while (tokens.Peek().TType != TokenType.RightParen
-                && tokens.Peek().TType != TokenType.DotMarker
-                && tokens.Peek().TType != TokenType.Ellipsis)
+                && tokens.Peek().TType != TokenType.DotMarker)
             {
                 exprs.Add(ParseTokens(tokens));
             }
@@ -126,12 +121,6 @@
                 {
                     tokens.Pop(); //remove dot marker
                     exprs.Add(ParseTokens(tokens)); //grab the rest
-                }
-                else //it must be an ellipsis
-                {
-                    tokens.Pop();
-                    //convert the last item in the list to an elliptic pattern
-                    exprs[exprs.Count - 1] = new EllipticPattern(exprs[exprs.Count - 1]);
                 }
 
                 if (tokens.Peek().TType != TokenType.RightParen)

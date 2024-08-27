@@ -140,38 +140,38 @@
         }
     }
 
-    internal abstract class TaggedPair : Pair
-    {
-        public readonly Expression TaggedValue;
+    //internal abstract class TaggedPair : Pair
+    //{
+    //    public readonly Expression TaggedValue;
 
-        protected TaggedPair(Expression car, Expression cdr, Expression taggedValue) : base(car, cdr)
-        {
-            TaggedValue = taggedValue;
-        }
-    }
+    //    protected TaggedPair(Expression car, Expression cdr, Expression taggedValue) : base(car, cdr)
+    //    {
+    //        TaggedValue = taggedValue;
+    //    }
+    //}
 
-    internal class Quoted : TaggedPair
-    {
-        public Quoted(Expression exp) : base(Symbol.Quote, Cons(exp, Nil), exp) { }
-    }
+    //internal class Quoted : TaggedPair
+    //{
+    //    public Quoted(Expression exp) : base(Symbol.Quote, Cons(exp, Nil), exp) { }
+    //}
 
-    internal class Quasiquoted : TaggedPair
-    {
-        public Quasiquoted(Expression exp) : base(Symbol.Quasiquote, Cons(exp, Nil), exp) { }
-    }
+    //internal class Quasiquoted : TaggedPair
+    //{
+    //    public Quasiquoted(Expression exp) : base(Symbol.Quasiquote, Cons(exp, Nil), exp) { }
+    //}
 
-    internal class Unquoted : TaggedPair
-    {
-        public Unquoted(Expression exp) : base(Symbol.Unquote, Cons(exp, Nil), exp) { }
-    }
+    //internal class Unquoted : TaggedPair
+    //{
+    //    public Unquoted(Expression exp) : base(Symbol.Unquote, Cons(exp, Nil), exp) { }
+    //}
 
-    internal class UnquoteSpliced : TaggedPair
-    {
-        public UnquoteSpliced(Expression exp) : base(Symbol.UnquoteSplicing, Cons(exp, Nil), exp) { }
-    }
+    //internal class UnquoteSpliced : TaggedPair
+    //{
+    //    public UnquoteSpliced(Expression exp) : base(Symbol.UnquoteSplicing, Cons(exp, Nil), exp) { }
+    //}
 
-    internal class EllipticPattern : TaggedPair
-    {
-        public EllipticPattern(Expression exp) : base(exp, Cons(Symbol.Ellipsis, Nil), exp) { }
-    }
+    //internal class EllipticPattern : TaggedPair
+    //{
+    //    public EllipticPattern(Expression exp) : base(exp, Cons(Symbol.Ellipsis, Nil), exp) { }
+    //}
 }
