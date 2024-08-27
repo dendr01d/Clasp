@@ -22,7 +22,7 @@ namespace Clasp
         }
 
         public override string ToPrinted() => $"<lambda {Parameters} {Body}>";
-        public override string ToSerialized() => Pair.MakeList(Symbol.Lambda, Parameters, Body).ToSerialized();
+        public override string ToSerialized() => Pair.Cons(Symbol.Lambda, Pair.Cons(Parameters, Body)).ToSerialized();
     }
 
     internal class PrimitiveProcedure : Procedure
@@ -59,19 +59,21 @@ namespace Clasp
         private static void Define(string name, Func<Expression, bool> op)
             => Define(name, p => Boolean.Judge(op(p.Car)));
 
-        private static void Define(string name, Func<int, int, int> op)
-            => Define(name, (a, b) => new Number(op(a.Expect<Number>().Value, b.Expect<Number>().Value)));
-
         private static void Define(string name, Func<bool, bool, bool> op)
             => Define(name, (a, b) => Boolean.Judge(op(a.IsTrue, b.IsTrue)));
 
-        private static void Define(string name, Func<double, double, bool> op)
-            => Define(name, p => Boolean.Judge(op(p.Car.Expect<Number>().Value, p.Cadr.Expect<Number>().Value)));
+        private static void Define(string name, Func<decimal, decimal, decimal> op)
+            => Define(name, (a, b) => new PrimitiveNumber(op(a.Expect<PrimitiveNumber>().Value, b.Expect<PrimitiveNumber>().Value)));
+
+        private static void Define(string name, Func<decimal, decimal, bool> op)
+            => Define(name, p => Boolean.Judge(op(p.Car.Expect<PrimitiveNumber>().Value, p.Cadr.Expect<PrimitiveNumber>().Value)));
 
         #endregion
 
         static PrimitiveProcedure()
         {
+            Define("gensym", p => new GenSym());
+
             //special form list ops
             Define("car", p => p.Caar);
             Define("cdr", p => p.Cadar);
@@ -81,18 +83,18 @@ namespace Clasp
             Define("set-cdr", p => p.Car.SetCdr(p.Cadr));
 
             //arithmetic ops
-            Define("+", p => Pair.Fold((a, b) => new Number(a.Expect<Number>().Value + b.Expect<Number>().Value), Number.Zero, p));
+            Define("+", p => Pair.Fold((a, b) => new PrimitiveNumber(a.Expect<PrimitiveNumber>().Value + b.Expect<PrimitiveNumber>().Value), PrimitiveNumber.Zero, p));
             Define("-", p => p.Cdr.IsNil
-                ? new Number(p.Car.Expect<Number>().Value * -1)
-                : Pair.Fold((a, b) => new Number(p.Car.Expect<Number>().Value - p.Cadr.Expect<Number>().Value), Number.Zero, p));
-            Define("*", p => Pair.Fold((a, b) => new Number(a.Expect<Number>().Value * b.Expect<Number>().Value), Number.One, p));
+                ? new PrimitiveNumber(p.Car.Expect<PrimitiveNumber>().Value * -1)
+                : new PrimitiveNumber(p.Car.Expect<PrimitiveNumber>().Value - p.Cadr.Expect<PrimitiveNumber>().Value));
+            Define("*", p => Pair.Fold((a, b) => new PrimitiveNumber(a.Expect<PrimitiveNumber>().Value * b.Expect<PrimitiveNumber>().Value), PrimitiveNumber.One, p));
             Define("quotient", (a, b) => a / b);
             Define("modulo", (a, b) => a % b);
 
             //object equivalence
-            Define("eq?", p => Pred_Eq(p.Car, p.Cadr));
-            Define("eqv?", p => Pred_Eqv(p.Car, p.Cadr));
-            Define("equal?", p => Pred_Equal(p.Car, p.Cadr));
+            Define("eq?", p => p.Car.Eq(p.Cadr));
+            Define("eqv?", p => p.Car.Eqv(p.Cadr));
+            Define("equal?", p => p.Car.Equal(p.Cadr));
 
             //ordering/comparison
             Define("<", (a, b) => a < b);
@@ -108,7 +110,7 @@ namespace Clasp
             Define("procedure?", x => x is Procedure or SpecialFormRef);
             Define("vector?", x => x is Vector);
             Define("boolean?", x => x is Boolean);
-            Define("number?", x => x is Number);
+            Define("number?", x => x is PrimitiveNumber);
         }
 
         #endregion

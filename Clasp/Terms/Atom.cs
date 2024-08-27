@@ -71,10 +71,4 @@
         public Character(char c) : base(c) { }
         public override string ToPrinted() => $"\\{Value}";
     }
-
-    //internal class Number : Literal<double>
-    //{
-    //    public Number(double d) : base(d) { }
-    //}
-
 }

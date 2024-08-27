@@ -38,47 +38,6 @@ namespace Clasp
 
         #endregion
 
-        #region Conversions
-
-        public T Expect<T>()
-            where T : Expression
-        {
-            return this is T output
-                ? output
-                : throw new ExpectedTypeException<T>(this);
-        }
-
-        //public static implicit operator Expression(double d) => new Number(d);
-        //public static implicit operator Expression(int i) => new Number(i);
-        //public static implicit operator Expression(char c) => new Character(c);
-        //public static implicit operator Expression(string s) => new Symbol(s);
-
-        #endregion
-
-        #region Equality
-
-        public static bool Pred_Eq(Expression e1, Expression e2) => ReferenceEquals(e1, e2);
-        public static bool Pred_Eqv(Expression e1, Expression e2)
-        {
-            return (e1, e2) switch
-            {
-                (Number f1, Number f2) => f1.Value == f2.Value,
-                (Character c1, Character c2) => c1.Value == c2.Value,
-                (_, _) => Pred_Eq(e1, e2)
-            };
-        }
-        public static bool Pred_Equal(Expression e1, Expression e2)
-        {
-            return (e1, e2) switch
-            {
-                //(CString c1, CString c2) => c1.Value == c2.Value,
-                (Pair p1, Pair p2) => Pred_Equal(p1.Car, p2.Car) && Pred_Equal(p1.Cdr, p2.Cdr),
-                (_, _) => Pred_Eqv(e1, e2)
-            };
-        }
-
-        #endregion
-
         public sealed override string ToString() => ToPrinted();
 
         /// <summary>
@@ -91,5 +50,53 @@ namespace Clasp
         /// Returns a string representing a more "real" representation of the object
         /// </summary>
         public abstract string ToSerialized();
+    }
+
+    internal static class Expression_Extensions
+    {
+        #region Equality Predicates
+
+        public static bool Eq(this Expression e1, Expression e2)
+        {
+            return ReferenceEquals(e1, e2);
+        }
+
+        public static bool Eqv(this Expression e1, Expression e2)
+        {
+            return (e1, e2) switch
+            {
+                (Boolean b1, Boolean b2) => b1.Value == b2.Value,
+                (PrimitiveNumber pn1, PrimitiveNumber pn2) => pn1.Value == pn2.Value,
+                (Character c1, Character c2) => c1.Value == c2.Value,
+                (_, _) => Eq(e1, e2)
+            };
+        }
+
+        public static bool Equal(this Expression e1, Expression e2)
+        {
+            return (e1, e2) switch
+            {
+                //(CString c1, CString c2) => c1.Value == c2.Value,
+                (Pair p1, Pair p2) => Equal(p1.Car, p2.Car) && Equal(p1.Cdr, p2.Cdr),
+                (_, _) => Eqv(e1, e2)
+            };
+        }
+
+        #endregion
+
+        #region Type-Checking
+
+        public static T Expect<T>(this Expression expr)
+            where T : Expression
+        {
+            if (expr is T typedExpr)
+            {
+                return typedExpr;
+            }
+
+            throw new ExpectedTypeException<T>(expr);
+        }
+
+        #endregion
     }
 }
