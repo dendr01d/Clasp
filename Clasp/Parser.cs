@@ -2,29 +2,65 @@
 {
     internal static class Parser
     {
-        public static Expression Parse(IEnumerable<Token> tokens)
-        {
-            Stack<Token> stack = new(tokens.Reverse());
-            if (tokens.Any())
-            {
-                return ParseTokens(stack);
-            }
-            else
-            {
-                return Expression.Nil;
-            }
-        }
-
-        public static Expression Parse(string input)
+        public static IEnumerable<Expression> ParseText(string input)
         {
             return Parse(Lexer.Lex(input));
         }
 
-        public static Expression ParseFile(string path)
+        public static IEnumerable<Expression> ParseFile(string path)
         {
-            string raw = File.ReadAllText(path);
-            return Parse($"({raw})");
+            return ParseText(File.ReadAllText(path));
         }
+
+        public static IEnumerable<Stack<Token>> SegmentTokens(IEnumerable<Token> tokens)
+        {
+            using (var iter = tokens.GetEnumerator())
+            {
+                while (iter.MoveNext())
+                {
+                    if (iter.Current.TType != TokenType.LeftParen)
+                    {
+                        throw new ParsingException("Expected '(' at beginning of list.", iter.Current);
+                    }
+
+                    List<Token> segment = new List<Token>() { iter.Current };
+                    int parenDepth = 1;
+
+                    while (parenDepth > 0 && iter.MoveNext())
+                    {
+                        segment.Add(iter.Current);
+                        if (iter.Current.TType == TokenType.LeftParen)
+                        {
+                            ++parenDepth;
+                        }
+                        else if (iter.Current.TType == TokenType.RightParen)
+                        {
+                            --parenDepth;
+                        }
+                    }
+
+                    yield return new Stack<Token>(segment.AsEnumerable().Reverse());
+                }
+            }
+        }
+
+
+        public static IEnumerable<Expression> Parse(IEnumerable<Token> tokens)
+        {
+            if (!tokens.Any())
+            {
+                yield return Expression.Nil;
+                yield break;
+            }
+            else
+            {
+                foreach(Stack<Token> segment in SegmentTokens(tokens))
+                {
+                    yield return ParseTokens(segment);
+                }
+            }
+        }
+
 
         private static Expression ParseTokens(Stack<Token> tokens)
         {
@@ -55,7 +91,7 @@
                     TokenType.Ellipsis => Symbol.Ellipsis,
 
                     TokenType.Symbol => Symbol.Ize(current.Text),
-                    TokenType.Number => new Number(int.Parse(current.Text)),
+                    TokenType.Number => new PrimitiveNumber(decimal.Parse(current.Text)),
                     TokenType.Boolean => Boolean.Judge(current.Text == Boolean.True.ToString()),
 
                     TokenType.Error => Expression.Error,

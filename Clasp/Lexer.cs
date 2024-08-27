@@ -6,6 +6,7 @@ namespace Clasp
     {
         private static readonly string[] _regexes = new string[]
         {
+            rgx(TokenType.Comment, @"(?>\;.*$)"),
             rgx(TokenType.VecParen, @"\#\("),
             rgx(TokenType.LeftParen, @"\("),
             rgx(TokenType.RightParen, @"\)"),
@@ -17,7 +18,7 @@ namespace Clasp
             rgx(TokenType.DotMarker, @"\."),
             rgx(TokenType.Number, @"\d+"),
             rgx(TokenType.Boolean, @"(?>\#t|\#f)"),
-            rgx(TokenType.Symbol, @"(?>\+|\-|[^\s\(\)\+\-\.][^\s\(\)\.]*)")
+            rgx(TokenType.Symbol, @"(?>\+|\-|[^\s\(\)\+\-\.][^\s\(\)\.]*)"),
         };
 
         private static string rgx(TokenType tt, string pattern) => $"(?<{tt}>{pattern})";
@@ -26,6 +27,11 @@ namespace Clasp
 
         public static IEnumerable<Token> Lex(string input)
         {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return Array.Empty<Token>();
+            }
+
             int lParens = input.Count(x => x == '(');
             int rParens = input.Count(x => x == ')');
 
@@ -42,7 +48,8 @@ namespace Clasp
             foreach(string line in lines)
             {
                 var newTokens = Regex.Matches(line, _grammar)
-                    .Select(x => Token.Tokenize(getGroupName(x.Groups), x.Value, lineNo, x.Index + 1));
+                    .Select(x => Token.Tokenize(getGroupName(x.Groups), x.Value, lineNo, x.Index + 1))
+                    .Where(x => x.TType != TokenType.Comment);
                 output.AddRange(newTokens);
                 lineNo++;
             }
@@ -92,6 +99,6 @@ namespace Clasp
         Symbol, Number, Boolean,
         QuoteMarker, DotMarker,
         QuasiquoteMarker, UnquoteMarker, UnquoteSplicingMarker, Ellipsis,
-        Error
+        Comment, Error
     }
 }

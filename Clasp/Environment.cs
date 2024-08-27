@@ -85,7 +85,7 @@ namespace Clasp
             {
                 Symbol s => UnifyWithSymbol(form, s, trailingContext),
                 Pair p => UnifyWithPair(form, p, trailingContext),
-                _ => Expression.Pred_Equal(form, pattern)
+                _ => form.Equal(pattern)
             };
         }
 
@@ -102,7 +102,7 @@ namespace Clasp
             }
             else if (HasBound(pattern))
             {
-                return Expression.Pred_Equal(LookUp(pattern), form);
+                return LookUp(pattern).Equal(form);
             }
             else
             {
@@ -115,7 +115,7 @@ namespace Clasp
         {
             if (pattern is Quoted quoted)
             {
-                return Expression.Pred_Eq(quoted.TaggedValue, form);
+                return quoted.TaggedValue.Equal(form);
             }
             else if (pattern is EllipticPattern elliptic)
             {
@@ -195,7 +195,7 @@ namespace Clasp
 
         private const string _STD_LIBRARY = @".\StdLibrary.scm";
 
-        public static Environment Standard()
+        public static Environment LoadStandard()
         {
             GlobalEnvironment ge = new GlobalEnvironment();
             foreach(var def in PrimitiveProcedure.NativeOps)
@@ -205,12 +205,9 @@ namespace Clasp
 
             if (File.Exists(_STD_LIBRARY))
             {
-                Expression fileContents = Parser.ParseFile(_STD_LIBRARY);
-
-                while (!fileContents.IsNil)
+                foreach (Expression expr in Parser.ParseFile(_STD_LIBRARY))
                 {
-                    Evaluator.Evaluate(fileContents.Car, ge);
-                    fileContents = fileContents.Cdr;
+                    Evaluator.Evaluate(expr, ge);
                 }
             }
 
