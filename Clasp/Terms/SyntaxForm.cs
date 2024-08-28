@@ -63,7 +63,7 @@ namespace Clasp
                     {
                         return false;
                     }
-                    else if (!def1.Item2.Equal_q(def2.Item2))
+                    else if (!Expression.Pred_Equal(def1.Item2, def2.Item2))
                     {
                         return false;
                     }
@@ -393,7 +393,7 @@ namespace Clasp
             IEnumerable<Expression> elements = splitEnvs.Select(x => RepeatingTerm.Build(x));
             return RepeatingTerm is SyntacticRepeating
                 ? elements.Aggregate(Nil as Expression, (x, y) => Pair.Append(x, y))
-                : Pair.MakeImproperList(elements.ToArray());
+                : Pair.MakeList(elements.ToArray());
         }
     }
 
@@ -412,7 +412,7 @@ namespace Clasp
         public override bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings)
         {
             bindings = Env_Helpers.MakeEmpty();
-            return Datum.Equal_q(s);
+            return Expression.Pred_Equal(Datum, s);
         }
 
         public override Expression Build(Env bindings) => Datum;

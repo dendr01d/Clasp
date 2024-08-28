@@ -62,7 +62,7 @@
         }
 
 
-        private static Expression ParseTokens(Stack<Token> tokens)
+        public static Expression ParseTokens(Stack<Token> tokens)
         {
             if (tokens.Count <= 0)
             {

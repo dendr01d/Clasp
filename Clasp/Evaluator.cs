@@ -444,20 +444,25 @@ namespace Clasp
             if (mx.Unev.IsAtom)
             {
                 mx.Env.BindNew(mx.Unev.Expect<Symbol>(), mx.Argl);
-                mx.Assign_Unev(Expression.Nil);
+                mx.Assign_GoTo(Args_Bound);
             }
             else
             {
                 mx.Env.BindNew(mx.Unev.Car.Expect<Symbol>(), mx.Argl.Car);
                 mx.NextUnev();
                 mx.NextArgl();
-            }
 
-            if (mx.Unev.Cdr.IsNil)
-            {
-                mx.Restore_Unev();
-                mx.Assign_GoTo(Eval_Sequence);
+                if (mx.Unev.IsNil)
+                {
+                    mx.Assign_GoTo(Args_Bound);
+                }
             }
+        }
+
+        private static void Args_Bound(Machine mx)
+        {
+            mx.Restore_Unev();
+            mx.Assign_GoTo(Eval_Sequence);
         }
 
         private static void Macro_Apply(Machine mx)
@@ -471,10 +476,10 @@ namespace Clasp
             mx.Assign_Argl(proc.LiteralSymbols);
             mx.Assign_Unev(proc.Transformers);
 
-            mx.Assign_GoTo(Eval_Macro_Clauses);
+            mx.Assign_GoTo(Apply_Macro_Clauses);
         }
 
-        private static void Eval_Macro_Clauses(Machine mx)
+        private static void Apply_Macro_Clauses(Machine mx)
         {
             if (mx.Unev.Car is SyntaxRule sr)
             {
@@ -498,7 +503,7 @@ namespace Clasp
         {
             mx.Assign_Exp(mx.Val);
             mx.LeaveScope(); //scope of macro closure
-            mx.Restore_Continue();
+            //mx.Restore_Continue();
             mx.Assign_GoTo(Eval_Dispatch);
         }
 
@@ -646,9 +651,11 @@ namespace Clasp
             mx.Save_Exp();
             mx.Assign_Argl(Expression.Nil);
             mx.Assign_Unev(mx.Exp.Cddr.Expect<Pair>());
+
+            mx.Assign_GoTo(Eval_Macro_Clauses);
         }
 
-        private static void Eval_Macro_Clause(Machine mx)
+        private static void Eval_Macro_Clauses(Machine mx)
         {
             mx.Assign_Exp(mx.Unev.Car);
             mx.AppendArgl(
@@ -666,11 +673,15 @@ namespace Clasp
         private static void Eval_Macro_Binding(Machine mx)
         {
             mx.Restore_Exp();
-            mx.Assign_Unev(new Macro(
-                mx.Exp.Car.Expect<Symbol>().Name,
+
+            Symbol sym = mx.Exp.Car.Expect<Symbol>();
+            Macro m = new Macro(
+                sym.Name,
                 mx.Exp.Cadr,
                 mx.Argl.Expect<Pair>(),
-                mx.Env));
+                mx.Env);
+
+            mx.Env.BindNew(sym, m);
 
             mx.Assign_Val(Symbol.Ok);
             mx.GoTo_Continue();

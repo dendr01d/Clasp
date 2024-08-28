@@ -97,8 +97,10 @@ namespace Clasp
                             int i = 1;
 
                             IEnumerable<Token> tokens = Lexer.Lex(input);
-                            IEnumerable<IEnumerable<Token>> segmentedTokens = Parser.SegmentTokens(tokens);
-                            IEnumerable<Expression> exprs = segmentedTokens.SelectMany(Parser.Parse);
+                            //IEnumerable<IEnumerable<Token>> segmentedTokens = Parser.SegmentTokens(tokens);
+                            //IEnumerable<Expression> exprs = segmentedTokens.SelectMany(Parser.Parse);
+
+                            IEnumerable<Expression> exprs = Parser.Parse(tokens);
 
                             if (_showingInput)
                             {

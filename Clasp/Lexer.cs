@@ -37,7 +37,8 @@ namespace Clasp
 
             if (lParens != rParens)
             {
-                throw new LexingException($"Missing one or more {(lParens < rParens ? "L-parens" : "R-parens")}");
+                int check = LocateExtraParen(lParens < rParens, input);
+                throw new LexingException($"Missing one or more {(lParens < rParens ? "L-parens" : "R-parens")} around block at position {check}");
             }
 
             IEnumerable<string> lines = input.Split(System.Environment.NewLine);
@@ -55,6 +56,23 @@ namespace Clasp
             }
 
             return output;
+        }
+
+        private static int LocateExtraParen(bool fromLeft, string input)
+        {
+            int parenCounter = 0;
+
+            IEnumerator<char> text = (fromLeft ? input : input.Reverse()).GetEnumerator();
+
+            int pos = 0;
+            while (parenCounter >= 0 && text.MoveNext())
+            {
+                ++pos;
+                if (text.Current == '(') parenCounter += (fromLeft ? 1 : -1);
+                if (text.Current == ')') parenCounter += (fromLeft ? -1 : 1);
+            }
+
+            return (fromLeft ? pos : input.Length - pos);
         }
 
         private static string getGroupName(GroupCollection groups)
