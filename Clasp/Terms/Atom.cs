@@ -29,15 +29,6 @@
         public override string ToSerialized() => "(error)";
     }
 
-    internal class SpecialFormRef : Atom
-    {
-        public readonly Symbol Ref;
-
-        public SpecialFormRef(Symbol spRef) => Ref = spRef;
-        public override string ToPrinted() => $"{{{Ref.Name}}}";
-        public override string ToSerialized() => Ref.Name;
-    }
-
     internal abstract class Literal<T> : Atom
     {
         public readonly T Value;

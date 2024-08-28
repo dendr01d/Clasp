@@ -61,11 +61,13 @@
 
         //left fold
         //not necessary unto itself, but helpful for certain arithmetic operators
-        public static Expression Fold(Func<Expression, Expression, Expression> op, Expression init, Expression ls)
+        public static Expression Fold<T1, T2>(Func<T1, T2, T1> op, T1 init, Expression ls)
+            where T1 : Expression
+            where T2 : Expression
         {
             return ls.IsNil
                 ? init
-                : Fold(op, op(init, ls.Car), ls.Cdr);
+                : Fold(op, op(init, ls.Car.Expect<T2>()), ls.Cdr);
         }
 
         public static bool Memq(Expression obj, Expression ls)
