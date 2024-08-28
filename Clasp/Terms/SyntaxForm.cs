@@ -18,21 +18,25 @@ namespace Clasp
             { key, new RecDef(0, def) }
         };
 
+        public static Env MakeBlanks(IEnumerable<Symbol> ids) => ids.ToDictionary(x => x, x => new RecDef(0, Expression.Nil));
+
         public static Dictionary<Symbol, RecDef> ToDictionary(this Env e) => e.ToDictionary(x => x.Key, x => x.Value);
 
+        public static IEnumerable<Symbol> Keys(this Env rho) => rho.Select(x => x.Key);
 
         private static readonly EnvBinding _nullBinding = new EnvBinding(Symbol.Underscore, new RecDef(-1, Expression.Nil));
 
         public static bool TryLookup(this Env rho, Symbol key, out RecDef def)
         {
-            if (rho.FirstOrDefault(x => x.Key == key, _nullBinding) is EnvBinding eb
-                && !eb.Equals(_nullBinding))
+            def = new RecDef(-1, Expression.Nil);
+
+            if (rho.FirstOrDefault(x => x.Key == key, default(EnvBinding)) is EnvBinding eb
+                && !eb.Equals(default(EnvBinding)))
             {
                 def = eb.Value;
                 return true;
-
             }
-            def = _nullBinding.Value;
+
             return false;
         }
 
@@ -43,18 +47,53 @@ namespace Clasp
                 return def;
             }
 
-            throw new Exception($"Key '{key}' isn't contained in Env {rho.Print()}");
+            throw new UncategorizedException($"Key '{key}' isn't contained in Env {rho.Print()}");
         }
+
+        public static bool TryMerge(this Env e1, Env e2, out Env result)
+        {
+            result = e1.Union(e2);
+
+            foreach(Symbol collision in e1.Keys().Intersect(e2.Keys()))
+            {
+                if (e1.Lookup(collision) is RecDef def1
+                    && e2.Lookup(collision) is RecDef def2)
+                {
+                    if (def1.Item1 != def2.Item1)
+                    {
+                        return false;
+                    }
+                    else if (!def1.Item2.Equal_q(def2.Item2))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        public static Env SubsetKeys(this Env rho, IEnumerable<Symbol> ids) => rho.Where(x => ids.Contains(x.Key));
 
         public static IEnumerable<Env> Decompose(this Env rho)
         {
-            if (rho.All(x => x.Value.Item2.IsNil)) //stopnow?
+            if (rho.All(x => x.Value.Item2.IsNil))
             {
+                //stop recurring when all entries exhausted
                 return Array.Empty<Env>();
             }
-            else if (!rho.All(x => x.Value.Item2 is Pair)) //unequal lengths?
+            else if (!rho.Any(x => x.Value.Item1 > 0))
             {
-                throw new Exception($"Variable list lengths in recurrent elements of {rho.Print()}");
+                //ensure there's at least one recurring element against which to gauge length of repeating element
+                //AKA "controllable" check from Kohlbecker's paper
+                throw new UncategorizedException($"No recurrent elements present in decomposing {rho.Print()}");
+
+            }
+            else if (!rho.Where(x => x.Value.Item1 > 0).All(x => x.Value.Item2 is Pair))
+            {
+                //ensure all recurring elements are of equal length
+                //length isn't checked directly, but as the decomposition recurs
+                throw new UncategorizedException($"Variable list lengths in recurrent elements of {rho.Print()}");
             }
             else
             {
@@ -108,10 +147,11 @@ namespace Clasp
 
         public bool TryTransform(Expression input, Expression literalIDs, out Expression output)
         {
-            if (Pattern.Beta(input))
+            Symbol[] literals = Pair.Enumerate(literalIDs).Select(x => x.Expect<Symbol>()).ToArray();
+
+            if (Pattern.TryMatch(input, literals, out Env bindings))
             {
-                Env mid = Pattern.Delta(input);
-                output = Template.Tau(mid);
+                output = Template.Build(bindings);
                 return true;
             }
             else
@@ -130,129 +170,116 @@ namespace Clasp
         public override bool IsAtom => true;
     }
 
-    internal interface ISyntax
+    internal abstract class SyntaxForm : Expression
     {
-        public IEnumerable<Symbol> Identifiers { get; }
-        public bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings);
-        public Expression Build(Env bindings);
+        public abstract IEnumerable<Symbol> Identifiers { get; }
+        public abstract bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings);
+        public abstract Expression Build(Env bindings);
+
+        public abstract override bool IsAtom { get; }
+        public override Expression Car => throw new ExpectedTypeException<Pair>(this);
+        public override Expression Cdr => throw new ExpectedTypeException<Pair>(this);
+        public override Expression SetCar(Expression expr) => throw new ExpectedTypeException<Pair>(this);
+        public override Expression SetCdr(Expression expr) => throw new ExpectedTypeException<Pair>(this);
+
+        public static SyntaxForm ParsePattern(Expression expr)
+        {
+            if (expr.IsNil)
+            {
+                return new SyntacticEmpty();
+            }
+            else if (expr is Symbol sym)
+            {
+                return new SyntacticIdentifier(sym);
+            }
+            else if (expr is Pair p)
+            {
+                if (p.Cdr is Pair p2 && p2.Car == Symbol.Ellipsis && p2.Cdr.IsNil)
+                {
+                    return new SyntacticRepeating(ParsePattern(p.Car));
+                }
+                else
+                {
+                    return new SyntacticPair(
+                        ParsePattern(p.Car),
+                        ParsePattern(p.Cdr));
+                }
+            }
+            else
+            {
+                return new SyntacticDatum(expr);
+            }
+        }
+
+        public static SyntaxForm ParseTemplate(Expression expr)
+        {
+            if (expr.IsNil)
+            {
+                return new SyntacticEmpty();
+            }
+            else if (expr is Symbol sym)
+            {
+                return new SyntacticIdentifier(sym);
+            }
+            else if (expr is Pair p)
+            {
+                SyntaxForm car = ParseTemplate(p.Car);
+
+                while (p.Cdr is Pair p2 && p2.Car == Symbol.Ellipsis)
+                {
+                    if (car is not SyntacticIdentifier sid || sid.Identifiers.First() != Symbol.Ellipsis)
+                    {
+                        car = new SyntacticRepeating(car);
+                    }
+
+                    p = p2;
+                }
+
+                SyntaxForm cdr = ParseTemplate(p.Cdr);
+                return new SyntacticPair(car, cdr);
+            }
+            else
+            {
+                return new SyntacticDatum(expr);
+            }
+        }
     }
 
-    //internal abstract class SyntaxForm : Expression
-    //{
-    //    public override Expression Car => throw new NotImplementedException();
-    //    public override Expression Cdr => throw new NotImplementedException();
-    //    public override Expression SetCar(Expression expr) => throw new NotImplementedException();
-    //    public override Expression SetCdr(Expression expr) => throw new NotImplementedException();
-
-    //    public override bool IsAtom => false;
-
-
-    //    public abstract IEnumerable<Symbol> Identifiers { get; }
-
-    //    public abstract bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings);
-    //    public abstract Expression Build(Env bindings);
-
-
-    //    public static SyntaxForm ParsePattern(Expression expr)
-    //    {
-    //        if (expr.IsNil)
-    //        {
-    //            return new SyntacticEmpty();
-    //        }
-    //        else if (expr is Symbol sym)
-    //        {
-    //            return new SyntacticIdentifier(sym);
-    //        }
-    //        else if (expr is Pair p)
-    //        {
-    //            if (p.Cdr is Pair p2 && p2.Car == Symbol.Ellipsis && p2.Cdr.IsNil)
-    //            {
-    //                return new SyntacticRepeating(ParsePattern(p.Car));
-    //            }
-    //            else
-    //            {
-    //                return new SyntacticPair(
-    //                    ParsePattern(p.Car),
-    //                    ParsePattern(p.Cdr));
-    //            }
-    //        }
-    //        else
-    //        {
-    //            return new SyntacticDatum(expr);
-    //        }
-    //    }
-    //    public static SyntaxForm ParseTemplate(Expression expr)
-    //    {
-    //        if (expr.IsNil)
-    //        {
-    //            return new SyntacticEmpty();
-    //        }
-    //        else if (expr is Symbol sym)
-    //        {
-    //            return new SyntacticIdentifier(sym);
-    //        }
-    //        else if (expr is Pair p)
-    //        {
-    //            SyntaxForm car = ParseTemplate(p.Car);
-
-    //            while (p.Cdr is Pair p2 && p2.Car == Symbol.Ellipsis)
-    //            {
-    //                if (car is not SyntacticIdentifier sid || sid.Identifier != Symbol.Ellipsis)
-    //                {
-    //                    car = new SyntacticRepeating(car);
-    //                }
-
-    //                p = p2;
-    //            }
-
-    //            SyntaxForm cdr = ParseTemplate(p.Cdr);
-    //            return new SyntacticPair(car, cdr);
-    //        }
-    //        else
-    //        {
-    //            return new SyntacticDatum(expr);
-    //        }
-    //    }
-    //}
-
-
-    internal sealed class SyntacticEmpty : Atom, ISyntax
+    internal sealed class SyntacticEmpty : SyntaxForm
     {
-        public IEnumerable<Symbol> Identifiers => Array.Empty<Symbol>();
-
-
+        public override IEnumerable<Symbol> Identifiers => Array.Empty<Symbol>();
 
         public override string ToSerialized() => "{}";
         public override string ToPrinted() => Nil.ToPrinted();
+        public override bool IsAtom => true;
 
-        public bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings)
+        public override bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings)
         {
             bindings = Env_Helpers.MakeEmpty();
             return s.IsNil;
         }
-        public Expression Build(Env bindings) => Nil;
+        public override Expression Build(Env bindings) => Nil;
     }
 
-    internal sealed class SyntacticIdentifier : Atom, ISyntax
+    internal sealed class SyntacticIdentifier : SyntaxForm
     {
-        public IEnumerable<Symbol> Identifiers => new Symbol[] { _id };
+        public override IEnumerable<Symbol> Identifiers => new Symbol[] { _id };
 
         private readonly Symbol _id;
-
         public SyntacticIdentifier(Symbol sym) => _id = sym;
 
         public override string ToSerialized() => _id.ToSerialized();
         public override string ToPrinted() => _id.ToPrinted();
+        public override bool IsAtom => true;
 
-
-        public bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings)
+        public override bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings)
         {
             bindings = _id == Symbol.Underscore || literalIDs.Contains(_id)
                 ? Env_Helpers.MakeEmpty()
                 : Env_Helpers.MakeSolo(_id, s);
             return true;
         }
-        public Expression Build(Env bindings)
+        public override Expression Build(Env bindings)
         {
             if (bindings.TryLookup(_id, out RecDef def))
             {
@@ -264,25 +291,29 @@ namespace Clasp
         }
     }
 
-    internal sealed class SyntacticPair : Pair, ISyntax
+    internal sealed class SyntacticPair : SyntaxForm
     {
-        public IEnumerable<Symbol> Identifiers => _ids;
+        public override IEnumerable<Symbol> Identifiers => _ids;
 
         private IEnumerable<Symbol> _ids;
 
-        public readonly ISyntax Head;
-        public readonly ISyntax Tail;
+        private readonly SyntaxForm _head;
+        private readonly SyntaxForm _tail;
 
-        public SyntacticPair(ISyntax hd, ISyntax tl) : base(hd, tl)
+        public override Expression Car => _head;
+        public override Expression Cdr => _tail;
+
+        public SyntacticPair(SyntaxForm hd, SyntaxForm tl)
         {
-            Head = hd;
-            Tail = tl;
+            _head = hd;
+            _tail = tl;
 
             _ids = hd.Identifiers.Union(tl.Identifiers);
         }
 
-        public override string ToSerialized() => $"{{{Head.ToSerialized()}{SerializeTail(Tail)}}}";
-        public override string ToPrinted() => Pair.Cons(Head, Tail).ToPrinted();
+        public override string ToSerialized() => $"{{{_head.ToSerialized()}{SerializeTail(_tail)}}}";
+        public override string ToPrinted() => Pair.Cons(_head, _tail).ToPrinted();
+        public override bool IsAtom => false;
 
         private static string SerializeTail(SyntaxForm sf)
         {
@@ -290,18 +321,18 @@ namespace Clasp
             {
                 SyntacticEmpty => string.Empty,
                 SyntacticIdentifier sid => " " + sid.ToSerialized(),
-                SyntacticPair sp => " " + sp.Head.ToSerialized() + SerializeTail(sp.Tail),
+                SyntacticPair sp => " " + sp._head.ToSerialized() + SerializeTail(sp._tail),
                 SyntacticRepeating sr => " " + sr.ToSerialized(),
                 SyntacticDatum sd => " . " + sd.ToSerialized(),
                 _ => throw new Exception("Invalid Syntax")
             };
         }
 
-        public bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings)
+        public override bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings)
         {
             if (s is Pair p
-                && Head.TryMatch(p.Car, literalIDs, out Env headB)
-                && Tail.TryMatch(p.Cdr, literalIDs, out Env tailB)
+                && _head.TryMatch(p.Car, literalIDs, out Env headB)
+                && _tail.TryMatch(p.Cdr, literalIDs, out Env tailB)
                 && headB.TryMerge(tailB, out Env merged))
             {
                 bindings = merged;
@@ -313,28 +344,56 @@ namespace Clasp
                 return false;
             }
         }
+
+        public override Expression Build(Env bindings) => _head is SyntacticRepeating
+            ? Pair.Append(_head.Build(bindings), _tail.Build(bindings))
+            : Pair.Cons(_head.Build(bindings), _tail.Build(bindings));
     }
 
-    internal sealed class SyntacticRepeating : Atom, ISyntax
+    internal sealed class SyntacticRepeating : SyntaxForm
     {
-        public IEnumerable<Symbol> Identifiers => RepeatingTerm.Identifiers;
+        public override IEnumerable<Symbol> Identifiers => RepeatingTerm.Identifiers;
 
-        public readonly ISyntax RepeatingTerm;
+        public readonly SyntaxForm RepeatingTerm;
 
-        public SyntacticRepeating(ISyntax rep) => RepeatingTerm = rep;
+        public SyntacticRepeating(SyntaxForm rep) => RepeatingTerm = rep;
 
         public override string ToSerialized() => RepeatingTerm.ToSerialized() + " ...";
         public override string ToPrinted() => RepeatingTerm.ToPrinted() + " ...";
+        public override bool IsAtom => false;
 
-        public bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings)
+        public override bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings)
         {
             if (s.IsNil)
             {
-                bindings = Env_Helpers.MakeBlank(Identifiers);
+                bindings = Env_Helpers.MakeBlanks(Identifiers);
                 return true;
             }
             else if (s is Pair p
-                && R)
+                && RepeatingTerm.TryMatch(p.Car, literalIDs, out Env bindCar)
+                && TryMatch(p.Cdr, literalIDs, out Env bindCdr))
+            {
+                bindings = bindCar.Select(x => new EnvBinding(
+                    x.Key,
+                    new RecDef(
+                        x.Value.Item1 + 1,
+                        Pair.Cons(x.Value.Item2, bindCdr.Lookup(x.Key).Item2))));
+                return true;
+            }
+
+            bindings = Env_Helpers.MakeEmpty();
+            return false;
+        }
+
+        public override Expression Build(Env bindings)
+        {
+            Env subset = bindings.SubsetKeys(Identifiers);
+            IEnumerable<Env> splitEnvs = subset.Decompose();
+
+            IEnumerable<Expression> elements = splitEnvs.Select(x => RepeatingTerm.Build(x));
+            return RepeatingTerm is SyntacticRepeating
+                ? elements.Aggregate(Nil as Expression, (x, y) => Pair.Append(x, y))
+                : Pair.MakeImproperList(elements.ToArray());
         }
     }
 
@@ -348,14 +407,15 @@ namespace Clasp
 
         public override string ToSerialized() => Datum.ToSerialized();
         public override string ToPrinted() => ToSerialized();
+        public override bool IsAtom => true;
 
-        public override bool Beta(Expression s) => Datum.Equal_q(s);
-        public override Env Delta(Expression s) => Env_Helpers.MakeEmpty();
-        public override Expression Tau(Env rho) => Datum;
+        public override bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings)
+        {
+            bindings = Env_Helpers.MakeEmpty();
+            return Datum.Equal_q(s);
+        }
 
-        public override LvlEnv DeltaPrime_1(Expression s) => Array.Empty<LvlBinding>();
-        public override FunEnv DeltaPrime_2(Expression s) => Array.Empty<FunBinding>();
-        public override Func<Expression, Expression> TauPrime(EnvPrime rho) => s => Datum;
+        public override Expression Build(Env bindings) => Datum;
     }
 
 }
