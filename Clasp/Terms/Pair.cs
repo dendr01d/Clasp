@@ -55,22 +55,6 @@
                 : Cons(ls.Car, Append(ls.Cdr, t));
         }
 
-        //public static Expression AppendLast(Expression ls, Expression t)
-        //{
-        //    return ls.IsNil
-        //        ? Cons(t, Nil)
-        //        : Cons(ls.Car, AppendLast(ls.Cdr, t));
-        //}
-
-        //public static Boolean Member(Expression ls, Expression e)
-        //{
-        //    return ls.IsNil
-        //        ? Boolean.False
-        //        : Pred_Equal(ls.Car, e)
-        //            ? Boolean.True
-        //            : Member(ls.Cdr, e);
-        //}
-
         #endregion
 
         #region Helper Functions
@@ -139,39 +123,4 @@
             }
         }
     }
-
-    //internal abstract class TaggedPair : Pair
-    //{
-    //    public readonly Expression TaggedValue;
-
-    //    protected TaggedPair(Expression car, Expression cdr, Expression taggedValue) : base(car, cdr)
-    //    {
-    //        TaggedValue = taggedValue;
-    //    }
-    //}
-
-    //internal class Quoted : TaggedPair
-    //{
-    //    public Quoted(Expression exp) : base(Symbol.Quote, Cons(exp, Nil), exp) { }
-    //}
-
-    //internal class Quasiquoted : TaggedPair
-    //{
-    //    public Quasiquoted(Expression exp) : base(Symbol.Quasiquote, Cons(exp, Nil), exp) { }
-    //}
-
-    //internal class Unquoted : TaggedPair
-    //{
-    //    public Unquoted(Expression exp) : base(Symbol.Unquote, Cons(exp, Nil), exp) { }
-    //}
-
-    //internal class UnquoteSpliced : TaggedPair
-    //{
-    //    public UnquoteSpliced(Expression exp) : base(Symbol.UnquoteSplicing, Cons(exp, Nil), exp) { }
-    //}
-
-    //internal class EllipticPattern : TaggedPair
-    //{
-    //    public EllipticPattern(Expression exp) : base(exp, Cons(Symbol.Ellipsis, Nil), exp) { }
-    //}
 }

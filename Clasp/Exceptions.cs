@@ -7,6 +7,11 @@ using System.Threading.Tasks;
 
 namespace Clasp
 {
+    public class UncategorizedException : Exception
+    {
+        public UncategorizedException(string msg) : base($"CLASP Exception: {msg}") { }
+    }
+
     public class LexingException : Exception
     {
         public LexingException(string msg) : base($"Lexing error: {msg}") { }
