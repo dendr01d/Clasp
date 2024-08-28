@@ -31,41 +31,6 @@ namespace Clasp
         public abstract bool HasBound(Symbol sym);
         public bool HasLocal(Symbol sym) => _bindings.ContainsKey(sym.Name);
 
-        //public Environment DefineMany(Pair keys, Pair values)
-        //{
-        //    return BindSeries(keys, values);
-        //}
-
-        //private Environment BindSeries(Expression keys, Expression values)
-        //{
-        //    if (keys.IsNil && values.IsNil)
-        //    {
-        //        return this;
-        //    }
-        //    else if (keys.IsAtom && !values.IsAtom)
-        //    {
-        //        //if the keys list ends in a dotted pair, the last arg
-        //        //encapsulates the remaining values
-        //        Define(keys.Expect<Symbol>(), values);
-        //        return this;
-        //    }
-        //    else if (keys.IsNil || values.IsNil)
-        //    {
-        //        throw new MissingArgumentException("C# DefineMany");
-        //    }
-        //    else
-        //    {
-        //        Define(keys.Car.Expect<Symbol>(), values.Car);
-        //        return BindSeries(keys.Cdr, values.Cdr);
-        //    }
-        //}
-
-        /// <summary>
-        /// Attempts to unify the two expressions by recursively binding elements of <paramref name="form"/>
-        /// to symbols in <paramref name="pattern"/>. Returns true if unification succeeds. May mutate the environment
-        /// even when unification does NOT succeed.
-        /// </summary>
-
         public abstract int CountBindings();
         public Frame Close()
         {
@@ -73,82 +38,6 @@ namespace Clasp
         }
 
         #endregion
-
-        #region Secret Methods
-
-        /// <summary>
-        /// Copy the bindings from <paramref name="enriched"/> to this environment. If bindings already exist,
-        /// append the new definitions to the old ones to form a list.
-        /// </summary>
-        public void SubsumeAndAppend(Environment enriched)
-        {
-            foreach(var binding in enriched._bindings)
-            {
-                if (_bindings.TryGetValue(binding.Key, out Expression? extant))
-                {
-                    _bindings[binding.Key] = Pair.AppendLast(extant, binding.Value);
-                }
-                else
-                {
-                    _bindings[binding.Key] = binding.Value;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Check to see if all the keys provided are bound to nil
-        /// </summary>
-        public bool AllKeysExhausted(IEnumerable<Symbol> keys)
-        {
-            return keys.All(x => _bindings.TryGetValue(x.Name, out Expression? def) && def.IsNil);
-        }
-
-        /// <summary>
-        /// Attempt to create a new environment where the specified keys are rebound to the cars
-        /// of their current binding values. The current environment will be mutated. The method 
-        /// fails if any of the keys are not bound to list values.
-        public bool TryBumpBindings(IEnumerable<Symbol> keys, out Environment output)
-        {
-            output = Close();
-
-            foreach(Symbol key in keys)
-            {
-                if (_bindings.TryGetValue(key.Name, out Expression? def)
-                    && def is Pair p)
-                {
-                    output.BindNew(key, p.Car);
-                    _bindings[key.Name] = p.Cdr;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Create a closure of this environment that replicates the bindings of the specified keys.
-        /// i.e. create a subset-copy of the environment you can fuck up withour remorse.
-        /// </summary>
-        public Environment DescendAndCopy(IEnumerable<Symbol> keys)
-        {
-            Environment output = Close();
-
-            foreach(Symbol key in keys)
-            {
-                if (_bindings.TryGetValue(key.Name, out Expression? value))
-                {
-                    output.BindNew(key, value);
-                }
-            }
-
-            return output;
-        }
-
-        #endregion
-
     }
 
     internal class GlobalEnvironment : Environment

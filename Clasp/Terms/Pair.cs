@@ -55,12 +55,12 @@
                 : Cons(ls.Car, Append(ls.Cdr, t));
         }
 
-        public static Expression AppendLast(Expression ls, Expression t)
-        {
-            return ls.IsNil
-                ? Cons(t, Nil)
-                : Cons(ls.Car, AppendLast(ls.Cdr, t));
-        }
+        //public static Expression AppendLast(Expression ls, Expression t)
+        //{
+        //    return ls.IsNil
+        //        ? Cons(t, Nil)
+        //        : Cons(ls.Car, AppendLast(ls.Cdr, t));
+        //}
 
         //public static Boolean Member(Expression ls, Expression e)
         //{

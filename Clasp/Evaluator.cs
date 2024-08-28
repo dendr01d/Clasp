@@ -94,7 +94,6 @@ namespace Clasp
 
                         "if" => Eval_If,
                         "lambda" => Eval_Lambda,
-                        "flambda" => Eval_Flambda,
                         "begin" => Eval_Begin,
 
                         //"match" => Eval_Match,
@@ -145,15 +144,6 @@ namespace Clasp
         private static void Eval_Lambda(Machine mx)
         {
             mx.Assign_Val(new CompoundProcedure(
-                mx.Exp.Cadr.Expect<Pair>(),
-                mx.Env,
-                mx.Exp.Cddr));
-            mx.GoTo_Continue();
-        }
-
-        private static void Eval_Flambda(Machine mx)
-        {
-            mx.Assign_Val(new fLambda(
                 mx.Exp.Cadr.Expect<Pair>(),
                 mx.Env,
                 mx.Exp.Cddr));
@@ -336,7 +326,7 @@ namespace Clasp
 
             mx.Assign_Argl(Expression.Nil); //empty list
 
-            if (mx.Proc is Macro || mx.Proc is fLambda)
+            if (mx.Proc is Macro)
             {
                 mx.Restore_Continue();
                 mx.Assign_GoTo(Apply_Dispatch);
