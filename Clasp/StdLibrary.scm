@@ -63,59 +63,71 @@
 
 ;; Macros for additional special syntax
 
-(defmacro list
-    ((_ e1 e2 e3 ...) `(cons ,e1 (list ,e2 ,@e3)))
-    ((_ e) `(cons ,e ()))
-    ((_) '()))
-
-(defmacro list*
-    ((_ e1 e2 e3 ...) `(cons ,e1 (list* ,e2 ,@e3)))
-    ((_ e) e)
-    ((_) '()))
-
-(defmacro let
-    ((_ ((key def) ...) body1 body2 ...)
-        `((lambda (,@key) ,body1 ,@body2) ,@def)))
+(defmacro let ()
+    ((_ () body1 body2 ...)
+        (begin body1 body2 ...))
+    ((_ ((vars vals) ...) body1 body2 ...)
+        ((lambda (vars ...) body1 body2 ...) vals ...)))
         
-(defmacro let*
+(defmacro let* ()
     ((_ () body1 body2 ...)
-        `(begin ,body1 ,@body2)))
-    ((_ ((key def) more ...) body1 body2 ...)
-        `((lambda (,key) (let* (,@more) ,body1 ,@body2)) ,def))
+        (begin body1 body2 ...))
+    ((_ ((var1 val1) (vars vals) ...) body1 body2 ...)
+        ((lambda (var1) (let ((vars vals) ...) body1 body2 ...)) val1))
 
-(defmacro letrec
+(defmacro letrec ()
     ((_ () body1 body2 ...)
-        `(begin ,body1 ,@body2))
-    ((_ ((keys defs) more ...) body1 body2 ...)
-        `((lambda (,key) ((lambda (,key) (letrec* (,@more) ,body1 ,@body2)) ,def)) ,key)))
-        
-(defmacro letrec*
+        (begin body1 body2 ...))
+    ((_ ((vars vals) ...) body1 body2 ...)
+        (begin
+            (define vars vals) ...
+            body1 body2 ...)))
+
+(defmacro letrec* ()
     ((_ () body1 body2 ...)
-        `(begin ,body1 ,@body2))
-    ((_ ((key def) more ...) body1 body2 ...)
-        `((lambda (,key) ()) undefined)))
+        (begin body1 body2 ...))
+    ((_ ((var1 val1) (vars vals) ...) body1 body2 ...)
+        (begin
+            (define var1 val1)
+            (letrec* ((vars vals) ...) body1 body2 ...))))
 
-(defmacro or
-    ((_ e1) e1)
-    ((_ e1 e2 ...) `(let ((temp ,e1)) (if temp temp (or ,@e2))))
-    ((_) #f))
+(defmacro or ()
+    ((_ arg)
+        arg)
+    ((_ arg . args)
+        (let ((check arg)) (if check check (or args ...))))
+    ((_)
+        #f)
 
-(defmacro and
-    ((_ e1) e1)
-    ((_ e1 e2 ...) `(let ((temp ,e1)) (if temp (and ,@e2) temp)))
-    ((_) #t))
+(defmacro and ()
+    ((_ arg)
+        arg)
+    ((_ arg . args)
+        (let ((check arg)) (if check (and args ...) check)))
+    ((_)
+        #t))
 
-(defmacro cond
+(defmacro cond (else =>)
     ((_ (test) test))
-    ((_ ('else body1 body2 ...))
-        `(begin ,body1 ,@body2))
+    ((_ (else body1 body2 ...))
+        (begin body1 body2 ...))
+    ((_ (test => proc) clauses ...)
+        ((lambda (x y) (if x (y x) (cond clauses ...))) test proc))
     ((_ (test body1 body2 ...) clauses ...)
-        `(if ,test (begin ,body1 ,@body2) (cond ,@clauses)))
+        (if test (begin body1 body2 ...) (cons clauses ...)))
     ((_) #f))
     
-(defmacro case
-    ((_ x ('else body1 body2 ...))
-        `(begin ,body1 ,@body2))
-    ((_ x ((p1 p2 ...) body1 body2 ...) clauses ...)
-        `(let ((temp ,x)) (if (member temp (,p1 ,@p2)) (begin ,body1 ,@body2) (case temp ,@clauses))))
+(defmacro case (else)
+    ((_ (else body1 body2 ...))
+        (begin body1 body2 ...))
+    ((_ target ((item1 item2 ...) body1 body2 ...) clauses ...)
+        (if (member target (item1 item2 ...)) (begin body1 body2 ...) (case target clauses ...)))
     ((_) #f))
+
+(defmacro when ()
+    ((_ test body1 body2 ...)
+        (let ((check test)) (if check (begin body1 body2 ...) check))))
+        
+(defmacro unless ()
+    ((_ test body1 body2 ...)
+        (let ((check test)) (if check check (begin body1 body2 ...)))))
