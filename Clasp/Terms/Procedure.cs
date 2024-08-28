@@ -56,20 +56,25 @@ namespace Clasp
         private static void Define(string name, Func<Pair, Expression> op)
             => NativeOps.Add(name, new PrimitiveProcedure(name, op));
 
-        private static void Define(string name, Func<Expression, Expression, Expression> op)
-            => Define(name, p => op(p.Car, p.Cadr));
+        private static void DefinePrim<T1, T2, T3>(string name, Func<T1, T2, T3> op)
+            where T1 : Expression
+            where T2 : Expression
+            where T3 : Expression
+        {
+            NativeOps.Add(name, new PrimitiveProcedure(name, p => op(p.Car.Expect<T1>(), p.Cadr.Expect<T2>())));
+        }
 
-        private static void Define(string name, Func<Expression, bool> op)
-            => Define(name, p => Boolean.Judge(op(p.Car)));
+        private static void DefineVariadic<T1, T2>(string name, Func<T1, T2, T1> op, T1 baseCase)
+            where T1 : Expression
+            where T2 : Expression
+        {
+            NativeOps.Add(name, new PrimitiveProcedure(name, p => Pair.Fold(op, baseCase, p)));
+        }
 
-        private static void Define(string name, Func<bool, bool, bool> op)
-            => Define(name, (a, b) => Boolean.Judge(op(a.IsTrue, b.IsTrue)));
-
-        private static void Define(string name, Func<SimpleNum, SimpleNum, SimpleNum> op)
-            => Define(name, (x, y) => op(x.Expect<SimpleNum>(), y.Expect<SimpleNum>()));
-
-        private static void Define(string name, Func<SimpleNum, SimpleNum, Boolean> op)
-            => Define(name, (x, y) => op(x.Expect<SimpleNum>(), y.Expect<SimpleNum>()));
+        private static void DefinePred(string name, Func<Expression, bool> op)
+        {
+            NativeOps.Add(name, new PrimitiveProcedure(name, p => Boolean.Judge(op(p.Car))));
+        }
 
         #endregion
 
@@ -78,44 +83,46 @@ namespace Clasp
             Define("gensym", p => new GenSym());
 
             //special form list ops
-            Define("car", p => p.Caar);
-            Define("cdr", p => p.Cadar);
+            Define("car", p => p.Car.Car);
+            Define("cdr", p => p.Cdr.Car);
             Define("cons", p => Pair.Cons(p.Car, p.Cadr));
 
             Define("set-car", p => p.Car.SetCar(p.Cadr));
             Define("set-cdr", p => p.Car.SetCdr(p.Cadr));
 
             //arithmetic ops
-            Define("+", p => Pair.Fold((x, y) => SimpleNum.Add(x.Expect<SimpleNum>(), y.Expect<SimpleNum>()), SimpleNum.Zero, p));
+            DefineVariadic<SimpleNum, SimpleNum>("+", SimpleNum.Add, SimpleNum.Zero);
             Define("-", p => p.Cdr.IsNil
                 ? SimpleNum.Negate(p.Car.Expect<SimpleNum>())
                 : SimpleNum.Subtract(p.Car.Expect<SimpleNum>(), p.Cadr.Expect<SimpleNum>()));
-            Define("*", p => Pair.Fold((x, y) => SimpleNum.Multiply(x.Expect<SimpleNum>(), y.Expect<SimpleNum>()), SimpleNum.One, p));
-            Define("quotient", SimpleNum.Quotient);
-            Define("div", SimpleNum.IntDiv);
-            Define("modulo", SimpleNum.Modulo);
-            Define("expt", SimpleNum.Exponent);
+            DefineVariadic<SimpleNum, SimpleNum>("*", SimpleNum.Multiply, SimpleNum.One);
+
+            DefinePrim<SimpleNum, SimpleNum, SimpleNum>("quotient", SimpleNum.Quotient);
+            DefinePrim<SimpleNum, SimpleNum, SimpleNum>("div", SimpleNum.IntDiv);
+            DefinePrim<SimpleNum, SimpleNum, SimpleNum>("modulo", SimpleNum.Modulo);
+            DefinePrim<SimpleNum, SimpleNum, SimpleNum>("expt", SimpleNum.Exponent);
 
             //ordering/comparison
-            Define("<", SimpleNum.LessThan);
-            Define("<=", SimpleNum.Leq);
-            Define(">=", SimpleNum.Geq);
-            Define(">", SimpleNum.GreatherThan);
+
+            DefinePrim<SimpleNum, SimpleNum, Boolean>("<",  SimpleNum.LessThan);
+            DefinePrim<SimpleNum, SimpleNum, Boolean>("<=", SimpleNum.Leq);
+            DefinePrim<SimpleNum, SimpleNum, Boolean>(">=", SimpleNum.Geq);
+            DefinePrim<SimpleNum, SimpleNum, Boolean>(">",  SimpleNum.GreatherThan);
 
             //object equivalence
-            Define("eq?", p => p.Car.Eq_q(p.Cadr));
-            Define("eqv?", p => p.Car.Eqv_q(p.Cadr));
-            Define("equal?", p => p.Car.Equal_q(p.Cadr));
+            Define("eq?", p => Boolean.Judge(Pred_Eq(p.Car, p.Cadr)));
+            Define("eqv?", p => Boolean.Judge(Pred_Eqv(p.Car, p.Cadr)));
+            Define("equal?", p => Boolean.Judge(Pred_Equal(p.Car, p.Cadr)));
 
             //type predicates
-            Define("atom?", x => x.IsAtom);
-            Define("null?", x => x.IsNil);
-            Define("pair?", x => x is Pair);
-            Define("symbol?", x => x is Symbol);
-            Define("procedure?", x => x is Procedure or SpecialFormRef);
-            Define("vector?", x => x is Vector);
-            Define("boolean?", x => x is Boolean);
-            Define("number?", x => x is SimpleNum);
+            DefinePred("atom?", x => x.IsAtom);
+            DefinePred("null?", x => x.IsNil);
+            DefinePred("pair?", x => x is Pair);
+            DefinePred("symbol?", x => x is Symbol);
+            DefinePred("procedure?", x => x is Procedure);
+            DefinePred("vector?", x => x is Vector);
+            DefinePred("boolean?", x => x is Boolean);
+            DefinePred("number?", x => x is SimpleNum);
         }
 
         #endregion
