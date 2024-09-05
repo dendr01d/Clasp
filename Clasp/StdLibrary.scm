@@ -1,4 +1,5 @@
 ﻿
+;; ----------------------------------------------------------------------------
 ;; Car/Cdr extensions
 (define (caar ls) (car (car ls)))
 (define (cadr ls) (car (cdr ls)))
@@ -15,108 +16,187 @@
 (define (cddar ls) (cdr (cdar ls)))
 (define (cdddr ls) (cdr (cddr ls)))
 
-;; List Ops
-(define (foldl op init ls)
-    (if (null? ls) init (foldl op (op init (car ls)) (cdr ls))))
-(define (foldr op init ls)
-    (if (null? ls) init (op (car ls) (foldr op init (cdr ls)))))
+;; ----------------------------------------------------------------------------
+;; Derivative Predicates
 
-(define (member t ls)
-    (cond
-        ((null? ls) #f)
-        ((equal? (car ls) t) ls)
-        (else (member t (cdr ls)))))
-
-(define (memq t ls)
-    (cond
-        ((null? ls) #f)
-        ((eq? (car ls) t) ls)
-        (else (member t (cdr ls)))))
-
-(define (memv t ls)
-    (cond
-        ((null? ls) #f)
-        ((eqv? (car ls) t) ls)
-        (else (member t (cdr ls)))))
-
-(define (reverse ls)
-    (cons (reverse (cdr ls)) (list (car ls))))
-    
-(define (append ls t)
-    (cond
-        ((null? ls) (list t))
-        ((null? t) ls)
-        (else (cons (car ls) (append (cdr ls) t)))))
-
-(define (mapcar ls fun)
-    (if (null? ls) '() (cons (fun (car ls)) (mapcar (cdr ls) fun))))
-
-;; Boolean-Logical Extensions
-(define (true? x) (if x #t #f))
+(define (true? x) x)
 (define (false? x) (if x #f #t))
-(define (not x) (false? x))
 
-(define (impl x y) (or (not x) y))
-(define (bimpl x y) (and (impl x y) (imply y x)))
-(define (xor x y) (not (bimpl x y)))
+(define (zero? x) (eqv? x zero))
+
+(define (positive? x) (> x zero))
+(define (negative? x) (< x zero))
+
+(define (odd? x) (eqv? (mod x 2) one))
+(define (even? x) (eqv? (mod x 2) zero))
+
+;; ----------------------------------------------------------------------------
+;; Derivative Logical Operations
+
+(define (not? x) (false? x))
+(define (impl x y) (or (not a) b))
+(define (bimpl a b) (and (impl a b) (impl b a)))
+(define (xor a b) (or (and (not a) b) (and a (not b))))
+
+;; ----------------------------------------------------------------------------
+;; Mathematical Constants
+
+(define zero 0)
+(define one 1)
+(define pi 3.1415926536)
+(define e 2.7182818285)
+(define phi 1.6180339887)
 
 
-;; Macros for additional special syntax
+;; ----------------------------------------------------------------------------
+;; Math Ops
 
-(defmacro let ()
-    ((_ () body1 body2 ...)
-        (begin body1 body2 ...))
-    ((_ ((vars vals) ...) body1 body2 ...)
-        ((lambda (vars ...) body1 body2 ...) vals ...)))
+(define (= x y)
+	(and (number? x)
+		 (number? y)
+		 (eqv? x y)))
+		 
+(define / quotient)
+(define (// number root) (expt number (quotient one root)))
+(define (sqrt n) (// n 2))
+(define (cbrt n) (// n 3))
+
+(define (min x . xs)
+	(reduce (lambda (a b) (if (< a b) a b)) x xs))
+	
+(define (max x . xs)
+	(reduce (lambda (a b) (if (> a b) a b)) x xs))
+	
+(define (inc n) (+ n one))
+(define (dec n) (- n one))
+
+;; ----------------------------------------------------------------------------
+;; General List Ops
+
+(define (mapcar op ls)
+	(if (null? ls)
+	'()
+	(cons (op (car ls))
+	      (mapcar op (cdr ls)))))
+		  
+(define (foldr op init ls)
+	(if (null? ls)
+		init
+		(op (car ls)
+			(foldr op init (cdr ls)))))
+		  
+(define (foldl op init ls)
+	(if (null? ls)
+		init
+		(foldl op
+			   (op (car ls) init)
+			   (cdr ls))))
+			   
+(define (fold op init ls)
+  (foldl op init ls))
+  
+(define (reduce op init ls)
+  (foldl op init ls))
+  
+(define (reverse ls)
+	(if (null? ls)
+	    '()
+		(append (reverse (cdr ls))
+		        (list (car ls)))))
+
+;; ----------------------------------------------------------------------------
+;; List Membership
+
+(define (memp obj ls comp)
+	(cond
+		((null? ls) #f)
+		((comp obj (car ls)) #t)
+		(else (memp obj (cdr ls) comp))))
+		
+(define (memq obj ls) (memp obj ls eq?))
+(define (memv obj ls) (memp obj ls eqv?))
+(define (member obj ls) (memp obj ls equal?))
+
+;; ----------------------------------------------------------------------------
+;; A-List Ops
+
+(define (assp obj alist compare)
+	(cond
+		((null? alist) #f)
+		((compare obj (caar alist)) (car alist))
+		((else (assp obj (cdr alist) compare)))))
+		
+(define (assq obj alist) (assp obj alist eq?))
+(define (assv obj alist) (assp obj alist eqv?))
+(define (assoc obj alist) (assp obj alist equal?))
+
+;; ----------------------------------------------------------------------------
+;; Standard Macros
+
+(defmacro when ()
+	((_ test result)
+		(if test result #f))
+	((_ test)
+		test))
         
-; (defmacro let* ()
-    ; ((_ () body1 body2 ...)
-        ; (begin body1 body2 ...))
-    ; ((_ ((var1 val1) (vars vals) ...) body1 body2 ...)
-        ; ((lambda (var1) (let ((vars vals) ...) body1 body2 ...)) val1)))
-
-; (defmacro letrec ()
-    ; ((_ () body1 body2 ...)
-        ; (begin body1 body2 ...))
-    ; ((_ ((vars vals) ...) body1 body2 ...)
-        ; (begin
-            ; (define vars vals) ...
-            ; body1 body2 ...)))
-
-; (defmacro letrec* ()
-    ; ((_ () body1 body2 ...)
-        ; (begin body1 body2 ...))
-    ; ((_ ((var1 val1) (vars vals) ...) body1 body2 ...)
-        ; (begin
-            ; (define var1 val1)
-            ; (letrec* ((vars vals) ...) body1 body2 ...))))
-
-; (defmacro or ()
-    ; ((_ arg)
-        ; arg)
-    ; ((_ arg . args)
-        ; (let ((check arg)) (if check check (or args ...))))
-    ; ((_)
-        ; #f))
-
-; (defmacro and ()
-    ; ((_ arg)
-        ; arg)
-    ; ((_ arg . args)
-        ; (let ((check arg)) (if check (and args ...) check)))
-    ; ((_)
-        ; #t))
-
-; (defmacro cond (else =>)
-    ; ((_ (test) test))
-    ; ((_ (else body1 body2 ...))
-        ; (begin body1 body2 ...))
+; (defmacro unless ()
+    ; ((_ test body1 body2 ...)
+        ; (let ((check test)) (if check check (begin body1 body2 ...)))))
+		
+(defmacro let ()
+	((_ ((keys vals) ...) body1 body2 ...)
+		((lambda (keys ...) body1 body2 ...) vals ...)))
+		
+(defmacro let* ()
+	((_ () body1 . body2)
+		(begin body1 . body2))
+	((_ ((key val) more ...) body1 . body2)
+		((lambda (key) (let* (more ...) body1 . body2)) val)))
+		
+(defmacro letrec ()
+	((_ ((keys vals) ...) body1 body2 ...)
+		(begin
+			(define keys vals) ...
+			body1
+			body2 ...)))
+			
+(defmacro letrec* ()
+	((_ () body1 body2 ...)
+		(begin body1 body2 ...))
+	((_ ((key1 val1) (keys vals) ...) body1 body2 ...)
+		(begin
+			(define key1 val1)
+			(letrec* ((keys vals) ...) body1 body2 ...))))
+			
+(defmacro or ()
+	((_ arg)
+		arg)
+	((_ arg . args)
+		((lambda (x) (if x x (or . args))) arg))
+	((_)
+		#f))
+		
+(defmacro and ()
+	((_ arg)
+		arg)
+	((_ arg . args)
+		((lambda (x) (if x (and . args) x)) arg))
+	((_)
+		#t))
+		
+(defmacro cond (else)
+	((_ (else body1 . body2))
+		(begin body1 . body2))
     ; ((_ (test => proc) clauses ...)
         ; ((lambda (x y) (if x (y x) (cond clauses ...))) test proc))
-    ; ((_ (test body1 body2 ...) clauses ...)
-        ; (if test (begin body1 body2 ...) (cons clauses ...)))
-    ; ((_)
-        ; #f))
+	((_ (test body1 . body2) . clauses)
+		(if test
+			(begin body1 . body2)
+			(cond . clauses)))
+	((_ (test))
+		test)
+	((_)
+		#f))
     
 ; (defmacro case (else)
     ; ((_ (else body1 body2 ...))
@@ -125,11 +205,3 @@
         ; (if (member target (item1 item2 ...)) (begin body1 body2 ...) (case target clauses ...)))
     ; ((_)
         ; #f))
-
-; (defmacro when ()
-    ; ((_ test body1 body2 ...)
-        ; (let ((check test)) (if check (begin body1 body2 ...) check))))
-        
-; (defmacro unless ()
-    ; ((_ test body1 body2 ...)
-        ; (let ((check test)) (if check check (begin body1 body2 ...)))))

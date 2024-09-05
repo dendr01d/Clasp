@@ -84,6 +84,12 @@ namespace Clasp
         public static Environment LoadStandard()
         {
             GlobalEnvironment ge = new GlobalEnvironment();
+
+            foreach(var special in Evaluator.SpecialFormRouting)
+            {
+                ge.BindNew(Symbol.Ize(special.Key), new SpecialForm(special.Key, special.Value));
+            }
+
             foreach(var def in PrimitiveProcedure.NativeOps)
             {
                 ge.BindNew(Symbol.Ize(def.Key), def.Value);

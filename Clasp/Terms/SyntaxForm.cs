@@ -133,10 +133,14 @@ namespace Clasp
         public readonly SyntaxForm Pattern;
         public readonly SyntaxForm Template;
 
+        private readonly IEnumerable<Symbol> _freeIDentifiers;
+
         public SyntaxRule(SyntaxForm pat, SyntaxForm tem)
         {
             Pattern = pat;
             Template = tem;
+
+            _freeIDentifiers = Template.Identifiers.Except(Pattern.Identifiers);
         }
 
         public SyntaxRule(Expression pat, Expression tem)
@@ -145,13 +149,24 @@ namespace Clasp
             Template = SyntaxForm.ParseTemplate(tem);
         }
 
-        public bool TryTransform(Expression input, Expression literalIDs, out Expression output)
+        public bool TryTransform(Expression input, Expression literalIDs, Environment macroEnv, Environment exprEnv, out Expression output)
         {
             Symbol[] literals = Pair.Enumerate(literalIDs).Select(x => x.Expect<Symbol>()).ToArray();
 
             if (Pattern.TryMatch(input, literals, out Env bindings))
             {
-                output = Template.Build(bindings);
+                Dictionary<Symbol, Symbol> alphaExchange = _freeIDentifiers
+                    .ToDictionary(x => x, x => new GenSym(x.Name) as Symbol);
+
+                foreach(var replacement in alphaExchange)
+                {
+                    if (macroEnv.HasBound(replacement.Key))
+                    {
+                        exprEnv.BindNew(replacement.Value, macroEnv.LookUp(replacement.Key));
+                    }
+                }
+
+                output = Template.Build(bindings, alphaExchange);
                 return true;
             }
             else
@@ -174,7 +189,7 @@ namespace Clasp
     {
         public abstract IEnumerable<Symbol> Identifiers { get; }
         public abstract bool TryMatch(Expression s, Symbol[] literalIDs, out Env bindings);
-        public abstract Expression Build(Env bindings);
+        public abstract Expression Build(Env bindings, IDictionary<Symbol, Symbol> alphaConversion);
 
         public abstract override bool IsAtom { get; }
         public override Expression Car => throw new ExpectedTypeException<Pair>(this);
@@ -258,7 +273,7 @@ namespace Clasp
             bindings = Env_Helpers.MakeEmpty();
             return s.IsNil;
         }
-        public override Expression Build(Env bindings) => Nil;
+        public override Expression Build(Env bindings, IDictionary<Symbol, Symbol> alphaConversion) => Nil;
     }
 
     internal sealed class SyntacticIdentifier : SyntaxForm
@@ -279,9 +294,13 @@ namespace Clasp
                 : Env_Helpers.MakeSolo(_id, s);
             return true;
         }
-        public override Expression Build(Env bindings)
+        public override Expression Build(Env bindings, IDictionary<Symbol, Symbol> alphaConversion)
         {
-            if (bindings.TryLookup(_id, out RecDef def))
+            if (alphaConversion.TryGetValue(_id, out Symbol? newId))
+            {
+                return newId;
+            }
+            else if (bindings.TryLookup(_id, out RecDef def))
             {
                 return def.Item1 == 0
                     ? def.Item2
@@ -345,9 +364,15 @@ namespace Clasp
             }
         }
 
-        public override Expression Build(Env bindings) => _head is SyntacticRepeating
-            ? Pair.Append(_head.Build(bindings), _tail.Build(bindings))
-            : Pair.Cons(_head.Build(bindings), _tail.Build(bindings));
+        public override Expression Build(Env bindings, IDictionary<Symbol, Symbol> alphaConversion)
+        {
+            Expression first = _head.Build(bindings, alphaConversion);
+            Expression rest = _tail.Build(bindings, alphaConversion);
+
+            return _head is SyntacticRepeating
+                ? Pair.Append(first, rest)
+                : Pair.Cons(first, rest);
+        }
     }
 
     internal sealed class SyntacticRepeating : SyntaxForm
@@ -385,12 +410,12 @@ namespace Clasp
             return false;
         }
 
-        public override Expression Build(Env bindings)
+        public override Expression Build(Env bindings, IDictionary<Symbol, Symbol> alphaConversion)
         {
             Env subset = bindings.SubsetKeys(Identifiers);
             IEnumerable<Env> splitEnvs = subset.Decompose();
 
-            IEnumerable<Expression> elements = splitEnvs.Select(x => RepeatingTerm.Build(x));
+            IEnumerable<Expression> elements = splitEnvs.Select(x => RepeatingTerm.Build(x, alphaConversion));
             return RepeatingTerm is SyntacticRepeating
                 ? elements.Aggregate(Nil as Expression, (x, y) => Pair.Append(x, y))
                 : Pair.MakeList(elements.ToArray());
@@ -415,7 +440,7 @@ namespace Clasp
             return Expression.Pred_Equal(Datum, s);
         }
 
-        public override Expression Build(Env bindings) => Datum;
+        public override Expression Build(Env bindings, IDictionary<Symbol, Symbol> alphaConversion) => Datum;
     }
 
 }

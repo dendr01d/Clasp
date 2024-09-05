@@ -58,5 +58,7 @@ namespace Clasp
         private static int counter = 0;
 
         public GenSym() : base($"${++counter}") { }
+
+        public GenSym(string name) : base($"{name}_${++counter}") { }
     }
 }

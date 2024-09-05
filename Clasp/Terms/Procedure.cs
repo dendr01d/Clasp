@@ -7,13 +7,36 @@ using System.Xml.Linq;
 
 namespace Clasp
 {
-    internal abstract class Procedure : Atom { }
+    internal abstract class Procedure : Atom
+    {
+        /// <summary>
+        /// Indicates whether the procedure's arguments are evaluated BEFORE the application of the procedure itself
+        /// </summary>
+        public abstract bool ApplicativeOrder { get; }
+    }
+
+    internal class SpecialForm : Procedure
+    {
+        public readonly string Name;
+        public readonly Action<Machine> InstructionPtr;
+        public override bool ApplicativeOrder => false;
+
+        public SpecialForm(string keyword, Action<Machine> ptr)
+        {
+            Name = keyword;
+            InstructionPtr = ptr;
+        }
+
+        public override string ToPrinted() => $"sp_{Name}";
+        public override string ToSerialized() => Name;
+    }
 
     internal class CompoundProcedure : Procedure
     {
         public readonly Pair Parameters;
         public readonly Expression Body;
         private readonly Environment _closure;
+        public override bool ApplicativeOrder => true;
 
         public Environment Closure { get => _closure; }
 
@@ -33,6 +56,7 @@ namespace Clasp
         private readonly string _name;
 
         private readonly Func<Pair, Expression> _operation;
+        public override bool ApplicativeOrder => true;
 
         private PrimitiveProcedure(string name, Func<Pair, Expression> op)
         {
@@ -134,6 +158,7 @@ namespace Clasp
         public readonly Expression LiteralSymbols;
         public readonly Pair Transformers;
         public readonly Environment Closure;
+        public override bool ApplicativeOrder => false;
 
         public Macro(string name, Expression literals, Pair transformers, Environment closure)
         {
