@@ -118,7 +118,7 @@
 (define (member obj ls) (memp obj ls equal?))
 
 ;; ----------------------------------------------------------------------------
-;; A-List Ops
+;; Assoc-List Ops
 
 (define (assp obj alist compare)
 	(cond
@@ -129,6 +129,22 @@
 (define (assq obj alist) (assp obj alist eq?))
 (define (assv obj alist) (assp obj alist eqv?))
 (define (assoc obj alist) (assp obj alist equal?))
+
+;; ----------------------------------------------------------------------------
+;; Random Tests
+
+; http://peter.michaux.ca/articles/scheme-from-scratch-bootstrap-v0_13-lambda-the-ultimate
+(define Y
+    (lambda (f)
+      ((lambda (x) (f (lambda (y) ((x x) y))))
+       (lambda (x) (f (lambda (y) ((x x) y)))))))
+	   
+(define factorial
+    (Y (lambda (fact) 
+         (lambda (n) 
+           (if (= n 0)
+               1
+               (* n (fact (- n 1))))))))
 
 ;; ----------------------------------------------------------------------------
 ;; Standard Macros

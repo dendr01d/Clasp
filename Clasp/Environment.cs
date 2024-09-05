@@ -85,22 +85,64 @@ namespace Clasp
         {
             GlobalEnvironment ge = new GlobalEnvironment();
 
+            List<Exception> errors = new List<Exception>();
+
             foreach(var special in Evaluator.SpecialFormRouting)
             {
-                ge.BindNew(Symbol.Ize(special.Key), new SpecialForm(special.Key, special.Value));
+                try
+                {
+                    ge.BindNew(Symbol.Ize(special.Key), new SpecialForm(special.Key, special.Value));
+
+                }
+                catch (Exception ex)
+                {
+                    string msg = $"Error defining special form '{special.Key}': {ex.Message}";
+                    errors.Add(new Exception(msg, ex));
+                }
             }
 
             foreach(var def in PrimitiveProcedure.NativeOps)
             {
-                ge.BindNew(Symbol.Ize(def.Key), def.Value);
+                try
+                {
+                    ge.BindNew(Symbol.Ize(def.Key), def.Value);
+                }
+                catch (Exception ex)
+                {
+                    string msg = $"Error defining simple procedure '{def.Key}': {ex.Message}";
+                    errors.Add(new Exception(msg, ex));
+                }
             }
 
             if (File.Exists(_STD_LIBRARY))
             {
-                foreach (Expression expr in Parser.ParseFile(_STD_LIBRARY))
+                try
                 {
-                    Evaluator.Evaluate(expr, ge);
+                    IEnumerable<Expression> exprs = Parser.ParseFile(_STD_LIBRARY);
+
+                    foreach (Expression expr in exprs)
+                    {
+                        try
+                        {
+                            Evaluator.SilentEval(expr, ge);
+                        }
+                        catch (Exception ex)
+                        {
+                            string msg = $"Error evaluating entry from standard library {{{expr.ToPrinted()}}}: {ex.Message}";
+                            errors.Add(new Exception(msg, ex));
+                        }
+                    }
                 }
+                catch (Exception ex)
+                {
+                    string msg = $"Error reading standard library: {ex.Message}";
+                    errors.Add(new Exception(msg, ex));
+                }
+            }
+
+            if (errors.Any())
+            {
+                throw new AggregateException(errors);
             }
 
             return ge.Close();

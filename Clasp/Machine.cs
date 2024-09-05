@@ -154,8 +154,11 @@ namespace Clasp
 
         #region Printing
 
-        private string FormatRegister(Expression? x) => x?.ToString() ?? "*0";
-        private string FormatFunctor(Action<Machine>? ptr) => ptr?.Method.Name ?? "*0";
+        private const string STACK_SEP = "≤";
+        private const string EMPTY_PTR = "ε";
+
+        private string FormatRegister(Expression? x) => x?.ToString() ?? EMPTY_PTR;
+        private string FormatFunctor(Action<Machine>? ptr) => ptr?.Method.Name ?? EMPTY_PTR;
 
         public string GoingTo => FormatFunctor(_goto);
         public string ContinueTo => FormatFunctor(_continue);
@@ -163,17 +166,17 @@ namespace Clasp
         public void Print(TextWriter tw)
         {
             tw.WriteLine($" Exp: {FormatRegister(_exp)}");
+            tw.WriteLine($" Val: {FormatRegister(_val)}");
             tw.WriteLine($"Proc: {FormatRegister(_proc)}");
             tw.WriteLine($"Unev: {FormatRegister(_unev)}");
             tw.WriteLine($"Argl: {FormatRegister(_argl)}");
-            tw.WriteLine($" Val: {FormatRegister(_val)}");
             if (_expStack.Any())
             {
                 tw.WriteLine();
-                tw.WriteLine("Exp Stack:");
+                tw.WriteLine("Term Stack:");
                 foreach(Expression expr in _expStack)
                 {
-                    tw.WriteLine($"<| {expr}");
+                    tw.WriteLine($"{STACK_SEP} {expr}");
                 }
             }
             tw.WriteLine();
@@ -188,7 +191,7 @@ namespace Clasp
                 tw.WriteLine("Ptr Stack:");
                 foreach (Action<Machine>? ptr in _ptrStack)
                 {
-                    tw.WriteLine($"<| {FormatFunctor(ptr)}");
+                    tw.WriteLine($"{STACK_SEP} {FormatFunctor(ptr)}");
                 }
             }
         }

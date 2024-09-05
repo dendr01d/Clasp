@@ -33,21 +33,26 @@ namespace Clasp
 
     internal class CompoundProcedure : Procedure
     {
-        public readonly Pair Parameters;
-        public readonly Expression Body;
+        public readonly Expression Parameters;
+        public readonly Pair Body;
         private readonly Environment _closure;
         public override bool ApplicativeOrder => true;
 
-        public Environment Closure { get => _closure; }
+        public Environment Closure { get => _closure.Close(); }
 
-        public CompoundProcedure(Pair parameters, Environment closure, Expression body)
+        public CompoundProcedure(Expression parameters, Pair body, Environment closure)
         {
             Parameters = parameters;
-            _closure = closure;
             Body = body;
+            _closure = closure;
         }
 
-        public override string ToPrinted() => $"<lambda {Parameters} {Body}>";
+        public override string ToPrinted()
+        {
+            return Pair.Append(Pair.MakeList(Symbol.Lambda, Parameters), Body)
+                .Expect<Pair>()
+                .Format('<', '>');
+        }
         public override string ToSerialized() => Pair.Cons(Symbol.Lambda, Pair.Cons(Parameters, Body)).ToSerialized();
     }
 
@@ -154,21 +159,25 @@ namespace Clasp
 
     internal class Macro : Procedure
     {
-        private readonly string _name;
         public readonly Expression LiteralSymbols;
         public readonly Pair Transformers;
         public readonly Environment Closure;
         public override bool ApplicativeOrder => false;
 
-        public Macro(string name, Expression literals, Pair transformers, Environment closure)
+        public Macro(Expression literals, Pair transformers, Environment closure)
         {
-            _name = name;
             LiteralSymbols = literals;
             Transformers = transformers;
             Closure = closure;
         }
 
-        public override string ToPrinted() => $"[macro '{_name}']";
+        public override string ToPrinted()
+        {
+            return Pair.Append(Pair.MakeList(
+                Symbol.Macro, LiteralSymbols), Transformers)
+                .Expect<Pair>()
+                .Format('{', '}');
+        }
         public override string ToSerialized() => throw new NotImplementedException(); //idk lol
 
     }

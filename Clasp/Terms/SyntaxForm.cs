@@ -143,11 +143,10 @@ namespace Clasp
             _freeIDentifiers = Template.Identifiers.Except(Pattern.Identifiers);
         }
 
-        public SyntaxRule(Expression pat, Expression tem)
-        {
-            Pattern = SyntaxForm.ParsePattern(pat);
-            Template = SyntaxForm.ParseTemplate(tem);
-        }
+        public SyntaxRule(Expression pat, Expression tem) : this(
+            SyntaxForm.ParsePattern(pat),
+            SyntaxForm.ParseTemplate(tem))
+        { }
 
         public bool TryTransform(Expression input, Expression literalIDs, Environment macroEnv, Environment exprEnv, out Expression output)
         {

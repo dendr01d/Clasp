@@ -62,4 +62,11 @@
         public Character(char c) : base(c) { }
         public override string ToPrinted() => $"\\{Value}";
     }
+
+    internal class Charstring : Literal<string>
+    {
+        public Charstring(string s) : base(s) { }
+        public override string ToPrinted() => Value;
+        public override string ToSerialized() => $"\"{Value}\"";
+    }
 }

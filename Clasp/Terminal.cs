@@ -8,10 +8,14 @@ namespace Clasp
     {
         public static void RunConsole()
         {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+
             Stream input = Console.OpenStandardInput();
             Stream output = Console.OpenStandardOutput();
             Run(input, output, output);
         }
+
+        private static readonly System.Text.Encoding CharFormat = System.Text.Encoding.Default;
 
         private const string _SHOW_INPUT_STEPS_CMD = "mirror";
         private const string _SHOW_MACHINE_CMD = "show";
@@ -26,9 +30,9 @@ namespace Clasp
 
         private static void Run(Stream inputStream, Stream outputStream, Stream errorStream)
         {
-            StreamReader reader = new(inputStream);
-            StreamWriter writer = new(outputStream);
-            StreamWriter errors = new(errorStream);
+            StreamReader reader = new(inputStream, CharFormat);
+            StreamWriter writer = new(outputStream, CharFormat);
+            StreamWriter errors = new(errorStream, CharFormat);
 
             writer.AutoFlush = true;
             errors.AutoFlush = true;
@@ -44,7 +48,7 @@ namespace Clasp
             {
                 if (clearScreen)
                 {
-                    writer.WriteLine("CLASP Terminal");
+                    writer.WriteLine($"CLASP Terminal (Enc {CharFormat.EncodingName})");
                     writer.WriteLine($"* \"{_SHOW_INPUT_STEPS_CMD}\" to toggle input-mirroring");
                     writer.WriteLine($"* \"{_SHOW_MACHINE_CMD}\" to toggle machine printing");
                     writer.WriteLine($"* \"{_PAUSE_MACHINE_CMD}\" to toggle step-by-step pausing");
@@ -100,7 +104,7 @@ namespace Clasp
                             //IEnumerable<IEnumerable<Token>> segmentedTokens = Parser.SegmentTokens(tokens);
                             //IEnumerable<Expression> exprs = segmentedTokens.SelectMany(Parser.Parse);
 
-                            IEnumerable<Expression> exprs = Parser.Parse(tokens);
+                            IEnumerable<Expression> exprs = Parser.ParseText(input);
 
                             if (_showingInput)
                             {

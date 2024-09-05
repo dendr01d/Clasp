@@ -20,8 +20,16 @@ namespace Clasp
             while(mx.GoTo is not null)
             {
                 string stepName = mx.GoingTo; //capture before the machine executes
+
+
                 mx.GoTo.Invoke(mx);
                 PrintStep(cout, pauseEachStep, stepName, step++, mx);
+
+                if (step == 10000)
+                {
+                    PrintStep(cout, true, stepName, step, mx);
+                }
+
             }
 
             PrintStep(cout, pauseEachStep, "Final Result", step, null);
@@ -56,6 +64,18 @@ namespace Clasp
             }
         }
 
+        public static Expression SilentEval(Expression expr, Environment env)
+        {
+            Machine mx = new Machine(expr, env, Eval_Dispatch);
+
+            while (mx.GoTo is not null)
+            {
+                mx.GoTo.Invoke(mx);
+            }
+
+            return mx.Val;
+        }
+
         #endregion
 
         public static readonly Dictionary<string, Action<Machine>> SpecialFormRouting = new()
@@ -71,6 +91,9 @@ namespace Clasp
             { "set!", Eval_Assignment },
             { "define", Eval_Define },
             { "defmacro", Eval_DefMacro },
+
+            { "set-car!", Eval_SetCar },
+            { "set-cdr!", Eval_SetCdr },
 
             { "if", Eval_If },
             { "lambda", Eval_Lambda },
@@ -91,13 +114,15 @@ namespace Clasp
 
         private static void Eval_Eval(Machine mx)
         {
-            mx.Assign_Exp(Pair.Cons(Symbol.Begin, mx.Exp.Cdr));
+            mx.Assign_Exp(mx.Exp.Cadr);
             mx.Assign_GoTo(Eval_Dispatch);
         }
 
         private static void Eval_Raw_Apply(Machine mx)
         {
-            mx.Assign_Exp(Pair.Cons(mx.Exp.Cadr, mx.Exp.Cddr));
+            mx.Assign_Exp(Pair.Cons(
+                mx.Exp.Cadr,
+                mx.Exp.Caddr));
             mx.Assign_GoTo(Eval_Dispatch);
         }
 
@@ -124,9 +149,55 @@ namespace Clasp
         private static void Eval_Lambda(Machine mx)
         {
             mx.Assign_Val(new CompoundProcedure(
-                mx.Exp.Cadr.Expect<Pair>(),
-                mx.Env,
-                mx.Exp.Cddr));
+                mx.Exp.Cadr,
+                mx.Exp.Cddr.Expect<Pair>(),
+                mx.Env));
+            mx.GoTo_Continue();
+        }
+
+        #endregion
+
+        #region Imperative List Modification
+
+        private static void Eval_SetCar(Machine mx)
+        {
+            mx.Save_Exp();
+            mx.Assign_Exp(mx.Exp.Caddr);
+            mx.Save_Continue();
+            mx.Assign_Continue(Eval_SetCar_Do);
+            mx.Assign_GoTo(Eval_Dispatch);
+        }
+
+        private static void Eval_SetCar_Do(Machine mx)
+        {
+            mx.Restore_Continue();
+            mx.Restore_Exp();
+
+            mx.Assign_Exp(mx.Exp.Cadr);
+            mx.Exp.Expect<Pair>().SetCar(mx.Val);
+
+            mx.Assign_Val(Symbol.Ok);
+            mx.GoTo_Continue();
+        }
+
+        private static void Eval_SetCdr(Machine mx)
+        {
+            mx.Save_Exp();
+            mx.Assign_Exp(mx.Exp.Caddr);
+            mx.Save_Continue();
+            mx.Assign_Continue(Eval_SetCdr_Do);
+            mx.Assign_GoTo(Eval_Dispatch);
+        }
+
+        private static void Eval_SetCdr_Do(Machine mx)
+        {
+            mx.Restore_Continue();
+            mx.Restore_Exp();
+
+            mx.Assign_Exp(mx.Exp.Cadr);
+            mx.Exp.Expect<Pair>().SetCdr(mx.Val);
+
+            mx.Assign_Val(Symbol.Ok);
             mx.GoTo_Continue();
         }
 
@@ -299,12 +370,12 @@ namespace Clasp
 
         private static void Eval_Apply_Did_Op(Machine mx)
         {
-            mx.Assign_Proc(mx.Val.Expect<Procedure>());
-
             mx.Restore_Unev();
             mx.LeaveScope();
 
             mx.Assign_Argl(Expression.Nil); //empty list
+
+            mx.Assign_Proc(mx.Val.Expect<Procedure>());
 
             if (mx.Unev.IsNil)
             {
@@ -319,7 +390,7 @@ namespace Clasp
             }
             else
             {
-                mx.Restore_Continue();
+                //mx.Restore_Continue();
 
                 //otherwise rebuild the original expression and skip ahead
                 mx.Assign_Exp(Pair.Cons(mx.Exp, mx.Unev));
@@ -366,7 +437,7 @@ namespace Clasp
             mx.Restore_Argl();
 
             mx.AppendArgl(mx.Val);
-            mx.Assign_Unev(mx.Unev.Cdr);
+            mx.NextUnev();
 
             mx.Assign_GoTo(Eval_Apply_Operand_Loop);
         }
@@ -374,10 +445,18 @@ namespace Clasp
         private static void Eval_Apply_Accumulate_Last_Arg(Machine mx)
         {
             mx.Restore_Argl();
-            mx.AppendArgl(mx.Val);
+
+            if (mx.Unev.IsAtom)
+            {
+                //if the args list was dotted, the append is less gentle
+                mx.Assign_Argl(Pair.Append(mx.Argl, mx.Val));
+            }
+            else
+            {
+                mx.AppendArgl(mx.Val);
+            }
 
             mx.Restore_Proc();
-
             mx.Assign_GoTo(Apply_Dispatch);
         }
 
@@ -387,16 +466,16 @@ namespace Clasp
 
         private static void Apply_Dispatch(Machine mx)
         {
-            Action<Machine> gotoPtr = mx.Proc switch
+            if (mx.Proc is SpecialForm) mx.Restore_Continue();
+
+            mx.Assign_GoTo(mx.Proc switch
             {
                 SpecialForm sf => sf.InstructionPtr,
-                PrimitiveProcedure => Primitive_Apply,
+                    PrimitiveProcedure => Primitive_Apply,
                 CompoundProcedure => Compound_Apply,
                 Macro => Macro_Apply,
                 _ => Err_Procedure
-            };
-
-            mx.Assign_GoTo(gotoPtr);
+            });
         }
 
         private static void Primitive_Apply(Machine mx)
@@ -429,7 +508,7 @@ namespace Clasp
 
         private static void Bind_Args(Machine mx)
         {
-            if (mx.Unev.IsAtom)
+            if (mx.Unev.IsAtom) //dotted list
             {
                 mx.Env.BindNew(mx.Unev.Expect<Symbol>(), mx.Argl);
                 mx.Assign_GoTo(Args_Bound);
@@ -576,10 +655,10 @@ namespace Clasp
                 mx.Assign_Exp(Pair.MakeList(
                     mx.Exp.Car, //define
                     mx.Exp.Cadr.Car, //name of function
-                    Pair.MakeImproperList(
+                    Pair.MakeList(
                         Symbol.Lambda,
                         mx.Exp.Cadr.Cdr,
-                        mx.Exp.Cddr)));
+                        mx.Exp.Caddr)));
             }
 
             mx.Assign_GoTo(Eval_Definition);
@@ -615,52 +694,18 @@ namespace Clasp
 
         private static void Eval_DefMacro(Machine mx)
         {
-            //Symbol name = mx.Exp.Cadr.Expect<Symbol>();
-            //mx.Env.BindNew(
-            //    name,
-            //    new Macro(
-            //        name.Name,
-            //        mx.Exp.Cddr.Expect<Pair>(),
-            //        mx.Env));
+            Symbol name = mx.Exp.Cadr.Expect<Symbol>();
+            Expression literals = mx.Exp.Caddr;
+            Pair clauses = mx.Exp.Cdddr.Expect<Pair>();
 
-            //mx.Assign_Val(Symbol.Ok);
-            //mx.GoTo_Continue();
+            Expression rules = Pair.MakeList(
+                Pair.Enumerate(clauses)
+                .Select(x => new SyntaxRule(x.Car, x.Cadr))
+                .ToArray());
 
-            mx.Assign_Exp(mx.Exp.Cdr);
-            mx.Save_Exp();
-            mx.Assign_Argl(Expression.Nil);
-            mx.Assign_Unev(mx.Exp.Cddr.Expect<Pair>());
+            Macro newMacro = new Macro(literals, rules.Expect<Pair>(), mx.Env);
 
-            mx.Assign_GoTo(Eval_Macro_Clauses);
-        }
-
-        private static void Eval_Macro_Clauses(Machine mx)
-        {
-            mx.Assign_Exp(mx.Unev.Car);
-            mx.AppendArgl(
-                new SyntaxRule(
-                    mx.Exp.Car,
-                    mx.Exp.Cadr));
-            mx.NextUnev();
-
-            if (mx.Unev.IsNil)
-            {
-                mx.Assign_GoTo(Eval_Macro_Binding);
-            }
-        }
-
-        private static void Eval_Macro_Binding(Machine mx)
-        {
-            mx.Restore_Exp();
-
-            Symbol sym = mx.Exp.Car.Expect<Symbol>();
-            Macro m = new Macro(
-                sym.Name,
-                mx.Exp.Cadr,
-                mx.Argl.Expect<Pair>(),
-                mx.Env);
-
-            mx.Env.BindNew(sym, m);
+            mx.Env.BindNew(name, newMacro);
 
             mx.Assign_Val(Symbol.Ok);
             mx.GoTo_Continue();

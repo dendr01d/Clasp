@@ -7,6 +7,7 @@ namespace Clasp
         private static readonly string[] _regexes = new string[]
         {
             rgx(TokenType.Comment, @"(?>\;.*$)"),
+            rgx(TokenType.DoubleQuote, @"(?>\"")"),
             rgx(TokenType.VecParen, @"\#\("),
             rgx(TokenType.LeftParen, @"\("),
             rgx(TokenType.RightParen, @"\)"),
@@ -25,54 +26,112 @@ namespace Clasp
 
         private static string _grammar => $"(?>{string.Join('|', _regexes)})";
 
-        public static IEnumerable<Token> Lex(string input)
+        public static IEnumerable<Token> Lex(string text)
         {
-            if (string.IsNullOrWhiteSpace(input))
+            return LexLines(text.Split(System.Environment.NewLine));
+        }
+
+        public static IEnumerable<Token> LexLines(IEnumerable<string> inputLines)
+        {
+            if (!inputLines.Any())
             {
                 return Array.Empty<Token>();
             }
 
-            int lParens = input.Count(x => x == '(');
-            int rParens = input.Count(x => x == ')');
+            int lParens = inputLines.Select(y => y.Count(x => x == '(')).Sum();
+            int rParens = inputLines.Select(y => y.Count(x => x == ')')).Sum();
 
             if (lParens != rParens)
             {
-                int check = LocateExtraParen(lParens < rParens, input);
-                throw new LexingException($"Missing one or more {(lParens < rParens ? "L-parens" : "R-parens")} around block at position {check}");
+                Tuple<int, int> check = LocateExtraParen(lParens < rParens, inputLines);
+                throw new LexingException($"Missing one or more {(lParens < rParens ? "L-parens" : "R-parens")} around block at row {check.Item1}, column {check.Item2}.");
             }
 
-            IEnumerable<string> lines = input.Split(System.Environment.NewLine);
-            int lineNo = 1;
+            IEnumerable<string> cleanLines = inputLines
+                .Select(x => new string(x.TakeWhile(y => y != ';').ToArray()))
+                .Select(x => x.Trim());
 
             List<Token> output = new List<Token>();
 
-            foreach(string line in lines)
+            int lineNo = 0;
+
+            foreach(string line in cleanLines)
             {
-                var newTokens = Regex.Matches(line, _grammar)
-                    .Select(x => Token.Tokenize(getGroupName(x.Groups), x.Value, lineNo, x.Index + 1))
-                    .Where(x => x.TType != TokenType.Comment);
-                output.AddRange(newTokens);
-                lineNo++;
+                if (!string.IsNullOrWhiteSpace(line))
+                {
+                    var newTokens = Regex.Matches(line, _grammar)
+                        .Select(x => Token.Tokenize(getGroupName(x.Groups), x.Value, lineNo, x.Index + 1))
+                        .Where(x => x.TType != TokenType.Comment);
+                    output.AddRange(newTokens);
+                }
+
+                ++lineNo;
             }
 
             return output;
         }
 
-        private static int LocateExtraParen(bool fromLeft, string input)
+        public static IEnumerable<IEnumerable<Token>> SegmentTokens(IEnumerable<Token> tokens)
+        {
+            Queue<Token> queue = new Queue<Token>(tokens);
+
+            int parenLevel = 0;
+            while (queue.Any())
+            {
+                List<Token> segment = new List<Token>()
+                {
+                    PullToken(ref queue, ref parenLevel)
+                };
+
+                while (parenLevel != 0)
+                {
+                    segment.Add(PullToken(ref queue, ref parenLevel));
+                }
+
+                yield return segment;
+            }
+
+            yield break;
+        }
+
+        private static Token PullToken(ref Queue<Token> queue, ref int parenLevel)
+        {
+            if (queue.Peek().TType == TokenType.LeftParen) ++parenLevel;
+            else if (queue.Peek().TType == TokenType.RightParen) --parenLevel;
+
+            return queue.Dequeue();
+        }
+
+        private static Tuple<int, int> LocateExtraParen(bool fromLeft, IEnumerable<string> input)
         {
             int parenCounter = 0;
 
-            IEnumerator<char> text = (fromLeft ? input : input.Reverse()).GetEnumerator();
+            int row = 0;
+            int col = 0;
 
-            int pos = 0;
-            while (parenCounter >= 0 && text.MoveNext())
+            foreach(string line in (fromLeft ? input : input.Reverse()))
             {
-                ++pos;
-                if (text.Current == '(') parenCounter += (fromLeft ? 1 : -1);
-                if (text.Current == ')') parenCounter += (fromLeft ? -1 : 1);
+                ++row;
+
+                foreach(char c in (fromLeft ? line : line.Reverse()))
+                {
+                    if (parenCounter < 0)
+                    {
+                        return new Tuple<int, int>(
+                            fromLeft ? row : input.Count() - row,
+                            fromLeft ? col : line.Length - col);
+                    }
+                    else
+                    {
+                        ++col;
+
+                        if (c == '(') parenCounter += (fromLeft ? 1 : -1);
+                        if (c == ')') parenCounter += (fromLeft ? -1 : 1);
+                    }
+                }
             }
 
-            return (fromLeft ? pos : input.Length - pos);
+            return new Tuple<int, int>(0, 0);
         }
 
         private static string getGroupName(GroupCollection groups)
@@ -116,7 +175,9 @@ namespace Clasp
         LeftParen, RightParen, VecParen,
         Symbol, Number, Boolean,
         QuoteMarker, DotMarker,
-        QuasiquoteMarker, UnquoteMarker, UnquoteSplicingMarker, Ellipsis,
+        QuasiquoteMarker, UnquoteMarker, UnquoteSplicingMarker,
+        DoubleQuote,
+        Ellipsis,
         Comment, Error
     }
 }

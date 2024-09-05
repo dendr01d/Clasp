@@ -106,10 +106,35 @@
 
         #endregion
 
-        public override string ToPrinted() => $"({Car}{FormatContents(Cdr)})";
+        public string Format(char openParen, char closeParen)
+        {
+            if (_cdr is Pair p)
+            {
+                if (_car == Symbol.Quote)
+                {
+                    return $"'{p.Car}";
+                }
+                else if (_car == Symbol.Quasiquote)
+                {
+                    return $"`{p.Car}";
+                }
+                else if (_car == Symbol.Unquote)
+                {
+                    return $",{p.Car}";
+                }
+                else if (_car == Symbol.UnquoteSplicing)
+                {
+                    return $",@{p.Car}";
+                }
+            }
+
+            return $"{openParen}{_car}{FormatTail(_cdr)}{closeParen}";
+        }
+
+        public override string ToPrinted() => Format('(', ')');
         public override string ToSerialized() => ToPrinted();
 
-        private static string FormatContents(Expression expr)
+        private static string FormatTail(Expression expr)
         {
             if (expr.IsNil)
             {
@@ -121,7 +146,7 @@
             }
             else
             {
-                return $" {expr.Car}{FormatContents(expr.Cdr)}";
+                return $" {expr.Car}{FormatTail(expr.Cdr)}";
             }
         }
     }

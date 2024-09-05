@@ -42,6 +42,8 @@ namespace Clasp
         public static readonly Symbol Ok = Ize("ok");
         public static readonly Symbol CondElse = Ize("else");
 
+        public static readonly Symbol Macro = Ize("macro");
+
         public static readonly Symbol Quote = Ize("quote");
         public static readonly Symbol Quasiquote = Ize("quasiquote");
         public static readonly Symbol Unquote = Ize("unquote");

@@ -4,45 +4,46 @@
     {
         public static IEnumerable<Expression> ParseText(string input)
         {
-            return Parse(Lexer.Lex(input));
+            return Parse(Lexer.LexLines(new string[] { input }));
         }
 
         public static IEnumerable<Expression> ParseFile(string path)
         {
-            return ParseText(File.ReadAllText(path));
+            IEnumerable<string> sourceLines = File.ReadAllLines(path);
+            return Parse(Lexer.LexLines(sourceLines));
         }
 
-        public static IEnumerable<Stack<Token>> SegmentTokens(IEnumerable<Token> tokens)
-        {
-            using (var iter = tokens.GetEnumerator())
-            {
-                while (iter.MoveNext())
-                {
-                    if (iter.Current.TType != TokenType.LeftParen)
-                    {
-                        throw new ParsingException("Expected '(' at beginning of list.", iter.Current);
-                    }
+        //public static IEnumerable<Stack<Token>> SegmentTokens(IEnumerable<Token> tokens)
+        //{
+        //    using (var iter = tokens.GetEnumerator())
+        //    {
+        //        while (iter.MoveNext())
+        //        {
+        //            if (iter.Current.TType != TokenType.LeftParen)
+        //            {
+        //                throw new ParsingException("Expected '(' at beginning of list.", iter.Current);
+        //            }
 
-                    List<Token> segment = new List<Token>() { iter.Current };
-                    int parenDepth = 1;
+        //            List<Token> segment = new List<Token>() { iter.Current };
+        //            int parenDepth = 1;
 
-                    while (parenDepth > 0 && iter.MoveNext())
-                    {
-                        segment.Add(iter.Current);
-                        if (iter.Current.TType == TokenType.LeftParen)
-                        {
-                            ++parenDepth;
-                        }
-                        else if (iter.Current.TType == TokenType.RightParen)
-                        {
-                            --parenDepth;
-                        }
-                    }
+        //            while (parenDepth > 0 && iter.MoveNext())
+        //            {
+        //                segment.Add(iter.Current);
+        //                if (iter.Current.TType == TokenType.LeftParen)
+        //                {
+        //                    ++parenDepth;
+        //                }
+        //                else if (iter.Current.TType == TokenType.RightParen)
+        //                {
+        //                    --parenDepth;
+        //                }
+        //            }
 
-                    yield return new Stack<Token>(segment.AsEnumerable().Reverse());
-                }
-            }
-        }
+        //            yield return new Stack<Token>(segment.AsEnumerable().Reverse());
+        //        }
+        //    }
+        //}
 
 
         public static IEnumerable<Expression> Parse(IEnumerable<Token> tokens)
@@ -54,9 +55,10 @@
             }
             else
             {
-                foreach(Stack<Token> segment in SegmentTokens(tokens))
+                foreach(IEnumerable<Token> segment in Lexer.SegmentTokens(tokens))
                 {
-                    yield return ParseTokens(segment);
+                    Stack<Token> stack = new Stack<Token>(segment.Reverse());
+                    yield return ParseTokens(stack);
                 }
             }
         }
@@ -134,6 +136,28 @@
             return specialTerminator
                 ? Pair.MakeImproperList(exprs.ToArray())
                 : Pair.MakeList(exprs.ToArray());
+        }
+
+        private static Expression ParseString(Stack<Token> tokens)
+        {
+            List<Token> components = new List<Token>();
+
+            while (tokens.Peek().TType != TokenType.DoubleQuote)
+            {
+                components.Add(tokens.Pop());
+
+                if (!tokens.Any())
+                {
+                    Token first = components.First();
+                    string msg = $"Unterminated string beginning at row {first.SourceLine}, index {first.SourceIndex}.";
+                    throw new ParsingException(msg, first);
+
+                }
+            }
+
+            tokens.Pop(); //remove closing double-quote
+
+            return new Charstring(string.Join(" ", components.Select(x => x.Text)));
         }
 
         private static Expression ParseVector(Stack<Token> tokens)
