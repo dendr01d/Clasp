@@ -59,13 +59,50 @@
 
     internal class Character : Literal<char>
     {
+        private static readonly Character Unknown = new Character((char)0);
+        private static readonly Character Tab = new Character('\t');
+        private static readonly Character Space = new Character(' ');
+        private static readonly Character NewLine = new Character('\n');
+
         public Character(char c) : base(c) { }
-        public override string ToPrinted() => $"\\{Value}";
+
+
+        public static Character FromToken(Token t)
+        {
+            if (t.Text.Length == 3)
+            {
+                return new Character(t.Text[2]);
+            }
+            else
+            {
+                return t.Text[2..] switch
+                {
+                    "tab" => Tab,
+                    "newline" => NewLine,
+                    "space" => Space,
+                    _ => Unknown
+                };
+            }
+        }
+
+        public override string ToPrinted() => Value.ToString();
+
+        public override string ToSerialized() => "#\\" + Value switch
+        {
+            '\t' => "tab",
+            '\n' => "newline",
+            ' ' => "space",
+            (char)0 => "UNK",
+            _ => Value
+        };
     }
 
     internal class Charstring : Literal<string>
     {
         public Charstring(string s) : base(s) { }
+
+        public static Charstring FromToken(Token t) => new Charstring(t.Text[1..^1]);
+
         public override string ToPrinted() => Value;
         public override string ToSerialized() => $"\"{Value}\"";
     }

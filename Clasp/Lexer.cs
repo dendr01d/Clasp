@@ -7,7 +7,8 @@ namespace Clasp
         private static readonly string[] _regexes = new string[]
         {
             rgx(TokenType.Comment, @"(?>\;.*$)"),
-            rgx(TokenType.DoubleQuote, @"(?>\"")"),
+            rgx(TokenType.QuotedString, @"(?>""(?:\\.|[^""\\])*"")"),
+            rgx(TokenType.Character, @"(?>#\\(?:space|newline|tab|.))"),
             rgx(TokenType.VecParen, @"\#\("),
             rgx(TokenType.LeftParen, @"\("),
             rgx(TokenType.RightParen, @"\)"),
@@ -173,10 +174,10 @@ namespace Clasp
     internal enum TokenType
     {
         LeftParen, RightParen, VecParen,
-        Symbol, Number, Boolean,
+        Symbol,
         QuoteMarker, DotMarker,
         QuasiquoteMarker, UnquoteMarker, UnquoteSplicingMarker,
-        DoubleQuote,
+        QuotedString, Number, Boolean, Character,
         Ellipsis,
         Comment, Error
     }

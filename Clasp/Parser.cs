@@ -79,7 +79,6 @@
                     TokenType.VecParen => ParseVector(tokens),
                     TokenType.LeftParen => ParseList(tokens),
                     TokenType.RightParen => throw new ParsingException("Unexpected ')'", current),
-
                     TokenType.DotMarker => throw new ParsingException("Unexpected '.'", current),
 
                     TokenType.QuoteMarker => Pair.Cons(Symbol.Quote, ParseTokens(tokens)),
@@ -91,6 +90,8 @@
                     TokenType.Symbol => Symbol.Ize(current.Text),
                     TokenType.Number => new SimpleNum(decimal.Parse(current.Text)),
                     TokenType.Boolean => Boolean.Judge(current.Text == Boolean.True.ToString()),
+                    TokenType.Character => Character.FromToken(current),
+                    TokenType.QuotedString => Charstring.FromToken(current),
 
                     TokenType.Error => Expression.Error,
 
@@ -136,28 +137,6 @@
             return specialTerminator
                 ? Pair.MakeImproperList(exprs.ToArray())
                 : Pair.MakeList(exprs.ToArray());
-        }
-
-        private static Expression ParseString(Stack<Token> tokens)
-        {
-            List<Token> components = new List<Token>();
-
-            while (tokens.Peek().TType != TokenType.DoubleQuote)
-            {
-                components.Add(tokens.Pop());
-
-                if (!tokens.Any())
-                {
-                    Token first = components.First();
-                    string msg = $"Unterminated string beginning at row {first.SourceLine}, index {first.SourceIndex}.";
-                    throw new ParsingException(msg, first);
-
-                }
-            }
-
-            tokens.Pop(); //remove closing double-quote
-
-            return new Charstring(string.Join(" ", components.Select(x => x.Text)));
         }
 
         private static Expression ParseVector(Stack<Token> tokens)
