@@ -32,15 +32,10 @@ namespace Clasp
         #region Standard Symbols
 
         public static readonly Symbol Lambda = Ize("lambda");
-        public static readonly Symbol Flambda = Ize("ƒlambda");
-        public static readonly Symbol If = Ize("if");
-        public static readonly Symbol Cond = Ize("cond");
+        //public static readonly Symbol Flambda = Ize("ƒlambda");
         public static readonly Symbol Begin = Ize("begin");
-        public static readonly Symbol Eq = Ize("eq?");
-        public static readonly Symbol Case = Ize("case");
 
         public static readonly Symbol Ok = Ize("ok");
-        public static readonly Symbol CondElse = Ize("else");
 
         public static readonly Symbol Macro = Ize("macro");
 

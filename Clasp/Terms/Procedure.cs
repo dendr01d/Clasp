@@ -59,6 +59,7 @@ namespace Clasp
     internal class PrimitiveProcedure : Procedure
     {
         private readonly string _name;
+        private readonly Func<Pair, Expression> _operation;
 
         private readonly Func<Pair, Expression> _operation;
         public override bool ApplicativeOrder => true;

@@ -305,6 +305,15 @@ namespace Clasp
                     ? def.Item2
                     : throw new Exception($"Tried to reference {_id} with recurrence level {def.Item1} in {bindings.Print()}");
             }
+            else if (macroContext.HasBound(_id))
+            {
+                return macroContext.LookUp(_id);
+            }
+            else
+            {
+                GenSym gen = new GenSym(_id);
+                bindings.
+            }
             return _id;
         }
     }
