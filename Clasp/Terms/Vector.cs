@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Clasp
 {
-    internal class Vector : Expression
+    internal class Vector : Atom
     {
         private readonly Expression[] _data;
 

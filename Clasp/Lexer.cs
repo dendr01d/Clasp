@@ -97,8 +97,15 @@ namespace Clasp
 
         private static Token PullToken(ref Queue<Token> queue, ref int parenLevel)
         {
-            if (queue.Peek().TType == TokenType.LeftParen) ++parenLevel;
-            else if (queue.Peek().TType == TokenType.RightParen) --parenLevel;
+            if (queue.Peek().TType == TokenType.LeftParen
+                || queue.Peek().TType == TokenType.VecParen)
+            {
+                ++parenLevel;
+            }
+            else if (queue.Peek().TType == TokenType.RightParen)
+            {
+                --parenLevel;
+            }
 
             return queue.Dequeue();
         }
