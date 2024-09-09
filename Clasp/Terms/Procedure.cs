@@ -60,8 +60,6 @@ namespace Clasp
     {
         private readonly string _name;
         private readonly Func<Pair, Expression> _operation;
-
-        private readonly Func<Pair, Expression> _operation;
         public override bool ApplicativeOrder => true;
 
         private PrimitiveProcedure(string name, Func<Pair, Expression> op)
