@@ -112,7 +112,7 @@ namespace Clasp
 
             //special form list ops
             Define("car", p => p.Car.Car);
-            Define("cdr", p => p.Cdr.Car);
+            Define("cdr", p => p.Car.Cdr);
             Define("cons", p => Pair.Cons(p.Car, p.Cadr));
 
             Define("set-car", p => p.Car.SetCar(p.Cadr));
@@ -131,7 +131,6 @@ namespace Clasp
             DefinePrim<SimpleNum, SimpleNum, SimpleNum>("expt", SimpleNum.Exponent);
 
             //ordering/comparison
-
             DefinePrim<SimpleNum, SimpleNum, Boolean>("<",  SimpleNum.LessThan);
             DefinePrim<SimpleNum, SimpleNum, Boolean>("<=", SimpleNum.Leq);
             DefinePrim<SimpleNum, SimpleNum, Boolean>(">=", SimpleNum.Geq);

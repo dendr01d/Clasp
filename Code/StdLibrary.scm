@@ -33,7 +33,7 @@
 ;; ----------------------------------------------------------------------------
 ;; Derivative Logical Operations
 
-(define (not? x) (false? x))
+(define (not x) (false? x))
 (define (impl x y) (or (not a) b))
 (define (bimpl a b) (and (impl a b) (impl b a)))
 (define (xor a b) (or (and (not a) b) (and a (not b))))
@@ -72,6 +72,13 @@
 
 ;; ----------------------------------------------------------------------------
 ;; General List Ops
+
+(define (list . args) args)
+
+(define (list* a b . more)
+  (if (null? more)
+      (cons a b)
+      (cons a (list* b . more))))
 
 (define (mapcar op ls)
 	(if (null? ls)
@@ -145,6 +152,25 @@
            (if (= n 0)
                1
                (* n (fact (- n 1))))))))
+
+(define insert-into-sorted
+  (lambda (item sorted comp)
+          (cond ((null? sorted) (list item))
+                ((comp item (car sorted)) (cons item sorted))
+                (else (cons (car sorted)
+                            (insert-into-sorted item (cdr sorted) comp))))))
+
+(define insert-all
+  (lambda (input sorted comp)
+          (if (null? input)
+              sorted
+              (insert-all (cdr input)
+                          (insert-into-sorted (car input) sorted comp)
+                          comp))))
+
+(define insertion-sort
+  (lambda (ls)
+          (insert-all ls '() <)))
 
 ;; ----------------------------------------------------------------------------
 ;; Standard Macros

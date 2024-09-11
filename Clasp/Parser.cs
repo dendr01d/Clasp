@@ -13,39 +13,6 @@
             return Parse(Lexer.LexLines(sourceLines));
         }
 
-        //public static IEnumerable<Stack<Token>> SegmentTokens(IEnumerable<Token> tokens)
-        //{
-        //    using (var iter = tokens.GetEnumerator())
-        //    {
-        //        while (iter.MoveNext())
-        //        {
-        //            if (iter.Current.TType != TokenType.LeftParen)
-        //            {
-        //                throw new ParsingException("Expected '(' at beginning of list.", iter.Current);
-        //            }
-
-        //            List<Token> segment = new List<Token>() { iter.Current };
-        //            int parenDepth = 1;
-
-        //            while (parenDepth > 0 && iter.MoveNext())
-        //            {
-        //                segment.Add(iter.Current);
-        //                if (iter.Current.TType == TokenType.LeftParen)
-        //                {
-        //                    ++parenDepth;
-        //                }
-        //                else if (iter.Current.TType == TokenType.RightParen)
-        //                {
-        //                    --parenDepth;
-        //                }
-        //            }
-
-        //            yield return new Stack<Token>(segment.AsEnumerable().Reverse());
-        //        }
-        //    }
-        //}
-
-
         public static IEnumerable<Expression> Parse(IEnumerable<Token> tokens)
         {
             if (!tokens.Any())
@@ -62,7 +29,6 @@
                 }
             }
         }
-
 
         public static Expression ParseTokens(Stack<Token> tokens)
         {
@@ -81,10 +47,10 @@
                     TokenType.RightParen => throw new ParsingException("Unexpected ')'", current),
                     TokenType.DotMarker => throw new ParsingException("Unexpected '.'", current),
 
-                    TokenType.QuoteMarker => Pair.Cons(Symbol.Quote, ParseTokens(tokens)),
-                    TokenType.QuasiquoteMarker => Pair.Cons(Symbol.Quasiquote, ParseTokens(tokens)),
-                    TokenType.UnquoteMarker => Pair.Cons(Symbol.Unquote, ParseTokens(tokens)),
-                    TokenType.UnquoteSplicingMarker => Pair.Cons(Symbol.UnquoteSplicing, ParseTokens(tokens)),
+                    TokenType.QuoteMarker => Pair.MakeList(Symbol.Quote, ParseTokens(tokens)),
+                    TokenType.QuasiquoteMarker => Pair.MakeList(Symbol.Quasiquote, ParseTokens(tokens)),
+                    TokenType.UnquoteMarker => Pair.MakeList(Symbol.Unquote, ParseTokens(tokens)),
+                    TokenType.UnquoteSplicingMarker => Pair.MakeList(Symbol.UnquoteSplicing, ParseTokens(tokens)),
                     TokenType.Ellipsis => Symbol.Ellipsis,
 
                     TokenType.Symbol => Symbol.Ize(current.Text),

@@ -79,7 +79,7 @@ namespace Clasp
             return new GlobalEnvironment();
         }
 
-        private const string _STD_LIBRARY = @".\StdLibrary.scm";
+        private const string _STD_LIBRARY = @"C:\Users\Duncan\source\repos\Clasp\Code\StdLibrary.scm";
 
         public static Environment LoadStandard()
         {

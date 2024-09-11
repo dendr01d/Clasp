@@ -21,7 +21,6 @@ namespace Clasp
             {
                 string stepName = mx.GoingTo; //capture before the machine executes
 
-
                 mx.GoTo.Invoke(mx);
                 PrintStep(cout, pauseEachStep, stepName, step++, mx);
 
@@ -357,15 +356,15 @@ namespace Clasp
         private static void Eval_Application(Machine mx)
         {
             mx.Save_Continue();
-            mx.EnterNewScope();
 
             mx.Assign_Unev(mx.Exp.Cdr);
-            mx.Save_Unev();
-
             mx.Assign_Exp(mx.Exp.Car);
 
             mx.Assign_GoTo(Eval_Dispatch);
             mx.Assign_Continue(Eval_Apply_Did_Op);
+
+            mx.EnterNewScope();
+            mx.Save_Unev();
         }
 
         private static void Eval_Apply_Did_Op(Machine mx)
@@ -377,12 +376,13 @@ namespace Clasp
 
             mx.Assign_Proc(mx.Val.Expect<Procedure>());
 
-            if (mx.Unev.IsNil)
-            {
-                //if there are no args to evaluate, always skip ahead
-                mx.Assign_GoTo(Apply_Dispatch);
-            }
-            else if (mx.Proc.ApplicativeOrder)
+            //if (mx.Unev.IsNil)
+            //{
+            //    //if there are no args to evaluate, always skip ahead
+            //    mx.Assign_GoTo(Apply_Dispatch);
+            //}
+            //else
+            if (mx.Proc.ApplicativeOrder)
             {
                 //if the args DO need to be evaluated, loop through them and do that
                 mx.Save_Proc();
@@ -393,6 +393,7 @@ namespace Clasp
                 //mx.Restore_Continue();
 
                 //otherwise rebuild the original expression and skip ahead
+                mx.Restore_Continue();
                 mx.Assign_Exp(Pair.Cons(mx.Exp, mx.Unev));
                 mx.Assign_GoTo(Apply_Dispatch);
             }
@@ -466,12 +467,10 @@ namespace Clasp
 
         private static void Apply_Dispatch(Machine mx)
         {
-            if (mx.Proc is SpecialForm) mx.Restore_Continue();
-
             mx.Assign_GoTo(mx.Proc switch
             {
                 SpecialForm sf => sf.InstructionPtr,
-                    PrimitiveProcedure => Primitive_Apply,
+                PrimitiveProcedure => Primitive_Apply,
                 CompoundProcedure => Compound_Apply,
                 Macro => Macro_Apply,
                 _ => Err_Procedure
@@ -492,76 +491,57 @@ namespace Clasp
             CompoundProcedure proc = mx.Proc.Expect<CompoundProcedure>();
 
             mx.ReplaceScope(proc.Closure);
-            mx.Assign_Unev(proc.Body);
+            mx.Assign_Unev(proc.Parameters);
 
-            if (mx.Argl.IsNil)
+            while (mx.Unev is Pair p)
             {
-                mx.Assign_GoTo(Eval_Sequence);
-            }
-            else
-            {
-                mx.Save_Unev();
-                mx.Assign_Unev(proc.Parameters);
-                mx.Assign_GoTo(Bind_Args);
-            }
-        }
+                if (mx.Argl.IsNil)
+                {
+                    throw new Exception($"Procedure {mx.Proc.ToPrinted()} expected additional arguments.");
+                }
 
-        private static void Bind_Args(Machine mx)
-        {
-            if (mx.Unev.IsAtom) //dotted list
-            {
-                mx.Env.BindNew(mx.Unev.Expect<Symbol>(), mx.Argl);
-                mx.Assign_GoTo(Args_Bound);
-            }
-            else
-            {
                 mx.Env.BindNew(mx.Unev.Car.Expect<Symbol>(), mx.Argl.Car);
                 mx.NextUnev();
                 mx.NextArgl();
-
-                if (mx.Unev.IsNil)
-                {
-                    mx.Assign_GoTo(Args_Bound);
-                }
             }
-        }
 
-        private static void Args_Bound(Machine mx)
-        {
-            mx.Restore_Unev();
+            if (mx.Unev is Symbol sym)
+            {
+                mx.Env.BindNew(sym, mx.Argl); //even if it's nil
+            }
+
+            if (!mx.Argl.IsNil)
+            {
+                throw new Exception($"Extraneous arguments {mx.Argl.ToPrinted()} provided to procedure {mx.Proc.ToPrinted()}.");
+            }
+
+            mx.Assign_Unev(proc.Body);
             mx.Assign_GoTo(Eval_Sequence);
         }
 
         private static void Macro_Apply(Machine mx)
         {
             Macro proc = mx.Proc.Expect<Macro>();
-
-            mx.Assign_Argl(proc.LiteralSymbols);
             mx.Assign_Unev(proc.Transformers);
 
-            mx.Assign_GoTo(Apply_Macro_Clauses);
-        }
-
-        private static void Apply_Macro_Clauses(Machine mx)
-        {
-            if (mx.Unev.Car is SyntaxRule sr)
+            while (mx.Unev is Pair p)
             {
-                if (sr.TryTransform(mx.Exp, mx.Argl,
-                    mx.Proc.Expect<Macro>().Closure, mx.Env,
-                    out Expression result))
+                if (p.Car is SyntaxRule sr
+                    && sr.TryTransform(mx.Exp, proc.LiteralSymbols, proc.Closure, mx.Env, out Expression result))
                 {
                     mx.Assign_Exp(result);
-                    mx.Restore_Continue();
                     mx.Assign_GoTo(Eval_Dispatch);
+                    break;
                 }
                 else
                 {
                     mx.NextUnev();
                 }
             }
-            else
+
+            if (mx.Unev.IsNil)
             {
-                mx.Assign_GoTo(Err_Unknown_Expression);
+                throw new Exception($"No matching syntax found in transformation rules for {mx.Proc.ToPrinted()}.");
             }
         }
 

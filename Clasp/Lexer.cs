@@ -84,7 +84,8 @@ namespace Clasp
                     PullToken(ref queue, ref parenLevel)
                 };
 
-                while (parenLevel != 0)
+                //stop when a right paren causes the parenLevel to drop to zero
+                while (queue.Any() && (parenLevel != 0 || segment.Last().TType != TokenType.RightParen))
                 {
                     segment.Add(PullToken(ref queue, ref parenLevel));
                 }

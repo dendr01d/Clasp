@@ -108,7 +108,7 @@
 
         public string Format(char openParen, char closeParen)
         {
-            if (_cdr is Pair p)
+            if (_cdr is Pair p && p.Cdr.IsNil)
             {
                 if (_car == Symbol.Quote)
                 {

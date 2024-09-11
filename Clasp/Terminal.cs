@@ -15,6 +15,8 @@ namespace Clasp
             Run(input, output, output);
         }
 
+        private static readonly string _header = File.ReadAllText(@".\Header.txt");
+
         private static readonly System.Text.Encoding CharFormat = System.Text.Encoding.Default;
 
         private const string _SHOW_INPUT_STEPS_CMD = "mirror";
@@ -22,6 +24,7 @@ namespace Clasp
         private const string _PAUSE_MACHINE_CMD = "pause";
         private const string _CLEAR_SCREEN_CMD = "clear";
         private const string _RELOAD_ENV_CMD = "reload";
+        private const string _TIMER_CMD = "timer";
         private const string _QUIT_CMD = "quit";
 
         private static bool _showingInput = false;
@@ -37,7 +40,8 @@ namespace Clasp
             writer.AutoFlush = true;
             errors.AutoFlush = true;
 
-            bool clearScreen = true;
+            bool showIntro = true;
+            bool showTimer = false;
 
             string? input = string.Empty;
             string output = string.Empty;
@@ -46,16 +50,18 @@ namespace Clasp
 
             while (input != _QUIT_CMD)
             {
-                if (clearScreen)
+                if (showIntro)
                 {
-                    writer.WriteLine($"CLASP Terminal (Enc {CharFormat.EncodingName})");
-                    writer.WriteLine($"* \"{_SHOW_INPUT_STEPS_CMD}\" to toggle input-mirroring");
-                    writer.WriteLine($"* \"{_SHOW_MACHINE_CMD}\" to toggle machine printing");
-                    writer.WriteLine($"* \"{_PAUSE_MACHINE_CMD}\" to toggle step-by-step pausing");
-                    writer.WriteLine($"* \"{_CLEAR_SCREEN_CMD}\" to clear the screen");
-                    writer.WriteLine($"* \"{_RELOAD_ENV_CMD}\" to reload the std env from file");
-                    writer.WriteLine($"* \"{_QUIT_CMD}\" to exit");
-                    clearScreen = false;
+                    writer.WriteLine(_header);
+                    //writer.WriteLine($"(Enc {CharFormat.EncodingName})");
+                    writer.WriteLine($"∙ \"{_SHOW_INPUT_STEPS_CMD}\" to toggle input-mirroring");
+                    writer.WriteLine($"∙ \"{_SHOW_MACHINE_CMD}\" to toggle machine printing");
+                    writer.WriteLine($"∙ \"{_PAUSE_MACHINE_CMD}\" to toggle step-by-step pausing");
+                    writer.WriteLine($"∙ \"{_CLEAR_SCREEN_CMD}\" to clear the screen");
+                    writer.WriteLine($"∙ \"{_RELOAD_ENV_CMD}\" to reload the std env from file");
+                    writer.WriteLine($"∙ \"{_TIMER_CMD}\" to display the computation timer");
+                    writer.WriteLine($"∙ \"{_QUIT_CMD}\" to exit");
+                    showIntro = false;
                 }
 
                 writer.WriteLine();
@@ -68,31 +74,33 @@ namespace Clasp
 
                     case _SHOW_INPUT_STEPS_CMD:
                         _showingInput = !_showingInput;
-                        output = "ok";
+                        output = ToggledMsg(_showingInput);
                         break;
 
                     case _SHOW_MACHINE_CMD:
                         _showingSteps = !_showingSteps;
-                        output = "ok";
+                        output = ToggledMsg(_showingSteps);
                         break;
 
                     case _PAUSE_MACHINE_CMD:
                         _pausing = !_pausing;
-                        output = "ok";
+                        output = ToggledMsg(_pausing);
+                        break;
+
+                    case _TIMER_CMD:
+                        showTimer = !showTimer;
+                        output = ToggledMsg(showTimer);
                         break;
 
                     case _CLEAR_SCREEN_CMD:
-                        if (outputStream == Console.OpenStandardOutput())
-                        {
-                            Console.Clear();
-                            clearScreen = true;
-                        }
-                        output = "ok";
+                        Console.Clear();
+                        showIntro = true;
+                        output = string.Empty;
                         break;
 
                     case _RELOAD_ENV_CMD:
                         scope = GlobalEnvironment.LoadStandard();
-                        output = "ok";
+                        output = Symbol.Ok.ToPrinted();
                         break;
 
                     default:
@@ -101,9 +109,6 @@ namespace Clasp
                             int i = 1;
 
                             IEnumerable<Token> tokens = Lexer.Lex(input);
-                            //IEnumerable<IEnumerable<Token>> segmentedTokens = Parser.SegmentTokens(tokens);
-                            //IEnumerable<Expression> exprs = segmentedTokens.SelectMany(Parser.Parse);
-
                             IEnumerable<Expression> exprs = Parser.ParseText(input);
 
                             if (_showingInput)
@@ -118,7 +123,11 @@ namespace Clasp
                                 writer.WriteLine("----------");
                             }
 
-                            foreach(Expression expr in exprs)
+                            System.Diagnostics.Stopwatch? timer = showTimer
+                                ? System.Diagnostics.Stopwatch.StartNew()
+                                : null;
+
+                            foreach (Expression expr in exprs)
                             {
                                 try
                                 {
@@ -132,6 +141,13 @@ namespace Clasp
                                     errors.WriteLine(ex.StackTrace);
                                 }
                             }
+
+                            timer?.Stop();
+
+                            if (timer is not null)
+                            {
+                                Console.WriteLine("(In {0:N3} seconds)", timer.Elapsed.TotalSeconds);
+                            }
                         }
                         break;
                 }
@@ -144,5 +160,7 @@ namespace Clasp
 
             return;
         }
+
+        private static string ToggledMsg(bool state) => "Toggled " + (state ? "ON" : "OFF");
     }
 }
