@@ -15,7 +15,7 @@ namespace Clasp
             Machine mx = new Machine(expr, env, Eval_Dispatch);
 
             PrintStep(cout, pauseEachStep, "Start", 0, mx);
-            int step = 1;
+            uint step = 1;
 
             while(mx.GoTo is not null)
             {
@@ -36,7 +36,7 @@ namespace Clasp
             return mx.Val ?? Expression.Error;
         }
 
-        private static void PrintStep(TextWriter? tw, bool pause, string stepName, int stepNum, Machine? mx)
+        private static void PrintStep(TextWriter? tw, bool pause, string stepName, uint stepNum, Machine? mx)
         {
             if (tw is not null)
             {
@@ -351,7 +351,7 @@ namespace Clasp
 
         #endregion
 
-        #region Procedure Evaluation
+        #region Function Application-Position Term Evaluation
 
         private static void Eval_Application(Machine mx)
         {
@@ -376,12 +376,7 @@ namespace Clasp
 
             mx.Assign_Proc(mx.Val.Expect<Procedure>());
 
-            //if (mx.Unev.IsNil)
-            //{
-            //    //if there are no args to evaluate, always skip ahead
-            //    mx.Assign_GoTo(Apply_Dispatch);
-            //}
-            //else
+            
             if (mx.Proc.ApplicativeOrder)
             {
                 //if the args DO need to be evaluated, loop through them and do that
@@ -399,12 +394,16 @@ namespace Clasp
             }
         }
 
+        #endregion
+
+        #region Function Argument-Position Term Evaluation
+
         private static void Eval_Apply_Operand_Loop(Machine mx)
         {
             mx.Save_Argl(); //memorize any eval'd args thus far
 
             //grab the next uneval'd arg
-            //which may be the tail end of a dotted list
+            //which may be the tail end of a dotted list 
             if (mx.Unev.IsAtom)
             {
                 mx.Assign_Exp(mx.Unev);
@@ -481,7 +480,12 @@ namespace Clasp
         {
             PrimitiveProcedure proc = mx.Proc.Expect<PrimitiveProcedure>();
 
-            mx.Assign_Val(proc.Apply(mx.Argl.Expect<Pair>()));
+            if (!mx.Argl.IsList)
+            {
+                throw new UncategorizedException($"Expected List-type expression, but received '{mx.Argl}'.");
+            }
+
+            mx.Assign_Val(proc.Apply(mx.Argl));
             mx.Restore_Continue();
             mx.GoTo_Continue();
         }
@@ -490,14 +494,14 @@ namespace Clasp
         {
             CompoundProcedure proc = mx.Proc.Expect<CompoundProcedure>();
 
-            mx.ReplaceScope(proc.Closure);
+            mx.ReplaceScope(proc.Closure.Enclose());
             mx.Assign_Unev(proc.Parameters);
 
             while (mx.Unev is Pair p)
             {
                 if (mx.Argl.IsNil)
                 {
-                    throw new Exception($"Procedure {mx.Proc.ToPrinted()} expected additional arguments.");
+                    throw new UncategorizedException($"Procedure {mx.Proc.ToPrinted()} expected additional arguments.");
                 }
 
                 mx.Env.BindNew(mx.Unev.Car.Expect<Symbol>(), mx.Argl.Car);
@@ -509,8 +513,7 @@ namespace Clasp
             {
                 mx.Env.BindNew(sym, mx.Argl); //even if it's nil
             }
-
-            if (!mx.Argl.IsNil)
+            else if (!mx.Argl.IsNil)
             {
                 throw new Exception($"Extraneous arguments {mx.Argl.ToPrinted()} provided to procedure {mx.Proc.ToPrinted()}.");
             }
@@ -792,5 +795,170 @@ namespace Clasp
         }
 
         #endregion
+    }
+
+
+    internal class Evaluation
+    {
+
+        private Label Goto;
+
+        private enum Label
+        {
+            Dispatch_Eval,
+            Eval_Self, Eval_Variable, Eval_Quoted, Eval_Lambda,
+            Eval_Quasiquoted, Eval_SyntaxRules,
+
+            Eval_Application, Eval_Application_Did_Op,
+            Eval_Operand_Loop, Eval_Operand_Accumulate, Eval_Operand_Accumulate_Last,
+
+            Dispatch_Apply,
+            Apply_Primitive, Apply_Compound, Apply_Special, Apply_Macro,
+
+            Eval_Begin, Eval_Sequence, Eval_Sequence_Continue, Eval_Sequence_End,
+
+            Eval_If, Eval_If_Decide,
+
+            Eval_Define, Eval_Define_Do,
+            Eval_Set, Eval_Set_Do,
+            Eval_DefineSyntax, Eval_DefineSyntax_Do,
+
+            Eval_SetCar, Eval_SetCar_Do,
+            Eval_SetCdr, Eval_SetCdr_Do,
+
+            Dispatch_Expand,
+            Expand_Nested, Expand_Did_Car, Expand_Did_Cdr,
+            Dispatch_ExpandList,
+            ExpandList_Continue, ExpandList_Spliced, ExpandList_Spliced_Continue,
+
+            Dispatch_Match,
+            Match_Empty, Match_Identifier, Match_Pair, Match_Repeating, Match_Datum,
+
+            Dispatch_Build,
+            Build_Empty, Build_Identifier, Build_Pair, Build_Repeating, Build_Datum,
+
+            Eval_Error
+        }
+
+        public void Evaluate()
+        {
+            while (true)
+            {
+                switch (Goto)
+                {
+                    case Label.Dispatch_Eval:
+                        break;
+                    case Label.Eval_Self:
+                        break;
+                    case Label.Eval_Variable:
+                        break;
+                    case Label.Eval_Quoted:
+                        break;
+                    case Label.Eval_Lambda:
+                        break;
+                    case Label.Eval_Quasiquoted:
+                        break;
+                    case Label.Eval_SyntaxRules:
+                        break;
+                    case Label.Eval_Application:
+                        break;
+                    case Label.Eval_Application_Did_Op:
+                        break;
+                    case Label.Eval_Operand_Loop:
+                        break;
+                    case Label.Eval_Operand_Accumulate:
+                        break;
+                    case Label.Eval_Operand_Accumulate_Last:
+                        break;
+                    case Label.Dispatch_Apply:
+                        break;
+                    case Label.Apply_Primitive:
+                        break;
+                    case Label.Apply_Compound:
+                        break;
+                    case Label.Apply_Special:
+                        break;
+                    case Label.Apply_Macro:
+                        break;
+                    case Label.Eval_Begin:
+                        break;
+                    case Label.Eval_Sequence:
+                        break;
+                    case Label.Eval_Sequence_Continue:
+                        break;
+                    case Label.Eval_Sequence_End:
+                        break;
+                    case Label.Eval_If:
+                        break;
+                    case Label.Eval_If_Decide:
+                        break;
+                    case Label.Eval_Define:
+                        break;
+                    case Label.Eval_Define_Do:
+                        break;
+                    case Label.Eval_Set:
+                        break;
+                    case Label.Eval_Set_Do:
+                        break;
+                    case Label.Eval_DefineSyntax:
+                        break;
+                    case Label.Eval_DefineSyntax_Do:
+                        break;
+                    case Label.Eval_SetCar:
+                        break;
+                    case Label.Eval_SetCar_Do:
+                        break;
+                    case Label.Eval_SetCdr:
+                        break;
+                    case Label.Eval_SetCdr_Do:
+                        break;
+                    case Label.Dispatch_Expand:
+                        break;
+                    case Label.Expand_Nested:
+                        break;
+                    case Label.Expand_Did_Car:
+                        break;
+                    case Label.Expand_Did_Cdr:
+                        break;
+                    case Label.Dispatch_ExpandList:
+                        break;
+                    case Label.ExpandList_Continue:
+                        break;
+                    case Label.ExpandList_Spliced:
+                        break;
+                    case Label.ExpandList_Spliced_Continue:
+                        break;
+                    case Label.Dispatch_Match:
+                        break;
+                    case Label.Match_Empty:
+                        break;
+                    case Label.Match_Identifier:
+                        break;
+                    case Label.Match_Pair:
+                        break;
+                    case Label.Match_Repeating:
+                        break;
+                    case Label.Match_Datum:
+                        break;
+                    case Label.Dispatch_Build:
+                        break;
+                    case Label.Build_Empty:
+                        break;
+                    case Label.Build_Identifier:
+                        break;
+                    case Label.Build_Pair:
+                        break;
+                    case Label.Build_Repeating:
+                        break;
+                    case Label.Build_Datum:
+                        break;
+                    case Label.Eval_Error:
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
     }
 }

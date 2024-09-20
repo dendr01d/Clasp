@@ -60,7 +60,8 @@ namespace Clasp
         {
             return (e1, e2) switch
             {
-                //(CString c1, CString c2) => c1.Value == c2.Value,
+                (Charstring c1, Charstring c2) => c1.Value == c2.Value,
+                (Vector v1, Vector v2) => v1.EnumerableData.Zip(v2.EnumerableData, (x, y) => Pred_Equal(x, y)).Aggregate((x, y) => x && y),
                 (Pair p1, Pair p2) => Pred_Equal(p1.Car, p2.Car) && Pred_Equal(p1.Cdr, p2.Cdr),
                 (_, _) => Pred_Eqv(e1, e2)
             };
@@ -90,13 +91,13 @@ namespace Clasp
         public sealed override string ToString() => ToPrinted();
 
         /// <summary>
-        /// Returns a string representing a prettier-printed form of the object
+        /// Returns a pretty-printed string form of the expression
         /// </summary>
-        /// <returns></returns>
         public abstract string ToPrinted();
 
         /// <summary>
-        /// Returns a string representing a more "real" representation of the object
+        /// Returns a syntactic representation of the expression,
+        /// such that it could be parsed back into the object
         /// </summary>
         public abstract string ToSerialized();
     }

@@ -10,6 +10,9 @@ namespace Clasp
     {
         private readonly Expression[] _data;
 
+        public Expression[] Data => _data;
+        public IEnumerable<Expression> EnumerableData => _data.AsEnumerable();
+
         protected Vector(params Expression[] data)
         {
             _data = data;

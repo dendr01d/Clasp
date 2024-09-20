@@ -18,7 +18,7 @@ namespace Clasp
             rgx(TokenType.UnquoteMarker, @"\,"),
             rgx(TokenType.Ellipsis, @"\.\.\."),
             rgx(TokenType.DotMarker, @"\."),
-            rgx(TokenType.Number, @"\d+"),
+            rgx(TokenType.Number, @"-?(?:0|[1-9]\d*)(?:\.\d+)?"),
             rgx(TokenType.Boolean, @"(?>\#t|\#f)"),
             rgx(TokenType.Symbol, @"(?>\+|\-|[^\s\(\)\+\-\.][^\s\(\)\.]*)"),
         };

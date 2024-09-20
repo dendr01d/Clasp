@@ -132,7 +132,7 @@ namespace Clasp
                                 try
                                 {
                                     Expression result = Evaluator.Evaluate(expr, scope, _showingSteps ? writer : null, _pausing);
-                                    output = result.ToPrinted();
+                                    output = result.ToSerialized();
                                 }
                                 catch (Exception ex)
                                 {

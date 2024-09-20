@@ -19,7 +19,8 @@ namespace Clasp
         public static SimpleNum Multiply(SimpleNum x, SimpleNum y) => new SimpleNum(x.Value * y.Value);
         public static SimpleNum Quotient(SimpleNum x, SimpleNum y) => new SimpleNum(x.Value / y.Value);
         public static SimpleNum IntDiv(SimpleNum x, SimpleNum y) => new SimpleNum((int)Math.Truncate(x.Value) / (int)Math.Truncate(y.Value));
-        public static SimpleNum Modulo(SimpleNum x, SimpleNum y) => new SimpleNum(x.Value % y.Value);
+        public static SimpleNum Modulo(SimpleNum x, SimpleNum y) => new SimpleNum(x.Value - y.Value * Math.Floor(x.Value / y.Value));
+        public static SimpleNum Remainder(SimpleNum x, SimpleNum y) => new SimpleNum(x.Value - y.Value * Math.Truncate(x.Value / y.Value));
         public static SimpleNum Exponent(SimpleNum x, SimpleNum y) => new SimpleNum((decimal)Math.Pow((double)x.Value, (double)y.Value));
 
         public static Boolean NumEquals(SimpleNum x, SimpleNum y) => Boolean.Judge(x.Value == y.Value);

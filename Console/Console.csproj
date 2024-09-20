@@ -11,8 +11,8 @@
     <ProjectReference Include="..\Clasp\Clasp.csproj" />
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+  <!--<Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="COPY $(SolutionDir)Clasp\StdLibrary.scm $(TargetDir)\StdLibrary.scm" />
-  </Target>
+  </Target>-->
 
 </Project>

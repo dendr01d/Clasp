@@ -35,16 +35,14 @@ namespace Clasp
     {
         public readonly Expression Parameters;
         public readonly Pair Body;
-        private readonly Environment _closure;
+        public readonly Environment Closure;
         public override bool ApplicativeOrder => true;
 
-        public Environment Closure { get => _closure.Close(); }
-
-        public CompoundProcedure(Expression parameters, Pair body, Environment closure)
+        public CompoundProcedure(Expression parameters, Pair body, Environment outerEnv)
         {
             Parameters = parameters;
             Body = body;
-            _closure = closure;
+            Closure = outerEnv.Enclose();
         }
 
         public override string ToPrinted()
@@ -59,16 +57,16 @@ namespace Clasp
     internal class PrimitiveProcedure : Procedure
     {
         private readonly string _name;
-        private readonly Func<Pair, Expression> _operation;
+        private readonly Func<Expression, Expression> _operation;
         public override bool ApplicativeOrder => true;
 
-        private PrimitiveProcedure(string name, Func<Pair, Expression> op)
+        private PrimitiveProcedure(string name, Func<Expression, Expression> op)
         {
             _name = name;
             _operation = op;
         }
 
-        public Expression Apply(Pair args)
+        public Expression Apply(Expression args)
         {
             return _operation(args);
         }
@@ -81,8 +79,15 @@ namespace Clasp
         public static Dictionary<string, PrimitiveProcedure> NativeOps = new();
 
         #region Definition Shorthand
-        private static void Define(string name, Func<Pair, Expression> op)
+        private static void Define(string name, Func<Expression, Expression> op)
             => NativeOps.Add(name, new PrimitiveProcedure(name, op));
+
+        private static void DefinePrim<T1, T2>(string name, Func<T1, T2> op)
+            where T1 : Expression
+            where T2 : Expression
+        {
+            NativeOps.Add(name, new PrimitiveProcedure(name, p => op(p.Car.Expect<T1>())));
+        }
 
         private static void DefinePrim<T1, T2, T3>(string name, Func<T1, T2, T3> op)
             where T1 : Expression
@@ -122,13 +127,17 @@ namespace Clasp
             DefineVariadic<SimpleNum, SimpleNum>("+", SimpleNum.Add, SimpleNum.Zero);
             Define("-", p => p.Cdr.IsNil
                 ? SimpleNum.Negate(p.Car.Expect<SimpleNum>())
-                : SimpleNum.Subtract(p.Car.Expect<SimpleNum>(), p.Cadr.Expect<SimpleNum>()));
+                : SimpleNum.Subtract(p.Car.Expect<SimpleNum>(), Pair.Fold<SimpleNum, SimpleNum>(SimpleNum.Add, SimpleNum.Zero, p.Cdr).Expect<SimpleNum>())
+                );
+                //: SimpleNum.Subtract(p.Car.Expect<SimpleNum>(), p.Cadr.Expect<SimpleNum>()));
             DefineVariadic<SimpleNum, SimpleNum>("*", SimpleNum.Multiply, SimpleNum.One);
 
             DefinePrim<SimpleNum, SimpleNum, SimpleNum>("quotient", SimpleNum.Quotient);
             DefinePrim<SimpleNum, SimpleNum, SimpleNum>("div", SimpleNum.IntDiv);
             DefinePrim<SimpleNum, SimpleNum, SimpleNum>("modulo", SimpleNum.Modulo);
+            DefinePrim<SimpleNum, SimpleNum, SimpleNum>("remainder", SimpleNum.Remainder);
             DefinePrim<SimpleNum, SimpleNum, SimpleNum>("expt", SimpleNum.Exponent);
+            DefinePrim<SimpleNum, SimpleNum>("abs", SimpleNum.Abs);
 
             //ordering/comparison
             DefinePrim<SimpleNum, SimpleNum, Boolean>("<",  SimpleNum.LessThan);
@@ -144,12 +153,17 @@ namespace Clasp
             //type predicates
             DefinePred("atom?", x => x.IsAtom);
             DefinePred("null?", x => x.IsNil);
+            DefinePred("list?", x => x.IsList);
             DefinePred("pair?", x => x is Pair);
             DefinePred("symbol?", x => x is Symbol);
             DefinePred("procedure?", x => x is Procedure);
-            DefinePred("vector?", x => x is Vector);
             DefinePred("boolean?", x => x is Boolean);
             DefinePred("number?", x => x is SimpleNum);
+            DefinePred("vector?", x => x is Vector);
+
+            //type conversion
+            DefinePrim<Charstring, SimpleNum>("string->number", s => new SimpleNum(decimal.Parse(s.Value)));
+            DefinePrim<SimpleNum, Charstring>("number->string", n => new Charstring(n.Value.ToString()));
         }
 
         #endregion

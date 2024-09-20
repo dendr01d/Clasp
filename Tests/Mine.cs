@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Clasp;
+﻿using Clasp;
 
 namespace Tests
 {
@@ -12,44 +6,259 @@ namespace Tests
     public class StandardProcedures
     {
         [TestClass]
-        public class AtomicEvaluation
+        public class LiteralEvaluation
         {
             [TestMethod]
-            public void BooleanEval() => Tester.TestBlock(@"
-#t                          =>  #t
-#f                          =>  #f
-'#f                         =>  #f");
+            public void EvalBoolean() => Tester.TestBlock(new()
+            {
+                { "#t", "#t" },
+                { "#t", "'#t" },
+                { "#f", "#f" },
+                { "#f", "'#f" }
+            });
+
+            [TestMethod]
+            public void EvalCharacter() => Tester.TestBlock(new()
+            {
+                { @"#\a", @"#\a" },
+                { @"#\space", @"#\space" },
+                { @"#\newline", @"#\newline" },
+                { @"#\tab", @"#\tab" },
+            });
+
+            [TestMethod]
+            public void EvalCharString() => Tester.TestBlock(new()
+            {
+                { "\"Hello world!\"", "\"Hello world!\"" }
+            });
         }
 
         [TestClass]
-        public class LogicalEvaluation
+        public class NumberEvaluation
         {
             [TestMethod]
-            public void LogicalNot() => Tester.TestBlock(@"
-(not #t)                    =>  #f
-(not 3)                     =>  #f
-(not (list 3))              =>  #f
-(not #f)                    =>  #t
-(not '())                   =>  #f
-(not (list))                =>  #f
-(not 'nil)                  =>  #f");
+            public void EvalSimpleNum() => Tester.TestBlock(new()
+            {
+                { "0", "0" },
+                { "1", "1" },
+                { "3.14", "3.14" },
+                { "5555", "5555" },
+            });
+        }
 
+        [TestClass]
+        public class PredicateApplication
+        {
+            [TestMethod]
+            public void PredicateAtom() => Tester.TestBlock(new()
+            {
+                { "#t", "(atom? 1)" },
+                { "#t", "(atom? 'a)" },
+                { "#t", "(atom? '())" },
+                { "#f", "(atom? '(0 . 1))" },
+                { "#f", "(atom? '(a . b))" },
+                { "#f", "(atom? '(1 . '()))" },
+            });
+
+            [TestMethod]
+            public void PredicatePair() => Tester.TestBlock(new()
+            {
+                { "#f", "(pair? 1)" },
+                { "#f", "(pair? 'a)" },
+                { "#f", "(pair? '())" },
+                { "#t", "(pair? '(0 . 1))" },
+                { "#t", "(pair? '(a . b))" },
+                { "#t", "(pair? '(1 . '()))" },
+            });
+
+            [TestMethod]
+            public void PredicateList() => Tester.TestBlock(new()
+            {
+                { "#f", "(list? 1)" },
+                { "#f", "(list? 'a)" },
+                { "#t", "(list? '())" },
+                { "#f", "(list? '(0 . 1))" },
+                { "#f", "(list? '(a . b))" },
+                { "#t", "(list? '(1 . '()))" },
+            });
+
+            [TestMethod]
+            public void PredicateNull() => Tester.TestBlock(new()
+            {
+                { "#t", "(null? '())" },
+                { "#f", "(null? 1)" },
+                { "#f", "(null? 'a)" },
+                { "#f", "(null? '('() . '()))" },
+                { "#f", "(null? '(1 . '()))" },
+            });
+
+            [TestMethod]
+            public void PredicateSymbol() => Tester.TestBlock(new()
+            {
+                { "#t", "(symbol? 'a)" },
+                { "#f", "(symbol? 1)" },
+                { "#f", "(symbol? '())" },
+                { "#f", "(symbol? '(a . b))" },
+            });
+
+            [TestMethod]
+            public void PredicateProcedure() => Tester.TestBlock(new()
+            {
+                { "#f", "(procedure? 'a)" },
+                { "#f", "(procedure? 1)" },
+                { "#f", "(procedure? '())" },
+                { "#t", "(procedure? +)" },
+                { "#f", "(procedure? '+)" },
+                { "#t", "(procedure? car)" },
+                { "#f", "(procedure? 'car)" },
+                { "#t", "(procedure? (lambda (x) x))" }
+            });
+
+            [TestMethod]
+            public void PredicateNumber() => Tester.TestBlock(new()
+            {
+                { "#f", "(number? 'a)" },
+                { "#t", "(number? 1)" },
+                { "#f", "(number? '())" },
+                { "#f", "(number? '(1 . 2))" },
+                { "#t", "(number? 0)" },
+                { "#t", "(number? 3.14)" },
+            });
+
+            [TestMethod]
+            public void PredicateBoolean() => Tester.TestBlock(new()
+            {
+                { "#f", "(boolean? 'a)" },
+                { "#f", "(boolean? 1)" },
+                { "#f", "(boolean? '())" },
+                { "#t", "(boolean? #t)" },
+                { "#t", "(boolean? #f)" },
+                { "#t", "(boolean? '#t)" },
+                { "#t", "(boolean? '#f)" },
+                { "#f", "(boolean? '(#t . #f))" }
+            });
+        }
+
+        [TestClass]
+        public class LogicalConnectives
+        {
+            [TestMethod]
+            public void LogicalNot() => Tester.TestBlock(new()
+            {
+                { "#t", "(not #f)" },
+                { "#f", "(not #t)" },
+                { "#f", "(not 1)" },
+                { "#f", "(not 'a)" },
+                { "#f", "(not '())" },
+            });
+
+            [TestMethod]
+            public void LogicalAnd() => Tester.TestBlock(new()
+            {
+                { "#t", "(and)" },
+                { "#t", "(and #t)" },
+                { "#t", "(and #t #t)" },
+                { "#f", "(and #f)" },
+                { "#f", "(and #f #f)" },
+                { "#f", "(and #f #t)" },
+                { "#f", "(and #t #f)" }
+            });
+
+            [TestMethod]
+            public void LogicalOr() => Tester.TestBlock(new()
+            {
+                { "#f", "(or)" },
+                { "#t", "(or #t)" },
+                { "#t", "(or #t #t)" },
+                { "#f", "(or #f)" },
+                { "#f", "(or #f #f)" },
+                { "#t", "(or #f #t)" },
+                { "#t", "(or #t #f)" }
+            });
+        }
+
+        [TestClass]
+        public class PrimitiveListOperations
+        {
+            [TestMethod]
+            public void EvalCons() => Tester.TestBlock(new()
+            {
+                { "(a)", "(cons 'a '())" },
+                { "((a) b c d)", "(cons '(a) '(b c d))" },
+                { "(a b c)", "(cons \"a\" '(b c))" },
+                { "(a . 3)", "(cons 'a 3)" },
+                { "((a b) . c)", "(cons '(a b) 'c)" }
+            });
+
+            [TestMethod]
+            public void EvalCar() => Tester.TestBlock(new()
+            {
+                { "a", "(car '(a b c))" },
+                { "(a)", "(car '((a) b c d)) " },
+                { "1", "(car '(1 . 2)) " },
+            });
+
+            [TestMethod]
+            public void EvalCdr() => Tester.TestBlock(new()
+            {
+                { "(b c d)", "(cdr '((a) b c d))  " },
+                { "2", "(cdr '(1 . 2))" }
+            });
+
+            [TestMethod]
+            public void EvalCarNil() => Tester.TestFailure<ExpectedTypeException<Pair>>("(car '())");
+
+            [TestMethod]
+            public void EvalCdrNil() => Tester.TestFailure<ExpectedTypeException<Pair>>("(cdr '())");
 
         }
 
         [TestClass]
-        public class PredicateEvaluation
+        public class EquivalencePredicates
         {
             [TestMethod]
-            public void PredBoolean() => Tester.TestBlock(@"
-(boolean? #f)               =>  #t
-(boolean? 0)                =>  #f
-(boolean? '())              =>  #f");
-        }
+            public void EvalEq() => Tester.TestBlock(new()
+            {
+                { "#t", "(eq? '() '())" },
+                { "#t", "(eq? 'a 'a)" },
+                { "#t", "(eq? + +)" },
+                { "#t", @"((lambda (x) (eq? x x)) #\a)" },
+                { "#f", @"(eq? #\a #\a)" },
+                { "#f", @"(eq? 1 1)" },
+                { "#f", "(eq? \"a string\" \"a string\")" },
+                { "#f", "(eq? #(1 2 3) #(1 2 3))" },
+                { "#f", "(eq? '(1 . 2) '(1 . 2))" }
+            });
 
-        [TestClass]
-        public class EquivalenceChecks
-        {
+            [TestMethod]
+            public void EvalEqv() => Tester.TestBlock(new()
+            {
+                { "#t", "(eqv? '() '())" },
+                { "#t", "(eqv? 'a 'a)" },
+                { "#t", "(eqv? + +)" },
+                { "#t", @"((lambda (x) (eqv? x x)) #\a)" },
+                { "#t", @"(eqv? #\a #\a)" },
+                { "#t", @"(eqv? 1 1)" },
+                { "#f", "(eqv? \"a string\" \"a string\")" },
+                { "#f", "(eqv? #(1 2 3) #(1 2 3))" },
+                { "#f", "(eqv? '(1 . 2) '(1 . 2))" }
+            });
+
+            [TestMethod]
+            public void EvalEqual() => Tester.TestBlock(new()
+            {
+                { "#t", "(equal? '() '())" },
+                { "#t", "(equal? 'a 'a)" },
+                { "#t", "(equal? + +)" },
+                { "#t", @"((lambda (x) (equal? x x)) #\a)" },
+                { "#t", @"(equal? #\a #\a)" },
+                { "#t", @"(equal? 1 1)" },
+                { "#t", "(equal? \"a string\" \"a string\")" },
+                { "#t", "(equal? #(1 2 3) #(1 2 3))" },
+                { "#t", "(equal? '(1 . 2) '(1 . 2))" }
+            });
+
+
         }
     }
 
@@ -79,37 +288,37 @@ namespace Tests
     //        }
     //    }
 
-    //    [TestClass]
-    //    public class Cond
-    //    {
-    //        [TestMethod]
-    //        public void CaseSimpleFirst() => Tester.TestIO("1", "(cond (0 1) (2 3))");
+    [TestClass]
+    public class Cond
+    {
+        [TestMethod]
+        public void CaseSimpleFirst() => Tester.TestIO("1", "(cond (#t 1) (#t 3))");
 
-    //        [TestMethod]
-    //        public void CaseSimpleSecond() => Tester.TestIO("3", "(cond (() 1) (2 3))");
+        [TestMethod]
+        public void CaseSimpleSecond() => Tester.TestIO("3", "(cond (#f 1) (#t 3))");
 
-    //        [TestMethod]
-    //        public void CaseComplexSecond() => Tester.TestIO("3", "(cond (() 1) (2 3) (4 5))");
+        [TestMethod]
+        public void CaseComplexSecond() => Tester.TestIO("3", "(cond (#f 1) (#t 3) (#t 5))");
 
-    //        [TestMethod]
-    //        public void CaseThird() => Tester.TestIO("5", "(cond (() 1) (() 3) (4 5))");
+        [TestMethod]
+        public void CaseThird() => Tester.TestIO("5", "(cond (#f 1) (#f 3) (#t 5))");
 
-    //        [TestMethod]
-    //        public void SubConditionalTrue() => Tester.TestIO("1", "(cond ((if 1 1 ()) 1) (2 3))");
+        [TestMethod]
+        public void SubConditionalTrue() => Tester.TestIO("1", "(cond ((if 1 1 ()) 1) (2 3))");
 
-    //        [TestMethod]
-    //        public void SubConditionalFalse() => Tester.TestIO("3", "(cond ((if 1 () 1) 1) (2 3))");
+        [TestMethod]
+        public void SubConditionalFalse() => Tester.TestIO("3", "(cond ((if 1 () 1) 1) (2 3))");
 
-    //        [TestMethod]
-    //        public void SubConsequent() => Tester.TestIO("11", "(cond (0 (if () 10 11)) (2 3))");
+        [TestMethod]
+        public void SubConsequent() => Tester.TestIO("11", "(cond (0 (if () 10 11)) (2 3))");
 
-    //        [TestMethod]
-    //        public void SelectiveEvaluation()
-    //        {
-    //            string test = "(begin (define var 0) (cond (() (set! var 1)) ((define new-var var) new-var)))";
-    //            Tester.TestIO("0", test);
-    //        }
-    //    }
+        [TestMethod]
+        public void SelectiveEvaluation()
+        {
+            string test = "(begin (define var 0) (cond (() (set! var 1)) ((define new-var var) new-var)))";
+            Tester.TestIO("0", test);
+        }
+    }
 
     //    [TestClass]
     //    public class Quote
@@ -138,26 +347,7 @@ namespace Tests
     //        public void QuoteSelfBoolean() => Tester.TestIO("#t", "'#t");
     //    }
 
-    //    [TestClass]
-    //    public class Cons
-    //    {
-    //        [TestMethod]
-    //        public void CombineZero() => Tester.TestIO("()", "(cons '() '())");
-    //        [TestMethod]
-    //        public void CombineOne() => Tester.TestIO("(a)", "(cons 'a '())");
-    //        [TestMethod]
-    //        public void CombineTwo() => Tester.TestIO("(a . b)", "(cons 'a 'b)");
-    //        [TestMethod]
-    //        public void CombineThree() => Tester.TestIO("(a b . c)", "(cons 'a (cons 'b 'c))");
-    //        [TestMethod]
-    //        public void CombineTree() => Tester.TestIO("((a . b) c . d)", "(cons (cons 'a 'b) (cons 'c 'd))");
-    //        [TestMethod]
-    //        public void CombineOnEmpty() => Tester.TestIO("(() . a)", "(cons () 'a)");
-    //        [TestMethod]
-    //        public void ListOfTwo() => Tester.TestIO("(a b)", "(cons 'a (cons 'b '()))");
-    //    }
-    
-    
-    
+
+
     //}
 }

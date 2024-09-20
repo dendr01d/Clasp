@@ -144,6 +144,10 @@
             {
                 return " . " + expr.ToString();
             }
+            else if (expr is SyntaxForm sf)
+            {
+                return $" {sf.ToPrinted()}";
+            }
             else
             {
                 return $" {expr.Car}{FormatTail(expr.Cdr)}";

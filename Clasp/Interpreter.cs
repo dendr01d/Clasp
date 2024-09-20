@@ -8,19 +8,19 @@ namespace Clasp
 {
     public static class Interpreter
     {
-        public static string Interpret(string input)
+        public static string Interpret(params string[] inputs)
         {
             Environment env = GlobalEnvironment.LoadStandard();
 
-            string output = string.Empty;
+            Expression result = Error.Instance;
 
-            foreach (Expression expr in Parser.ParseText(input))
+            foreach(string input in inputs)
             {
-                Expression result = Evaluator.Evaluate(expr, env);
-                output = result.ToString();
+                Expression parsed = Parser.ParseText(input).Last();
+                result = Evaluator.Evaluate(parsed, env);
             }
 
-            return output;
+            return result.ToSerialized();
         }
     }
 }

@@ -127,11 +127,7 @@ namespace Clasp
 
         #region Environment Modification
 
-        public void EnterNewScope()
-        {
-            _envStack.Push(_env);
-            _env = _env.Close();
-        }
+        public void EnterNewScope() => _envStack.Push(_env);
 
         public void LeaveScope()
         {

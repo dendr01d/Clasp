@@ -85,7 +85,7 @@
 	'()
 	(cons (op (car ls))
 	      (mapcar op (cdr ls)))))
-		  
+
 (define (foldr op init ls)
 	(if (null? ls)
 		init
@@ -110,6 +110,9 @@
 	    '()
 		(append (reverse (cdr ls))
 		        (list (car ls)))))
+
+(define (append ls e)
+  (if (null? ls) e (cons (car ls) (append (cdr ls) e))))
 
 ;; ----------------------------------------------------------------------------
 ;; List Membership
@@ -173,6 +176,16 @@
           (insert-all ls '() <)))
 
 ;; ----------------------------------------------------------------------------
+;; Heap Operations, for fun!
+
+(define (tree? ls)
+    (or (null? ls)
+        (and (not (null? (cadr ls)))
+             (not (null? (caddr ls)))
+             (tree? (cadr ls))
+             (tree? (caddr ls)))))
+
+;; ----------------------------------------------------------------------------
 ;; Standard Macros
 
 (defmacro when ()
@@ -191,24 +204,24 @@
 		
 (defmacro let* ()
 	((_ () body1 . body2)
-		(begin body1 . body2))
+		((lambda () body1 . body2)))
 	((_ ((key val) more ...) body1 . body2)
 		((lambda (key) (let* (more ...) body1 . body2)) val)))
 		
 (defmacro letrec ()
 	((_ ((keys vals) ...) body1 body2 ...)
-		(begin
+		((lambda ()
 			(define keys vals) ...
 			body1
-			body2 ...)))
+			body2 ...))))
 			
 (defmacro letrec* ()
 	((_ () body1 body2 ...)
 		(begin body1 body2 ...))
 	((_ ((key1 val1) (keys vals) ...) body1 body2 ...)
-		(begin
+		((lambda ()
 			(define key1 val1)
-			(letrec* ((keys vals) ...) body1 body2 ...))))
+			(letrec* ((keys vals) ...) body1 body2 ...)))))
 			
 (defmacro or ()
 	((_ arg)
@@ -226,24 +239,26 @@
 	((_)
 		#t))
 		
-(defmacro cond (else)
+(defmacro cond (else =>)
 	((_ (else body1 . body2))
-		(begin body1 . body2))
-    ; ((_ (test => proc) clauses ...)
-        ; ((lambda (x y) (if x (y x) (cond clauses ...))) test proc))
+		((lambda () body1 . body2)))
+    ((_ (test => proc) clauses ...)
+        ((lambda (mort) (if mort (proc mort) (cond clauses ...))) test))
 	((_ (test body1 . body2) . clauses)
 		(if test
-			(begin body1 . body2)
+			((lambda () body1 . body2))
 			(cond . clauses)))
-	((_ (test))
-		test)
+	((_ (test) . clauses)
+        ((lambda (mort) (if mort mort (cond . clauses))) test))
 	((_)
 		#f))
-    
-; (defmacro case (else)
-    ; ((_ (else body1 body2 ...))
-        ; (begin body1 body2 ...))
-    ; ((_ target ((item1 item2 ...) body1 body2 ...) clauses ...)
-        ; (if (member target (item1 item2 ...)) (begin body1 body2 ...) (case target clauses ...)))
-    ; ((_)
-        ; #f))
+
+(defmacro case (else)
+    ((_ target (else body1 body2 ...))
+        ((lambda () body1 body2 ...)))
+    ((_ target ((item1 item2 ...) body1 body2 ...) clauses ...)
+        (if (memv target '(item1 item2 ...))
+            ((lambda () body1 body2 ...))
+            (case target clauses ...)))
+    ((_)
+        #f))

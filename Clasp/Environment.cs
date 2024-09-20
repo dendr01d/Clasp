@@ -32,7 +32,7 @@ namespace Clasp
         public bool HasLocal(Symbol sym) => _bindings.ContainsKey(sym.Name);
 
         public abstract int CountBindings();
-        public Frame Close()
+        public Frame Enclose()
         {
             return new Frame(this);
         }
@@ -145,7 +145,7 @@ namespace Clasp
                 throw new AggregateException(errors);
             }
 
-            return ge.Close();
+            return ge.Enclose();
         }
     }
 
