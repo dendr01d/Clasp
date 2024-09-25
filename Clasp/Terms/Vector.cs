@@ -34,10 +34,6 @@ namespace Clasp
         }
 
         public override bool IsAtom => false;
-        public override Expression Car => throw new ExpectedTypeException<Pair>(this);
-        public override Expression Cdr => throw new ExpectedTypeException<Pair>(this);
-        public override Expression SetCar(Expression expr) => throw new ExpectedTypeException<Pair>(this);
-        public override Expression SetCdr(Expression expr) => throw new ExpectedTypeException<Pair>(this);
 
         public override string ToPrinted() => ToSerialized();
         public override string ToSerialized()

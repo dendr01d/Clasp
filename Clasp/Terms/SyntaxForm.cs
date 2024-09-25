@@ -128,14 +128,14 @@ namespace Clasp
         }
     }
 
-    internal sealed class SyntaxRule : Expression
+    internal sealed class SyntaxRule_ : Expression
     {
         public readonly SyntaxForm Pattern;
         public readonly SyntaxForm Template;
 
         private readonly IEnumerable<Symbol> _freeIDentifiers;
 
-        public SyntaxRule(SyntaxForm pat, SyntaxForm tem)
+        public SyntaxRule_(SyntaxForm pat, SyntaxForm tem)
         {
             Pattern = pat;
             Template = tem;
@@ -143,7 +143,7 @@ namespace Clasp
             _freeIDentifiers = Template.Identifiers.Except(Pattern.Identifiers);
         }
 
-        public SyntaxRule(Expression pat, Expression tem) : this(
+        public SyntaxRule_(Expression pat, Expression tem) : this(
             SyntaxForm.ParsePattern(pat),
             SyntaxForm.ParseTemplate(tem))
         { }
@@ -179,8 +179,8 @@ namespace Clasp
         public override Expression Cdr => throw new NotImplementedException();
         public override Expression SetCar(Expression expr) => throw new NotImplementedException();
         public override Expression SetCdr(Expression expr) => throw new NotImplementedException();
-        public override string ToSerialized() => Pair.MakeList(Pattern, Template).ToSerialized();
-        public override string ToPrinted() => Pair.MakeList(Pattern, Template).ToPrinted();
+        public override string ToSerialized() => Pair.List(Pattern, Template).ToSerialized();
+        public override string ToPrinted() => Pair.List(Pattern, Template).ToPrinted();
         public override bool IsAtom => true;
     }
 
@@ -417,7 +417,7 @@ namespace Clasp
             IEnumerable<Expression> elements = splitEnvs.Select(x => RepeatingTerm.Build(x, alphaConversion));
             return RepeatingTerm is SyntacticRepeating
                 ? elements.Aggregate(Nil as Expression, (x, y) => Pair.Append(x, y))
-                : Pair.MakeList(elements.ToArray());
+                : Pair.List(elements.ToArray());
         }
     }
 

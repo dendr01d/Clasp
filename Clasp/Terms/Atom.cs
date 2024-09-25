@@ -5,28 +5,37 @@
         protected Atom() { }
 
         public override bool IsAtom => true;
-
-        public override Expression Car => throw new ExpectedTypeException<Pair>(this);
-        public override Expression Cdr => throw new ExpectedTypeException<Pair>(this);
-        public override Expression SetCar(Expression expr) => throw new ExpectedTypeException<Pair>(this);
-        public override Expression SetCdr(Expression expr) => throw new ExpectedTypeException<Pair>(this);
-
     }
 
     internal class Empty : Atom
     {
         private Empty() { }
-        public static Empty Instance = new Empty();
-        public override string ToPrinted() => "()";
-        public override string ToSerialized() => "'()";
+        public static readonly Empty Instance = new Empty();
+        public override Expression Deconstruct() => this;
+        public override string Serialize() => "'()";
+        public override string Print() => "nil";
+    }
+
+    internal class Undefined : Atom
+    {
+        private Undefined() { }
+        public static readonly Undefined Instance = new Undefined();
+        public override Expression Deconstruct() => this;
+        public override string Serialize() => "(undefined)";
+        public override string Print() => "#undefined!";
     }
 
     internal class Error : Atom
     {
-        private Error() { }
-        public static Error Instance = new Error();
-        public override string ToPrinted() => "#error";
-        public override string ToSerialized() => "(error)";
+        private readonly string _description;
+
+        public Error(string desc) => _description = desc;
+        public Error(Expression expr) => _description = expr.ToString();
+        public Error(Exception ex) => _description = ex.Message + System.Environment.NewLine + ex.StackTrace;
+
+        public override Expression Deconstruct() => Pair.List(Symbol.Error, new Charstring(_description));
+        public override string Serialize() => Deconstruct().Serialize();
+        public override string Print() => "ERR: " + _description;
     }
 
     internal abstract class Literal<T> : Atom
@@ -36,9 +45,8 @@
         {
             Value = val;
         }
-
-        public override string ToPrinted() => Value?.ToString() ?? "ERR";
-        public override string ToSerialized() => ToPrinted(); //literals are self-evaluating
+        public override Expression Deconstruct() => this;
+        public override string Print() => Serialize();
     }
 
     internal class Boolean : Literal<bool>
@@ -47,14 +55,10 @@
         public static readonly Boolean False = new Boolean(false);
 
         private Boolean(bool b) : base(b) { }
+        public static implicit operator Boolean(bool b) => b ? True : False;
+        public static implicit operator bool(Boolean b) => b.IsTrue;
 
-        public static Boolean Judge(Expression expr) => expr.IsTrue ? True : False;
-        public static Boolean Judge(bool b) => b ? True : False;
-
-        public static Boolean Not(bool b) => Judge(!b);
-        public static Boolean Not(Expression expr) => Not(expr.IsTrue);
-
-        public override string ToPrinted() => Value ? "#t" : "#f";
+        public override string Serialize() => Value ? "#t" : "#f";
     }
 
     internal class Character : Literal<char>
@@ -65,7 +69,6 @@
         private static readonly Character NewLine = new Character('\n');
 
         public Character(char c) : base(c) { }
-
 
         public static Character FromToken(Token t)
         {
@@ -85,9 +88,7 @@
             }
         }
 
-        public override string ToPrinted() => Value.ToString();
-
-        public override string ToSerialized() => "#\\" + Value switch
+        public override string Serialize() => "#\\" + Value switch
         {
             '\t' => "tab",
             '\n' => "newline",
@@ -103,7 +104,6 @@
 
         public static Charstring FromToken(Token t) => new Charstring(t.Text[1..^1]);
 
-        public override string ToPrinted() => Value;
-        public override string ToSerialized() => $"\"{Value}\"";
+        public override string Serialize() => $"\"{Value}\"";
     }
 }

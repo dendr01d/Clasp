@@ -31,6 +31,8 @@ namespace Clasp
         public abstract bool HasBound(Symbol sym);
         public bool HasLocal(Symbol sym) => _bindings.ContainsKey(sym.Name);
 
+        internal bool ContainsKey(string name) => _bindings.ContainsKey(name);
+
         public abstract int CountBindings();
         public Frame Enclose()
         {
@@ -38,6 +40,12 @@ namespace Clasp
         }
 
         #endregion
+
+        //public Environment DeconstructElliptic(Expression patternVars)
+        //{
+        //    Environment output = Enclose();
+            
+        //}
     }
 
     internal class GlobalEnvironment : Environment
@@ -152,6 +160,8 @@ namespace Clasp
     internal class Frame : Environment
     {
         private readonly Environment _ancestor;
+
+        public Environment Enclosing => _ancestor;
 
         public Frame(Environment ancestor) : base()
         {

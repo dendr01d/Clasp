@@ -276,7 +276,7 @@ namespace Clasp
         {
             if (mx.Exp.IsAtom)
             {
-                mx.Assign_Val(Pair.MakeList(mx.Exp));
+                mx.Assign_Val(Pair.List(mx.Exp));
                 mx.GoTo_Continue();
             }
             else if (mx.Exp.Car == Symbol.Quasiquote)
@@ -313,7 +313,7 @@ namespace Clasp
 
         private static void Expand_List_Result(Machine mx)
         {
-            mx.Assign_Val(Pair.MakeList(mx.Val));
+            mx.Assign_Val(Pair.List(mx.Val));
             mx.Restore_Continue();
             mx.GoTo_Continue();
         }
@@ -529,7 +529,7 @@ namespace Clasp
 
             while (mx.Unev is Pair p)
             {
-                if (p.Car is SyntaxRule sr
+                if (p.Car is SyntaxRule_ sr
                     && sr.TryTransform(mx.Exp, proc.LiteralSymbols, proc.Closure, mx.Env, out Expression result))
                 {
                     mx.Assign_Exp(result);
@@ -635,10 +635,10 @@ namespace Clasp
             if (!mx.Exp.Cadr.IsAtom)
             {
                 //rewrite into a lambda
-                mx.Assign_Exp(Pair.MakeList(
+                mx.Assign_Exp(Pair.List(
                     mx.Exp.Car, //define
                     mx.Exp.Cadr.Car, //name of function
-                    Pair.MakeList(
+                    Pair.List(
                         Symbol.Lambda,
                         mx.Exp.Cadr.Cdr,
                         mx.Exp.Caddr)));
@@ -649,7 +649,7 @@ namespace Clasp
 
         private static void Eval_Definition(Machine mx)
         {
-            mx.Assign_Unev(Pair.MakeList(mx.Exp.Cadr));
+            mx.Assign_Unev(Pair.List(mx.Exp.Cadr));
             mx.Save_Unev();
 
             mx.Assign_Exp(mx.Exp.Caddr);
@@ -681,9 +681,9 @@ namespace Clasp
             Expression literals = mx.Exp.Caddr;
             Pair clauses = mx.Exp.Cdddr.Expect<Pair>();
 
-            Expression rules = Pair.MakeList(
+            Expression rules = Pair.List(
                 Pair.Enumerate(clauses)
-                .Select(x => new SyntaxRule(x.Car, x.Cadr))
+                .Select(x => new SyntaxRule_(x.Car, x.Cadr))
                 .ToArray());
 
             Macro newMacro = new Macro(literals, rules.Expect<Pair>(), mx.Env);
@@ -698,7 +698,7 @@ namespace Clasp
 
         private static void Eval_Assignment(Machine mx)
         {
-            mx.Assign_Unev(Pair.MakeList(mx.Exp.Cadr));
+            mx.Assign_Unev(Pair.List(mx.Exp.Cadr));
             mx.Save_Unev();
 
             mx.Assign_Exp(mx.Exp.Caddr);

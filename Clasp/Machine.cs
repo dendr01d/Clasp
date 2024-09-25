@@ -200,7 +200,7 @@ namespace Clasp
 
         public void AppendArgl(Expression newArg)
         {
-            Assign_Argl(Pair.Append(Argl, Pair.MakeList(newArg)));
+            Assign_Argl(Pair.Append(Argl, Pair.List(newArg)));
         }
 
         public void NextArgl() => Assign_Argl(Argl.Cdr);
