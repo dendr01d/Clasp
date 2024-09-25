@@ -8,37 +8,43 @@ namespace Clasp
 
         #region Static Terms
         public static readonly Empty Nil = Empty.Instance;
-        public static readonly Error Error = Error.Instance;
         #endregion
 
         #region Native Predicate Fields
         public abstract bool IsAtom { get; }
-
-        public bool IsList => IsNil || (!IsAtom && Cdr.IsList);
-
+        public bool IsPair => !IsAtom;
         public bool IsNil => ReferenceEquals(this, Nil);
+        
         public bool IsFalse => ReferenceEquals(this, Boolean.False);
         public bool IsTrue => !IsFalse;
+
+        public bool IsList => IsNil || (!IsAtom && Cdr.IsList);
+        public bool IsDottedPair => IsPair && !Cdr.IsNil && Cdr.IsAtom;
+        public bool IsDottedList => IsDottedPair || (IsPair && Cdr.IsDottedList);
+        public bool IsTaggedPair(Symbol sym) => IsPair && !Cdr.IsNil && Cddr.IsNil && Pred_Eq(Car, sym);
+        public bool IsEllipticTerm => IsPair && Cdr.IsPair && Pred_Eq(Cadr, Symbol.Ellipsis);
+
         #endregion
 
         #region Structural Access
-        public abstract Expression Car { get; }
-        public abstract Expression Cdr { get; }
-        public abstract Expression SetCar(Expression expr);
-        public abstract Expression SetCdr(Expression expr);
+        public virtual Expression Car => throw new ExpectedTypeException<Pair>(this);
+        public virtual Expression Cdr => throw new ExpectedTypeException<Pair>(this);
 
-        public Expression Caar => Car.Car;
         public Expression Cadr => Cdr.Car;
-        public Expression Cdar => Car.Cdr;
         public Expression Cddr => Cdr.Cdr;
-        public Expression Cdddr => Cdr.Cdr.Cdr;
-        public Expression Cadar => Car.Cdr.Car;
+
         public Expression Caddr => Cdr.Cdr.Car;
+        public Expression Cdddr => Cdr.Cdr.Cdr;
+
         public Expression Cadddr => Cdr.Cdr.Cdr.Car;
 
         #endregion
 
         #region Equality Predicates
+
+        public bool Pred_Eq(Expression other) => Pred_Eq(this, other);
+        public bool Pred_Eqv(Expression other) => Pred_Eqv(this, other);
+        public bool Pred_Equal(Expression other) => Pred_Equal(this, other);
 
         public static bool Pred_Eq(Expression e1, Expression e2)
         {
@@ -88,17 +94,26 @@ namespace Clasp
 
         #endregion
 
-        public sealed override string ToString() => ToPrinted();
+
+        #region Formatting
 
         /// <summary>
-        /// Returns a pretty-printed string form of the expression
+        /// De-structures the expression from its compiled form back down to basic expressions
         /// </summary>
-        public abstract string ToPrinted();
+        public abstract Expression Deconstruct();
 
         /// <summary>
-        /// Returns a syntactic representation of the expression,
-        /// such that it could be parsed back into the object
+        /// Returns a syntactically-complete representation of the expression, such that it could be read back in and evaluated.
         /// </summary>
-        public abstract string ToSerialized();
+        public abstract string Serialize();
+
+        /// <summary>
+        /// Returns a string semantically describing the expression
+        /// </summary>
+        public abstract string Print();
+
+        public sealed override string ToString() => Print();
+
+        #endregion
     }
 }

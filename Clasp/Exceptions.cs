@@ -59,6 +59,21 @@ namespace Clasp
         }
     }
 
+    public class ArityConflictException : Exception
+    {
+        internal ArityConflictException(Procedure proc, Expression? argl = null) : 
+            base(FormatMsg(proc, argl))
+        { }
+
+        private static string FormatMsg(Procedure proc, Expression? argl)
+        {
+            return string.Format("{0} arguments {1} provided to procedure {2}",
+                argl is null ? "Insufficient" : "Extraneous",
+                argl is null ? string.Empty : argl.ToString(),
+                proc.ToString());
+        }
+    }
+
     public class MissingArgumentException : Exception
     {
         internal MissingArgumentException(string funcName) :

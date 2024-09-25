@@ -34,11 +34,11 @@ namespace Clasp
     internal class CompoundProcedure : Procedure
     {
         public readonly Expression Parameters;
-        public readonly Pair Body;
+        public readonly Expression Body; //NOT Pair bc null bodies are allowed
         public readonly Environment Closure;
         public override bool ApplicativeOrder => true;
 
-        public CompoundProcedure(Expression parameters, Pair body, Environment outerEnv)
+        public CompoundProcedure(Expression parameters, Expression body, Environment outerEnv)
         {
             Parameters = parameters;
             Body = body;
@@ -181,6 +181,21 @@ namespace Clasp
             LiteralSymbols = literals;
             Transformers = transformers;
             Closure = closure;
+        }
+
+        public bool TryTransform(Expression input, Environment local, out Expression output)
+        {
+            output = Undefined.Instance;
+
+            foreach(SyntaxRule sr in Rules)
+            {
+                if (sr.TryTransform(input, LiteralSymbols, Closure, local, out output))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public override string ToPrinted()
