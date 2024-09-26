@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -15,26 +16,10 @@ namespace Clasp
         public abstract bool ApplicativeOrder { get; }
     }
 
-    internal class SpecialForm : Procedure
-    {
-        public readonly string Name;
-        public readonly Action<Machine> InstructionPtr;
-        public override bool ApplicativeOrder => false;
-
-        public SpecialForm(string keyword, Action<Machine> ptr)
-        {
-            Name = keyword;
-            InstructionPtr = ptr;
-        }
-
-        public override string ToPrinted() => $"sp_{Name}";
-        public override string ToSerialized() => Name;
-    }
-
     internal class CompoundProcedure : Procedure
     {
         public readonly Expression Parameters;
-        public readonly Expression Body; //NOT Pair bc null bodies are allowed
+        public readonly Expression Body;
         public readonly Environment Closure;
         public override bool ApplicativeOrder => true;
 
@@ -45,71 +30,36 @@ namespace Clasp
             Closure = outerEnv.Enclose();
         }
 
-        public override string ToPrinted()
-        {
-            return Pair.Append(Pair.MakeList(Symbol.Lambda, Parameters), Body)
-                .Expect<Pair>()
-                .Format('<', '>');
-        }
-        public override string ToSerialized() => Pair.Cons(Symbol.Lambda, Pair.Cons(Parameters, Body)).ToSerialized();
+        public override Expression Deconstruct() => Pair.ListStar(Symbol.Lambda, Parameters.Deconstruct(), Body);
+        public override string Serialize() => Deconstruct().Serialize();
+        public override string Print() => string.Format("<λ{0}>", Parameters.Print());
     }
 
     internal class PrimitiveProcedure : Procedure
     {
-        private readonly string _name;
+        private readonly Symbol _referant;
         private readonly Func<Expression, Expression> _operation;
         public override bool ApplicativeOrder => true;
 
-        private PrimitiveProcedure(string name, Func<Expression, Expression> op)
+        private PrimitiveProcedure(Symbol referant, Func<Expression, Expression> op)
         {
-            _name = name;
+            _referant = referant;
             _operation = op;
         }
 
-        public Expression Apply(Expression args)
+        public void Manifest(Environment env, string name, Func<Expression, Expression> op)
         {
-            return _operation(args);
+            Symbol sym = Symbol.Ize(name);
+            env.BindNew(sym, new PrimitiveProcedure(sym, op));
         }
 
-        public override string ToPrinted() => $"<{_name}>";
-        public override string ToSerialized() => _name;
+        public Expression Apply(Expression input) => _operation(input);
+
+        public override Expression Deconstruct() => _referant;
+        public override string Serialize() => _referant.Serialize();
+        public override string Print() => string.Format("<{0}>", _referant);
 
         #region Native Operations
-
-        public static Dictionary<string, PrimitiveProcedure> NativeOps = new();
-
-        #region Definition Shorthand
-        private static void Define(string name, Func<Expression, Expression> op)
-            => NativeOps.Add(name, new PrimitiveProcedure(name, op));
-
-        private static void DefinePrim<T1, T2>(string name, Func<T1, T2> op)
-            where T1 : Expression
-            where T2 : Expression
-        {
-            NativeOps.Add(name, new PrimitiveProcedure(name, p => op(p.Car.Expect<T1>())));
-        }
-
-        private static void DefinePrim<T1, T2, T3>(string name, Func<T1, T2, T3> op)
-            where T1 : Expression
-            where T2 : Expression
-            where T3 : Expression
-        {
-            NativeOps.Add(name, new PrimitiveProcedure(name, p => op(p.Car.Expect<T1>(), p.Cadr.Expect<T2>())));
-        }
-
-        private static void DefineVariadic<T1, T2>(string name, Func<T1, T2, T1> op, T1 baseCase)
-            where T1 : Expression
-            where T2 : Expression
-        {
-            NativeOps.Add(name, new PrimitiveProcedure(name, p => Pair.Fold(op, baseCase, p)));
-        }
-
-        private static void DefinePred(string name, Func<Expression, bool> op)
-        {
-            NativeOps.Add(name, new PrimitiveProcedure(name, p => Boolean.Judge(op(p.Car))));
-        }
-
-        #endregion
 
         static PrimitiveProcedure()
         {
@@ -168,11 +118,34 @@ namespace Clasp
 
         #endregion
     }
+    
+    internal class SpecialForm : Procedure
+    {
+        private readonly Symbol _referant;
+        public readonly Evaluator2.Label OpCode;
+        public override bool ApplicativeOrder => false;
+
+        private SpecialForm(Symbol referant, RegisterMachine.Label op)
+        {
+            _referant = referant;
+            OpCode = op;
+        }
+
+        public void Manifest(Environment env, string name, RegisterMachine.Label op)
+        {
+            Symbol sym = Symbol.Ize(name);
+            env.BindNew(sym, new SpecialForm(sym, op));
+        }
+
+        public override Expression Deconstruct() => _referant;
+        public override string Serialize() => _referant.Serialize();
+        public override string Print() => string.Format("<{0}>", _referant);
+    }
 
     internal class Macro : Procedure
     {
         public readonly Expression LiteralSymbols;
-        public readonly Pair Transformers;
+        public readonly SyntaxRule[] Rules;
         public readonly Environment Closure;
         public override bool ApplicativeOrder => false;
 
@@ -183,6 +156,18 @@ namespace Clasp
             Closure = closure;
         }
 
+        public override Expression Deconstruct() => _referant;
+        public override string Serialize() => _referant.Serialize();
+        public override string Print() => string.Format("<μ{0}>", _referant);
+        //
+        //public override string ToPrinted()
+        //{
+        //    return Pair.Append(Pair.List(
+        //        Symbol.Macro, LiteralSymbols), Transformers)
+        //        .Expect<Pair>()
+        //        .Format('{', '}');
+        //}
+        //public override string ToSerialized() => throw new NotImplementedException(); //idk lol
         public bool TryTransform(Expression input, Environment local, out Expression output)
         {
             output = Undefined.Instance;
@@ -197,15 +182,6 @@ namespace Clasp
 
             return false;
         }
-
-        public override string ToPrinted()
-        {
-            return Pair.Append(Pair.MakeList(
-                Symbol.Macro, LiteralSymbols), Transformers)
-                .Expect<Pair>()
-                .Format('{', '}');
-        }
-        public override string ToSerialized() => throw new NotImplementedException(); //idk lol
 
     }
 }

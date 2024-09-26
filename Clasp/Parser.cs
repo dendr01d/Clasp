@@ -47,10 +47,10 @@
                     TokenType.RightParen => throw new ParsingException("Unexpected ')'", current),
                     TokenType.DotMarker => throw new ParsingException("Unexpected '.'", current),
 
-                    TokenType.QuoteMarker => Pair.MakeList(Symbol.Quote, ParseTokens(tokens)),
-                    TokenType.QuasiquoteMarker => Pair.MakeList(Symbol.Quasiquote, ParseTokens(tokens)),
-                    TokenType.UnquoteMarker => Pair.MakeList(Symbol.Unquote, ParseTokens(tokens)),
-                    TokenType.UnquoteSplicingMarker => Pair.MakeList(Symbol.UnquoteSplicing, ParseTokens(tokens)),
+                    TokenType.QuoteMarker => Pair.List(Symbol.Quote, ParseTokens(tokens)),
+                    TokenType.QuasiquoteMarker => Pair.List(Symbol.Quasiquote, ParseTokens(tokens)),
+                    TokenType.UnquoteMarker => Pair.List(Symbol.Unquote, ParseTokens(tokens)),
+                    TokenType.UnquoteSplicingMarker => Pair.List(Symbol.UnquoteSplicing, ParseTokens(tokens)),
                     TokenType.Ellipsis => Symbol.Ellipsis,
 
                     TokenType.Symbol => Symbol.Ize(current.Text),
@@ -101,8 +101,8 @@
             tokens.Pop(); //remove right paren
 
             return specialTerminator
-                ? Pair.MakeImproperList(exprs.ToArray())
-                : Pair.MakeList(exprs.ToArray());
+                ? Pair.ListStar(exprs.ToArray())
+                : Pair.List(exprs.ToArray());
         }
 
         private static Expression ParseVector(Stack<Token> tokens)

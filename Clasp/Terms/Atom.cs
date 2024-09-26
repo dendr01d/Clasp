@@ -5,8 +5,6 @@
         protected Atom() { }
 
         public override bool IsAtom => true;
-
-
     }
 
     internal class Empty : Atom
@@ -36,7 +34,7 @@
     {
         private Undefined() { }
         public static Undefined Instance = new Undefined();
-        public override Expression Deconstruct() => Pair.MakeList(Symbol.Undefined);
+        public override Expression Deconstruct() => Pair.List(Symbol.Undefined);
         public override string Serialize() => Deconstruct().Serialize();
         public override string Print() => "#undefined";
     }
@@ -59,14 +57,6 @@
         public static readonly Boolean False = new Boolean(false);
 
         private Boolean(bool b) : base(b) { }
-
-        public static Boolean Judge(Expression expr) => expr.IsTrue ? True : False;
-        public static Boolean Judge(bool b) => b ? True : False;
-
-        public static Boolean Not(bool b) => Judge(!b);
-        public static Boolean Not(Expression expr) => Not(expr.IsTrue);
-
-
         public static implicit operator Boolean(bool b) => b ? True : False;
         public static implicit operator bool(Boolean b) => b.IsTrue;
 
@@ -81,7 +71,6 @@
         private static readonly Character NewLine = new Character('\n');
 
         public Character(char c) : base(c) { }
-
 
         public static Character FromToken(Token t)
         {

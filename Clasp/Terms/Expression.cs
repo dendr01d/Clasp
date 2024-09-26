@@ -11,8 +11,11 @@ namespace Clasp
         #endregion
 
         #region Native Predicate Fields
+
         public abstract bool IsAtom { get; }
+
         public bool IsPair => !IsAtom;
+
         public bool IsNil => ReferenceEquals(this, Nil);
         
         public bool IsFalse => ReferenceEquals(this, Boolean.False);
@@ -26,22 +29,7 @@ namespace Clasp
 
         #endregion
 
-        #region Structural Access
-        public virtual Expression Car => throw new ExpectedTypeException<Pair>(this);
-        public virtual Expression Cdr => throw new ExpectedTypeException<Pair>(this);
-
-        public Expression Cadr => Cdr.Car;
-        public Expression Cddr => Cdr.Cdr;
-
-        public Expression Caddr => Cdr.Cdr.Car;
-        public Expression Cdddr => Cdr.Cdr.Cdr;
-
-        public Expression Cadddr => Cdr.Cdr.Cdr.Car;
-
         #endregion
-
-        #region Equality Predicates
-
         public bool Pred_Eq(Expression other) => Pred_Eq(this, other);
         public bool Pred_Eqv(Expression other) => Pred_Eqv(this, other);
         public bool Pred_Equal(Expression other) => Pred_Equal(this, other);
@@ -84,36 +72,52 @@ namespace Clasp
             {
                 return typedExpr;
             }
-
             throw new ExpectedTypeException<T>(expr);
         }
 
-        public T Expect<T>()
-            where T : Expression
-            => Expect<T>(this);
+        public T Expect<T>() where T : Expression => Expect<T>(this);
 
         #endregion
 
+        #region Assumed List-Structure Access
 
-        #region Formatting
+        public virtual Expression Car => throw new ExpectedTypeException<Pair>(this);
+        public virtual Expression Cdr => throw new ExpectedTypeException<Pair>(this);
+
+        public Expression Caar => Car.Car;
+        public Expression Cadr => Cdr.Car;
+        public Expression Cdar => Car.Cdr;
+        public Expression Cddr => Cdr.Cdr;
+
+        public Expression Caaar => Car.Car.Car;
+        public Expression Caadr => Cdr.Car.Car;
+        public Expression Cadar => Car.Cdr.Car;
+        public Expression Caddr => Cdr.Cdr.Car;
+
+        public Expression Cdaar => Car.Car.Cdr;
+        public Expression Cdadr => Cdr.Car.Cdr;
+        public Expression Cddar => Car.Cdr.Cdr;
+        public Expression Cdddr => Cdr.Cdr.Cdr;
+
+        public Expression Cadddr => Cdr.Cdr.Cdr.Car;
+
+        #endregion
 
         /// <summary>
-        /// De-structures the expression from its compiled form back down to basic expressions
+        /// Destructures compiled objects back to rudimentary expressions
         /// </summary>
         public abstract Expression Deconstruct();
 
         /// <summary>
-        /// Returns a syntactically-complete representation of the expression, such that it could be read back in and evaluated.
+        /// Returns a syntactically-complete string that parses to the expression
         /// </summary>
         public abstract string Serialize();
 
         /// <summary>
-        /// Returns a string semantically describing the expression
+        /// Return a string that semantically represents the expression
         /// </summary>
         public abstract string Print();
 
         public sealed override string ToString() => Print();
-
-        #endregion
     }
 }
