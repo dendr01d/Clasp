@@ -252,18 +252,18 @@ namespace Clasp
                             break;
 
 
-                        case Label.Apply_Macro:
-                            Macro mProc = Proc.Expect<Macro>();
-                            if (mProc.TryTransform(Exp, Env, out Expression result))
-                            {
-                                Exp = result;
-                                OpStack.Push(Label.Dispatch_Eval);
-                            }
-                            else
-                            {
-                                throw new Exception("Failed to transform macro expression");
-                            }
-                            break;
+                        //case Label.Apply_Macro:
+                        //    Macro mProc = Proc.Expect<Macro>();
+                        //    if (mProc.TryTransform(Exp, Env, out Expression result))
+                        //    {
+                        //        Exp = result;
+                        //        OpStack.Push(Label.Dispatch_Eval);
+                        //    }
+                        //    else
+                        //    {
+                        //        throw new Exception("Failed to transform macro expression");
+                        //    }
+                        //    break;
 
 
                         case Label.Dispatch_Special:

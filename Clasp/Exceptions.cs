@@ -108,4 +108,15 @@ namespace Clasp
             base($"Attempted to pop data from empty {typeof(T).Name} stack in machine.")
         { }
     }
+
+    //public class InvalidNumericOperationException : Exception
+    //{
+    //    internal InvalidNumericOperationException(Number num, string op) :
+    //        base(string.Format("Tried to perform illegal operation '{0}' on number {1}", op, num))
+    //    { }
+
+    //    internal InvalidNumericOperationException(Number num, string op, Number numArg) :
+    //        base(string.Format("Tried to perform illegal operation '{0}' on numbers {1} and {2}", op, num, numArg))
+    //    { }
+    //}
 }

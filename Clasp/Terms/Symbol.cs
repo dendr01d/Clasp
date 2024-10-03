@@ -30,6 +30,8 @@ namespace Clasp
             }
         }
 
+        public static Symbol Generate() => Ize(string.Format("${0}", ++_genCounter));
+
         public static Symbol Generate(string name)
         {
             string check = name;
@@ -53,6 +55,7 @@ namespace Clasp
         #region Standard Symbols
 
         public static readonly Symbol Lambda = Ize("lambda");
+        public static readonly Symbol Mu = Ize("mu");
         //public static readonly Symbol Flambda = Ize("ƒlambda");
         public static readonly Symbol Begin = Ize("begin");
 

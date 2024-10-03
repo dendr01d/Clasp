@@ -25,7 +25,7 @@
         public Error(Expression expr) => _description = expr.Print();
         public Error(Exception ex) => _description = $"{ex.Message}{System.Environment.NewLine}{ex.StackTrace}";
 
-        public override Expression Deconstruct() => Pair.MakeList(Symbol.Throw, new Charstring(_description));
+        public override Expression Deconstruct() => Pair.List(Symbol.Error, new Charstring(_description));
         public override string Serialize() => Deconstruct().Serialize();
         public override string Print() => "ERR";
     }
@@ -57,9 +57,8 @@
         public static readonly Boolean False = new Boolean(false);
 
         private Boolean(bool b) : base(b) { }
-        public static implicit operator Boolean(bool b) => b ? True : False;
-        public static implicit operator bool(Boolean b) => b.IsTrue;
 
+        public static implicit operator Boolean(bool b) => b ? True : False;
         public override string Serialize() => Value ? "#t" : "#f";
     }
 

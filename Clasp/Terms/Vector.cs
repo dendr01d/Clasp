@@ -35,8 +35,10 @@ namespace Clasp
 
         public override bool IsAtom => false;
 
-        public override string ToPrinted() => ToSerialized();
-        public override string ToSerialized()
+        public override Expression Deconstruct() => this;
+
+        public override string Print() => Serialize();
+        public override string Serialize()
         {
             return $"#({string.Join<Expression>(' ', _data)})";
         }

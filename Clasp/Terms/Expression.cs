@@ -13,9 +13,7 @@ namespace Clasp
         #region Native Predicate Fields
 
         public abstract bool IsAtom { get; }
-
         public bool IsPair => !IsAtom;
-
         public bool IsNil => ReferenceEquals(this, Nil);
         
         public bool IsFalse => ReferenceEquals(this, Boolean.False);
@@ -29,7 +27,8 @@ namespace Clasp
 
         #endregion
 
-        #endregion
+        #region Equality Predicates
+
         public bool Pred_Eq(Expression other) => Pred_Eq(this, other);
         public bool Pred_Eqv(Expression other) => Pred_Eqv(this, other);
         public bool Pred_Equal(Expression other) => Pred_Equal(this, other);
@@ -79,6 +78,12 @@ namespace Clasp
 
         #endregion
 
+        #region Implicit C# Type-Casting
+
+        public static implicit operator Expression(bool b) => b ? Boolean.True : Boolean.False;
+
+        #endregion
+
         #region Assumed List-Structure Access
 
         public virtual Expression Car => throw new ExpectedTypeException<Pair>(this);
@@ -103,6 +108,8 @@ namespace Clasp
 
         #endregion
 
+        #region Abstract Methods
+
         /// <summary>
         /// Destructures compiled objects back to rudimentary expressions
         /// </summary>
@@ -119,5 +126,7 @@ namespace Clasp
         public abstract string Print();
 
         public sealed override string ToString() => Print();
+
+        #endregion
     }
 }

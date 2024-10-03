@@ -100,7 +100,7 @@ namespace Clasp
 
                     case _RELOAD_ENV_CMD:
                         scope = GlobalEnvironment.LoadStandard();
-                        output = Symbol.Ok.ToPrinted();
+                        output = Symbol.Ok.Print();
                         break;
 
                     default:
@@ -132,12 +132,12 @@ namespace Clasp
                                 try
                                 {
                                     Expression result = Evaluator.Evaluate(expr, scope, _showingSteps ? writer : null, _pausing);
-                                    output = result.ToSerialized();
+                                    output = result.Serialize();
                                 }
                                 catch (Exception ex)
                                 {
                                     errors.WriteLine("ERROR: " + ex.Message);
-                                    errors.WriteLine($"\tin expression {i}: " + expr.ToSerialized());
+                                    errors.WriteLine($"\tin expression {i}: " + expr.Serialize());
                                     errors.WriteLine(ex.StackTrace);
                                 }
                             }
