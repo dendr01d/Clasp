@@ -13,9 +13,7 @@ namespace Clasp
         #region Native Predicate Fields
 
         public abstract bool IsAtom { get; }
-
         public bool IsPair => !IsAtom;
-
         public bool IsNil => ReferenceEquals(this, Nil);
         
         public bool IsFalse => ReferenceEquals(this, Boolean.False);
@@ -24,12 +22,13 @@ namespace Clasp
         public bool IsList => IsNil || (!IsAtom && Cdr.IsList);
         public bool IsDottedPair => IsPair && !Cdr.IsNil && Cdr.IsAtom;
         public bool IsDottedList => IsDottedPair || (IsPair && Cdr.IsDottedList);
-        public bool IsTaggedPair(Symbol sym) => IsPair && !Cdr.IsNil && Cddr.IsNil && Pred_Eq(Car, sym);
-        public bool IsEllipticTerm => IsPair && Cdr.IsPair && Pred_Eq(Cadr, Symbol.Ellipsis);
+        public bool IsTagged(Symbol sym) => IsPair && !Cdr.IsNil && Car.Pred_Eq(sym);
+        public bool IsEllipticTerm => IsPair && Cdr.IsPair && Cadr.Pred_Eq(Symbol.Ellipsis);
 
         #endregion
 
-        #endregion
+        #region Equality Predicates
+
         public bool Pred_Eq(Expression other) => Pred_Eq(this, other);
         public bool Pred_Eqv(Expression other) => Pred_Eqv(this, other);
         public bool Pred_Equal(Expression other) => Pred_Equal(this, other);
@@ -55,11 +54,14 @@ namespace Clasp
             return (e1, e2) switch
             {
                 (Charstring c1, Charstring c2) => c1.Value == c2.Value,
-                (Vector v1, Vector v2) => v1.EnumerableData.Zip(v2.EnumerableData, (x, y) => Pred_Equal(x, y)).Aggregate((x, y) => x && y),
+                //(Vector v1, Vector v2) => v1.EnumerableData.Zip(v2.EnumerableData, (x, y) => Pred_Equal(x, y)).Aggregate((x, y) => x && y),
                 (Pair p1, Pair p2) => Pred_Equal(p1.Car, p2.Car) && Pred_Equal(p1.Cdr, p2.Cdr),
                 (_, _) => Pred_Eqv(e1, e2)
             };
         }
+
+        public static bool Pred_FreeId_Eq(Expression e1, Expression e2) => throw new NotImplementedException();
+        public static bool Pred_BoundId_Eq(Expression e1, Expression e2) => throw new NotImplementedException();
 
         #endregion
 

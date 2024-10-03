@@ -9,6 +9,36 @@ using System.Threading.Tasks;
 [assembly: InternalsVisibleTo("Tests")]
 namespace Clasp
 {
+    public static class ExceptionExtensions
+    {
+        public static string SimplifyStackTrace(this Exception ex)
+        {
+            const string PATTERN = @"at (?<namespace>.*\(.*\))(?: in (?<path>\w\:(?>\\\w+)+(?:\.\w+)?\:.*))?";
+
+            string trace = new string(ex.StackTrace);
+            if (string.IsNullOrWhiteSpace(trace))
+            {
+                return "No stacktrace available.";
+            }
+
+            var matches = System.Text.RegularExpressions.Regex.Matches(trace, PATTERN);
+
+            IEnumerable<string> condensedLines = matches
+                .Select(x => new Tuple<string, string>(
+                    x.Groups[1].Value,
+                    x.Groups.Count > 2 ? x.Groups[2].Value : string.Empty))
+                .Select(x => new Tuple<string, string>(
+                    x.Item1.Split('.').Last(),
+                    x.Item2.Split('\\').Last()))
+                .Select(x => string.Format("   in {0}{1}{2}",
+                    x.Item1,
+                    string.IsNullOrEmpty(x.Item2) ? string.Empty : " at ",
+                    x.Item2));
+
+            return string.Join(System.Environment.NewLine, condensedLines);
+        }
+    }
+
     public class UncategorizedException : Exception
     {
         internal UncategorizedException(string msg) : base($"CLASP Exception: {msg}") { }

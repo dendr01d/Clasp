@@ -159,7 +159,7 @@ namespace Clasp
 
                 foreach(var replacement in alphaExchange)
                 {
-                    if (macroEnv.HasBound(replacement.Key))
+                    if (macroEnv.Binds(replacement.Key))
                     {
                         exprEnv.BindNew(replacement.Value, macroEnv.LookUp(replacement.Key));
                     }
