@@ -23,7 +23,13 @@
 
         public Error(string desc) => _description = desc;
         public Error(Expression expr) => _description = expr.Print();
-        public Error(Exception ex) => _description = $"{ex.Message}{System.Environment.NewLine}{ex.StackTrace}";
+        public Error(Exception ex)
+        {
+            _description = string.Format("ERR: {0}{1}{2}",
+                ex.Message,
+                System.Environment.NewLine,
+                ex.SimplifyStackTrace());
+        }
 
         public override Expression Deconstruct() => Pair.List(Symbol.Error, new Charstring(_description));
         public override string Serialize() => Deconstruct().Serialize();

@@ -49,7 +49,7 @@ namespace Clasp
             Dispatch_Special,
 
             Eval_Quote, Eval_Lambda,
-            Eval_Quasiquote, Eval_Syntax,
+            Eval_Quasiquote,
             Eval_Error,
 
             Eval_If, Eval_If_Decide,
@@ -70,7 +70,28 @@ namespace Clasp
 
             //then there's the quasiquote stuff as well
 
-            NA
+            Eval_SyntaxCase, Eval_SyntaxCase_Did_Input,
+            Eval_SyntaxCase_Loop, Eval_SyntaxCase_Continue,
+
+            Eval_SyntaxClause, Eval_SyntaxClause_Did_Match,
+            Eval_SyntaxClause_Fender, Eval_SyntaxClause_Fender_Continue,
+            Eval_SyntaxClause_Output, Eval_SyntaxClause_Did_Output,
+
+            Apply_BasicMatch, Apply_BasicMatch_Do,
+
+            Dispatch_Match,
+            Match_Symbol,
+            Match_Pair, Match_Pair_Continue,
+            Match_Repeating, Match_Repeating_Continue,
+            Match_Datum,
+
+            Eval_Syntax,
+
+            Dispatch_Build,
+            Build_Symbol,
+            Build_List, Build_List_Loop, Build_List_Acc, Build_List_Acc_Last,
+            Build_Repeating, Build_Repeating_Continue,
+            Build_Datum
         }
 
         public static Expression Evaluate(Expression expr, Frame env, bool print = false)
@@ -80,7 +101,7 @@ namespace Clasp
             return machine.Val;
         }
 
-        private void Execute()
+        private void Execute(bool printing, bool pausing)
         {
             try
             {
@@ -88,7 +109,18 @@ namespace Clasp
 
                 while (OpStack.Any())
                 {
+                    ++stepNum;
                     Label op = OpStack.Pop();
+
+                    Expression prevExp = Exp;
+                    Expression prevVal = Val;
+                    Expression prevUnev = Unev;
+                    Expression prevArgl = Argl;
+                    Expression prevProc = Proc;
+
+                    int prevExprCount = ExprStack.Count;
+                    int prevEnvCount = EnvStack.Count;
+                    int prevOpCount = OpStack.Count;
 
                     switch (op)
                     {
@@ -110,6 +142,7 @@ namespace Clasp
                             Val = Env.LookUp(Exp.Expect<Symbol>()); //what if I had a symbol register instead?
                             break;
 
+
                         #region Basic Special Forms
 
                         case Label.Eval_Quote:
@@ -127,7 +160,6 @@ namespace Clasp
                                 : new Error(Exp.Cdr);
                             break;
 
-
                         case Label.Apply_Eval:
                             Exp = Exp.Cadr;
                             OpStack.Push(Label.Dispatch_Eval);
@@ -136,6 +168,29 @@ namespace Clasp
                         case Label.Apply_Apply:
                             Exp = Pair.Cons(Exp.Cadr, Exp.Cddr);
                             OpStack.Push(Label.Dispatch_Eval);
+                            break;
+
+                        case Label.Apply_BasicMatch:
+                            Exp = Exp.Cdr;
+                            Argl = Exp.Cddar;
+                            Unev = Exp.Cdddr;
+                            Exp = Pair.Cons(Exp.Cadr, Exp.Car);
+                            Env = Env.Enclose();
+
+                            OpStack.Push(Label.Apply_BasicMatch_Do);
+                            OpStack.Push(Label.Dispatch_Match);
+                            break;
+
+                        case Label.Apply_BasicMatch_Do:
+                            if (Val.IsTrue)
+                            {
+                                OpStack.Push(Label.Eval_Sequence);
+                            }
+                            break;
+
+                        case Label.Eval_Syntax:
+                            Ecp = Exp.Cadr;
+                            OpStack.Push(Label.Dispatch_Build);
                             break;
 
                         #endregion
@@ -417,8 +472,362 @@ namespace Clasp
 
                         #endregion
 
+
+                        #region Syntactic Restructuring
+
+                        case Label.Eval_SyntaxCase:
+                            Exp = Exp.Cdr; //remove operator
+                            ExprStack.Push(Exp);
+                            Exp = Exp.Cadr;
+
+                            EnvStack.Push(Env);
+                            OpStack.Push(Label.Eval_SyntaxCase_Did_Input);
+                            OpStack.Push(Label.Dispatch_Eval);
+                            break;
+
+                        case Label.Eval_SyntaxCase_Did_Input:
+                            Env = EnvStack.Pop();
+                            Exp = ExprStack.Pop();
+                            Argl = Exp.Caddr; //literals
+                            Unev = Exp.Cadddr; //clauses
+
+                            if (Unev.IsNil) throw new UncategorizedException("No clauses in syntax-case expression");
+                            Exp = Val; //evaluated input
+
+                            OpStack.Push(Label.Eval_SyntaxCase_Loop);
+                            break;
+
+                        case Label.Eval_SyntaxCase_Loop:
+                            ExprStack.Push(Argl);
+                            ExprStack.Push(Exp);
+                            Exp = Pair.ListStar(Exp, Argl, Unev.Car); //format transformer input
+                            EnvStack.Push(Env);
+                            ExprStack.Push(Unev);
+                            OpStack.Push(Label.Eval_SyntaxCase_Continue);
+                            OpStack.Push(Label.Eval_SyntaxClause);
+                            break;
+
+                        case Label.Eval_SyntaxCase_Continue:
+                            Unev = ExprStack.Pop();
+                            Env = EnvStack.Pop();
+                            Exp = ExprStack.Pop();
+                            Argl = ExprStack.Pop();
+                            if (Val.IsPair && Val.Car.IsTrue)
+                            {
+                                Val = Val.Cadr;
+                            }
+                            else
+                            {
+                                Unev = Unev.Cdr;
+                                if (Unev.IsNil) throw new UncategorizedException("Ran past end of syntax clauses");
+                                OpStack.Push(Label.Eval_SyntaxCase_Loop);
+                            }
+                            break;
+
+                        #endregion
+
+                        #region Syntax-Case Clause Evaluation
+
+                        case Label.Eval_SyntaxClause:
+                            Env = Env.Enclose(); //sub env to hold pattern variable bindings locally
+                            EnvStack.Push(Env);
+                            Argl = Exp.Cadr; //literals
+                            Unev = Exp.Cddr; //fenders and output
+                            Exp = Pair.Cons(Exp.Caddr, Exp.Car); // (pattern . input)
+                            OpStack.Push(Label.Dispatch_Match);
+                            break;
+
+                        case Label.Eval_SyntaxClause_Did_Match:
+                            if (Val.IsTrue)
+                            {
+                                Environment subEnv = Env;
+                                Env = EnvStack.Pop();
+                                Env.Subsume(subEnv);
+                                Exp = Unev;
+                                OpStack.Push(Exp.Cdr.IsNil
+                                    ? Label.Eval_SyntaxClause_Output
+                                    : Label.Eval_SyntaxClause_Fender);
+                            }
+                            else
+                            {
+                                Val = Pair.List(Boolean.False);
+                            }
+                            break;
+
+                        case Label.Eval_SyntaxClause_Fender:
+                            Exp = Unev.Car();
+                            ExprStack.Push(Unev);
+                            EnvStack.Push(Env);
+                            OpStack.Push(Label.Eval_SyntaxClause_Fender_Continue);
+                            OpStack.Push(Label.Dispatch_Eval);
+                            break;
+
+                        case Label.Eval_SyntaxClause_Fender_Continue:
+                            if (Val.IsTrue)
+                            {
+                                Env = EnvStack.Pop();
+                                Unev = ExprStack.Pop();
+                                Unev = Unev.Cdr;
+                                OpStack.Push(Exp.Cdr.IsNil
+                                    ? Label.Eval_SyntaxClause_Output
+                                    : Label.Eval_SyntaxClause_Fender);
+                            }
+                            else
+                            {
+                                Val = Pair.List(Boolean.False);
+                            }
+                            break;
+
+                        case Label.Eval_SyntaxClause_Output:
+                            Exp = Unev.Car;
+                            OpStack.Push(Label.Eval_SyntaxClause_Did_Output);
+                            OpStack.Push(Label.Dispatch_Eval);
+                            break;
+
+                        case Label.Eval_SyntaxClause_Did_Output:
+                            Val = Pair.Cons(Boolean.True, Val);
+                            break;
+
+                        #endregion
+
+                        #region Syntactic Pattern-Matching
+
+                        case Label.Dispatch_Match:
+                            OpStack.Push(Exp.Car switch
+                            {
+                                Symbol => Label.Match_Symbol,
+                                Pair => Label.Match_Pair,
+                                _ => Label.Match_Datum
+                            });
+                            break;
+
+                        case Label.Match_Symbol:
+                            Symbol pSym = Exp.Car.Expect<Symbol>();
+                            if (pSym.Pred_Eq(Symbol.Underscore))
+                            {
+                                Val = Boolean.True;
+                            }
+                            else if (Pair.Memq(Argl, pSym))
+                            {
+                                Val = pSym.Pred_Eq(Exp.Cdr);
+                            }
+                            else if (Env.LocallyBinds(pSym))
+                            {
+                                Val = Env.LookUp(pSym).Pred_Equal(Exp.Cdr);
+                            }
+                            else
+                            {
+                                Env.BindNew(pSym, Exp.Cdr);
+                                Val = Boolean.True;
+                            }
+                            break;
+
+                        case Label.Match_Pair:
+                            if (Exp.Car.IsEllipticTerm)
+                            {
+                                if (!Exp.Cddar.IsNil) throw new UncategorizedException("Patterns don't permit ellipses in non-tail position");
+                                Exp = Pair.Cons(Exp.Caar, Exp.Cdr);
+                                OpStack.Push(Label.Match_Repeating);
+                            }
+                            else
+                            {
+                                ExprStack.Push(Exp);
+                                Exp = Pair.Cons(Exp.Caar, Exp.Cdar);
+                                OpStack.Push(Label.Match_Pair_Continue);
+                                OpStack.Push(Label.Dispatch_Match);
+                            }
+                            break;
+
+                        case Label.Match_Pair_Continue:
+                            Exp = ExprStack.Pop();
+                            if (Val.IsTrue)
+                            {
+                                Exp = Pair.Cons(Exp.Cdar, Exp.Cddr);
+                                OpStack.Push(Label.Dispatch_Match);
+                            }
+                            break;
+
+                        case Label.Match_Repeating:
+                            if (Exp.Cdr.IsNil)
+                            {
+                                Val = Boolean.True;
+                            }
+                            else if (Exp.Cdr.IsAtom)
+                            {
+                                throw new UncategorizedException("Repeating patterns can't capture dotted lists");
+                            }
+                            else
+                            {
+                                ExprStack.Push(Exp);
+                                Exp = Pair.Cons(Exp.Car, Exp.Cadr);
+                                EnvStack.Push(Env);
+                                Env = Env.Enclose();
+                                OpStack.Push(Label.Match_Repeating_Continue);
+                                OpStack.Push(Label.Dispatch_Match);
+                            }
+                            break;
+
+                        case Label.Match_Repeating_Continue:
+                            if (Val.IsTrue)
+                            {
+                                Environment subEnv = Env;
+                                Env = EnvStack.Pop();
+                                Env.SubsumeRecurrent(subEnv);
+                                Exp = ExprStack.Pop();
+                                Exp = Pair.Cons(Exp.Car, Exp.Cddr);
+                                OpStack.Push(Label.Match_Repeating);
+                            }
+                            break;
+
+                        case Label.Match_Datum:
+                            Val = Exp.Car.Pred_Eq(Exp.Cdr);
+                            break;
+
+                        #endregion
+
+                        #region Syntactic Template-Building
+
+                        case Label.Dispatch_Build:
+                            OpStack.Push(Exp switch
+                            {
+                                Symbol => Label.Build_Symbol,
+                                Pair => Label.Build_List,
+                                _ => Label.Build_Datum
+                            });
+                            break;
+
+                        case Label.Build_Symbol:
+                            Val = Env.LookUp(Exp.Expect<Symbol>());
+                            break;
+
+                        case Label.Build_List:
+                            if (Exp.IsTagged(Symbol.Ellipsis))
+                            {
+                                if (Exp.IsEllipticTerm && Exp.Cddr.IsNil)
+                                {
+                                    Val = Symbol.Ellipsis;
+                                }
+                                else
+                                {
+                                    throw new UncategorizedException("Unexpected ellipsis term");
+                                }
+                            }
+                            else
+                            {
+                                Argl = Expression.Nil;
+                                Unev = Exp;
+                                OpStack.Push(Label.Build_List_Loop);
+                            }
+                            break;
+
+                        case Label.Build_List_Loop:
+                            ExprStack.Push(Argl);
+                            ExprStack.Push(Unev);
+                            if (Unev.IsAtom)
+                            {
+                                Exp = Unev;
+                                OpStack.Push(Label.Eval_Operand_Acc_Last);
+                                OpStack.Push(Label.Dispatch_Build);
+                            }
+                            else if (Unev.IsEllipticTerm)
+                            {
+                                Exp = Unev.Car;
+
+                                OpStack.Push(Unev.Cddr.IsNil
+                                    ? Label.Build_List_Acc_Last
+                                    : Label.Build_List_Acc);
+
+                                Argl = Expression.Nil;
+                                OpStack.Push(Label.Build_Repeating);
+                            }
+                            else
+                            {
+                                Exp = Unev.Car;
+
+                                OpStack.Push(Unev.Cdr.IsNil
+                                    ? Label.Build_List_Acc_Last
+                                    : Label.Build_List_Acc);
+
+                                OpStack.Push(Label.Dispatch_Build);
+                            }
+                            break;
+
+                        case Label.Build_List_Acc:
+                            Unev = ExprStack.Pop();
+                            Argl = ExprStack.Pop();
+                            Argl = Unev.IsEllipticTerm
+                                ? Pair.Append(Argl, Val)
+                                : Pair.Append(Argl, Pair.List(Val));
+                            Unev = Unev.IsEllipticTerm
+                                ? Unev.Cddr
+                                : Unev.Cdr;
+                            OpStack.Push(Label.Build_List_Loop);
+                            break;
+
+                        case Label.Build_List_Acc_Last:
+                            Unev = ExprStack.Pop();
+                            Argl = ExprStack.Pop();
+                            Argl = (Unev.IsAtom || Unev.IsEllipticTerm)
+                                ? Pair.Append(Argl, Val)
+                                : Pair.Append(Argl, Pair.List(Val));
+                            break;
+
+                        case Label.Build_Repeating:
+                            ExprStack.Push(Argl);
+                            ExprStack.Push(Exp);
+                            EnvStack.Push(Env);
+                            Env = Env.SplitRecurrent();
+                            OpStack.Push(Label.Build_Repeating_Continue);
+                            OpStack.Push(Label.Dispatch_Build);
+                            break;
+
+                        case Label.Build_Repeating_Continue:
+                            Env = EnvStack.Pop();
+                            Exp = ExprStack.Pop();
+                            Argl = ExprStack.Pop();
+                            Argl = Pair.Append(Argl, Pair.List(Val));
+                            if (Env.MoreRecurrent())
+                            {
+                                OpStack.Push(Label.Build_Repeating);
+                            }
+                            else
+                            {
+                                Val = Argl;
+                            }
+                            break;
+
+                        case Label.Build_Datum:
+                            Val = Exp;
+                            break;
+
+
+                        #endregion
+
+
                         default:
                             break;
+                    }
+
+                    if (printing)
+                    {
+                        Console.WriteLine("-------------------------------------------------------");
+                        Console.WriteLine("Step {0}: {1}", stepNum, op.ToString());
+                        Console.WriteLine();
+                        Console.WriteLine(" Exp: {0}", OldVsNew(prevExp, Exp));
+                        Console.WriteLine(" Val: {0}", OldVsNew(prevVal, Val));
+                        Console.WriteLine("Unev: {0}", OldVsNew(prevUnev, Unev));
+                        Console.WriteLine("Argl: {0}", OldVsNew(prevArgl, Argl));
+                        Console.WriteLine("Proc: {0}", OldVsNew(prevProc, Proc));
+                        Console.WriteLine();
+                        Console.WriteLine("Exp Stk: {0}", FormatStack(ExprStack, prevExprCount));
+                        Console.WriteLine("Env Stk: {0}", FormatStack(EnvStack, prevEnvCount));
+                        Console.WriteLine(" Op Stk: {0}", FormatStack(OpStack, prevOpCount));
+                        Console.WriteLine();
+                    }
+
+                    if (pausing)
+                    {
+                        Console.ReadKey(true);
                     }
                 }
 
@@ -429,5 +838,17 @@ namespace Clasp
             }
         }
 
+        private static string OldVsNew(Expression older, Expression newer)
+        {
+            if (older != newer)
+            {
+
+            }
+        }
+
+        private static string FormatStack<T>(Stack<T> stk, int oldCount)
+        {
+
+        }
     }
 }

@@ -6,11 +6,14 @@ namespace Clasp
     internal abstract class Environment
     {
         protected readonly Dictionary<string, Expression> _bindings;
+        protected readonly Dictionary<string, int> _recurrenceLevels;
+
         public abstract Environment GlobalContext { get; }
 
         protected Environment()
         {
             _bindings = new Dictionary<string, Expression>();
+            _recurrenceLevels = new Dictionary<string, int>();
         }
 
         #region Dictionary Access
@@ -29,10 +32,8 @@ namespace Clasp
             }
         }
 
-        public abstract bool HasBound(Symbol sym);
-        public bool HasLocal(Symbol sym) => _bindings.ContainsKey(sym.Name);
-
-        internal bool ContainsKey(string name) => _bindings.ContainsKey(name);
+        public abstract bool Binds(Symbol sym);
+        public bool BindsLocally(Symbol sym) => _bindings.ContainsKey(sym.Name);
 
         public abstract int CountBindings();
         public Frame Enclose()
@@ -42,10 +43,90 @@ namespace Clasp
 
         #endregion
 
+        #region Supplementary functions for Syntactic Manipulation
+
+        /// <summary>
+        /// Absorb all of the local bindings in <paramref name="subEnv"/> into this environment. It's an error
+        /// to subsume a binding that shadows one at this level.
+        /// </summary>
+        /// <param name="subEnv"></param>
+        public void Subsume(Environment subEnv)
+        {
+            foreach(var binding in subEnv._bindings)
+            {
+                _bindings.Add(binding.Key, binding.Value);
+            }
+        }
+
+        //TODO maybe I need a special frame-type environment that enforced its flatness?
+
+        public void SubsumeRecurrent(Environment subEnv)
+        {
+            foreach(var binding in subEnv._bindings)
+            {
+                if (_bindings.TryGetValue(binding.Key, out Expression extantValue))
+                {
+                    _bindings[binding.Key] = Pair.Append(extantValue, Pair.List(binding.Value));
+                }
+                else
+                {
+                    _bindings[binding.Key] = Pair.List(binding.Value);
+
+                    if (subEnv._recurrenceLevels.TryGetValue(binding.Key, out int level))
+                    {
+                        _recurrenceLevels[binding.Key] = level + 1;
+                    }
+                    else
+                    {
+                        _recurrenceLevels[binding.Key] = 1;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns true if the environment contains any recurrent bindings that can be further split
+        /// </summary>
+        public bool MoreRecurrent() => _recurrenceLevels.Keys
+            .Select(x => _bindings[x])
+            .Any(x => !x.IsNil);
+
+        public Environment SplitRecurrent()
+        {
+            if (!_recurrenceLevels.Any(x => x.Value > 0))
+            {
+                throw new UncategorizedException("No recurrent elements present in environment by which to split.");
+            }
+            else if (_recurrenceLevels.Where(x => x.Value > 0).Any(x => !_bindings[x.Key].IsPair))
+            {
+                throw new UncategorizedException("Variable list lengths among recurrent elements of environment.");
+            }
+
+            Environment subEnv = Enclose();
+            foreach(string key in _recurrenceLevels.Keys)
+            {
+                if (_recurrenceLevels[key] == 0)
+                {
+                    subEnv._bindings.Add(key, _bindings[key]);
+                }
+                else
+                {
+                    subEnv._bindings.Add(key, _bindings[key].Car);
+                    subEnv._recurrenceLevels[key] = _recurrenceLevels[key] - 1;
+
+                    _bindings[key] = _bindings[key].Cdr;
+                }
+            }
+
+            return subEnv;
+        }
+
+        #endregion
+
         //public Environment DeconstructElliptic(Expression patternVars)
         //{
         //    Environment output = Enclose();
-            
+
         //}
     }
 
@@ -79,7 +160,7 @@ namespace Clasp
             }
         }
 
-        public override bool HasBound(Symbol sym) => HasLocal(sym);
+        public override bool Binds(Symbol sym) => BindsLocally(sym);
 
         public override int CountBindings() => _bindings.Count();
 
@@ -171,7 +252,7 @@ namespace Clasp
             }
         }
 
-        public override bool HasBound(Symbol sym) => HasLocal(sym) || _ancestor.HasBound(sym);
+        public override bool Binds(Symbol sym) => BindsLocally(sym) || _ancestor.Binds(sym);
 
         public override int CountBindings() => _bindings.Count() + _ancestor.CountBindings();
     }
