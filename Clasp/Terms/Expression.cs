@@ -32,6 +32,9 @@ namespace Clasp
         public bool Pred_Eq(Expression other) => Pred_Eq(this, other);
         public bool Pred_Eqv(Expression other) => Pred_Eqv(this, other);
         public bool Pred_Equal(Expression other) => Pred_Equal(this, other);
+        public bool Pred_FreeIdEq(Expression other) => Pred_FreeIdEq(this, other);
+        public bool Pred_BoundIdEq(Expression other) => Pred_BoundIdEq(this, other);
+
 
         public static bool Pred_Eq(Expression e1, Expression e2)
         {
@@ -60,8 +63,16 @@ namespace Clasp
             };
         }
 
-        public static bool Pred_FreeId_Eq(Expression e1, Expression e2) => throw new NotImplementedException();
-        public static bool Pred_BoundId_Eq(Expression e1, Expression e2) => throw new NotImplementedException();
+        public static bool Pred_FreeIdEq(Expression e1, Expression e2)
+        {
+            return Pred_Eq(e1.Resolve(), e2.Resolve());
+        }
+
+        public static bool Pred_BoundIdEq(Expression e1, Expression e2)
+        {
+            return Pred_FreeIdEq(e1, e2)
+                && e1.GetMarks().SetEquals(e2.GetMarks());
+        }
 
         #endregion
 
@@ -102,6 +113,19 @@ namespace Clasp
         public Expression Cdddr => Cdr.Cdr.Cdr;
 
         public Expression Cadddr => Cdr.Cdr.Cdr.Car;
+
+        #endregion
+
+        #region Syntactic Analysis
+
+        public virtual Expression Mark(params int[] marks) => this;
+        public virtual HashSet<int> GetMarks() => new HashSet<int>();
+
+        public virtual Expression Subst(Identifier id, Symbol s) => this;
+
+        public virtual Expression Resolve() => this;
+        public virtual Expression Strip() => this;
+        public virtual Expression Expose() => this;
 
         #endregion
 

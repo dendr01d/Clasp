@@ -2,10 +2,10 @@
 {
     internal class Pair : Expression
     {
-        private Expression _car;
-        private Expression _cdr;
+        protected Expression _car { get; private set; }
+        protected Expression _cdr { get; private set; }
 
-        private Pair(Expression car, Expression cdr)
+        protected Pair(Expression car, Expression cdr)
         {
             _car = car;
             _cdr = cdr;
@@ -22,6 +22,16 @@
         #region Constructors
 
         public static Pair Cons(Expression car, Expression cdr) => new Pair(car, cdr);
+
+        public Pair ConsIfNew(Expression car, Expression cdr)
+        {
+            if (!_car.Pred_Eq(car) || !_cdr.Pred_Eq(cdr))
+            {
+                return Cons(car, cdr);
+            }
+
+            return this;
+        }
 
         public static Expression List(params Expression[] es)
         {
@@ -41,19 +51,21 @@
             };
         }
 
-        public static Expression Append(Expression ls, Expression t, bool raw = true)
+        public static Expression Append(Expression ls, Expression t)
         {
-            if (raw)
-            {
-                return ls.IsNil
-                    ? t
-                    : Cons(ls.Car, Append(ls.Cdr, t, true));
-            }
-            else
-            {
-                return Append(ls, Cons(t, Nil), true);
-            }
+            return ls.IsNil
+                ? t
+                : Cons(ls.Car, Append(ls.Cdr, t));
         }
+
+        public static Expression AppendLast(Expression ls, Expression t) => Append(ls, Cons(t, Nil));
+
+        public static Expression AppendStar(Expression maybeLs, Expression t) => maybeLs switch
+        {
+            Empty => t,
+            Pair p => Cons(p.Car, AppendStar(p.Cdr, t)),
+            _ => Cons(maybeLs, t)
+        };
 
         #endregion
 
@@ -161,5 +173,58 @@
         }
 
         #endregion
+    }
+
+    internal class SyntaxPair : Pair
+    {
+        private readonly HashSet<int> _marks;
+        private readonly List<Tuple<Identifier, Symbol>> _subs;
+
+        private SyntaxPair(Expression car, Expression cdr) : base(car, cdr)
+        {
+            _marks = new HashSet<int>();
+            _subs = new List<Tuple<Identifier, Symbol>>();
+        }
+
+        public static Pair Wrap(Pair p)
+        {
+            return p switch
+            {
+                SyntaxPair sp => sp,
+                _ => new SyntaxPair(p.Car, p.Cdr)
+            };
+        }
+
+        public override Expression Mark(params int[] marks)
+        {
+            _marks.SymmetricExceptWith(marks);
+            return this;
+        }
+
+        public override HashSet<int> GetMarks() => _marks;
+
+        public override Expression Subst(Identifier id, Symbol sym)
+        {
+            _subs.Add(new Tuple<Identifier, Symbol>(id, sym));
+            return this;
+        }
+
+        public override Expression Strip() => ConsIfNew(_car.Strip(), _cdr.Strip());
+        public override Expression Expose()
+        {
+            return Cons(PushDown(this, _car), PushDown(this, _cdr));
+        }
+
+        private static Expression PushDown(SyntaxPair sp, Expression e)
+        {
+            Expression output = e.Mark(sp._marks.ToArray());
+
+            foreach (var sub in sp._subs)
+            {
+                output.Subst(sub.Item1, sub.Item2);
+            }
+
+            return output;
+        }
     }
 }

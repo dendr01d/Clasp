@@ -198,67 +198,79 @@ namespace Clasp
                         #region List-As-Proc-Application Form
 
                         case Label.Eval_Operator:
-                            ExprStack.Push(Exp);
-                            Exp = Exp.Car;
-                            EnvStack.Push(Env);
-                            OpStack.Push(Label.Eval_Operator_Continue);
-                            OpStack.Push(Label.Dispatch_Eval);
+                            { 
+                                ExprStack.Push(Exp);
+                                Exp = Exp.Car;
+                                EnvStack.Push(Env);
+                                OpStack.Push(Label.Eval_Operator_Continue);
+                                OpStack.Push(Label.Dispatch_Eval);
+                            }
                             break;
 
                         case Label.Eval_Operator_Continue:
-                            Env = EnvStack.Pop();
-                            Exp = ExprStack.Pop();
-
-                            Unev = Exp.Cdr;
-                            Proc = Val.Expect<Procedure>();
-
-                            ExprStack.Push(Proc);
-                            if (!Unev.IsNil && Proc.Expect<Procedure>().ApplicativeOrder)
                             {
+                                Env = EnvStack.Pop();
+                                Exp = ExprStack.Pop();
+
                                 Argl = Expression.Nil; //empty list
-                                OpStack.Push(Label.Eval_Operand_Loop);
+                                Unev = Exp.Cdr;
+                                Proc = Val.Expect<Procedure>();
+
                                 ExprStack.Push(Proc);
-                            }
-                            else
-                            {
-                                OpStack.Push(Label.Dispatch_Apply);
+
+                                if (!Unev.IsNil && Proc.Expect<Procedure>().ApplicativeOrder)
+                                {
+                                    Unev = Exp.Cdr;
+                                    OpStack.Push(Label.Eval_Operand_Loop);
+                                }
+                                else
+                                {
+                                    OpStack.Push(Label.Dispatch_Apply);
+                                }
                             }
                             break;
 
                         case Label.Eval_Operand_Loop:
-                            ExprStack.Push(Argl);
-                            Exp = Unev.IsAtom
-                                ? Unev
-                                : Unev.Car;
-                            if (Unev.IsAtom || Unev.Cdr.IsNil) //dotted tail
                             {
-                                OpStack.Push(Label.Eval_Operand_Acc_Last);
-                            }
-                            else
-                            {
-                                EnvStack.Push(Env);
-                                ExprStack.Push(Unev);
-                                OpStack.Push(Label.Eval_Operand_Acc);
+                                ExprStack.Push(Argl);
+                                Exp = Unev.IsAtom
+                                    ? Unev
+                                    : Unev.Car;
+
+                                if (Unev.IsAtom || Unev.Cdr.IsNil) //dotted tail
+                                {
+                                    OpStack.Push(Label.Eval_Operand_Acc_Last);
+                                }
+                                else
+                                {
+                                    EnvStack.Push(Env);
+                                    ExprStack.Push(Unev);
+                                    OpStack.Push(Label.Eval_Operand_Acc);
+                                }
+
+                                OpStack.Push(Label.Dispatch_Eval);
                             }
                             break;
 
                         case Label.Eval_Operand_Acc:
-                            Unev = ExprStack.Pop();
-                            Argl = ExprStack.Pop();
-                            Env = EnvStack.Pop();
+                            {
+                                Unev = ExprStack.Pop();
+                                Argl = ExprStack.Pop();
+                                Env = EnvStack.Pop();
 
-                            Argl = Pair.Append(Argl, Pair.List(Val));
-                            Unev = Unev.Cdr;
+                                Argl = Pair.AppendLast(Argl, Val);
+                                Unev = Unev.Cdr;
 
-                            OpStack.Push(Label.Eval_Operand_Loop);
+                                OpStack.Push(Label.Eval_Operand_Loop);
+                            }
                             break;
 
                         case Label.Eval_Operand_Acc_Last:
-                            Argl = ExprStack.Pop();
-
-                            Argl = Pair.Append(Argl, Pair.List(Val));
-
-                            OpStack.Push(Label.Dispatch_Apply);
+                            {
+                                Argl = ExprStack.Pop();
+                                Argl = Pair.AppendLast(Argl, Val);
+                                OpStack.Push(Label.Dispatch_Apply);
+                            }
                             break;
 
                         #endregion

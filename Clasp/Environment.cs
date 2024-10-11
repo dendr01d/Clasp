@@ -5,19 +5,20 @@ namespace Clasp
     internal abstract class Environment
     {
         protected readonly Dictionary<string, Expression> _bindings;
-        protected readonly Dictionary<string, int> _recurrenceLevels;
 
         public abstract Environment GlobalContext { get; }
 
         protected Environment()
         {
             _bindings = new Dictionary<string, Expression>();
-            _recurrenceLevels = new Dictionary<string, int>();
         }
 
         #region Dictionary Access
 
         public abstract Expression LookUp(Symbol sym);
+        public virtual Binding LookupBindingType(Symbol sym) => Binding.NA;
+        public virtual int LookupRecurrenceLevel(Symbol sym) => -1;
+
         public abstract void RebindExisting(Symbol sym, Expression def);
         public void BindNew(Symbol sym, Expression def)
         {
@@ -30,9 +31,11 @@ namespace Clasp
                 _bindings[sym.Name] = def;
             }
         }
+        public virtual void BindNew(Symbol sym, Expression def, Binding bType) => BindNew(sym, def);
 
         public abstract bool Binds(Symbol sym);
         public bool BindsLocally(Symbol sym) => _bindings.ContainsKey(sym.Name);
+        public virtual bool BindsAs(Symbol sym, Binding bType) => Binds(sym);
 
         public abstract int CountBindings();
         public Frame Enclose()
@@ -57,76 +60,13 @@ namespace Clasp
             }
         }
 
-        //TODO maybe I need a special frame-type environment that enforced its flatness?
+        public virtual void SubsumeRecurrent(ExpansionFrame subEnv) { }
 
-        public void SubsumeRecurrent(Environment subEnv)
-        {
-            foreach(var binding in subEnv._bindings)
-            {
-                if (_bindings.TryGetValue(binding.Key, out Expression extantValue))
-                {
-                    _bindings[binding.Key] = Pair.Append(extantValue, Pair.List(binding.Value));
-                }
-                else
-                {
-                    _bindings[binding.Key] = Pair.List(binding.Value);
+        public virtual bool MoreRecurrent() => false;
 
-                    if (subEnv._recurrenceLevels.TryGetValue(binding.Key, out int level))
-                    {
-                        _recurrenceLevels[binding.Key] = level + 1;
-                    }
-                    else
-                    {
-                        _recurrenceLevels[binding.Key] = 1;
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Returns true if the environment contains any recurrent bindings that can be further split
-        /// </summary>
-        public bool MoreRecurrent() => _recurrenceLevels.Keys
-            .Select(x => _bindings[x])
-            .Any(x => !x.IsNil);
-
-        public Environment SplitRecurrent()
-        {
-            if (!_recurrenceLevels.Any(x => x.Value > 0))
-            {
-                throw new UncategorizedException("No recurrent elements present in environment by which to split.");
-            }
-            else if (_recurrenceLevels.Where(x => x.Value > 0).Any(x => !_bindings[x.Key].IsPair))
-            {
-                throw new UncategorizedException("Variable list lengths among recurrent elements of environment.");
-            }
-
-            Environment subEnv = Enclose();
-            foreach(string key in _recurrenceLevels.Keys)
-            {
-                if (_recurrenceLevels[key] == 0)
-                {
-                    subEnv._bindings.Add(key, _bindings[key]);
-                }
-                else
-                {
-                    subEnv._bindings.Add(key, _bindings[key].Car);
-                    subEnv._recurrenceLevels[key] = _recurrenceLevels[key] - 1;
-
-                    _bindings[key] = _bindings[key].Cdr;
-                }
-            }
-
-            return subEnv;
-        }
+        public virtual ExpansionFrame SplitRecurrent() => new ExpansionFrame(this);
 
         #endregion
-
-        //public Environment DeconstructElliptic(Expression patternVars)
-        //{
-        //    Environment output = Enclose();
-
-        //}
     }
 
     internal class GlobalEnvironment : Environment
@@ -240,7 +180,7 @@ namespace Clasp
 
     internal class Frame : Environment
     {
-        private readonly Environment _ancestor;
+        protected readonly Environment _ancestor;
 
         public Environment Enclosing => _ancestor;
 
@@ -278,5 +218,122 @@ namespace Clasp
         public override bool Binds(Symbol sym) => BindsLocally(sym) || _ancestor.Binds(sym);
 
         public override int CountBindings() => _bindings.Count() + _ancestor.CountBindings();
+    }
+
+    internal enum Binding
+    {
+        NA,
+        Variable, PatternVariable, Transformer,
+        SpecialQuote, SpecialLambda
+    }
+
+    internal class ExpansionFrame : Frame
+    {
+        private readonly Dictionary<string, Binding> _bindingTypes;
+        private readonly Dictionary<string, int> _recurrenceLevels;
+
+        public ExpansionFrame(Environment pred) : base(pred)
+        {
+            _bindingTypes = new Dictionary<string, Binding>();
+            _recurrenceLevels = new Dictionary<string, int>();
+        }
+
+        public override Binding LookupBindingType(Symbol sym)
+        {
+            if (_bindingTypes.TryGetValue(sym.Name, out Binding b))
+            {
+                return b;
+            }
+            else
+            {
+                return _ancestor.LookupBindingType(sym);
+            }
+        }
+
+        public override int LookupRecurrenceLevel(Symbol sym)
+        {
+            if (_recurrenceLevels.TryGetValue(sym.Name, out int level))
+            {
+                return level;
+            }
+            else
+            {
+                return _ancestor.LookupRecurrenceLevel(sym);
+            }
+        }
+
+        public override void BindNew(Symbol sym, Expression def, Binding bType)
+        {
+            BindNew(sym, def);
+            _bindingTypes[sym.Name] = bType;
+        }
+
+        public override bool BindsAs(Symbol sym, Binding bType)
+        {
+            return Binds(sym)
+                && _bindingTypes.TryGetValue(sym.Name, out Binding b)
+                && bType == b;
+        }
+
+        public override void SubsumeRecurrent(ExpansionFrame subEnv)
+        {
+            foreach (var binding in subEnv._bindings)
+            {
+                if (_bindings.TryGetValue(binding.Key, out Expression extantValue))
+                {
+                    _bindings[binding.Key] = Pair.Append(extantValue, Pair.List(binding.Value));
+                }
+                else
+                {
+                    _bindings[binding.Key] = Pair.List(binding.Value);
+
+                    if (subEnv._recurrenceLevels.TryGetValue(binding.Key, out int level))
+                    {
+                        _recurrenceLevels[binding.Key] = level + 1;
+                    }
+                    else
+                    {
+                        _recurrenceLevels[binding.Key] = 1;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns true if the environment contains any recurrent bindings that can be further split
+        /// </summary>
+        public override bool MoreRecurrent() => _recurrenceLevels.Keys
+            .Select(x => _bindings[x])
+            .Any(x => !x.IsNil);
+
+        public override ExpansionFrame SplitRecurrent()
+        {
+            if (!_recurrenceLevels.Any(x => x.Value > 0))
+            {
+                throw new UncategorizedException("No recurrent elements present in environment by which to split.");
+            }
+            else if (_recurrenceLevels.Where(x => x.Value > 0).Any(x => !_bindings[x.Key].IsPair))
+            {
+                throw new UncategorizedException("Variable list lengths among recurrent elements of environment.");
+            }
+
+            ExpansionFrame subEnv = new ExpansionFrame(this); //enclose
+            foreach (string key in _recurrenceLevels.Keys)
+            {
+                if (_recurrenceLevels[key] == 0)
+                {
+                    subEnv._bindings.Add(key, _bindings[key]);
+                }
+                else
+                {
+                    subEnv._bindings.Add(key, _bindings[key].Car);
+                    subEnv._recurrenceLevels[key] = _recurrenceLevels[key] - 1;
+
+                    _bindings[key] = _bindings[key].Cdr;
+                }
+            }
+
+            return subEnv;
+        }
     }
 }
