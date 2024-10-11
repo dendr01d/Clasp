@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace Clasp
 {
@@ -116,32 +117,8 @@ namespace Clasp
 
             List<Exception> errors = new List<Exception>();
 
-            foreach(var special in Evaluator.SpecialFormRouting)
-            {
-                try
-                {
-                    ge.BindNew(Symbol.Ize(special.Key), new SpecialForm(special.Key, special.Value));
-
-                }
-                catch (Exception ex)
-                {
-                    string msg = $"Error defining special form '{special.Key}': {ex.Message}";
-                    errors.Add(new Exception(msg, ex));
-                }
-            }
-
-            foreach(var def in PrimitiveProcedure.NativeOps)
-            {
-                try
-                {
-                    ge.BindNew(Symbol.Ize(def.Key), def.Value);
-                }
-                catch (Exception ex)
-                {
-                    string msg = $"Error defining simple procedure '{def.Key}': {ex.Message}";
-                    errors.Add(new Exception(msg, ex));
-                }
-            }
+            ge.PopulateSpecialForms();
+            ge.PopulatePrimitiveProcs();
 
             if (File.Exists(_STD_LIBRARY))
             {
@@ -153,11 +130,11 @@ namespace Clasp
                     {
                         try
                         {
-                            Evaluator.SilentEval(expr, ge);
+                            Evaluator.EvalSilent(expr, ge);
                         }
                         catch (Exception ex)
                         {
-                            string msg = $"Error evaluating entry from standard library {{{expr.ToPrinted()}}}: {ex.Message}";
+                            string msg = $"Error evaluating entry from standard library: {ex.Message}";
                             errors.Add(new Exception(msg, ex));
                         }
                     }
@@ -335,5 +312,99 @@ namespace Clasp
 
             return subEnv;
         }
+    }
+
+
+    internal static class EnvironmentDefaults
+    {
+        public static void PopulateSpecialForms(this GlobalEnvironment ge)
+        {
+            foreach(var def in _specialForms)
+            {
+                SpecialForm.Manifest(ge, def.Key, def.Value);
+            }
+        }
+
+        private static readonly Dictionary<string, Evaluator.Label> _specialForms = new()
+        {
+            { "eval", Evaluator.Label.Apply_Eval },
+            { "apply", Evaluator.Label.Apply_Apply },
+
+            { "quote", Evaluator.Label.Eval_Quote },
+            { "quasiquote", Evaluator.Label.Eval_Quasiquote },
+            { "lambda", Evaluator.Label.Eval_Lambda },
+
+            { "begin", Evaluator.Label.Eval_Begin },
+            { "if", Evaluator.Label.Eval_If },
+
+            { "define", Evaluator.Label.Apply_Define },
+            { "set!", Evaluator.Label.Apply_Set },
+            { "define-syntax", Evaluator.Label.Apply_DefineSyntax },
+            { "set-car!", Evaluator.Label.Set_Car },
+            { "set-cdr!", Evaluator.Label.Set_Cdr },
+        };
+
+        public static void PopulatePrimitiveProcs(this GlobalEnvironment ge)
+        {
+            foreach(var def in _primProcs)
+            {
+                PrimitiveProcedure.Manifest(ge, def.Key, def.Value);
+            }
+        }
+
+        private static readonly Dictionary<string, Func<Expression, Expression>> _primProcs = new()
+        {
+            { "gensym", x => x.IsNil ? Symbol.Generate() : Symbol.Generate(x.Cadr.Expect<Symbol>()) },
+
+            { "cons", x => Pair.Cons(x.Car, x.Cadr) },
+            { "car", x => x.Caar },
+            { "cdr", x => x.Cdar },
+
+            { "eq?", x => Pair.Enumerate(x).PairwiseSelect(Expression.Pred_Eq).AllTrue() },
+            { "eqv?", x => Pair.Enumerate(x).PairwiseSelect(Expression.Pred_Eqv).AllTrue() },
+            { "equal?", x => Pair.Enumerate(x).PairwiseSelect(Expression.Pred_Equal).AllTrue() },
+
+            #region Numerical Operations
+            
+            { "=", x => Pair.Enumerate<SimpleNum>(x).PairwiseSelect(SimpleNum.NumEquals).AllTrue() },
+            { "<", x => Pair.Enumerate<SimpleNum>(x).PairwiseSelect(SimpleNum.LessThan).AllTrue() },
+            { ">", x => Pair.Enumerate<SimpleNum>(x).PairwiseSelect(SimpleNum.GreatherThan).AllTrue() },
+            { "<=", x => Pair.Enumerate<SimpleNum>(x).PairwiseSelect(SimpleNum.Leq).AllTrue() },
+            { ">=", x => Pair.Enumerate<SimpleNum>(x).PairwiseSelect(SimpleNum.Geq).AllTrue() },
+
+            { "+", x => Pair.Enumerate<SimpleNum>(x).Aggregate(SimpleNum.Add) },
+            { "-", x => x.Cdr.IsNil
+                ? SimpleNum.Negate(x.Car.Expect<SimpleNum>())
+                : SimpleNum.Subtract(x.Car.Expect<SimpleNum>(), Pair.Enumerate<SimpleNum>(x.Cdr).Aggregate(SimpleNum.Add)) },
+            { "*", x => Pair.Enumerate<SimpleNum>(x).Aggregate(SimpleNum.Multiply) },
+            { "/", x => x.Cdr.IsNil
+                ? SimpleNum.Divide(SimpleNum.One, x.Car.Expect<SimpleNum>())
+                : SimpleNum.Divide(x.Car.Expect<SimpleNum>(), Pair.Enumerate<SimpleNum>(x.Cdr).Aggregate(SimpleNum.Multiply)) },
+
+            { "quotient", x => SimpleNum.Calculate(x.Car, x.Cadr, SimpleNum.Quotient) },
+            { "remainder", x => SimpleNum.Calculate(x.Car, x.Cadr, SimpleNum.Remainder) },
+            { "modulo", x => SimpleNum.Calculate(x.Car, x.Cadr, SimpleNum.Modulo) },
+
+            { "floor", x => SimpleNum.Floor(x.Car.Expect<SimpleNum>()) },
+            { "ceiling", x => SimpleNum.Ceiling(x.Car.Expect<SimpleNum>()) },
+            { "truncate", x => SimpleNum.Truncate(x.Car.Expect<SimpleNum>()) },
+
+            #endregion
+
+            #region Type-checking
+            
+            { "atom?", x => x.IsAtom },
+            { "null?", x => x.IsNil },
+            { "list?", x => x.IsList },
+            { "pair?", x => x.IsPair },
+            { "symbol?", x => x is Symbol },
+            { "procedure?", x => x is Procedure },
+            { "boolean?", x => x is Boolean },
+            { "number?", x => x is SimpleNum },
+            { "vector?", x => x is Vector }
+
+            #endregion
+
+        };
     }
 }

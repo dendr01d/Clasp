@@ -55,11 +55,11 @@
 
                     TokenType.Symbol => Symbol.Ize(current.Text),
                     TokenType.Number => new SimpleNum(decimal.Parse(current.Text)),
-                    TokenType.Boolean => Boolean.Judge(current.Text == Boolean.True.ToString()),
+                    TokenType.Boolean => (current.Text == Boolean.True.ToString()),
                     TokenType.Character => Character.FromToken(current),
                     TokenType.QuotedString => Charstring.FromToken(current),
 
-                    TokenType.Error => Expression.Error,
+                    TokenType.Error => new Error("Parsing error?"),
 
                     _ => throw new ParsingException($"Unknown token type {current.TType}", current)
                 };

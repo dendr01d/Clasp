@@ -12,7 +12,7 @@ namespace Clasp
         {
             Environment env = GlobalEnvironment.LoadStandard();
 
-            Expression result = Error.Instance;
+            Expression result = Undefined.Instance;
 
             foreach(string input in inputs)
             {
@@ -20,7 +20,7 @@ namespace Clasp
                 result = Evaluator.Evaluate(parsed, env);
             }
 
-            return result.ToSerialized();
+            return result.Serialize();
         }
     }
 }

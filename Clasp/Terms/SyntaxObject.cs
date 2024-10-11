@@ -6,23 +6,23 @@ using System.Threading.Tasks;
 
 namespace Clasp.Terms
 {
-    internal interface ISyntaxObject
-    {
+    //internal interface ISyntaxObject
+    //{
 
-    }
+    //}
 
-    internal class Identifier : Symbol, ISyntaxObject
-    {
+    //internal class Identifier : Symbol, ISyntaxObject
+    //{
 
-    }
+    //}
 
-    internal class SyntaxPair : Pair, ISyntaxObject
-    {
+    //internal class SyntaxPair : Pair, ISyntaxObject
+    //{
 
-    }
+    //}
 
-    internal static class SyntaxExtensions
-    {
+    //internal static class SyntaxExtensions
+    //{
 
-    }
+    //}
 }

@@ -92,6 +92,12 @@ namespace Clasp
 
         #endregion
 
+        #region Implicit C# Type-Casting
+
+        public static implicit operator Expression(bool b) => b ? Boolean.True : Boolean.False;
+
+        #endregion
+
         #region Assumed List-Structure Access
 
         public virtual Expression Car => throw new ExpectedTypeException<Pair>(this);

@@ -1,6 +1,8 @@
-﻿namespace Clasp
+﻿using System.Collections;
+
+namespace Clasp
 {
-    internal class Pair : Expression
+    internal class Pair : Expression, IEnumerable<Expression>
     {
         protected Expression _car { get; private set; }
         protected Expression _cdr { get; private set; }
@@ -122,34 +124,7 @@
 
         #endregion
 
-        #region Helper Functions
-
-        //left fold
-        //not necessary unto itself, but helpful for certain arithmetic operators
-        public static Expression Fold<T1, T2>(Func<T1, T2, T1> op, T1 init, Expression ls)
-            where T1 : Expression
-            where T2 : Expression
-        {
-            return ls.IsNil
-                ? init
-                : Fold(op, op(init, ls.Car.Expect<T2>()), ls.Cdr);
-        }
-
-        public static bool Memq(Expression obj, Expression ls)
-        {
-            if (ls.IsNil)
-            {
-                return false;
-            }
-            else if (ls.Car == obj) //ref equality, i.e. eq
-            {
-                return true;
-            }
-            else
-            {
-                return Memq(obj, ls.Cdr);
-            }
-        }
+        #region IEnumerable
 
         /// <summary>
         /// Iteratively enumerate the elements of the list front-to-back
@@ -168,9 +143,32 @@
                 yield return target.Car;
                 target = target.Cdr;
             }
-            
+
             yield break;
         }
+
+        public static IEnumerable<T> Enumerate<T>(Expression expr)
+            where T : Expression
+        {
+            Expression target = expr;
+
+            while (!target.IsNil)
+            {
+                if (target.IsAtom)
+                {
+                    throw new ExpectedTypeException<Pair>(target);
+                }
+
+                yield return target.Car.Expect<T>();
+                target = target.Cdr;
+            }
+
+            yield break;
+        }
+
+        public IEnumerator<Expression> GetEnumerator() => Enumerate(this).GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => Enumerate(this).GetEnumerator();
 
         #endregion
     }
