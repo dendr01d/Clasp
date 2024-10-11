@@ -64,7 +64,7 @@ namespace Clasp
         {
             foreach(var binding in subEnv._bindings)
             {
-                if (_bindings.TryGetValue(binding.Key, out Expression extantValue))
+                if (_bindings.TryGetValue(binding.Key, out Expression? extantValue))
                 {
                     _bindings[binding.Key] = Pair.Append(extantValue, Pair.List(binding.Value));
                 }
@@ -190,7 +190,7 @@ namespace Clasp
                     {
                         try
                         {
-                            Evaluator.SilentEval(expr, ge);
+                            Evaluator.EvalSilent(expr, ge);
                         }
                         catch (Exception ex)
                         {
@@ -268,23 +268,23 @@ namespace Clasp
             }
         }
 
-        private static readonly Dictionary<string, Evaluator2.Label> _specialForms = new()
+        private static readonly Dictionary<string, Evaluator.Label> _specialForms = new()
         {
-            { "eval", Evaluator2.Label.Apply_Eval },
-            { "apply", Evaluator2.Label.Apply_Apply },
+            { "eval", Evaluator.Label.Apply_Eval },
+            { "apply", Evaluator.Label.Apply_Apply },
 
-            { "quote", Evaluator2.Label.Eval_Quote },
-            { "quasiquote", Evaluator2.Label.Eval_Quasiquote },
-            { "lambda", Evaluator2.Label.Eval_Lambda },
+            { "quote", Evaluator.Label.Eval_Quote },
+            { "quasiquote", Evaluator.Label.Eval_Quasiquote },
+            { "lambda", Evaluator.Label.Eval_Lambda },
 
-            { "begin", Evaluator2.Label.Eval_Begin },
-            { "if", Evaluator2.Label.Eval_If },
+            { "begin", Evaluator.Label.Eval_Begin },
+            { "if", Evaluator.Label.Eval_If },
 
-            { "define", Evaluator2.Label.Apply_Define },
-            { "set!", Evaluator2.Label.Apply_Set },
-            { "define-syntax", Evaluator2.Label.Apply_DefineSyntax },
-            { "set-car!", Evaluator2.Label.Set_Car },
-            { "set-cdr!", Evaluator2.Label.Set_Cdr },
+            { "define", Evaluator.Label.Apply_Define },
+            { "set!", Evaluator.Label.Apply_Set },
+            { "define-syntax", Evaluator.Label.Apply_DefineSyntax },
+            { "set-car!", Evaluator.Label.Set_Car },
+            { "set-cdr!", Evaluator.Label.Set_Cdr },
         };
 
         public static void PopulatePrimitiveProcs(this GlobalEnvironment ge)

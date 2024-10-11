@@ -46,21 +46,38 @@ namespace Clasp
             string? input = string.Empty;
             string output = string.Empty;
 
-            Environment scope = GlobalEnvironment.LoadStandard();
+            Environment? scope = null;
+
+            try
+            {
+                scope = GlobalEnvironment.LoadStandard();
+            }
+            catch(AggregateException aggEx)
+            {
+                foreach(Exception ex in aggEx.InnerExceptions)
+                {
+                    Console.WriteLine("{0}{1}{2}", ex.Message, System.Environment.NewLine, ex.StackTrace);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("{0}{1}{2}", ex.Message, System.Environment.NewLine, ex.StackTrace);
+            }
 
             while (input != _QUIT_CMD)
             {
                 if (showIntro)
                 {
                     writer.WriteLine(_header);
+                    writer.WriteLine();
                     //writer.WriteLine($"(Enc {CharFormat.EncodingName})");
-                    writer.WriteLine($"∙ \"{_SHOW_INPUT_STEPS_CMD}\" to toggle input-mirroring");
-                    writer.WriteLine($"∙ \"{_SHOW_MACHINE_CMD}\" to toggle machine printing");
-                    writer.WriteLine($"∙ \"{_PAUSE_MACHINE_CMD}\" to toggle step-by-step pausing");
-                    writer.WriteLine($"∙ \"{_CLEAR_SCREEN_CMD}\" to clear the screen");
-                    writer.WriteLine($"∙ \"{_RELOAD_ENV_CMD}\" to reload the std env from file");
-                    writer.WriteLine($"∙ \"{_TIMER_CMD}\" to display the computation timer");
-                    writer.WriteLine($"∙ \"{_QUIT_CMD}\" to exit");
+                    writer.WriteLine($" ∙ \"{_SHOW_INPUT_STEPS_CMD}\" to toggle input-mirroring");
+                    writer.WriteLine($" ∙ \"{_SHOW_MACHINE_CMD}\" to toggle machine printing");
+                    writer.WriteLine($" ∙ \"{_PAUSE_MACHINE_CMD}\" to toggle step-by-step pausing");
+                    writer.WriteLine($" ∙ \"{_CLEAR_SCREEN_CMD}\" to clear the screen");
+                    writer.WriteLine($" ∙ \"{_RELOAD_ENV_CMD}\" to reload the std env from file");
+                    writer.WriteLine($" ∙ \"{_TIMER_CMD}\" to display the computation timer");
+                    writer.WriteLine($" ∙ \"{_QUIT_CMD}\" to exit");
                     showIntro = false;
                 }
 
@@ -131,7 +148,7 @@ namespace Clasp
                             {
                                 try
                                 {
-                                    Expression result = Evaluator.Evaluate(expr, scope, _showingSteps ? writer : null, _pausing);
+                                    Expression result = Evaluator.Evaluate(expr, scope, _showingSteps, _pausing);
                                     output = result.Serialize();
                                 }
                                 catch (Exception ex)

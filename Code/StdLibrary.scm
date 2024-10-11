@@ -50,23 +50,18 @@
 
 ;; ----------------------------------------------------------------------------
 ;; Math Ops
-
-(define (= x y)
-	(and (number? x)
-		 (number? y)
-		 (eqv? x y)))
-		 
+         
 (define / quotient)
 (define (// number root) (expt number (quotient one root)))
 (define (sqrt n) (// n 2))
 (define (cbrt n) (// n 3))
 
 (define (min x . xs)
-	(reduce (lambda (a b) (if (< a b) a b)) x xs))
-	
+    (reduce (lambda (a b) (if (< a b) a b)) x xs))
+    
 (define (max x . xs)
-	(reduce (lambda (a b) (if (> a b) a b)) x xs))
-	
+    (reduce (lambda (a b) (if (> a b) a b)) x xs))
+    
 (define (inc n) (+ n one))
 (define (dec n) (- n one))
 
@@ -81,24 +76,24 @@
       (cons a (list* b . more))))
 
 (define (mapcar op ls)
-	(if (null? ls)
-	'()
-	(cons (op (car ls))
-	      (mapcar op (cdr ls)))))
+    (if (null? ls)
+    '()
+    (cons (op (car ls))
+          (mapcar op (cdr ls)))))
 
 (define (foldr op init ls)
-	(if (null? ls)
-		init
-		(op (car ls)
-			(foldr op init (cdr ls)))))
-		  
+    (if (null? ls)
+        init
+        (op (car ls)
+            (foldr op init (cdr ls)))))
+          
 (define (foldl op init ls)
-	(if (null? ls)
-		init
-		(foldl op
-			   (op (car ls) init)
-			   (cdr ls))))
-			   
+    (if (null? ls)
+        init
+        (foldl op
+               (op (car ls) init)
+               (cdr ls))))
+               
 (define (fold op init ls)
   (foldl op init ls))
   
@@ -106,10 +101,10 @@
   (foldl op init ls))
   
 (define (reverse ls)
-	(if (null? ls)
-	    '()
-		(append (reverse (cdr ls))
-		        (list (car ls)))))
+    (if (null? ls)
+        '()
+        (append (reverse (cdr ls))
+                (list (car ls)))))
 
 (define (append ls e)
   (if (null? ls) e (cons (car ls) (append (cdr ls) e))))
@@ -118,11 +113,11 @@
 ;; List Membership
 
 (define (memp obj ls comp)
-	(cond
-		((null? ls) #f)
-		((comp obj (car ls)) #t)
-		(else (memp obj (cdr ls) comp))))
-		
+    (cond
+        ((null? ls) #f)
+        ((comp obj (car ls)) #t)
+        (else (memp obj (cdr ls) comp))))
+        
 (define (memq obj ls) (memp obj ls eq?))
 (define (memv obj ls) (memp obj ls eqv?))
 (define (member obj ls) (memp obj ls equal?))
@@ -131,11 +126,11 @@
 ;; Assoc-List Ops
 
 (define (assp obj alist compare)
-	(cond
-		((null? alist) #f)
-		((compare obj (caar alist)) (car alist))
-		((else (assp obj (cdr alist) compare)))))
-		
+    (cond
+        ((null? alist) #f)
+        ((compare obj (caar alist)) (car alist))
+        ((else (assp obj (cdr alist) compare)))))
+        
 (define (assq obj alist) (assp obj alist eq?))
 (define (assv obj alist) (assp obj alist eqv?))
 (define (assoc obj alist) (assp obj alist equal?))
@@ -146,22 +141,22 @@
 ; http://peter.michaux.ca/articles/scheme-from-scratch-bootstrap-v0_13-lambda-the-ultimate
 (define Y
     (lambda (f)
-      ((lambda (x) (f (lambda (y) ((x x) y))))
-       (lambda (x) (f (lambda (y) ((x x) y)))))))
-	   
+        ((lambda (x) (f (lambda (y) ((x x) y))))
+        (lambda (x) (f (lambda (y) ((x x) y)))))))
+       
 (define factorial
     (Y (lambda (fact) 
-         (lambda (n) 
-           (if (= n 0)
-               1
-               (* n (fact (- n 1))))))))
+        (lambda (n) 
+            (if (= n 0)
+                1
+                (* n (fact (- n 1))))))))
 
 (define insert-into-sorted
-  (lambda (item sorted comp)
-          (cond ((null? sorted) (list item))
-                ((comp item (car sorted)) (cons item sorted))
+    (lambda (item sorted comp)
+        (cond ((null? sorted) (list item))
+            ((comp item (car sorted)) (cons item sorted))
                 (else (cons (car sorted)
-                            (insert-into-sorted item (cdr sorted) comp))))))
+                    (insert-into-sorted item (cdr sorted) comp))))))
 
 (define insert-all
   (lambda (input sorted comp)
@@ -189,69 +184,69 @@
 ;; Standard Macros
 
 (defmacro when ()
-	((_ test result)
-		(if test result #f))
-	((_ test)
-		test))
+    ((_ test result)
+        (if test result #f))
+    ((_ test)
+        test))
         
 ; (defmacro unless ()
     ; ((_ test body1 body2 ...)
         ; (let ((check test)) (if check check (begin body1 body2 ...)))))
-		
+        
 (defmacro let ()
-	((_ ((keys vals) ...) body1 body2 ...)
-		((lambda (keys ...) body1 body2 ...) vals ...)))
-		
+    ((_ ((keys vals) ...) body1 body2 ...)
+        ((lambda (keys ...) body1 body2 ...) vals ...)))
+        
 (defmacro let* ()
-	((_ () body1 . body2)
-		((lambda () body1 . body2)))
-	((_ ((key val) more ...) body1 . body2)
-		((lambda (key) (let* (more ...) body1 . body2)) val)))
-		
+    ((_ () body1 . body2)
+        ((lambda () body1 . body2)))
+    ((_ ((key val) more ...) body1 . body2)
+        ((lambda (key) (let* (more ...) body1 . body2)) val)))
+        
 (defmacro letrec ()
-	((_ ((keys vals) ...) body1 body2 ...)
-		((lambda ()
-			(define keys vals) ...
-			body1
-			body2 ...))))
-			
+    ((_ ((keys vals) ...) body1 body2 ...)
+        ((lambda ()
+            (define keys vals) ...
+            body1
+            body2 ...))))
+            
 (defmacro letrec* ()
-	((_ () body1 body2 ...)
-		(begin body1 body2 ...))
-	((_ ((key1 val1) (keys vals) ...) body1 body2 ...)
-		((lambda ()
-			(define key1 val1)
-			(letrec* ((keys vals) ...) body1 body2 ...)))))
-			
+    ((_ () body1 body2 ...)
+        (begin body1 body2 ...))
+    ((_ ((key1 val1) (keys vals) ...) body1 body2 ...)
+        ((lambda ()
+            (define key1 val1)
+            (letrec* ((keys vals) ...) body1 body2 ...)))))
+            
 (defmacro or ()
-	((_ arg)
-		arg)
-	((_ arg . args)
-		((lambda (x) (if x x (or . args))) arg))
-	((_)
-		#f))
-		
+    ((_ arg)
+        arg)
+    ((_ arg . args)
+        ((lambda (x) (if x x (or . args))) arg))
+    ((_)
+        #f))
+        
 (defmacro and ()
-	((_ arg)
-		arg)
-	((_ arg . args)
-		((lambda (x) (if x (and . args) x)) arg))
-	((_)
-		#t))
-		
+    ((_ arg)
+        arg)
+    ((_ arg . args)
+        ((lambda (x) (if x (and . args) x)) arg))
+    ((_)
+        #t))
+        
 (defmacro cond (else =>)
-	((_ (else body1 . body2))
-		((lambda () body1 . body2)))
+    ((_ (else body1 . body2))
+        ((lambda () body1 . body2)))
     ((_ (test => proc) clauses ...)
         ((lambda (mort) (if mort (proc mort) (cond clauses ...))) test))
-	((_ (test body1 . body2) . clauses)
-		(if test
-			((lambda () body1 . body2))
-			(cond . clauses)))
-	((_ (test) . clauses)
+    ((_ (test body1 . body2) . clauses)
+        (if test
+            ((lambda () body1 . body2))
+            (cond . clauses)))
+    ((_ (test) . clauses)
         ((lambda (mort) (if mort mort (cond . clauses))) test))
-	((_)
-		#f))
+    ((_)
+        #f))
 
 (defmacro case (else)
     ((_ target (else body1 body2 ...))

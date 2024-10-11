@@ -63,16 +63,16 @@ namespace Clasp
     internal class SpecialForm : Procedure
     {
         private readonly Symbol _referant;
-        public readonly Evaluator2.Label OpCode;
+        public readonly Evaluator.Label OpCode;
         public override bool ApplicativeOrder => false;
 
-        private SpecialForm(Symbol referant, Evaluator2.Label op)
+        private SpecialForm(Symbol referant, Evaluator.Label op)
         {
             _referant = referant;
             OpCode = op;
         }
 
-        public static void Manifest(Environment env, string name, Evaluator2.Label op)
+        public static void Manifest(Environment env, string name, Evaluator.Label op)
         {
             Symbol sym = Symbol.Ize(name);
             env.BindNew(sym, new SpecialForm(sym, op));
