@@ -66,6 +66,21 @@ namespace Clasp
         }
     }
 
+    public class LibraryException : Exception
+    {
+        internal LibraryException(Token leadingToken, Expression targetExpr, Exception inner)
+            : base(FormatMsg(leadingToken, targetExpr, inner), inner) { }
+
+        private static string FormatMsg(Token t, Expression e, Exception ex)
+        {
+            return string.Format("Error parsing library entry on line {0}:{1}{2}{1}{3}",
+                t.SourceLine,
+                System.Environment.NewLine,
+                e.PrettyPrint(0),
+                ex.Message);
+        }
+    }
+
     internal class ExpectedTypeException<T> : Exception
         where T : Expression
     {

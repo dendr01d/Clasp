@@ -19,6 +19,7 @@ namespace Clasp
 
         private static readonly System.Text.Encoding CharFormat = System.Text.Encoding.Default;
 
+        private const string _SHOW_HELP_CMD = "help";
         private const string _SHOW_INPUT_STEPS_CMD = "mirror";
         private const string _SHOW_MACHINE_CMD = "show";
         private const string _PAUSE_MACHINE_CMD = "pause";
@@ -40,10 +41,13 @@ namespace Clasp
             writer.AutoFlush = true;
             errors.AutoFlush = true;
 
-            bool showIntro = true;
+            bool showHeader = true;
+            bool showHelp = true;
+            bool reloadEnv = true;
+
             bool showTimer = false;
 
-            string? input = string.Empty;
+            string input = string.Empty;
             string output = string.Empty;
 
             Environment? scope = null;
@@ -51,6 +55,125 @@ namespace Clasp
             try
             {
                 scope = GlobalEnvironment.LoadStandard();
+
+                while (input != _QUIT_CMD)
+                {
+                    if (reloadEnv)
+                    {
+                        scope = GlobalEnvironment.LoadStandard();
+                        reloadEnv = false;
+                    }
+
+                    if (showHeader)
+                    {
+                        writer.WriteLine(_header);
+                        writer.WriteLine();
+                        showHeader = false;
+                    }
+
+                    if (showHelp)
+                    {
+                        writer.WriteLine($" ∙ \"{_SHOW_INPUT_STEPS_CMD}\" to toggle input-mirroring");
+                        writer.WriteLine($" ∙ \"{_SHOW_MACHINE_CMD}\" to toggle machine printing");
+                        writer.WriteLine($" ∙ \"{_PAUSE_MACHINE_CMD}\" to toggle step-by-step pausing");
+                        writer.WriteLine($" ∙ \"{_CLEAR_SCREEN_CMD}\" to clear the screen");
+                        writer.WriteLine($" ∙ \"{_RELOAD_ENV_CMD}\" to reload the std env from file");
+                        writer.WriteLine($" ∙ \"{_TIMER_CMD}\" to display the computation timer");
+                        writer.WriteLine($" ∙ \"{_QUIT_CMD}\" to exit");
+                        showHelp = false;
+                    }
+
+                    writer.WriteLine();
+                    writer.Write("> ");
+                    input = reader.ReadLine() ?? string.Empty;
+                    output = string.Empty;
+
+                    switch (input.ToLower())
+                    {
+
+                        case _SHOW_INPUT_STEPS_CMD:
+                            _showingInput = !_showingInput;
+                            output = ToggledMsg(_showingInput);
+                            break;
+
+                        case _SHOW_MACHINE_CMD:
+                            _showingSteps = !_showingSteps;
+                            output = ToggledMsg(_showingSteps);
+                            break;
+
+                        case _PAUSE_MACHINE_CMD:
+                            _pausing = !_pausing;
+                            output = ToggledMsg(_pausing);
+                            break;
+
+                        case _TIMER_CMD:
+                            showTimer = !showTimer;
+                            output = ToggledMsg(showTimer);
+                            break;
+
+                        case _CLEAR_SCREEN_CMD:
+                            Console.Clear();
+                            showHeader = true;
+                            break;
+
+                        case _RELOAD_ENV_CMD:
+                            reloadEnv = true;
+                            break;
+
+                        default:
+                            if (!string.IsNullOrWhiteSpace(input))
+                            {
+                                int i = 1;
+
+                                IEnumerable<Token> tokens = Lexer.Lex(input);
+                                IEnumerable<Expression> exprs = Parser.ParseText(input);
+
+                                if (_showingInput)
+                                {
+                                    writer.WriteLine(" INPUT: " + input);
+                                    writer.WriteLine("TOKENS: " + string.Join(", ", tokens));
+                                    writer.WriteLine(" SPLIT: ");
+                                    foreach (Expression expr in exprs)
+                                    {
+                                        writer.WriteLine($"{i,6}: " + expr.ToString());
+                                    }
+                                    writer.WriteLine("----------");
+                                }
+
+                                System.Diagnostics.Stopwatch? timer = showTimer
+                                    ? System.Diagnostics.Stopwatch.StartNew()
+                                    : null;
+
+                                foreach (Expression expr in exprs)
+                                {
+                                    try
+                                    {
+                                        Expression result = Evaluator.Evaluate(expr, scope, _showingSteps, _pausing);
+                                        output = result.Serialize();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        errors.WriteLine("ERROR: " + ex.Message);
+                                        errors.WriteLine($"\tin expression {i}: " + expr.Serialize());
+                                        errors.WriteLine(ex.StackTrace);
+                                    }
+                                }
+
+                                timer?.Stop();
+
+                                if (timer is not null)
+                                {
+                                    Console.WriteLine("(In {0:N3} seconds)", timer.Elapsed.TotalSeconds);
+                                }
+                            }
+                            break;
+                    }
+
+                    if (!string.IsNullOrEmpty(output))
+                    {
+                        writer.WriteLine(output);
+                    }
+                }
             }
             catch(AggregateException aggEx)
             {
@@ -58,126 +181,23 @@ namespace Clasp
                 {
                     Console.WriteLine("{0}{1}{2}", ex.Message, System.Environment.NewLine, ex.StackTrace);
                 }
+                ExceptionContinue();
             }
             catch (Exception ex)
             {
                 Console.WriteLine("{0}{1}{2}", ex.Message, System.Environment.NewLine, ex.StackTrace);
-            }
-
-            while (input != _QUIT_CMD)
-            {
-                if (showIntro)
-                {
-                    writer.WriteLine(_header);
-                    writer.WriteLine();
-                    //writer.WriteLine($"(Enc {CharFormat.EncodingName})");
-                    writer.WriteLine($" ∙ \"{_SHOW_INPUT_STEPS_CMD}\" to toggle input-mirroring");
-                    writer.WriteLine($" ∙ \"{_SHOW_MACHINE_CMD}\" to toggle machine printing");
-                    writer.WriteLine($" ∙ \"{_PAUSE_MACHINE_CMD}\" to toggle step-by-step pausing");
-                    writer.WriteLine($" ∙ \"{_CLEAR_SCREEN_CMD}\" to clear the screen");
-                    writer.WriteLine($" ∙ \"{_RELOAD_ENV_CMD}\" to reload the std env from file");
-                    writer.WriteLine($" ∙ \"{_TIMER_CMD}\" to display the computation timer");
-                    writer.WriteLine($" ∙ \"{_QUIT_CMD}\" to exit");
-                    showIntro = false;
-                }
-
-                writer.WriteLine();
-                writer.Write("> ");
-                input = reader.ReadLine();
-                output = string.Empty;
-
-                switch (input)
-                {
-
-                    case _SHOW_INPUT_STEPS_CMD:
-                        _showingInput = !_showingInput;
-                        output = ToggledMsg(_showingInput);
-                        break;
-
-                    case _SHOW_MACHINE_CMD:
-                        _showingSteps = !_showingSteps;
-                        output = ToggledMsg(_showingSteps);
-                        break;
-
-                    case _PAUSE_MACHINE_CMD:
-                        _pausing = !_pausing;
-                        output = ToggledMsg(_pausing);
-                        break;
-
-                    case _TIMER_CMD:
-                        showTimer = !showTimer;
-                        output = ToggledMsg(showTimer);
-                        break;
-
-                    case _CLEAR_SCREEN_CMD:
-                        Console.Clear();
-                        showIntro = true;
-                        output = string.Empty;
-                        break;
-
-                    case _RELOAD_ENV_CMD:
-                        scope = GlobalEnvironment.LoadStandard();
-                        output = Symbol.Ok.Print();
-                        break;
-
-                    default:
-                        if (!string.IsNullOrWhiteSpace(input))
-                        {
-                            int i = 1;
-
-                            IEnumerable<Token> tokens = Lexer.Lex(input);
-                            IEnumerable<Expression> exprs = Parser.ParseText(input);
-
-                            if (_showingInput)
-                            {
-                                writer.WriteLine(" INPUT: " + input);
-                                writer.WriteLine("TOKENS: " + string.Join(", ", tokens));
-                                writer.WriteLine(" SPLIT: ");
-                                foreach(Expression expr in exprs)
-                                {
-                                    writer.WriteLine($"{i,6}: " + expr.ToString());
-                                }
-                                writer.WriteLine("----------");
-                            }
-
-                            System.Diagnostics.Stopwatch? timer = showTimer
-                                ? System.Diagnostics.Stopwatch.StartNew()
-                                : null;
-
-                            foreach (Expression expr in exprs)
-                            {
-                                try
-                                {
-                                    Expression result = Evaluator.Evaluate(expr, scope, _showingSteps, _pausing);
-                                    output = result.Serialize();
-                                }
-                                catch (Exception ex)
-                                {
-                                    errors.WriteLine("ERROR: " + ex.Message);
-                                    errors.WriteLine($"\tin expression {i}: " + expr.Serialize());
-                                    errors.WriteLine(ex.StackTrace);
-                                }
-                            }
-
-                            timer?.Stop();
-
-                            if (timer is not null)
-                            {
-                                Console.WriteLine("(In {0:N3} seconds)", timer.Elapsed.TotalSeconds);
-                            }
-                        }
-                        break;
-                }
-
-                if (!string.IsNullOrEmpty(output))
-                {
-                    writer.WriteLine(output);
-                }
+                ExceptionContinue();
             }
 
             return;
         }
 
         private static string ToggledMsg(bool state) => "Toggled " + (state ? "ON" : "OFF");
+    
+        private static void ExceptionContinue()
+        {
+            Console.WriteLine("Press any key to exit...");
+            Console.ReadKey(true);
+        }
     }
 }

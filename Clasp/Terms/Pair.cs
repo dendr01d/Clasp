@@ -25,6 +25,10 @@ namespace Clasp
 
         public static Pair Cons(Expression car, Expression cdr) => new Pair(car, cdr);
 
+        /// <summary>
+        /// Conditionally <see cref="Cons(Expression, Expression)"/> the given elements together, but
+        /// only if the result would be structurally distinct from the existing Pair.
+        /// </summary>
         public Pair ConsIfNew(Expression car, Expression cdr)
         {
             if (!_car.Pred_Eq(car) || !_cdr.Pred_Eq(cdr))
@@ -42,17 +46,17 @@ namespace Clasp
                 : Cons(es[0], List(es[1..]));
         }
 
-        public static Expression ListStar(params Expression[] es)
+        public static Expression ListStar(Expression e, params Expression[] es)
         {
-            return es.Length switch
-            {
-                0 => Nil,
-                1 => es[0],
-                2 => Cons(es[0], es[1]),
-                _ => Cons(es[0], ListStar(es[1..]))
-            };
+            return es.Length == 0
+                ? e
+                : Cons(e, ListStar(es[0], es[1..]));
         }
 
+        /// <summary>
+        /// Assuming <paramref name="ls"/> is a proper list, returns a new list where its
+        /// nil-terminator is replaced by <paramref name="t"/>.
+        /// </summary>
         public static Expression Append(Expression ls, Expression t)
         {
             return ls.IsNil
@@ -60,8 +64,16 @@ namespace Clasp
                 : Cons(ls.Car, Append(ls.Cdr, t));
         }
 
-        public static Expression AppendLast(Expression ls, Expression t) => Append(ls, Cons(t, Nil));
+        /// <summary>
+        /// Assuming <paramref name="ls"/> is a proper list, returns a new proper list where
+        /// the last item before the nil-terminator is <paramref name="t"/>.
+        /// </summary>
+        public static Pair AppendLast(Expression ls, Expression t) => Append(ls, Cons(t, Nil)).Expect<Pair>();
 
+        /// <summary>
+        /// Equivalent to calling <see cref="ListStar(Expression[])"/> on <paramref name="maybeLs"/>
+        /// (or the elements thereof) and <paramref name="t"/>.
+        /// </summary>
         public static Expression AppendStar(Expression maybeLs, Expression t) => maybeLs switch
         {
             Empty => t,
@@ -77,31 +89,31 @@ namespace Clasp
         public override string Serialize() => FormatPair(this, true);
         public override string Print() => FormatPair(this, false);
 
-        private static string FormatPair(Pair p, bool asSyntax)
+        private static string FormatPair(Pair p, bool serial)
         {
             if (p._cdr is Pair p2 && p2.Cdr.IsNil)
             {
                 if (p._car == Symbol.Quote)
                 {
-                    return string.Format("'{0}", asSyntax ? p2._car.Serialize() : p2._car.Print());
+                    return string.Format("'{0}", serial ? p2._car.Serialize() : p2._car.Print());
                 }
                 else if (p._car == Symbol.Quasiquote)
                 {
-                    return string.Format("`{0}", asSyntax ? p2._car.Serialize() : p2._car.Print());
+                    return string.Format("`{0}", serial ? p2._car.Serialize() : p2._car.Print());
                 }
                 else if (p._car == Symbol.Unquote)
                 {
-                    return string.Format(",{0}", asSyntax ? p2._car.Serialize() : p2._car.Print());
+                    return string.Format(",{0}", serial ? p2._car.Serialize() : p2._car.Print());
                 }
                 else if (p._car == Symbol.UnquoteSplicing)
                 {
-                    return string.Format(",@{0}", asSyntax ? p2._car.Serialize() : p2._car.Print());
+                    return string.Format(",@{0}", serial ? p2._car.Serialize() : p2._car.Print());
                 }
             }
 
             return string.Format("({0}{1})",
-                asSyntax ? p._car.Serialize() : p._car.Print(),
-                FormatTail(p._cdr, asSyntax));
+                serial ? p._car.Serialize() : p._car.Print(),
+                FormatTail(p._cdr, serial));
         }
 
         private static string FormatTail(Expression expr, bool asSyntax)

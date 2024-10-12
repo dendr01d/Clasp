@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 
 namespace Clasp
 {
@@ -19,10 +20,16 @@ namespace Clasp
         public bool IsFalse => ReferenceEquals(this, Boolean.False);
         public bool IsTrue => !IsFalse;
 
+        /// <summary> True iff the expression is a proper nil-terminated list.</summary>
         public bool IsList => IsNil || (!IsAtom && Cdr.IsList);
-        public bool IsDottedPair => IsPair && !Cdr.IsNil && Cdr.IsAtom;
-        public bool IsDottedList => IsDottedPair || (IsPair && Cdr.IsDottedList);
+
+        //public bool IsDottedPair => IsPair && !Cdr.IsNil && Cdr.IsAtom;
+        //public bool IsDottedList => IsDottedPair || (IsPair && Cdr.IsDottedList);
+
+        /// <summary> True iff the expression is a list with <paramref name="sym"/> in the Car position.</summary>
         public bool IsTagged(Symbol sym) => IsPair && !Cdr.IsNil && Car.Pred_Eq(sym);
+
+        /// <summary> True iff the expression is a list of 2+ terms, and the second term is an ellipsis.</summary>
         public bool IsEllipticTerm => IsPair && Cdr.IsPair && Cadr.Pred_Eq(Symbol.Ellipsis);
 
         #endregion
@@ -151,5 +158,40 @@ namespace Clasp
         public abstract string Print();
 
         public sealed override string ToString() => Print();
+
+
+        public string PrettyPrint(int leadingSpaces)
+        {
+            string raw = Serialize();
+
+            if (!IsPair || raw.Length <= 20)
+            {
+                return raw;
+            }
+            else
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append('(');
+                sb.Append(Car.Serialize());
+
+                if (Cdr.IsAtom)
+                {
+                    sb.Append(" . ");
+                    sb.Append(Cdr.PrettyPrint(sb.Length));
+                }
+                else if (!Cdr.IsNil)
+                {
+                    foreach(Expression e in Pair.Enumerate(Cdr))
+                    {
+                        sb.Append(System.Environment.NewLine);
+                        sb.Append(' ', leadingSpaces + 2);
+                        sb.Append(e.PrettyPrint(leadingSpaces + 2));
+                    }
+                }
+
+                sb.Append(')');
+                return sb.ToString();
+            }
+        }
     }
 }

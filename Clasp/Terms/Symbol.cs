@@ -46,6 +46,7 @@ namespace Clasp
         public static readonly Symbol Macro = Ize("macro");
 
         public static readonly Symbol Quote = Ize("quote");
+        public static readonly Symbol Syntax = Ize("syntax");
         public static readonly Symbol Quasiquote = Ize("quasiquote");
         public static readonly Symbol Unquote = Ize("unquote");
         public static readonly Symbol UnquoteSplicing = Ize("unquote-splicing");
@@ -83,6 +84,12 @@ namespace Clasp
 
         public override string Name => FormatName(_name, _id);
 
+        public GenSym()
+        {
+            _name = string.Empty;
+            _id = ++_globalCounter;
+        }
+
         public GenSym(string name)
         {
             string target = name;
@@ -99,7 +106,7 @@ namespace Clasp
 
         public GenSym(Symbol mimic) : this(mimic.Name) { }
 
-        private static string FormatName(string name, uint id) => $"{name}_${id}";
+        private static string FormatName(string name, uint id) => $"{name}${id}";
     }
 
     internal sealed class Identifier : Symbol

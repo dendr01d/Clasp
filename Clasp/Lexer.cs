@@ -13,6 +13,7 @@ namespace Clasp
             rgx(TokenType.LeftParen, @"\("),
             rgx(TokenType.RightParen, @"\)"),
             rgx(TokenType.QuoteMarker, @"\'"),
+            rgx(TokenType.SyntaxMarker, @"\#\'"),
             rgx(TokenType.QuasiquoteMarker, @"\`"),
             rgx(TokenType.UnquoteSplicingMarker, @"\,\@"),
             rgx(TokenType.UnquoteMarker, @"\,"),
@@ -30,6 +31,12 @@ namespace Clasp
         public static IEnumerable<Token> Lex(string text)
         {
             return LexLines(text.Split(System.Environment.NewLine));
+        }
+
+        public static IEnumerable<IEnumerable<Token>> LexFile(string path)
+        {
+            IEnumerable<string> sourceLines = File.ReadAllLines(path);
+            return SegmentTokens(LexLines(sourceLines));
         }
 
         public static IEnumerable<Token> LexLines(IEnumerable<string> inputLines)
@@ -54,7 +61,7 @@ namespace Clasp
 
             List<Token> output = new List<Token>();
 
-            int lineNo = 0;
+            int lineNo = 1; //line numbers in text files are usually 1-indexed?
 
             foreach(string line in cleanLines)
             {
@@ -183,6 +190,7 @@ namespace Clasp
     {
         LeftParen, RightParen, VecParen,
         Symbol,
+        SyntaxMarker,
         QuoteMarker, DotMarker,
         QuasiquoteMarker, UnquoteMarker, UnquoteSplicingMarker,
         QuotedString, Number, Boolean, Character,

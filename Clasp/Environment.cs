@@ -124,18 +124,29 @@ namespace Clasp
             {
                 try
                 {
-                    IEnumerable<Expression> exprs = Parser.ParseFile(_STD_LIBRARY);
+                    //IEnumerable<Expression> exprs = Parser.ParseFile(_STD_LIBRARY);
 
-                    foreach (Expression expr in exprs)
+                    IEnumerable<IEnumerable<Token>> tExprs = Lexer.LexFile(_STD_LIBRARY);
+
+                    foreach (IEnumerable<Token> tExpr in tExprs)
                     {
                         try
                         {
-                            Evaluator.EvalSilent(expr, ge);
+
+                            Expression expr = Parser.Parse(tExpr).Single();
+
+                            try
+                            {
+                                Evaluator.EvalSilent(expr, ge);
+                            }
+                            catch (Exception ex)
+                            {
+                                errors.Add(new LibraryException(tExpr.First(), expr, ex));
+                            }
                         }
                         catch (Exception ex)
                         {
-                            string msg = $"Error evaluating entry from standard library: {ex.Message}";
-                            errors.Add(new Exception(msg, ex));
+                            errors.Add(ex);
                         }
                     }
                 }
@@ -256,7 +267,7 @@ namespace Clasp
         {
             foreach (var binding in subEnv._bindings)
             {
-                if (_bindings.TryGetValue(binding.Key, out Expression extantValue))
+                if (_bindings.TryGetValue(binding.Key, out Expression? extantValue))
                 {
                     _bindings[binding.Key] = Pair.Append(extantValue, Pair.List(binding.Value));
                 }
@@ -331,6 +342,7 @@ namespace Clasp
             { "apply", Evaluator.Label.Apply_Apply },
 
             { "quote", Evaluator.Label.Eval_Quote },
+            { "syntax", Evaluator.Label.Eval_Syntax },
             { "quasiquote", Evaluator.Label.Eval_Quasiquote },
             { "lambda", Evaluator.Label.Eval_Lambda },
 
@@ -354,7 +366,7 @@ namespace Clasp
 
         private static readonly Dictionary<string, Func<Expression, Expression>> _primProcs = new()
         {
-            { "gensym", x => x.IsNil ? Symbol.Generate() : Symbol.Generate(x.Cadr.Expect<Symbol>()) },
+            { "gensym", x => x.IsNil ? new GenSym() : new GenSym(x.Cadr.Expect<Symbol>()) },
 
             { "cons", x => Pair.Cons(x.Car, x.Cadr) },
             { "car", x => x.Caar },
@@ -401,7 +413,7 @@ namespace Clasp
             { "procedure?", x => x is Procedure },
             { "boolean?", x => x is Boolean },
             { "number?", x => x is SimpleNum },
-            { "vector?", x => x is Vector }
+            //{ "vector?", x => x is Vector }
 
             #endregion
 

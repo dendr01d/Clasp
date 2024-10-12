@@ -42,12 +42,13 @@
 
                 return current.TType switch
                 {
-                    TokenType.VecParen => ParseVector(tokens),
+                    //TokenType.VecParen => ParseVector(tokens),
                     TokenType.LeftParen => ParseList(tokens),
                     TokenType.RightParen => throw new ParsingException("Unexpected ')'", current),
                     TokenType.DotMarker => throw new ParsingException("Unexpected '.'", current),
 
                     TokenType.QuoteMarker => Pair.List(Symbol.Quote, ParseTokens(tokens)),
+                    TokenType.SyntaxMarker => Pair.List(Symbol.Syntax, ParseTokens(tokens)),
                     TokenType.QuasiquoteMarker => Pair.List(Symbol.Quasiquote, ParseTokens(tokens)),
                     TokenType.UnquoteMarker => Pair.List(Symbol.Unquote, ParseTokens(tokens)),
                     TokenType.UnquoteSplicingMarker => Pair.List(Symbol.UnquoteSplicing, ParseTokens(tokens)),
@@ -74,7 +75,7 @@
             }
 
             List<Expression> exprs = new List<Expression>();
-            bool specialTerminator = false;
+            bool dottedPair = false;
 
             while (tokens.Peek().TType != TokenType.RightParen
                 && tokens.Peek().TType != TokenType.DotMarker)
@@ -82,42 +83,39 @@
                 exprs.Add(ParseTokens(tokens));
             }
 
-            if (tokens.Peek().TType != TokenType.RightParen)
+            if (tokens.Peek().TType == TokenType.DotMarker)
             {
-                specialTerminator = true;
+                dottedPair = true;
 
-                if (tokens.Peek().TType == TokenType.DotMarker)
-                {
-                    tokens.Pop(); //remove dot marker
-                    exprs.Add(ParseTokens(tokens)); //grab the rest
-                }
+                tokens.Pop(); //remove dot marker
+                exprs.Add(ParseTokens(tokens)); //grab the rest
 
                 if (tokens.Peek().TType != TokenType.RightParen)
                 {
-                    throw new ParsingException("Expected ')' after list-terminating structure", tokens.Peek());
+                    throw new ParsingException("Expected ')' after dotted pair.", tokens.Peek());
                 }
             }
 
             tokens.Pop(); //remove right paren
 
-            return specialTerminator
-                ? Pair.ListStar(exprs.ToArray())
+            return dottedPair
+                ? Pair.ListStar(exprs[0], exprs[1..].ToArray())
                 : Pair.List(exprs.ToArray());
         }
 
-        private static Expression ParseVector(Stack<Token> tokens)
-        {
-            List<Expression> newList = new();
+        //private static Expression ParseVector(Stack<Token> tokens)
+        //{
+        //    List<Expression> newList = new();
 
-            while (tokens.Peek().TType != TokenType.RightParen)
-            {
-                newList.Add(ParseTokens(tokens));
-            }
+        //    while (tokens.Peek().TType != TokenType.RightParen)
+        //    {
+        //        newList.Add(ParseTokens(tokens));
+        //    }
 
-            tokens.Pop(); //remove right paren
+        //    tokens.Pop(); //remove right paren
 
-            return Vector.MkVector(newList.ToArray());
-        }
+        //    return Vector.MkVector(newList.ToArray());
+        //}
 
     }
 }

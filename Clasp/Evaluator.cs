@@ -164,13 +164,15 @@ namespace Clasp
             switch (op)
             {
                 case Label.Dispatch_Eval:
-                    OpStack.Push(Exp switch
                     {
-                        Symbol => Label.Eval_Variable,
-                        Error => Label.Eval_Error,
-                        Atom => Label.Eval_Self,
-                        _ => Label.Eval_Operator
-                    });
+                        OpStack.Push(Exp switch
+                        {
+                            Symbol => Label.Eval_Variable,
+                            Error => Label.Eval_Error,
+                            Atom => Label.Eval_Self,
+                            _ => Label.Eval_Operator
+                        });
+                    }
                     break;
 
                 case Label.Eval_Self:
@@ -237,68 +239,79 @@ namespace Clasp
                 #region List-As-Proc-Application Form
 
                 case Label.Eval_Operator:
-                    ExprStack.Push(Exp);
-                    Exp = Exp.Car;
-                    EnvStack.Push(Env);
-                    OpStack.Push(Label.Eval_Operator_Continue);
-                    OpStack.Push(Label.Dispatch_Eval);
+                    {
+                        ExprStack.Push(Exp);
+                        Exp = Exp.Car;
+                        EnvStack.Push(Env);
+                        OpStack.Push(Label.Eval_Operator_Continue);
+                        OpStack.Push(Label.Dispatch_Eval);
+                    }
                     break;
 
                 case Label.Eval_Operator_Continue:
-                    Env = EnvStack.Pop();
-                    Exp = ExprStack.Pop();
-
-                    Unev = Exp.Cdr;
-                    Proc = Val.Expect<Procedure>();
-
-                    ExprStack.Push(Proc);
-                    if (!Unev.IsNil && Proc.Expect<Procedure>().ApplicativeOrder)
                     {
+                        Env = EnvStack.Pop();
+                        Exp = ExprStack.Pop();
+
                         Argl = Expression.Nil; //empty list
-                        OpStack.Push(Label.Eval_Operand_Loop);
+                        Unev = Exp.Cdr;
+                        Proc = Val.Expect<Procedure>();
+
                         ExprStack.Push(Proc);
-                    }
-                    else
-                    {
-                        OpStack.Push(Label.Dispatch_Apply);
+
+                        if (!Unev.IsNil && Proc.Expect<Procedure>().ApplicativeOrder)
+                        {
+                            Unev = Exp.Cdr;
+                            OpStack.Push(Label.Eval_Operand_Loop);
+                        }
+                        else
+                        {
+                            OpStack.Push(Label.Dispatch_Apply);
+                        }
                     }
                     break;
 
                 case Label.Eval_Operand_Loop:
-                    ExprStack.Push(Argl);
-                    Exp = Unev.IsAtom
-                        ? Unev
-                        : Unev.Car;
-                    if (Unev.IsAtom || Unev.Cdr.IsNil) //dotted tail
                     {
-                        OpStack.Push(Label.Eval_Operand_Acc_Last);
-                        OpStack.Push(Label.Dispatch_Eval);
-                    }
-                    else
-                    {
-                        EnvStack.Push(Env);
-                        ExprStack.Push(Unev);
-                        OpStack.Push(Label.Eval_Operand_Acc);
+                        ExprStack.Push(Argl);
+                        Exp = Unev.IsAtom
+                            ? Unev
+                            : Unev.Car;
+
+                        if (Unev.IsAtom || Unev.Cdr.IsNil) //dotted tail
+                        {
+                            OpStack.Push(Label.Eval_Operand_Acc_Last);
+                        }
+                        else
+                        {
+                            EnvStack.Push(Env);
+                            ExprStack.Push(Unev);
+                            OpStack.Push(Label.Eval_Operand_Acc);
+                        }
+
                         OpStack.Push(Label.Dispatch_Eval);
                     }
                     break;
 
                 case Label.Eval_Operand_Acc:
-                    Unev = ExprStack.Pop();
-                    Argl = ExprStack.Pop();
-                    Env = EnvStack.Pop();
+                    {
+                        Unev = ExprStack.Pop();
+                        Argl = ExprStack.Pop();
+                        Env = EnvStack.Pop();
 
-                    Argl = Pair.Append(Argl, Pair.List(Val));
-                    Unev = Unev.Cdr;
+                        Argl = Pair.AppendLast(Argl, Val);
+                        Unev = Unev.Cdr;
 
-                    OpStack.Push(Label.Eval_Operand_Loop);
+                        OpStack.Push(Label.Eval_Operand_Loop);
+                    }
                     break;
 
                 case Label.Eval_Operand_Acc_Last:
-                    Argl = ExprStack.Pop();
-                    Argl = Pair.Append(Argl, Pair.List(Val));
-
-                    OpStack.Push(Label.Dispatch_Apply);
+                    {
+                        Argl = ExprStack.Pop();
+                        Argl = Pair.AppendLast(Argl, Val);
+                        OpStack.Push(Label.Dispatch_Apply);
+                    }
                     break;
 
                 #endregion
@@ -323,27 +336,29 @@ namespace Clasp
                     break;
 
                 case Label.Apply_Compound:
-                    CompoundProcedure cProc = Proc.Expect<CompoundProcedure>();
-                    Env = cProc.Closure.Enclose();
-                    Unev = cProc.Parameters;
-                    while (Unev.IsPair && Argl.IsPair) //pair off args
                     {
-                        Env.BindNew(Unev.Car.Expect<Symbol>(), Argl.Car);
-                        Unev = Unev.Cdr;
-                        Argl = Argl.Cdr;
-                    }
+                        CompoundProcedure cProc = Proc.Expect<CompoundProcedure>();
+                        Env = cProc.Closure; //direct access to the closure itself
+                        Unev = cProc.Parameters;
+                        while (Unev.IsPair && Argl.IsPair) //pair off args
+                        {
+                            Env.BindNew(Unev.Car.Expect<Symbol>(), Argl.Car);
+                            Unev = Unev.Cdr;
+                            Argl = Argl.Cdr;
+                        }
 
-                    if (Unev is Symbol) // iff last parameter is dotted
-                    {
-                        Env.BindNew(Unev.Expect<Symbol>(), Argl);
+                        if (Unev is Symbol) // iff last parameter is dotted
+                        {
+                            Env.BindNew(Unev.Expect<Symbol>(), Argl);
+                        }
+                        else
+                        {
+                            if (!Argl.IsNil) throw new ArityConflictException(cProc, Argl);
+                            if (!Unev.IsNil) throw new ArityConflictException(cProc);
+                        }
+                        Unev = cProc.Body;
+                        OpStack.Push(Label.Eval_Sequence);
                     }
-                    else
-                    {
-                        if (!Argl.IsNil) throw new ArityConflictException(cProc, Argl);
-                        if (!Unev.IsNil) throw new ArityConflictException(cProc);
-                    }
-                    Unev = cProc.Body;
-                    OpStack.Push(Label.Eval_Sequence);
                     break;
 
 
@@ -370,22 +385,26 @@ namespace Clasp
                 #region Conditional Evaluation
 
                 case Label.Eval_If:
-                    ExprStack.Push(Exp);
-                    EnvStack.Push(Env);
-                    Exp = Exp.Cadr;
+                    {
+                        ExprStack.Push(Exp);
+                        EnvStack.Push(Env);
+                        Exp = Exp.Cadr;
 
-                    OpStack.Push(Label.Eval_If_Decide);
-                    OpStack.Push(Label.Dispatch_Eval);
+                        OpStack.Push(Label.Eval_If_Decide);
+                        OpStack.Push(Label.Dispatch_Eval);
+                    }
                     break;
 
                 case Label.Eval_If_Decide:
-                    Env = EnvStack.Pop();
-                    Exp = ExprStack.Pop();
+                    {
+                        Env = EnvStack.Pop();
+                        Exp = ExprStack.Pop();
 
-                    Exp = Val.IsTrue
-                        ? Exp.Caddr
-                        : Exp.Cadddr;
-                    OpStack.Push(Label.Dispatch_Eval);
+                        Exp = Val.IsTrue
+                            ? Exp.Caddr
+                            : Exp.Cadddr;
+                        OpStack.Push(Label.Dispatch_Eval);
+                    }
                     break;
 
                 #endregion
@@ -398,19 +417,23 @@ namespace Clasp
                     break;
 
                 case Label.Eval_Sequence:
-                    if (Unev.IsAtom) throw new UncategorizedException("Expected pair type in sequential evaluation");
-                    Exp = Unev.Car;
-                    if (Unev.Cdr.IsNil)
                     {
-                        OpStack.Push(Label.Eval_Sequence_End);
-                    }
-                    else
-                    {
-                        EnvStack.Push(Env);
-                        ExprStack.Push(Unev);
+                        if (Unev.IsAtom) throw new UncategorizedException("Expected pair type in sequential evaluation");
+                        
+                        Exp = Unev.Car;
+                        
+                        if (Unev.Cdr.IsNil)
+                        {
+                            OpStack.Push(Label.Eval_Sequence_End);
+                        }
+                        else
+                        {
+                            EnvStack.Push(Env);
+                            ExprStack.Push(Unev);
 
-                        OpStack.Push(Label.Eval_Sequence_Continue);
-                        OpStack.Push(Label.Dispatch_Eval);
+                            OpStack.Push(Label.Eval_Sequence_Continue);
+                            OpStack.Push(Label.Dispatch_Eval);
+                        }
                     }
                     break;
 
@@ -516,51 +539,65 @@ namespace Clasp
                 #region Syntactic Restructuring
 
                 case Label.Eval_SyntaxCase:
-                    Exp = Exp.Cdr; //remove operator
-                    ExprStack.Push(Exp);
-                    Exp = Exp.Cadr;
+                    {
+                        Exp = Exp.Cdr; //remove operator
+                        ExprStack.Push(Exp);
+                        Exp = Exp.Cadr;
 
-                    EnvStack.Push(Env);
-                    OpStack.Push(Label.Eval_SyntaxCase_Did_Input);
-                    OpStack.Push(Label.Dispatch_Eval);
+                        EnvStack.Push(Env);
+                        OpStack.Push(Label.Eval_SyntaxCase_Did_Input);
+                        OpStack.Push(Label.Dispatch_Eval);
+                    }
                     break;
 
                 case Label.Eval_SyntaxCase_Did_Input:
-                    Env = EnvStack.Pop();
-                    Exp = ExprStack.Pop();
-                    Argl = Exp.Caddr; //literals
-                    Unev = Exp.Cadddr; //clauses
+                    {
+                        Env = EnvStack.Pop();
+                        Exp = ExprStack.Pop();
+                        Argl = Exp.Caddr; //literals
+                        Unev = Exp.Cadddr; //clauses
 
-                    if (Unev.IsNil) throw new UncategorizedException("No clauses in syntax-case expression");
-                    Exp = Val; //evaluated input
+                        if (Unev.IsNil) throw new UncategorizedException("No clauses in syntax-case expression");
+                        Exp = Val; //evaluated input
 
-                    OpStack.Push(Label.Eval_SyntaxCase_Loop);
+                        OpStack.Push(Label.Eval_SyntaxCase_Loop);
+                    }
                     break;
 
                 case Label.Eval_SyntaxCase_Loop:
-                    ExprStack.Push(Argl);
-                    ExprStack.Push(Exp);
-                    Exp = Pair.ListStar(Exp, Argl, Unev.Car); //format transformer input
-                    EnvStack.Push(Env);
-                    ExprStack.Push(Unev);
-                    OpStack.Push(Label.Eval_SyntaxCase_Continue);
-                    OpStack.Push(Label.Eval_SyntaxClause);
+                    {
+                        ExprStack.Push(Argl);
+                        ExprStack.Push(Exp);
+
+                        Exp = Pair.ListStar(Exp, Argl, Unev.Car); //format transformer input
+
+                        EnvStack.Push(Env);
+                        ExprStack.Push(Unev);
+                        OpStack.Push(Label.Eval_SyntaxCase_Continue);
+                        OpStack.Push(Label.Eval_SyntaxClause);
+                    }
                     break;
 
                 case Label.Eval_SyntaxCase_Continue:
-                    Unev = ExprStack.Pop();
-                    Env = EnvStack.Pop();
-                    Exp = ExprStack.Pop();
-                    Argl = ExprStack.Pop();
-                    if (Val.IsPair && Val.Car.IsTrue)
                     {
-                        Val = Val.Cadr;
-                    }
-                    else
-                    {
-                        Unev = Unev.Cdr;
-                        if (Unev.IsNil) throw new UncategorizedException("Ran past end of syntax clauses");
-                        OpStack.Push(Label.Eval_SyntaxCase_Loop);
+                        Unev = ExprStack.Pop();
+                        Env = EnvStack.Pop();
+                        Exp = ExprStack.Pop();
+                        Argl = ExprStack.Pop();
+
+                        if (Val.IsPair && Val.Car.IsTrue)
+                        {
+                            Val = Val.Cadr;
+                        }
+                        else if (Unev.Cdr.IsNil)
+                        {
+                            throw new UncategorizedException("Ran past end of syntax clauses");
+                        }
+                        else
+                        {
+                            Unev = Unev.Cdr;
+                            OpStack.Push(Label.Eval_SyntaxCase_Loop);
+                        }
                     }
                     break;
 
@@ -569,12 +606,17 @@ namespace Clasp
                 #region Syntax-Case Clause Evaluation
 
                 case Label.Eval_SyntaxClause:
-                    Env = Env.Enclose(); //sub env to hold pattern variable bindings locally
-                    EnvStack.Push(Env);
-                    Argl = Exp.Cadr; //literals
-                    Unev = Exp.Cddr; //fenders and output
-                    Exp = Pair.Cons(Exp.Caddr, Exp.Car); // (pattern . input)
-                    OpStack.Push(Label.Dispatch_Match);
+                    {
+                        //sub env to hold pattern variable bindings locally
+                        Env = new ExpansionFrame(Env);
+                        EnvStack.Push(Env);
+                        Argl = Exp.Cadr; //literals
+                        Unev = Exp.Cddr; //fenders and output
+                        Exp = Pair.Cons(Exp.Caddr, Exp.Car); // (pattern . input)
+
+                        OpStack.Push(Label.Eval_SyntaxClause_Did_Match);
+                        OpStack.Push(Label.Dispatch_Match);
+                    }
                     break;
 
                 case Label.Eval_SyntaxClause_Did_Match:
@@ -708,14 +750,17 @@ namespace Clasp
                     break;
 
                 case Label.Match_Repeating_Continue:
-                    if (Val.IsTrue)
                     {
-                        Environment subEnv = Env;
-                        Env = EnvStack.Pop();
-                        Env.SubsumeRecurrent(subEnv);
-                        Exp = ExprStack.Pop();
-                        Exp = Pair.Cons(Exp.Car, Exp.Cddr);
-                        OpStack.Push(Label.Match_Repeating);
+                        if (Val.IsTrue)
+                        {
+                            ExpansionFrame subEnv = Env as ExpansionFrame
+                                ?? throw new UncategorizedException("Unexpected Standard Frame in expansion context");
+                            Env = EnvStack.Pop();
+                            Env.SubsumeRecurrent(subEnv);
+                            Exp = ExprStack.Pop();
+                            Exp = Pair.Cons(Exp.Car, Exp.Cddr);
+                            OpStack.Push(Label.Match_Repeating);
+                        }
                     }
                     break;
 
