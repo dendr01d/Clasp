@@ -92,7 +92,17 @@ namespace Clasp
             Build_Symbol,
             Build_List, Build_List_Loop, Build_List_Acc, Build_List_Acc_Last,
             Build_Repeating, Build_Repeating_Continue,
-            Build_Datum
+            Build_Datum,
+
+            Dispatch_Expand,
+            Expand_Datum,
+            Expand_Identifier,
+            Expand_Operator, Expand_Operator_Continue,
+            Expand_List, Expand_List_Continue, Expand_List_End,
+            Expand_Macro, Expand_Macro_Continue,
+            Expand_Lambda, Expand_Lambda_Parameters, Expand_Lambda_Continue, Expand_Lambda_End,
+            Expand_Quote,
+            Expand_Define
         }
 
         public static Expression Evaluate(Expression expr, Environment env, bool print = false, bool pause = false)
@@ -885,6 +895,283 @@ namespace Clasp
                     Val = Exp;
                     break;
 
+
+                #endregion
+
+
+                #region Term Expansion
+
+                case Label.Dispatch_Expand:
+                    {
+                        OpStack.Push(Exp switch
+                        {
+                            Identifier => Label.Expand_Identifier,
+                            Pair => Label.Expand_Operator,
+                            _ => Label.Expand_Datum
+                        });
+                    }
+                    break;
+
+                case Label.Expand_Datum:
+                    {
+                        Val = Exp.Expose();
+                    }
+                    break;
+
+                case Label.Expand_Identifier:
+                    {
+                        Binding bType = Env.LookupBindingType(Exp.Expect<Identifier>());
+
+                        if (bType == Binding.Transformer
+                            && Env.LookUp(Exp.Expect<Symbol>()).Expect<CompoundProcedure>().Parameters.IsNil)
+                        {
+                            OpStack.Push(Label.Dispatch_Expand);
+                            OpStack.Push(Label.Expand_Macro);
+                        }
+                        else if (bType != Binding.Variable)
+                        {
+                            throw new UncategorizedException("Invalid syntax " + Exp.Serialize());
+                        }
+                    }
+                    break;
+
+                case Label.Expand_Operator:
+                    {
+                        Exp = Exp.Expose();
+                        ExprStack.Push(Exp);
+                        Exp = Exp.Car;
+
+                        EnvStack.Push(Env);
+                        OpStack.Push(Label.Expand_Operator_Continue);
+                        OpStack.Push(Label.Dispatch_Expand);
+                    }
+                    break;
+
+                case Label.Expand_Operator_Continue:
+                    {
+                        Exp = ExprStack.Pop();
+                        Env = EnvStack.Pop();
+
+                        if (Val is Identifier id)
+                        {
+                            Binding bType = Env.LookupBindingType(Exp.Expect<Identifier>());
+
+                            if (bType == Binding.Transformer)
+                            {
+                                Proc = Env.LookUp(Exp.Expect<Identifier>()).Expect<CompoundProcedure>();
+                                OpStack.Push(Label.Dispatch_Expand);
+                                OpStack.Push(Label.Expand_Macro);
+                            }
+                            else if (bType != Binding.Variable)
+                            {
+                                OpStack.Push(bType switch
+                                {
+                                    Binding.SpecialQuote => Label.Expand_Quote,
+                                    Binding.SpecialLambda => Label.Expand_Lambda,
+                                    Binding.SpecialDefine => Label.Expand_Define,
+                                    _ => throw new UncategorizedException("Invalid syntax " + Exp.Serialize());
+                                });
+                            }
+                        }
+                        else
+                        {
+                            Argl = Pair.List(Val);
+                            Unev = Exp.Cdr;
+                            OpStack.Push(Label.Expand_List);
+                        }
+                    }
+                    break;
+
+                case Label.Expand_List:
+                    {
+                        ExprStack.Push(Argl);
+                        Exp = Unev.IsAtom
+                            ? Unev
+                            : Unev.Car;
+
+                        if (Unev.IsAtom || Unev.Cdr.IsNil)
+                        {
+                            OpStack.Push(Label.Expand_List_End);
+                        }
+                        else
+                        {
+                            EnvStack.Push(Env);
+                            ExprStack.Push(Unev);
+                            OpStack.Push(Label.Expand_List_Continue);
+                        }
+                        OpStack.Push(Label.Dispatch_Expand);
+                    }
+                    break;
+
+                case Label.Expand_List_Continue:
+                    {
+                        Unev = ExprStack.Pop();
+                        Argl = ExprStack.Pop();
+                        Env = EnvStack.Pop();
+
+                        Argl = Pair.AppendLast(Argl, Val);
+                        Unev = Unev.Cdr;
+
+                        OpStack.Push(Label.Expand_List);
+                    }
+                    break;
+
+                case Label.Expand_List_End:
+                    {
+                        Argl = ExprStack.Pop();
+                        Argl = Pair.AppendStar(Argl, Val);
+                        Val = Argl;
+                    }
+                    break;
+
+                case Label.Expand_Macro:
+                    {
+                        Expression mk = GetFreshMark(); //function in the evaluator itself to spit out int literals?
+                        ExprStack.Push(mk);
+
+                        Exp = Exp.Mark(mk);
+                        OpStack.Push(Label.Expand_Macro_Continue);
+
+                        if (Exp.IsAtom) //we came from expanding an identifier by itself
+                        {
+                            Argl = Expression.Nil;
+                            Proc = Env.LookUp(Exp.Expect<Symbol>()).Expect<CompoundProcedure>();
+                        }
+                        else //we came from evaluating a list with a macro-bound identifier in the op position
+                        {
+                            Argl = Pair.List(Exp);
+                            Proc = Env.LookUp(Exp.Expose().Car.Expect<Symbol>()).Expect<CompoundProcedure>();
+                        }
+                        OpStack.Push(Label.Apply_Compound);
+                    }
+                    break;
+
+                case Label.Expand_Macro_Continue:
+                    {
+                        Expression mk = ExprStack.Pop(); //I guess I could use a register for this?
+                        Val = Val.Mark(mk);
+                    }
+                    break;
+
+                case Label.Expand_Quote:
+                    {
+                        Val = Exp.Strip();
+                    }
+                    break;
+
+                case Label.Expand_Lambda:
+                    {
+                        //start as if expanding a normal list
+                        Argl = Pair.List(Exp.Car);
+                        Unev = Exp.Expose().Cdr.Expose();
+
+                        //look at the lambda's parameter list
+                        Exp = Unev.Car;
+                        Unev = Unev.Cdr;
+
+                        if (Exp.IsNil)
+                        {
+                            //no params means no symbol substitution
+                            //means no special body environment
+                            //means no special expansion pathway
+                            Argl = Pair.AppendLast(Argl, Exp);
+                            OpStack.Push(Label.Expand_List);
+                        }
+                        else
+                        {
+                            EnvStack.Push(Env);
+                            Env = new ExpansionFrame(Env);
+                            
+                            ExprStack.Push(Argl);
+                            Argl = Expression.Nil;
+
+                            OpStack.Push(Label.Expand_Lambda_Parameters);
+                        }
+                    }
+                    break;
+
+                case Label.Expand_Lambda_Parameters:
+                    {
+                        Expression param;
+
+                        if (Exp.IsAtom)
+                        {
+                            param = Exp.Resolve();
+                        }
+                        else
+                        {
+                            Exp = Exp.Expose();
+                            param = Exp.Car;
+                        }
+
+                        Identifier oldSym = Identifier.Wrap(param.Expect<Symbol>());
+                        Symbol newSym = new GenSym(oldSym);
+
+
+
+                        //SPECIFICALLY
+                        //we need to make sure it's bound to the same type as the old symbol
+                        //eg if the old symbol represented the special quote form
+                        //then the new symbol also must
+                        Env.BindType(newSym, Binding.Variable);
+
+
+
+
+                        Unev = Unev.Subst(oldSym, newSym);
+
+                        if (Exp.IsAtom)
+                        {
+                            Argl = Pair.Append(Argl, newSym);
+                            OpStack.Push(Label.Expand_Lambda_Continue);
+                        }
+                        else
+                        {
+                            Argl = Pair.AppendLast(Argl, newSym);
+
+                            if (Exp.Cdr.IsNil)
+                            {
+                                OpStack.Push(Label.Expand_Lambda_Continue);
+                            }
+                            else
+                            {
+                                Exp = Exp.Cdr;
+                                OpStack.Push(Label.Expand_Lambda_Parameters);
+                            }
+                        }
+
+                    }
+                    break;
+
+                case Label.Expand_Lambda_Continue:
+                    {
+                        //append the substituted parameter list to the list elements
+                        Exp = Argl;
+                        Argl = ExprStack.Pop();
+                        Argl = Pair.AppendLast(Argl, Exp);
+
+                        //now recurse through the body like a normal list
+                        //but remember to go back and pop out of the body env later
+                        OpStack.Push(Label.Expand_Lambda_End);
+                        OpStack.Push(Label.Expand_List);
+                    }
+                    break;
+
+                case Label.Expand_Lambda_End:
+                    {
+                        //dismiss the lambda's inner environment
+                        Env = EnvStack.Pop();
+                    }
+                    break;
+
+                case Label.Expand_Define:
+                    {
+                        //similar to expanding a lambda but with three differences:
+                        // 1- we may have to implicitly rewrite it into a lambda definition
+                        // 2- there's only one parameter that can be bound, and it must exist
+                        // 3- there's no separate env for the body, do the subst inline
+                    }
+                    break;
 
                 #endregion
 
