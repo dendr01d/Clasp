@@ -190,6 +190,9 @@ namespace Clasp
         private readonly HashSet<int> _marks;
         private readonly List<Tuple<Identifier, Symbol>> _subs;
 
+        public override Expression Car => throw new UncategorizedException("Can't access Car of unexposed SyntaxPair.");
+        public override Expression Cdr => throw new UncategorizedException("Can't access Cdr of unexposed SyntaxPair.");
+
         private SyntaxPair(Expression car, Expression cdr) : base(car, cdr)
         {
             _marks = new HashSet<int>();
