@@ -159,39 +159,5 @@ namespace Clasp
 
         public sealed override string ToString() => Print();
 
-
-        public string PrettyPrint(int leadingSpaces)
-        {
-            string raw = Serialize();
-
-            if (!IsPair || raw.Length <= 20)
-            {
-                return raw;
-            }
-            else
-            {
-                StringBuilder sb = new StringBuilder();
-                sb.Append('(');
-                sb.Append(Car.Serialize());
-
-                if (Cdr.IsAtom)
-                {
-                    sb.Append(" . ");
-                    sb.Append(Cdr.PrettyPrint(sb.Length));
-                }
-                else if (!Cdr.IsNil)
-                {
-                    foreach(Expression e in Pair.Enumerate(Cdr))
-                    {
-                        sb.Append(System.Environment.NewLine);
-                        sb.Append(' ', leadingSpaces + 2);
-                        sb.Append(e.PrettyPrint(leadingSpaces + 2));
-                    }
-                }
-
-                sb.Append(')');
-                return sb.ToString();
-            }
-        }
     }
 }

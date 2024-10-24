@@ -76,7 +76,7 @@ namespace Clasp
             return string.Format("Error parsing library entry on line {0}:{1}{2}{1}{3}",
                 t.SourceLine,
                 System.Environment.NewLine,
-                e.PrettyPrint(0),
+                e.PrettyPrint(),
                 ex.Message);
         }
     }

@@ -50,8 +50,7 @@
 
 ;; ----------------------------------------------------------------------------
 ;; Math Ops
-         
-(define / quotient)
+
 (define (// number root) (expt number (quotient one root)))
 (define (sqrt n) (// n 2))
 (define (cbrt n) (// n 3))
