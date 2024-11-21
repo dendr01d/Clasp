@@ -38,7 +38,7 @@ namespace Clasp
         public static SimpleNum Floor(SimpleNum x) => new SimpleNum(Math.Floor(x.Value));
         public static SimpleNum Round(SimpleNum x, SimpleNum digits) => new SimpleNum(Math.Round(x.Value, (int)Math.Truncate(digits.Value)));
 
-        public override string Serialize() => Value.ToString();
+        public override string Write() => Value.ToString();
     }
 
     //internal abstract class Number : Atom

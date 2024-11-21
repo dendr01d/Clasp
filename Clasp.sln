@@ -14,7 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Code", "Code", "{4D438A8B-3
 		Code\StdLibrary.scm = Code\StdLibrary.scm
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClaspLib", "ClaspLib\ClaspLib.csproj", "{0CBE3635-D86E-465E-A59E-1DEBB901BFE6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClaspLib", "ClaspLib\ClaspLib.csproj", "{0CBE3635-D86E-465E-A59E-1DEBB901BFE6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

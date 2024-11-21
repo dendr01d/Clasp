@@ -20,7 +20,7 @@ namespace Clasp
             _argl = null;
             _proc = null;
 
-            _env = GlobalEnvironment.Empty();
+            _env = new Environment();
 
             _goto = null;
             _continue = null;

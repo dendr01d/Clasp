@@ -1,18 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Clasp
 {
-    internal abstract class Symbol : Atom
+    internal class Symbol : Atom
     {
         protected static readonly Dictionary<string, Symbol> _internment = new Dictionary<string, Symbol>();
-        
-        public abstract string Name { get; }
 
-        #region Static Constructors
+        public readonly string Name;
+
+        private Symbol(string name)
+        {
+            Name = name;
+        }
 
         public static Symbol Ize(string name)
         {
@@ -22,23 +27,35 @@ namespace Clasp
             }
             else
             {
-                Symbol output = new StdSymbol(name);
+                Symbol output = new Symbol(name);
                 _internment[name] = output;
                 return output;
             }
         }
 
-        #endregion
+        public static Symbol GenSym(string name)
+        {
+            string target = name.Trim();
+            uint counter = 0;
 
-        public override Expression Deconstruct() => this;
-        public override string Serialize() => Name;
-        public override string Print() => Name;
+            while (_internment.ContainsKey(target) || string.IsNullOrWhiteSpace(name))
+            {
+                ++counter;
+                target = $"{name}${counter}";
+            }
+
+            return Ize(target);
+        }
+
+        public static Symbol GenSym() => GenSym(string.Empty);
+
+        public static Symbol GenSym(Symbol sym) => GenSym(sym.Name);
 
         #region Standard Symbols
 
         public static readonly Symbol Lambda = Ize("lambda");
         public static readonly Symbol Mu = Ize("mu");
-        //public static readonly Symbol Flambda = Ize("ƒlambda");
+
         public static readonly Symbol Begin = Ize("begin");
 
         public static readonly Symbol Ok = Ize("ok");
@@ -59,109 +76,7 @@ namespace Clasp
 
         #endregion
 
-        public override Expression Mark(params int[] marks) => Identifier.Wrap(this).Mark(marks);
-        public override Expression Subst(Identifier id, Symbol sym) => Identifier.Wrap(this).Subst(id, sym);
-    }
-
-    internal class StdSymbol : Symbol
-    {
-        private string _name;
-
-        public override string Name => _name;
-
-        public StdSymbol(string name)
-        {
-            _name = name;
-        }
-    }
-
-    internal class GenSym : Symbol
-    {
-        private static uint _globalCounter = 0;
-
-        private string _name;
-        private uint _id;
-
-        public override string Name => FormatName(_name, _id);
-
-        public GenSym()
-        {
-            _name = string.Empty;
-            _id = ++_globalCounter;
-        }
-
-        public GenSym(string name)
-        {
-            string target = name;
-            uint counter = 0;
-
-            while (_internment.ContainsKey(target))
-            {
-                target = FormatName(name, ++counter);
-            }
-
-            _name = target;
-            _id = counter;            
-        }
-
-        public GenSym(Symbol mimic) : this(mimic.Name) { }
-
-        private static string FormatName(string name, uint id) => $"{name}${id}";
-    }
-
-    internal sealed class Identifier : Symbol
-    {
-        public readonly Symbol SymbolicName;
-        public Symbol BindingName { get; private set; }
-
-        private HashSet<int> _marks;
-
-        public override string Name => BindingName.Name;
-
-        private Identifier(Symbol sym)
-        {
-            SymbolicName = sym;
-            BindingName = SymbolicName;
-            _marks = new HashSet<int>();
-        }
-
-        public static Identifier Wrap(Symbol sym)
-        {
-            return sym switch
-            {
-                Identifier id => id,
-                _ => new Identifier(sym)
-            };
-        }
-
-        public override Expression Mark(params int[] marks)
-        {
-            _marks.SymmetricExceptWith(marks);
-            return this;
-        }
-
-        public override HashSet<int> GetMarks() => _marks;
-
-        public override Expression Subst(Identifier id, Symbol sym)
-        {
-            if (Pred_BoundIdEq(id))
-            {
-                BindingName = sym;
-            }
-            return this;
-        }
-
-        public override Expression Resolve() => BindingName;
-        public override Expression Strip() => SymbolicName;
-
-        public override string Print()
-        {
-            return Pred_Eq(SymbolicName, BindingName)
-                ? SymbolicName.Serialize()
-                : string.Format("<{0}, {1}, {{{2}}}>",
-                    SymbolicName,
-                    BindingName,
-                    string.Join(", ", _marks));
-        }
+        public override string Write() => Name;
+        public override string Display() => Name;
     }
 }

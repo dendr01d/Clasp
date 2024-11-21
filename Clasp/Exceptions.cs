@@ -49,35 +49,27 @@ namespace Clasp
         internal LexingException(string msg) : base($"Lexing error: {msg}") { }
     }
 
-    public class ParsingException : Exception
+    public class ReaderException : Exception
     {
-        internal ParsingException(string msg, Token? problem) : base($"Parsing error{FormatToken(problem)}): {msg}") { }
+        internal ReaderException(string msg) : base($"Reading error: {msg}") { }
 
-        private static string FormatToken(Token? t)
+        internal static ReaderException UnexpectedToken(Lexer.Token errantToken)
         {
-            if (t is null)
-            {
-                return string.Empty;
-            }
-            else
-            {
-                return $" @ Token {t} (line {t.SourceLine}, index {t.SourceIndex}";
-            }
+            return new ReaderException(string.Format(
+            "Unexpected token {0} at line {1}, index {2}.",
+            errantToken,
+            errantToken.SourceLine,
+            errantToken.SourceIndex));
         }
-    }
 
-    public class LibraryException : Exception
-    {
-        internal LibraryException(Token leadingToken, Expression targetExpr, Exception inner)
-            : base(FormatMsg(leadingToken, targetExpr, inner), inner) { }
-
-        private static string FormatMsg(Token t, Expression e, Exception ex)
+        internal static ReaderException ExpectedToken(Lexer.TokenType expectedType, Lexer.Token prevToken)
         {
-            return string.Format("Error parsing library entry on line {0}:{1}{2}{1}{3}",
-                t.SourceLine,
-                System.Environment.NewLine,
-                e.PrettyPrint(),
-                ex.Message);
+            return new ReaderException(string.Format(
+            "Expected {0} token to follow after {1} at line {2}, index {3}.",
+            expectedType,
+            prevToken,
+            prevToken.SourceLine,
+            prevToken.SourceIndex));
         }
     }
 

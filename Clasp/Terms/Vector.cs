@@ -6,41 +6,54 @@ using System.Threading.Tasks;
 
 namespace Clasp
 {
-    //internal class Vector : Atom
-    //{
-    //    private readonly Expression[] _data;
+    internal class Vector : Atom
+    {
+        private readonly List<Expression> _data;
 
-    //    public Expression[] Data => _data;
-    //    public IEnumerable<Expression> EnumerableData => _data.AsEnumerable();
+        public Vector(params Expression[] data)
+        {
+            _data = data.ToList();
+        }
 
-    //    protected Vector(params Expression[] data)
-    //    {
-    //        _data = data;
-    //    }
+        public static Expression Ref(Vector vec, int index)
+        {
+            return vec._data[index];
+        }
 
-    //    public static Vector MkVector(params Expression[] data)
-    //    {
-    //        return new Vector(data);
-    //    }
+        public static void Set(Vector vec, int index, Expression obj)
+        {
+            vec._data[index] = obj;
+        }
 
-    //    public static Expression Ref(Vector vec, int index)
-    //    {
-    //        return vec._data[index];
-    //    }
+        public static void Add(Vector vec, Expression obj)
+        {
+            vec._data.Add(obj);
+        }
 
-    //    public static void Set(Vector vec, int index, Expression obj)
-    //    {
-    //        vec._data[index] = obj;
-    //    }
+        public bool VecEquals(Vector other)
+        {
+            if (_data.Count != other._data.Count)
+            {
+                return false;
+            }
 
-    //    public override bool IsAtom => false;
+            for (int i = 0; i < _data.Count; ++i)
+            {
+                if (_data[i].Pred_Equal(other._data[i]))
+                {
+                    return false;
+                }
+            }
 
-    //    public override Expression Deconstruct() => this;
+            return true;
+        }
 
-    //    public override string Print() => Serialize();
-    //    public override string Serialize()
-    //    {
-    //        return $"#({string.Join<Expression>(' ', _data)})";
-    //    }
-    //}
+        public override bool IsAtom => false;
+
+        public override string Display() => "[" + string.Join(", ", _data.Select(x => x.Display())) + "]";
+        public override string Write()
+        {
+            return "#(" + string.Join(' ', _data.Select(x => x.Write())) + ")";
+        }
+    }
 }

@@ -3,6 +3,7 @@ using System.Text;
 
 namespace Clasp
 {
+    [DebuggerDisplay("{Display()}")]
     internal abstract class Expression
     {
         protected Expression() { }
@@ -20,28 +21,13 @@ namespace Clasp
         public bool IsFalse => ReferenceEquals(this, Boolean.False);
         public bool IsTrue => !IsFalse;
 
-        /// <summary> True iff the expression is a proper nil-terminated list.</summary>
-        public bool IsList => IsNil || (!IsAtom && Cdr.IsList);
-
-        //public bool IsDottedPair => IsPair && !Cdr.IsNil && Cdr.IsAtom;
-        //public bool IsDottedList => IsDottedPair || (IsPair && Cdr.IsDottedList);
-
-        /// <summary> True iff the expression is a list with <paramref name="sym"/> in the Car position.</summary>
-        public bool IsTagged(Symbol sym) => IsPair && !Cdr.IsNil && Car.Pred_Eq(sym);
-
-        /// <summary> True iff the expression is a list of 2+ terms, and the second term is an ellipsis.</summary>
-        public bool IsEllipticTerm => IsPair && Cdr.IsPair && Cadr.Pred_Eq(Symbol.Ellipsis);
-
         #endregion
 
         #region Equality Predicates
 
-        public bool Pred_Eq(Expression other) => Pred_Eq(this, other);
-        public bool Pred_Eqv(Expression other) => Pred_Eqv(this, other);
-        public bool Pred_Equal(Expression other) => Pred_Equal(this, other);
-        public bool Pred_FreeIdEq(Expression other) => Pred_FreeIdEq(this, other);
-        public bool Pred_BoundIdEq(Expression other) => Pred_BoundIdEq(this, other);
-
+        public virtual bool Pred_Eq(Expression other) => false;
+        public virtual bool Pred_Eqv(Expression other) => false;
+        public virtual bool Pred_Equal(Expression other) => false;
 
         public static bool Pred_Eq(Expression e1, Expression e2)
         {
@@ -55,6 +41,8 @@ namespace Clasp
                 (Boolean b1, Boolean b2) => b1.Value == b2.Value,
                 (SimpleNum pn1, SimpleNum pn2) => pn1.Value == pn2.Value,
                 (Character c1, Character c2) => c1.Value == c2.Value,
+                (Integer i1, Integer i2) => i1.Value == i2.Value,
+                (Double d1, Double d2) => d1.Value == d2.Value,
                 (_, _) => Pred_Eq(e1, e2)
             };
         }
@@ -63,22 +51,11 @@ namespace Clasp
         {
             return (e1, e2) switch
             {
-                (Charstring c1, Charstring c2) => c1.Value == c2.Value,
-                //(Vector v1, Vector v2) => v1.EnumerableData.Zip(v2.EnumerableData, (x, y) => Pred_Equal(x, y)).Aggregate((x, y) => x && y),
+                (CharString c1, CharString c2) => c1.Value == c2.Value,
+                (Vector v1, Vector v2) => v1.VecEquals(v2),
                 (Pair p1, Pair p2) => Pred_Equal(p1.Car, p2.Car) && Pred_Equal(p1.Cdr, p2.Cdr),
                 (_, _) => Pred_Eqv(e1, e2)
             };
-        }
-
-        public static bool Pred_FreeIdEq(Expression e1, Expression e2)
-        {
-            return Pred_Eq(e1.Resolve(), e2.Resolve());
-        }
-
-        public static bool Pred_BoundIdEq(Expression e1, Expression e2)
-        {
-            return Pred_FreeIdEq(e1, e2)
-                && e1.GetMarks().SetEquals(e2.GetMarks());
         }
 
         #endregion
@@ -131,10 +108,9 @@ namespace Clasp
 
         #region Syntactic Analysis
 
-        public virtual Expression Mark(params int[] marks) => this;
-        public virtual HashSet<int> GetMarks() => new HashSet<int>();
-
-        public virtual Expression Subst(Identifier id, Symbol s) => this;
+        public virtual void Mark(params int[] marks) { }
+        public virtual IEnumerable<int> GetMarks() => new HashSet<int>();
+        public virtual void Substitute(Expression id, Symbol s) { }
 
         public virtual Expression Resolve() => this;
         public virtual Expression Strip() => this;
@@ -142,22 +118,18 @@ namespace Clasp
 
         #endregion
 
-        /// <summary>
-        /// Destructures compiled objects back to rudimentary expressions
-        /// </summary>
-        public abstract Expression Deconstruct();
 
         /// <summary>
         /// Returns a syntactically-complete string that parses to the expression
         /// </summary>
-        public abstract string Serialize();
+        public abstract string Write();
 
         /// <summary>
         /// Return a string that semantically represents the expression
         /// </summary>
-        public abstract string Print();
+        public abstract string Display();
 
-        public sealed override string ToString() => Print();
+        public sealed override string ToString() => Display();
 
     }
 }

@@ -43,15 +43,15 @@
                 return current.TType switch
                 {
                     //TokenType.VecParen => ParseVector(tokens),
-                    TokenType.LeftParen => ParseList(tokens),
-                    TokenType.RightParen => throw new ParsingException("Unexpected ')'", current),
-                    TokenType.DotMarker => throw new ParsingException("Unexpected '.'", current),
+                    TokenType.OpenParenLst => ParseList(tokens),
+                    TokenType.ClosingParen => throw new ParsingException("Unexpected ')'", current),
+                    TokenType.ListDot => throw new ParsingException("Unexpected '.'", current),
 
-                    TokenType.QuoteMarker => Pair.List(Symbol.Quote, ParseTokens(tokens)),
-                    TokenType.SyntaxMarker => Pair.List(Symbol.Syntax, ParseTokens(tokens)),
-                    TokenType.QuasiquoteMarker => Pair.List(Symbol.Quasiquote, ParseTokens(tokens)),
-                    TokenType.UnquoteMarker => Pair.List(Symbol.Unquote, ParseTokens(tokens)),
-                    TokenType.UnquoteSplicingMarker => Pair.List(Symbol.UnquoteSplicing, ParseTokens(tokens)),
+                    TokenType.QuoteMrk => Pair.List(Symbol.Quote, ParseTokens(tokens)),
+                    TokenType.SyntaxMrk => Pair.List(Symbol.Syntax, ParseTokens(tokens)),
+                    TokenType.QuasiquoteMrk => Pair.List(Symbol.Quasiquote, ParseTokens(tokens)),
+                    TokenType.UnquoteMrk => Pair.List(Symbol.Unquote, ParseTokens(tokens)),
+                    TokenType.UnquoteSpliceMrk => Pair.List(Symbol.UnquoteSplicing, ParseTokens(tokens)),
                     TokenType.Ellipsis => Symbol.Ellipsis,
 
                     TokenType.Symbol => Symbol.Ize(current.Text),
@@ -69,7 +69,7 @@
 
         private static Expression ParseList(Stack<Token> tokens)
         {
-            if (tokens.Peek().TType == TokenType.DotMarker)
+            if (tokens.Peek().TType == TokenType.ListDot)
             {
                 throw new ParsingException("Expected Car of dotted pair", tokens.Peek());
             }
@@ -77,20 +77,20 @@
             List<Expression> exprs = new List<Expression>();
             bool dottedPair = false;
 
-            while (tokens.Peek().TType != TokenType.RightParen
-                && tokens.Peek().TType != TokenType.DotMarker)
+            while (tokens.Peek().TType != TokenType.ClosingParen
+                && tokens.Peek().TType != TokenType.ListDot)
             {
                 exprs.Add(ParseTokens(tokens));
             }
 
-            if (tokens.Peek().TType == TokenType.DotMarker)
+            if (tokens.Peek().TType == TokenType.ListDot)
             {
                 dottedPair = true;
 
                 tokens.Pop(); //remove dot marker
                 exprs.Add(ParseTokens(tokens)); //grab the rest
 
-                if (tokens.Peek().TType != TokenType.RightParen)
+                if (tokens.Peek().TType != TokenType.ClosingParen)
                 {
                     throw new ParsingException("Expected ')' after dotted pair.", tokens.Peek());
                 }

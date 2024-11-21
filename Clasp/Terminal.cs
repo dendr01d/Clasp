@@ -149,12 +149,12 @@ namespace Clasp
                                     try
                                     {
                                         Expression result = Evaluator.Evaluate(expr, scope, _showingSteps, _pausing);
-                                        output = result.Serialize();
+                                        output = result.Write();
                                     }
                                     catch (Exception ex)
                                     {
                                         errors.WriteLine("ERROR: " + ex.Message);
-                                        errors.WriteLine($"\tin expression {i}: " + expr.Serialize());
+                                        errors.WriteLine($"\tin expression {i}: " + expr.Write());
                                         errors.WriteLine(ex.StackTrace);
                                     }
                                 }

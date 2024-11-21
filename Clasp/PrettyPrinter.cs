@@ -28,7 +28,7 @@ namespace Clasp
         {
             if (expr.IsNil)
             {
-                return RED + expr.Serialize();
+                return RED + expr.Write();
             }
             else if (expr.IsAtom)
             {
@@ -38,7 +38,7 @@ namespace Clasp
                     _ => GREEN
                 };
 
-                return color + expr.Serialize();
+                return color + expr.Write();
             }
             else
             {
@@ -48,7 +48,7 @@ namespace Clasp
             }
 
 
-            string raw = expr.Serialize();
+            string raw = expr.Write();
 
             if (!expr.IsPair || raw.Length <= 20)
             {
@@ -58,7 +58,7 @@ namespace Clasp
             {
                 StringBuilder sb = new StringBuilder();
                 sb.Append('(');
-                sb.Append(expr.Car.Serialize());
+                sb.Append(expr.Car.Write());
 
                 if (expr.Cdr.IsAtom)
                 {

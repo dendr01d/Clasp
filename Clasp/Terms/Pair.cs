@@ -86,8 +86,8 @@ namespace Clasp
         #region Display
 
         public override Expression Deconstruct() => Cons(_car.Deconstruct(), _cdr.Deconstruct());
-        public override string Serialize() => FormatPair(this, true);
-        public override string Print() => FormatPair(this, false);
+        public override string Write() => FormatPair(this, true);
+        public override string Display() => FormatPair(this, false);
 
         private static string FormatPair(Pair p, bool serial)
         {
@@ -95,24 +95,24 @@ namespace Clasp
             {
                 if (p._car == Symbol.Quote)
                 {
-                    return string.Format("'{0}", serial ? p2._car.Serialize() : p2._car.Print());
+                    return string.Format("'{0}", serial ? p2._car.Write() : p2._car.Display());
                 }
                 else if (p._car == Symbol.Quasiquote)
                 {
-                    return string.Format("`{0}", serial ? p2._car.Serialize() : p2._car.Print());
+                    return string.Format("`{0}", serial ? p2._car.Write() : p2._car.Display());
                 }
                 else if (p._car == Symbol.Unquote)
                 {
-                    return string.Format(",{0}", serial ? p2._car.Serialize() : p2._car.Print());
+                    return string.Format(",{0}", serial ? p2._car.Write() : p2._car.Display());
                 }
                 else if (p._car == Symbol.UnquoteSplicing)
                 {
-                    return string.Format(",@{0}", serial ? p2._car.Serialize() : p2._car.Print());
+                    return string.Format(",@{0}", serial ? p2._car.Write() : p2._car.Display());
                 }
             }
 
             return string.Format("({0}{1})",
-                serial ? p._car.Serialize() : p._car.Print(),
+                serial ? p._car.Write() : p._car.Display(),
                 FormatTail(p._cdr, serial));
         }
 
@@ -125,12 +125,12 @@ namespace Clasp
             else if (expr is Pair p)
             {
                 return string.Format(" {0}{1}",
-                    asSyntax ? p._car.Serialize() : p._car.Print(),
+                    asSyntax ? p._car.Write() : p._car.Display(),
                     FormatTail(p._cdr, asSyntax));
             }
             else
             {
-                return string.Format(" . {0}", asSyntax ? expr.Serialize() : expr.Print());
+                return string.Format(" . {0}", asSyntax ? expr.Write() : expr.Display());
             }
         }
 

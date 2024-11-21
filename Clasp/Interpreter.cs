@@ -20,7 +20,7 @@ namespace Clasp
                 result = Evaluator.Evaluate(parsed, env);
             }
 
-            return result.Serialize();
+            return result.Write();
         }
     }
 }

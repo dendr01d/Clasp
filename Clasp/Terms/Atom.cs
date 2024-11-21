@@ -12,9 +12,17 @@
         private Empty() { }
         public static Empty Instance = new Empty();
 
-        public override Expression Deconstruct() => this;
-        public override string Serialize() => "'()";
-        public override string Print() => "nil";
+        public override string Write() => "'()";
+        public override string Display() => "nil";
+    }
+
+    internal class Undefined : Atom
+    {
+        private Undefined() { }
+        public static Undefined Instance = new Undefined();
+
+        public override string Write() => "(#undefined)";
+        public override string Display() => "#undefined";
     }
 
     internal class Error : Atom
@@ -22,30 +30,21 @@
         private readonly string _description;
 
         public Error(string desc) => _description = desc;
-        public Error(Expression expr) => _description = expr.Print();
+        public Error(Expression expr) => _description = expr.Write();
         public Error(Exception ex)
         {
-            _description = string.Format("ERR: {0}{1}{2}",
+            _description = string.Format("{0}{1}{2}",
                 ex.Message,
                 System.Environment.NewLine,
                 ex.SimplifyStackTrace());
         }
 
-        public override Expression Deconstruct() => Pair.List(Symbol.Error, new Charstring(_description));
-        public override string Serialize() => Deconstruct().Serialize();
-        public override string Print() => "ERR";
-    }
-
-    internal class Undefined : Atom
-    {
-        private Undefined() { }
-        public static Undefined Instance = new Undefined();
-        public override Expression Deconstruct() => Pair.List(Symbol.Undefined);
-        public override string Serialize() => Deconstruct().Serialize();
-        public override string Print() => "#undefined";
+        public override string Write() => $"(error \"{_description}\")";
+        public override string Display() => $"ERROR: {_description}";
     }
 
     internal abstract class Literal<T> : Atom
+        where T : struct
     {
         public readonly T Value;
         protected Literal(T val)
@@ -53,8 +52,7 @@
             Value = val;
         }
 
-        public override Expression Deconstruct() => this;
-        public override string Print() => Serialize();
+        public override string Display() => Write();
     }
 
     internal class Boolean : Literal<bool>
@@ -65,7 +63,7 @@
         private Boolean(bool b) : base(b) { }
 
         public static implicit operator Boolean(bool b) => b ? True : False;
-        public override string Serialize() => Value ? "#t" : "#f";
+        public override string Write() => Value ? "#t" : "#f";
     }
 
     internal class Character : Literal<char>
@@ -95,7 +93,7 @@
             }
         }
 
-        public override string Serialize() => "#\\" + Value switch
+        public override string Write() => "#\\" + Value switch
         {
             '\t' => "tab",
             '\n' => "newline",
@@ -105,12 +103,28 @@
         };
     }
 
-    internal class Charstring : Literal<string>
+    internal class Integer : Literal<long>
     {
-        public Charstring(string s) : base(s) { }
+        public Integer(long i) : base(i) { }
 
-        public static Charstring FromToken(Token t) => new Charstring(t.Text[1..^1]);
+        public override string Write() => Value.ToString();
+    }
 
-        public override string Serialize() => $"\"{Value}\"";
+    internal class Double : Literal<double>
+    {
+        public Double(double d) : base(d) { }
+
+        public override string Write() => Value.ToString();
+    }
+
+    internal class CharString : Atom
+    {
+        public readonly string Value;
+
+        public CharString(string value) => Value = value;
+
+        public override string Write() => $"\"{Value}\"";
+
+        public override string Display() => Value;
     }
 }
