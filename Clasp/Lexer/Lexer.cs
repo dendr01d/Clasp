@@ -11,7 +11,7 @@ namespace Clasp.Lexer
         {
             BuildRgx(TokenType.Comment        , @"(?>\;.*$)"),
 
-            BuildRgx(TokenType.Identifier     , @"(?>([a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^\_\~][a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^\_\~0-9\+\-\.\@]*)|\+|\-|\.\.\.)"),
+            BuildRgx(TokenType.Symbol     , @"(?>([a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^\_\~][a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^\_\~0-9\+\-\.\@]*)|\+|\-|\.\.\.)"),
             BuildRgx(TokenType.Boolean        , @"(?>(#(?:[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee]|[Tt]|[Ff])))"),
 
             BuildRgx(TokenType.DecReal        , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+\.[0-9]+))"),
@@ -137,7 +137,7 @@ namespace Clasp.Lexer
     {
         Comment,
 
-        Identifier,
+        Symbol,
         Boolean,
 
         //Number,

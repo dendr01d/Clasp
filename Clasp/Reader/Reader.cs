@@ -1,4 +1,5 @@
 ﻿
+using Clasp.AST;
 using Clasp.Lexer;
 using Clasp.Primitives;
 
@@ -10,14 +11,14 @@ namespace Clasp.Reader
         /// Reads the given tokens into the syntactic representation of a program.
         /// The given sequence is assumed not to be empty.
         /// </summary>
-        public static Stx Read(IEnumerable<Token> tokens)
+        public static Syntax Read(IEnumerable<Token> tokens)
         {
             // First, do a quick check to make sure the parentheses all match up
             CheckParentheses(tokens);
 
             IEnumerator<Token> iter = tokens.GetEnumerator();
 
-            if (iter.UseAsStack())
+            if (iter.Any())
             {
                 return ReadSyntax(iter);
             }
@@ -29,7 +30,7 @@ namespace Clasp.Reader
         }
 
         #region Parentheses-Checking
-        private static void CheckParentheses(IEnumerable<Lexer.Token> tokens)
+        private static void CheckParentheses(IEnumerable<Token> tokens)
         {
             int parenCheck = CountOpenParens(tokens).CompareTo(CountCloseParens(tokens));
 
@@ -37,7 +38,7 @@ namespace Clasp.Reader
             {
                 bool extraCloseParens = parenCheck > 0;
 
-                Lexer.Token? nearestToken = LocateExtraParen(extraCloseParens, tokens);
+                Token? nearestToken = LocateExtraParen(extraCloseParens, tokens);
                 if (nearestToken is null)
                 {
                     throw new ReaderException(string.Format(
@@ -56,33 +57,33 @@ namespace Clasp.Reader
                 }
             }
         }
-        private static int CountOpenParens(IEnumerable<Lexer.Token> tokens)
+        private static int CountOpenParens(IEnumerable<Token> tokens)
         {
-            return tokens.Where(x => x.TType == Lexer.TokenType.OpenListParen || x.TType == Lexer.TokenType.OpenVecParen).Count();
+            return tokens.Where(x => x.TType == TokenType.OpenListParen || x.TType == TokenType.OpenVecParen).Count();
         }
-        private static int CountCloseParens(IEnumerable<Lexer.Token> tokens)
+        private static int CountCloseParens(IEnumerable<Token> tokens)
         {
-            return tokens.Where(x => x.TType == Lexer.TokenType.ClosingParen).Count();
+            return tokens.Where(x => x.TType == TokenType.ClosingParen).Count();
         }
-        private static Lexer.Token? LocateExtraParen(bool extraCloseParen, IEnumerable<Lexer.Token> input)
+        private static Token? LocateExtraParen(bool extraCloseParen, IEnumerable<Token> input)
         {
-            IEnumerable<Lexer.Token> tokenStream = (extraCloseParen ? input : input.Reverse());
+            IEnumerable<Token> tokenStream = (extraCloseParen ? input : input.Reverse());
             int parenInc = extraCloseParen ? 1 : -1;
 
             int parenCounter = 0;
 
-            foreach(Lexer.Token token in tokenStream)
+            foreach (Token token in tokenStream)
             {
                 if (parenCounter < 0)
                 {
                     return token;
                 }
-                else if (token.TType == Lexer.TokenType.OpenListParen
-                    || token.TType == Lexer.TokenType.OpenVecParen)
+                else if (token.TType == TokenType.OpenListParen
+                    || token.TType == TokenType.OpenVecParen)
                 {
                     parenCounter += parenInc;
                 }
-                else if (token.TType == Lexer.TokenType.ClosingParen)
+                else if (token.TType == TokenType.ClosingParen)
                 {
                     parenCounter -= parenInc;
                 }
@@ -92,45 +93,72 @@ namespace Clasp.Reader
         }
         #endregion
 
-        private static Stx ReadSyntax(IEnumerator<Token> tokens)
+        private static Syntax ReadSyntax(IEnumerator<Token> tokens)
         {
-
+            // Use this later to extract metadata about the syntax
             Token current = tokens.Pop();
 
             // The reader must produce a syntax object.
             // As a syntax object may only encapsulate a list, a symbol, or some other atom...
             // Then all valid syntax must itself belong to one of these categories
 
-            Val stxExpr = current.TType switch
+            Fixed nextValue = current.TType switch
             {
-                TokenType.OpenListParen => new Stx(ReadList(tokens), new Ctx(), current.SourceLine, current.SourceIndex),
+                TokenType.ClosingParen => throw ReaderException.UnexpectedToken(current),
+                TokenType.DotOperator => throw ReaderException.UnexpectedToken(current),
+
+                TokenType.OpenListParen => ReadList(tokens),
                 TokenType.OpenVecParen => ReadVector(tokens),
-                TokenType.Identifier => new Id(new Sym(current.Text), new Ctx()),
-                
-            }
 
-            // A valid syntactic expression is either an atom or a list
-        }
+                TokenType.Quote => new List(AST.Symbol.Quote, ReadSyntax(tokens)),
+                TokenType.Quasiquote => new List(AST.Symbol.Quasiquote, ReadSyntax(tokens)),
+                TokenType.Unquote => new List(AST.Symbol.Unquote, ReadSyntax(tokens)),
+                TokenType.UnquoteSplice => new List(AST.Symbol.UnquoteSplicing, ReadSyntax(tokens)),
 
-        private static List ReadShorthandOp(string op, IEnumerator<Token> tokens)
-        {
-            return new List([new Sym(op), ReadSyntax(tokens)]);
+                TokenType.Syntax => new List(AST.Symbol.Syntax, ReadSyntax(tokens)),
+                TokenType.QuasiSyntax => new List(AST.Symbol.Quasisyntax, ReadSyntax(tokens)),
+                TokenType.Unsyntax => new List(AST.Symbol.Unsyntax, ReadSyntax(tokens)),
+                TokenType.UnsyntaxSplice => new List(AST.Symbol.UnsyntaxSplicing, ReadSyntax(tokens)),
+
+                TokenType.Symbol => AST.Symbol.Intern(current.Text),
+                TokenType.Character => AST.Character.Intern(current),
+                TokenType.String => new AST.CharString(current.Text),
+                TokenType.Boolean => current.Text == AST.Boolean.True.ToString() ? AST.Boolean.True : AST.Boolean.False,
+                TokenType.DecInteger => new AST.Integer(long.Parse(current.Text)),
+                TokenType.DecReal => new AST.Real(double.Parse(current.Text)),
+
+                TokenType.Malformed => throw ReaderException.UnexpectedToken(current),
+
+                _ => throw ReaderException.UnhandledToken(current)
+            };
+
+            Syntax wrappedValue = Syntax.Wrap(nextValue, current.SourceLine, current.SourceIndex);
+
+            return wrappedValue;
         }
 
         // See here https://docs.racket-lang.org/reference/reader.html#%28part._parse-pair%29
         // For a peculiarity in how lists are read in the case of dotted terminators
         // For now though I'm just explicitly tracking dotted status with a bool
 
-        private static List ReadList(IEnumerator<Token> tokens)
+        private static ConsCell ReadList(IEnumerator<Token> tokens)
         {
-            Tuple<Stx[], bool> elements = ReadElements(tokens);
-            return new List(elements.Item1, !elements.Item2);
+            Tuple<Syntax[], bool> elements = ReadSeries(tokens);
+            
+            if (elements.Item2) // improper list
+            {
+                return new AST.Pair(elements.Item1[0], elements.Item1[1], elements.Item1[2..]);
+            }
+            else
+            {
+                return new AST.List(elements.Item1[0], elements.Item1[1..])
+            }
         }
 
-        private static List ReadVector(IEnumerator<Token> tokens)
+        private static AST.Vector ReadVector(IEnumerator<Token> tokens)
         {
             Token vecBegin = tokens.Peek();
-            Tuple<Stx[], bool> elements = ReadElements(tokens);
+            Tuple<Syntax[], bool> elements = ReadSeries(tokens);
 
             if (elements.Item2)
             {
@@ -142,18 +170,22 @@ namespace Clasp.Reader
             }
             else
             {
-                return new List([new Prim(Primitive.VECTOR), .. elements.Item1]);
+                return new AST.Vector(elements.Item1);
             }
         }
 
-        private static Tuple<Stx[], bool> ReadElements(IEnumerator<Token> tokens)
+        /// <summary>
+        /// Consumes and reads tokens until a closing paren is encountered.
+        /// Returns a tuple with the contents and a bool indicating whether the series was dotted at the end.
+        /// </summary>
+        private static Tuple<Syntax[], bool> ReadSeries(IEnumerator<Token> tokens)
         {
             if (tokens.Peek().TType == TokenType.DotOperator)
             {
                 throw ReaderException.UnexpectedToken(tokens.Peek());
             }
 
-            List<Stx> output = new List<Stx>();
+            List<Syntax> output = new List<Syntax>();
             Token previous = tokens.Peek();
             bool dotted = false;
 
@@ -179,7 +211,7 @@ namespace Clasp.Reader
 
             tokens.Pop(); //remove closing paren
 
-            return new Tuple<Stx[], bool>(output.ToArray(), dotted);
+            return new Tuple<Syntax[], bool>(output.ToArray(), dotted);
         }
 
     }

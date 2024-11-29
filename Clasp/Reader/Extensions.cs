@@ -10,7 +10,7 @@ namespace Clasp.Reader
 {
     internal static class TokenStreamExtensions
     {
-        public static bool UseAsStack(this IEnumerator<Token> tokens)
+        public static bool Any(this IEnumerator<Token> tokens)
         {
             return tokens.MoveNext();
         }
