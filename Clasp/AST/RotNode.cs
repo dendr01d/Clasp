@@ -36,9 +36,9 @@ namespace Clasp.AST
     /// </summary>
     internal sealed class Sequence : RotNode
     {
-        public readonly IEffective[] Series;
+        public readonly GenNode[] Series;
         public readonly GenNode Final;
-        public Sequence(IEffective[] series, GenNode final)
+        public Sequence(GenNode[] series, GenNode final)
         {
             Series = series;
             Final = final;
