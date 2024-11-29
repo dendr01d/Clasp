@@ -17,7 +17,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Expander\" />
+    <Folder Include="Interpreter\" />
+    <Folder Include="Compiler\" />
   </ItemGroup>
 
 </Project>

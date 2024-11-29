@@ -56,20 +56,30 @@ namespace Clasp
         internal static ReaderException UnexpectedToken(Lexer.Token errantToken)
         {
             return new ReaderException(string.Format(
-            "Unexpected token {0} at line {1}, index {2}.",
-            errantToken,
-            errantToken.SourceLine,
-            errantToken.SourceIndex));
+                "Unexpected token {0} at line {1}, index {2}.",
+                errantToken,
+                errantToken.SourceLine,
+                errantToken.SourceIndex));
         }
 
         internal static ReaderException ExpectedToken(Lexer.TokenType expectedType, Lexer.Token prevToken)
         {
             return new ReaderException(string.Format(
-            "Expected {0} token to follow after {1} at line {2}, index {3}.",
-            expectedType,
-            prevToken,
-            prevToken.SourceLine,
-            prevToken.SourceIndex));
+                "Expected {0} token to follow after {1} at line {2}, index {3}.",
+                expectedType,
+                prevToken,
+                prevToken.SourceLine,
+                prevToken.SourceIndex));
+        }
+
+        internal static ReaderException UnhandledToken(Lexer.Token token)
+        {
+            return new ReaderException(string.Format(
+                "Token {0} of type {1} (on line {2}, index {3}) is unhandled by CLASP at this time :)",
+                token,
+                token.TType,
+                token.SourceLine,
+                token.SourceIndex));
         }
     }
 
