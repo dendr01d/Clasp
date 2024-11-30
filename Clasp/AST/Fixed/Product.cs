@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -45,7 +46,7 @@ namespace Clasp.AST
         }
     }
 
-    internal sealed class List : ConsCell
+    internal sealed class List : ConsCell, IEnumerable<Fixed>
     {
         public List(Fixed first, params Fixed[] rest) : base(
             first,
@@ -61,12 +62,31 @@ namespace Clasp.AST
                 ? string.Format(", {0}{1}", l.Car, PrintCdr(l.Cdr))
                 : string.Empty; //must be Nil
         }
+
+        private IEnumerable<Fixed> Enumerate()
+        {
+            List? target = this;
+
+            while (target is not null)
+            {
+                yield return target.Car;
+                target = target.Cdr is List l ? l : null;
+            }
+
+            yield break;
+        }
+        public IEnumerator<Fixed> GetEnumerator() => Enumerate().GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => Enumerate().GetEnumerator();
     }
 
-    internal sealed class Vector : Product
+    internal sealed class Vector : Product, IEnumerable<Fixed>
     {
         public readonly Fixed[] Values;
         public Vector(params Fixed[] values) => Values = values;
+
         public override string ToString() => string.Format("VECTOR({0})", string.Format(", ", Values.ToArray<object>()));
+
+        public IEnumerator<Fixed> GetEnumerator() => ((IEnumerable<Fixed>)Values).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => Values.GetEnumerator();
     }
 }

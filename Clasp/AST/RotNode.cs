@@ -36,12 +36,12 @@ namespace Clasp.AST
     /// </summary>
     internal sealed class Sequence : RotNode
     {
-        public readonly GenNode[] Series;
+        public readonly AstNode[] Series;
         public readonly GenNode Final;
-        public Sequence(GenNode[] series, GenNode final)
+        public Sequence(GenNode tail, params AstNode[] series)
         {
             Series = series;
-            Final = final;
+            Final = tail;
         }
         public override string ToString() => string.Format("SEQUENCE({0}, {1})", string.Join(", ", Series.ToString(), Final));
     }

@@ -6,6 +6,8 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
+using Clasp.AST;
+
 [assembly: InternalsVisibleTo("Tests")]
 namespace Clasp
 {
@@ -39,17 +41,22 @@ namespace Clasp
         }
     }
 
-    public class UncategorizedException : Exception
+    public abstract class ClaspException : Exception
     {
-        internal UncategorizedException(string msg) : base($"CLASP Exception: {msg}") { }
+        protected ClaspException(string format, params object?[] args) : base(string.Format(format, args)) { }
     }
 
-    public class LexingException : Exception
+    public class UncategorizedException : ClaspException
+    {
+        internal UncategorizedException(string msg) : base($"Unspecified CLASP Exception: {msg}") { }
+    }
+
+    public class LexingException : ClaspException
     {
         internal LexingException(string msg) : base($"Lexing error: {msg}") { }
     }
 
-    public class ReaderException : Exception
+    public class ReaderException : ClaspException
     {
         internal ReaderException(string msg) : base($"Reading error: {msg}") { }
 
@@ -83,7 +90,22 @@ namespace Clasp
         }
     }
 
-    internal class ExpectedTypeException<T> : Exception
+    public class ParserException : ClaspException
+    {
+        internal ParserException(string msg) : base($"Parsing error: {msg}") { }
+
+        internal ParserException(string msg, Syntax error)
+            : this(string.Format("{0}{1}   :: {2}",
+                msg, System.Environment.NewLine, error))
+        { }
+
+        internal ParserException(string msg, Syntax start, Syntax error)
+            : this(string.Format("{0}{1}   :: {2}{1}   :: {3}",
+                msg, System.Environment.NewLine, start, error))
+        { }
+    }
+
+    internal class ExpectedTypeException<T> : ClaspException
         where T : Expression
     {
         internal ExpectedTypeException(Expression erroneous) : base(FormatMsg(erroneous)) { }
@@ -94,7 +116,7 @@ namespace Clasp
         }        
     }
 
-    internal class IncompatibleTypeException<T, U> : Exception
+    internal class IncompatibleTypeException<T, U> : ClaspException
         where T : Expression
         where U : Expression
     {

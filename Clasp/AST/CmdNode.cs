@@ -10,7 +10,7 @@ namespace Clasp.AST
     /// Represents operations that cause side-effects by mutating either objects or the environment. These
     /// always result in an output value of #undefined
     /// </summary>
-    internal abstract class CmdNode : AstNode, IEffective { }
+    internal abstract class CmdNode : AstNode { }
 
     /// <summary>
     /// Declares a NEW binding in the local environment, binding <see cref="Key"/> to <see cref="Value"/>.

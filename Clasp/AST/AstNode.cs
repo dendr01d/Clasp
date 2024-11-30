@@ -10,20 +10,4 @@ namespace Clasp.AST
     {
         public abstract override string ToString();
     }
-
-    /// <summary>
-    /// A "tag" interface indicating that the given class may cause mutative side-effects when evaluated
-    /// </summary>
-    internal interface IEffective
-    {
-        public string ToString();
-    }
-
-    /// <summary>
-    /// A "tag" interface indicating that the given class could also be <see cref="Nil"/>. Poor man's union type.
-    /// </summary>
-    internal interface INil
-    {
-        public string ToString();
-    }
 }
