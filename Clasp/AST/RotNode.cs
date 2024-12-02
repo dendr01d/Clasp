@@ -10,7 +10,7 @@ namespace Clasp.AST
     /// A "routine" node. Represents an operation composed of smaller operations carried out in a particular order.
     /// May cause side-effects by dint of the sub-components potentially causing side-effects.
     /// </summary>
-    internal abstract class RotNode : GenNode, IEffective { }
+    internal abstract class RotNode : GenNode { }
 
     /// <summary>
     /// Corresponds to an If-Then-Else conditional evaluation structure. Depending on the truthiness of the evaluated <see cref="Test"/>,
@@ -38,10 +38,10 @@ namespace Clasp.AST
     {
         public readonly AstNode[] Series;
         public readonly GenNode Final;
-        public Sequence(GenNode tail, params AstNode[] series)
+        public Sequence(AstNode[] series, GenNode final)
         {
             Series = series;
-            Final = tail;
+            Final = final;
         }
         public override string ToString() => string.Format("SEQUENCE({0}, {1})", string.Join(", ", Series.ToString(), Final));
     }
@@ -58,6 +58,9 @@ namespace Clasp.AST
             Op = op;
             Args = args;
         }
-        public override string ToString() => string.Format("APPL({0} : {1})", Op, string.Join(", ", Args.ToArray<object>()));
+        public override string ToString() => string.Format(
+            "APPL({0}, {1})",
+            Op,
+            string.Join(", ", Args.ToArray<object>()));
     }
 }

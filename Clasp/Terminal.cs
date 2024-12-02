@@ -1,6 +1,5 @@
-﻿using static System.Formats.Asn1.AsnWriter;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using System.Reflection.PortableExecutable;
+﻿using Clasp.ExtensionMethods;
+using Clasp.Binding;
 
 namespace Clasp
 {
@@ -28,7 +27,7 @@ namespace Clasp
         private const string _TIMER_CMD = "timer";
         private const string _QUIT_CMD = "quit";
 
-        private static bool _showingInput = false;
+        private static bool _showingInput = true;
         private static bool _showingSteps = false;
         private static bool _pausing = false;
 
@@ -42,7 +41,7 @@ namespace Clasp
             errors.AutoFlush = true;
 
             bool showHeader = true;
-            bool showHelp = true;
+            bool showHelp = false;
             bool reloadEnv = true;
 
             bool showTimer = false;
@@ -50,20 +49,12 @@ namespace Clasp
             string input = string.Empty;
             string output = string.Empty;
 
-            Environment? scope = null;
+            //Environment? scope = null;
 
-            try
+            while (input != _QUIT_CMD)
             {
-                scope = GlobalEnvironment.LoadStandard();
-
-                while (input != _QUIT_CMD)
+                try
                 {
-                    if (reloadEnv)
-                    {
-                        scope = GlobalEnvironment.LoadStandard();
-                        reloadEnv = false;
-                    }
-
                     if (showHeader)
                     {
                         writer.WriteLine(_header);
@@ -123,48 +114,52 @@ namespace Clasp
                         default:
                             if (!string.IsNullOrWhiteSpace(input))
                             {
-                                int i = 1;
+                                //int i = 1;
 
-                                IEnumerable<Token> tokens = Lexer.Lex(input);
-                                IEnumerable<Expression> exprs = Parser.ParseText(input);
+                                writer.WriteLine(" INPUT: {0}", input);
+
+                                IEnumerable<Lexer.Token> tokens = Lexer.Lexer.Lex(input);
+                                writer.WriteLine("TOKENS: {0}", Printer.PrintTokens(tokens));
+
+                                AST.Syntax readSyntax = Reader.Reader.Read(tokens);
+                                writer.WriteLine("  READ: {0}", readSyntax.ToString());
+
+                                AST.Syntax expandedSyntax = Expander.Expander.Expand(readSyntax, null!);
+                                writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
+
+                                AST.AstNode parsedInput = Parser.Parser.ParseAST(expandedSyntax);
+                                writer.WriteLine(" PARSE: {0}", parsedInput.ToString());
 
                                 if (_showingInput)
                                 {
-                                    writer.WriteLine(" INPUT: " + input);
-                                    writer.WriteLine("TOKENS: " + string.Join(", ", tokens));
-                                    writer.WriteLine(" SPLIT: ");
-                                    foreach (Expression expr in exprs)
-                                    {
-                                        writer.WriteLine($"{i,6}: " + expr.ToString());
-                                    }
-                                    writer.WriteLine("----------");
+                                    writer.WriteLine("-------");
                                 }
 
-                                System.Diagnostics.Stopwatch? timer = showTimer
-                                    ? System.Diagnostics.Stopwatch.StartNew()
-                                    : null;
+                                //System.Diagnostics.Stopwatch? timer = showTimer
+                                //    ? System.Diagnostics.Stopwatch.StartNew()
+                                //    : null;
 
-                                foreach (Expression expr in exprs)
-                                {
-                                    try
-                                    {
-                                        Expression result = Evaluator.Evaluate(expr, scope, _showingSteps, _pausing);
-                                        output = result.Write();
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        errors.WriteLine("ERROR: " + ex.Message);
-                                        errors.WriteLine($"\tin expression {i}: " + expr.Write());
-                                        errors.WriteLine(ex.StackTrace);
-                                    }
-                                }
+                                //foreach (Expression expr in exprs)
+                                //{
+                                //    try
+                                //    {
+                                //        Expression result = Evaluator.Evaluate(expr, scope, _showingSteps, _pausing);
+                                //        output = result.Write();
+                                //    }
+                                //    catch (Exception ex)
+                                //    {
+                                //        errors.WriteLine("ERROR: " + ex.Message);
+                                //        errors.WriteLine($"\tin expression {i}: " + expr.Write());
+                                //        errors.WriteLine(ex.StackTrace);
+                                //    }
+                                //}
 
-                                timer?.Stop();
+                                //timer?.Stop();
 
-                                if (timer is not null)
-                                {
-                                    Console.WriteLine("(In {0:N3} seconds)", timer.Elapsed.TotalSeconds);
-                                }
+                                //if (timer is not null)
+                                //{
+                                //    Console.WriteLine("(In {0:N3} seconds)", timer.Elapsed.TotalSeconds);
+                                //}
                             }
                             break;
                     }
@@ -174,26 +169,53 @@ namespace Clasp
                         writer.WriteLine(output);
                     }
                 }
-            }
-            catch(AggregateException aggEx)
-            {
-                foreach(Exception ex in aggEx.InnerExceptions)
+                catch (AggregateException aggEx)
                 {
-                    Console.WriteLine("{0}{1}{2}", ex.Message, System.Environment.NewLine, ex.StackTrace);
+                    foreach (Exception ex in aggEx.InnerExceptions)
+                    {
+                        PrintExceptionInfo(ex);
+                    }
+                    //ExceptionContinue();
                 }
-                ExceptionContinue();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("{0}{1}{2}", ex.Message, System.Environment.NewLine, ex.StackTrace);
-                ExceptionContinue();
+                catch (Exception ex)
+                {
+                    PrintExceptionInfo(ex);
+                    //ExceptionContinue();
+                }
             }
 
             return;
         }
 
         private static string ToggledMsg(bool state) => "Toggled " + (state ? "ON" : "OFF");
-    
+
+        private static void PrintExceptionInfo(Exception ex)
+        {
+            Console.Write(ex switch
+            {
+                LexerException => "Lexing error: ",
+                ReaderException => "Reading error: ",
+                ParserException => "Parsing error: ",
+                _ => "Unknown error: "
+            });
+
+            if (ex is ISourceTraceable ist && ist.SourceTrace is not null)
+            {
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(Printer.PrintLineErrorHelper(ist.SourceTrace));
+            }
+            else
+            {
+                Console.WriteLine("{0}{1}{2}", ex.Message, System.Environment.NewLine, ex.GetSimpleStackTrace());
+
+                if (ex.InnerException is not null)
+                {
+                    Console.WriteLine("└─>");
+                    PrintExceptionInfo(ex.InnerException);
+                }
+            }
+        }
+
         private static void ExceptionContinue()
         {
             Console.WriteLine("Press any key to exit...");

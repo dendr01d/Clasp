@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Clasp.Binding;
 
 namespace Clasp.AST
 {
@@ -19,14 +20,14 @@ namespace Clasp.AST
     {
         public readonly Var[] Formals;
         public readonly BindFixed[] Informals;
-        public readonly Environment Closure;
+        public readonly Binding.Environment Closure;
         public readonly Sequence Body;
 
-        public CompProc(Var[] formals, BindFixed[] informals, Environment enclosing, Sequence body)
+        public CompProc(Var[] formals, BindFixed[] informals, Binding.Environment enclosing, Sequence body)
         {
             Formals = formals;
             Informals = informals;
-            Closure = enclosing.Close();
+            //Closure = enclosing.Close();
             Body = body;
         }
 

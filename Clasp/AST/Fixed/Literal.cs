@@ -30,7 +30,7 @@ namespace Clasp.AST
 
         public static Character Intern(Lexer.Token token)
         {
-            if (t.Text.Length == 3)
+            if (token.Text.Length == 3)
             {
                 return Intern(token.Text[2]);
             }

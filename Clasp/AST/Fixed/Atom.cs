@@ -30,6 +30,10 @@ namespace Clasp.AST
 
         #region Default static Symbols
 
+        public static readonly Symbol Define = Intern("define");
+        public static readonly Symbol DefineSyntax = Intern("define-syntax");
+        public static readonly Symbol Set = Intern("set!");
+
         public static readonly Symbol Begin = Intern("begin");
         public static readonly Symbol If = Intern("if");
         public static readonly Symbol Lambda = Intern("lambda");

@@ -4,9 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.HeapMachine
+namespace Clasp
 {
-    internal class Closure
+    public interface ISourceTraceable
     {
+        public Lexer.Token? SourceTrace { get; }
     }
 }

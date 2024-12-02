@@ -1,35 +1,34 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Clasp.AST
+﻿namespace Clasp.AST
 {
-    internal abstract class Syntax : Fixed
+    internal abstract class Syntax : Fixed, ISourceTraceable
     {
-        public readonly int SourceLine;
-        public readonly int SourceIndex;
-        public readonly HashSet<string> Context;
-        protected Syntax(int line, int index)
+        public readonly Lexer.Token? SourceToken;
+        public readonly Binding.ScopeSet Context;
+        public Lexer.Token? SourceTrace => SourceToken;
+
+        protected Syntax()
         {
-            SourceLine = line;
-            SourceIndex = index;
-            Context = new HashSet<string>();
+            Context = new Binding.ScopeSet();
         }
-        protected Syntax(Syntax source) : this(source.SourceLine, source.SourceIndex)
+        protected Syntax(Lexer.Token source) : this()
         {
-            Context = new HashSet<string>(source.Context);
+            SourceToken = source;
+        }
+        protected Syntax(Syntax source) : this()
+        {
+            SourceToken = source.SourceToken;
+            Context = new Binding.ScopeSet(source.Context);
         }
 
-        public static Syntax Wrap(Fixed value, int line, int index)
+        public abstract Fixed Strip();
+
+        public static Syntax Wrap(Fixed value, Lexer.Token source)
         {
             return value switch
             {
-                Symbol s => new SyntaxId(s, line, index),
-                Product p => new SyntaxProduct(p, line, index),
-                Atom a => new SyntaxAtom(a, line, index),
+                Symbol s => new SyntaxId(s, source),
+                Product p => new SyntaxProduct(p, source),
+                Atom a => new SyntaxAtom(a, source),
                 _ => throw new Exception(string.Format("Impossible syntax type: {0}.", value))
             };
         }
@@ -49,24 +48,59 @@ namespace Clasp.AST
     internal sealed class SyntaxAtom : Syntax
     {
         public readonly Atom WrappedValue;
-        public SyntaxAtom(Atom value, int line, int index) : base(line, index) => WrappedValue = value;
+        public SyntaxAtom(Atom value, Lexer.Token source) : base(source) => WrappedValue = value;
         public SyntaxAtom(Atom value, Syntax source) : base(source) => WrappedValue = value;
+        public override Fixed Strip() => WrappedValue;
         public override string ToString() => string.Format("STX({0})", WrappedValue);
     }
 
     internal sealed class SyntaxProduct : Syntax
     {
         public readonly Product WrappedValue;
-        public SyntaxProduct(Product value, int line, int index) : base(line, index) => WrappedValue = value;
+        public SyntaxProduct(Product value, Lexer.Token source) : base(source) => WrappedValue = value;
         public SyntaxProduct(Product value, Syntax source) : base(source) => WrappedValue = value;
+        public override Fixed Strip()
+        {
+            if (WrappedValue is ConsCell cell)
+            {
+                if (cell.Car is Syntax stxCar)
+                {
+                    cell.SetCar(stxCar.Strip());
+                }
+
+                if (cell.Cdr is Syntax stxCdr)
+                {
+                    cell.SetCdr(stxCdr.Strip());
+                }
+
+                return cell;
+            }
+            else if (WrappedValue is Vector vec)
+            {
+                for (int i = 0; i < vec.Values.Length; ++i)
+                {
+                    if (vec.Values[i] is Syntax stx)
+                    {
+                        vec.Values[i] = stx.Strip();
+                    }
+                }
+
+                return vec;
+            }
+            else
+            {
+                return WrappedValue;
+            }
+        }
         public override string ToString() => string.Format("STX({0})", WrappedValue);
     }
 
     internal sealed class SyntaxId : Syntax
     {
         public readonly Symbol WrappedValue;
-        public SyntaxId(Symbol value, int line, int index) : base(line, index) => WrappedValue = value;
+        public SyntaxId(Symbol value, Lexer.Token source) : base(source) => WrappedValue = value;
         public SyntaxId(Symbol value, Syntax source) : base(source) => WrappedValue = value;
+        public override Fixed Strip() => WrappedValue;
         public override string ToString() => string.Format("STX({0})", WrappedValue);
     }
 }

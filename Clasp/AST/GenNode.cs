@@ -24,18 +24,19 @@ namespace Clasp.AST
     /// <summary>
     /// Represents a runtime construction operation that assembles a <see cref="CompProc"/>.
     /// </summary>
+    /// <remarks>This object is the lambda invocation itself, NOT the resulting <see cref="CompProc"/> it constructs.</remarks>
     internal sealed class Fun : GenNode
     {
-        public readonly Symbol[] Parameters;
-        public readonly AstNode[] Body;
-        public Fun(Symbol[] parameters, AstNode[] body)
+        public readonly Parser.FlatList<Var> Parameters;
+        public readonly Sequence Body;
+        public Fun(Parser.FlatList<Var> parameters, Sequence body)
         {
             Parameters = parameters;
             Body = body;
         }
-        public override string ToString() => string.Format("FUN({0} : {1})",
+        public override string ToString() => string.Format("FUN({0}; {1})",
             string.Join(", ", Parameters.ToArray<object>()),
-            string.Join(", ", Body.ToArray<object>()));
+            string.Join(", ", Body));
     }
 
     /// <summary>

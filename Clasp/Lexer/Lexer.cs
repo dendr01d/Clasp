@@ -9,9 +9,10 @@ namespace Clasp.Lexer
         // Attempt to parse tokens using these regexes, in this order
         private static readonly string[] _regexes = new string[]
         {
+            BuildRgx(TokenType.Whitespace     , @"\s+"),
             BuildRgx(TokenType.Comment        , @"(?>\;.*$)"),
 
-            BuildRgx(TokenType.Symbol     , @"(?>([a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^\_\~][a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^\_\~0-9\+\-\.\@]*)|\+|\-|\.\.\.)"),
+            BuildRgx(TokenType.Symbol         , @"(?>([a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^_\~][a-zA-Z0-9\!\$\%\&\*\/\:\<\=\>\?\^_\~\+\-\.\@]*)|\+|\-|\.\.\.)"),
             BuildRgx(TokenType.Boolean        , @"(?>(#(?:[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee]|[Tt]|[Ff])))"),
 
             BuildRgx(TokenType.DecReal        , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+\.[0-9]+))"),
@@ -20,7 +21,7 @@ namespace Clasp.Lexer
             BuildRgx(TokenType.HexInteger     , @"(?>(?:#[Xx])(?:\+)?(\-?[0-9a-fA-F]+))"),
             BuildRgx(TokenType.DecInteger     , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+))"), //radix flag is optional for decimals
 
-            BuildRgx(TokenType.Character      , @"(?>#\\(?:space|newline|tab|.))"),
+            BuildRgx(TokenType.Character      , @"(?>#\\(?:space|newline|tab|return|.))"),
             BuildRgx(TokenType.String         , @"(?>\""((?:[^\""|^\\]|\\""|\\\\)*)\"")"),
 
             BuildRgx(TokenType.OpenListParen  , @"\("),
@@ -40,13 +41,13 @@ namespace Clasp.Lexer
             BuildRgx(TokenType.DotOperator    , @"\."),
             BuildRgx(TokenType.Undefined      , @"\#undefined"),
 
-            BuildRgx(TokenType.Malformed      , @".*$"),
+            BuildRgx(TokenType.Malformed      , @".+$"),
         };
 
         // Combines the enum name with the corresponding regex so we can tell which one actually matched
         private static string BuildRgx(TokenType tt, string pattern) => $"(?<{tt}>{pattern})";
 
-        private static string _grammar => $"(?>{string.Join('|', _regexes)})";
+        private static readonly string _grammar = $"(?>{string.Join('|', _regexes)})";
 
         /// <summary>
         /// Split input text into a sequence of tokens using the Lexer's grammar rules. The text is
@@ -70,7 +71,7 @@ namespace Clasp.Lexer
         /// Parse a sequence of tokens out of the aggregate text formed from the provided lines of input.
         /// The line divisions are used to record the relative position of each token.
         /// </summary>
-        /// <exception cref="LexingException"></exception>
+        /// <exception cref="LexerException"></exception>
         public static IEnumerable<Token> LexLines(IEnumerable<string> inputLines)
         {
             if (!inputLines.Any())
@@ -78,8 +79,9 @@ namespace Clasp.Lexer
                 return Array.Empty<Token>();
             }
 
+            Blob source = new Blob(inputLines);
             List<Token> output = new List<Token>();
-            List<LexingException> malformedInputs = new List<LexingException>();
+            List<LexerException> malformedInputs = new List<LexerException>();
 
             int lineNo = 1; //line numbers in text files are usually 1-indexed?
 
@@ -91,22 +93,24 @@ namespace Clasp.Lexer
 
                     foreach(Match match in lineMatches)
                     {
-                        TokenType matchedType = ExtractMatchedTokenType(match);
+                        Token newToken = Token.Tokenize(
+                            ExtractMatchedTokenType(match),
+                            match.Value,
+                            source,
+                            lineNo,
+                            match.Index);
 
-                        if (matchedType == TokenType.Comment)
+                        if (newToken.TType == TokenType.Comment || newToken.TType == TokenType.Whitespace)
                         {
                             continue; //maybe I'll do something with this later?
                         }
-                        else if (matchedType == TokenType.Malformed)
+                        else if (newToken.TType == TokenType.Malformed)
                         {
-                            LexingException ex = new LexingException(string.Format(
-                                "Malformed input on line {0} beginning at index {1}: {2}",
-                                lineNo, match.Index + 1, match.Value));
-                            malformedInputs.Add(ex);
+                            malformedInputs.Add(new LexerException.MalformedInput(newToken));
                         }
                         else
                         {
-                            output.Add(Token.Tokenize(matchedType, match.Value, lineNo, match.Index + 1));
+                            output.Add(newToken);
                         }
                     }
                 }
@@ -116,7 +120,7 @@ namespace Clasp.Lexer
 
             if (malformedInputs.Any())
             {
-                throw new AggregateException("Malformed input/s lexemes found in input.", malformedInputs);
+                throw new AggregateException("Malformed lexemes found in input.", malformedInputs);
             }
 
             return output;
@@ -125,47 +129,12 @@ namespace Clasp.Lexer
         private static TokenType ExtractMatchedTokenType(Match regexMatch)
         {
             // find the name of the first regex (in the _grammar) that successfully matched
-            string name = regexMatch.Groups.Values.Skip(1).First(x => x.Success).Name;
+            string name = regexMatch.Groups.Values
+                .Skip(regexMatch.Groups.Count - _regexes.Length)
+                .First(x => x.Success).Name;
             return Enum.TryParse(name, out TokenType matchedType)
                 ? matchedType
                 : TokenType.Malformed;
         }
-    }
-
-
-    internal enum TokenType
-    {
-        Comment,
-
-        Symbol,
-        Boolean,
-
-        //Number,
-        DecReal,
-        BinInteger,
-        OctInteger,
-        DecInteger,
-        HexInteger,
-
-        Character,
-        String,
-
-        OpenListParen,
-        OpenVecParen,
-        ClosingParen,
-        Quote,
-        Quasiquote,
-        Unquote,
-        UnquoteSplice,
-
-        Syntax,
-        QuasiSyntax,
-        Unsyntax,
-        UnsyntaxSplice,
-
-        DotOperator,
-        Undefined,
-
-        Malformed
     }
 }

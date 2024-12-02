@@ -3,248 +3,284 @@ using System.Reflection;
 
 using Clasp.AST;
 
-namespace Clasp
+namespace Clasp.Parser
 {
     internal static class Parser
     {
-        public static AstNode ParseAST(params Syntax[] stx)
+        public static AstNode ParseAST(Syntax stx)
         {
-            if (stx.Length > 1)
-            {
-                return ParseSequence(stx);
-            }
-            else
-            {
-                return stx[0] switch
-                {
-                    SyntaxId sid => ParseIdentifier(sid),
-                    SyntaxAtom sat => sat.WrappedValue,
-                    SyntaxProduct sp => ParseProduct(sp),
-                    _ => throw new ParserException("Unknown syntax.", stx[0])
-                };
-            }
+            return ParseAST(stx, new Binding.BindingStore());
         }
 
-        private static Var ParseIdentifier(SyntaxId id)
+        private static AstNode ParseAST(AstNode ast, Binding.BindingStore bs)
         {
-            return new Var(id.WrappedValue.Name);
+            return ast switch
+            {
+                SyntaxId sid => ParseIdentifier(sid, bs),
+                SyntaxAtom sat => sat.WrappedValue,
+                SyntaxProduct sp => ParseProduct(sp, bs),
+                Fixed f => f,
+                _ => throw new ParserException("Cannot parse form: ", ast)
+            };
         }
 
-        private static AstNode ParseProduct(SyntaxProduct prod)
+        private static Var ParseIdentifier(SyntaxId id, Binding.BindingStore bs)
+        {
+            string varName = bs.ResolveName(id.WrappedValue.Name, id.Context);
+            return new Var(varName);
+        }
+
+        private static AstNode ParseProduct(SyntaxProduct prod, Binding.BindingStore bs)
         {
             if (prod.WrappedValue is Vector vec)
             {
-                List<Fixed> contents = new List<Fixed>();
-                int index = 0;
-
-                foreach(Fixed value in vec.Values)
-                {
-                    if (value is Syntax stxValue)
-                    {
-                        AstNode parsed = ParseAST(stxValue);
-
-                        if (parsed is Fixed parsedValue)
-                        {
-                            contents.Add(parsedValue);
-                        }
-                        else
-                        {
-                            throw new ParserException(
-                                string.Format("Expected vector element {0} at index {1} to parse to fixed value.",
-                                    value, index),
-                                prod,
-                                stxValue);
-                        }
-                    }
-                    else
-                    {
-                        throw new ParserException(
-                            string.Format("Vector element {0} at index {1} isn't syntax that can be parsed.",
-                                value, index),
-                            prod);
-                    }
-
-                    ++index;
-                }
+                return ParseVector(vec, bs);
             }
             else if (prod.WrappedValue is ConsCell cell)
             {
-                if (cell.Car is Syntax stxCar)
-                {
-                    if (cell.Cdr is Syntax stxCdr)
-                    {
-                        return ParseTopCell(stxCar, stxCdr);
-                    }
-                    else
-                    {
-                        throw new ParserException(
-                            string.Format("ConsCell cdr {0} isn't syntax that can be parsed.", cell.Cdr),
-                            prod);
-                    }
-                }
-                else
-                {
-                    throw new ParserException(
-                        string.Format("ConsCell car {0} isn't syntax that can be parsed.", cell.Car),
-                        prod);
-                }
+                return ParseApplicative(cell, bs);
             }
 
             throw new ParserException("Unknown syntax.", prod);
         }
 
-        private static AstNode ParseTopCell(Syntax car, Syntax cdr)
+        private static Vector ParseVector(Vector vec, Binding.BindingStore bs)
         {
-            AstNode parsedCar = ParseAST(car);
+            List<Fixed> contents = new List<Fixed>();
+            int index = 0;
 
-            if (parsedCar is CmdNode)
+            foreach (Fixed value in vec.Values)
             {
-                throw new ParserException("Leading term of new cons list isn't generative.", car);
+                AstNode parsed = ParseAST(value, bs);
+
+                if (parsed is Fixed parsedValue)
+                {
+                    contents.Add(parsedValue);
+                }
+                else
+                {
+                    throw new ParserException(
+                        "Expected vector element {0} at index {1} to parse to fixed value.",
+                        value,
+                        index);
+                }
+
+                ++index;
             }
 
+            return new Vector(contents.ToArray());
+        }
+
+        private static AstNode ParseApplicative(ConsCell cell, Binding.BindingStore bs)
+        {
             //the only valid way to start a list is with a proc or otherwise not-fixed gennode
             //buuuut procs technically can't be represented syntactically
-            //primitives are indirectly accessed by reference, as as compounds
+            //primitives are indirectly accessed by reference
+            //and compounds can only be constructed during runtime
             //so only non-fixed gennodes are allowed
-        }
 
-        private static Sequence ParseSequence(IEnumerable<Syntax> stx)
-        {
-            IEnumerable<AstNode> pieces = stx.Select(x => ParseAST(x));
+            AstNode parsedCar = ParseAST(cell.Car, bs);
 
-            AstNode[] series = pieces.SkipLast(1).ToArray();
-            
-            if (pieces.Last() is GenNode final)
+            if (parsedCar is not GenNode genCar)
             {
-                return new Sequence(final, series);
+                throw new ParserException("Leading term of new applicative form isn't generative: ", parsedCar);
+            }
+            else if (genCar is Fixed fixCar)
+            {
+                throw new ParserException("Leading term of new applicative form is a fixed value: {0}", fixCar);
             }
             else
+            {
+                FlatList<AstNode> tail = FlatList<AstNode>.FromNested(cell.Cdr)
+                    ?? throw new ParserException("Couldn't flatten args to applicative form: {0}", cell);
+
+                if (tail.IsDotted)
+                {
+                    throw new ParserException("Implicit applicative form was given dotted argument list: {0}", tail);
+                }
+                else if (genCar is Fun funCar)
+                {
+                    // Application of dynamically constructed compound proc
+                    return ParseApplication(funCar, tail, bs);
+                }
+                else if (genCar is Var varCar)
+                {
+                    // Dispatch and potentially format a special form
+                    return ParseTaggedForm(varCar, tail, bs);
+                }
+                else
+                {
+                    throw new ParserException.UnknownSyntax(parsedCar);
+                }
+            }
+        }
+
+        private static FlatList<AstNode> ParseNestedList(AstNode node, Binding.BindingStore bs)
+        {
+            return FlatList<AstNode>.FromNested(node).sele
+        }
+
+        private static AstNode ParseTaggedForm(Var car, FlatList<AstNode> tail, Binding.BindingStore bs)
+        {
+            if (car.Name == Symbol.Quote.Name)
+            {
+                return ParseQuote(tail);
+            }
+            else if (car.Name == Symbol.Syntax.Name)
+            {
+                return ParseSyntaxForm(tail);
+            }
+            else if (car.Name == Symbol.Lambda.Name)
+            {
+                return ParseFun(tail, bs);
+            }
+            else if (car.Name == Symbol.If.Name)
+            {
+                return ParseBranch(tail, bs);
+            }
+            else if (car.Name == Symbol.Begin.Name)
+            {
+                return ParseSequence(tail, bs);
+            }
+            else if (car.Name == Symbol.Define.Name)
+            {
+                return ParseDefineFixed(tail, bs);
+            }
+            else if (car.Name == Symbol.DefineSyntax.Name)
+            {
+                return ParseDefineSyntax(tail, bs);
+            }
+            else if (car.Name == Symbol.Set.Name)
+            {
+                return ParseSetFixed(tail, bs);
+            }
+            else
+            {
+                return ParseApplication(car, tail);
+            }
+        }
+
+        private static Fixed ParseQuote(FlatList<AstNode> args)
+        {
+            if (args.LeadingCount != 1)
+            {
+                throw new ParserException.WrongArity(Symbol.Quote.Name, 1, true, args);
+            }
+            else if (args[0] is not Fixed fixedArg)
+            {
+                throw new ParserException.WrongArgType(Symbol.Quote.Name, nameof(Fixed), args);
+            }
+            else
+            {
+                return fixedArg is Syntax stx
+                    ? stx.Strip()
+                    : fixedArg;
+            }
+        }
+
+        private static Syntax ParseSyntaxForm(FlatList<AstNode> args)
+        {
+            //if (args.LeadingCount != 1)
+            //{
+            //    throw new ParserException.WrongArity(Symbol.Syntax.Name, 1, true, args);
+            //}
+            //else if (args[0] is not Fixed fixedArg)
+            //{
+            //    throw new ParserException.WrongArgType(Symbol.Syntax.Name, nameof(Fixed), args[0]);
+            //}
+            //else
+            //{
+            //    return fixedArg is Syntax stx
+            //        ? stx
+            //        : Syntax.Wrap(fixedArg)
+            //}
+            throw new NotImplementedException();
+        }
+
+        private static Fun ParseFun(FlatList<AstNode> args, Binding.BindingStore bs)
+        {
+            if (args.LeadingCount < 2)
+            {
+                throw new ParserException.WrongArity(Symbol.Lambda.Name, 1, false, args);
+            }
+            else if (args[0] is not ConsCell cell
+                || FlatList<Var>.FromNested(cell) is not FlatList<Var> vars)
+            {
+                throw new ParserException.WrongArgType(Symbol.Lambda.Name, "Var list", 1, args[0]);
+            }
+            else
+            {
+                Sequence body = ParseSequence(new FlatList<AstNode>(args.Skip(1)), bs);
+
+                return new Fun(vars, body);
+            }
+        }
+
+        private static Branch ParseBranch(FlatList<AstNode> args, Binding.BindingStore bs)
+        {
+            if (args.LeadingCount < 2)
+            {
+                throw new ParserException.WrongArity(Symbol.If.Name, 2, false, args);
+            }
+            else if (args.LeadingCount > 3)
+            {
+                throw new ParserException.WrongArity(Symbol.If.Name, 3, true, args);
+            }
+            else if (args.Values is not GenNode[] gens)
+            {
+                throw new ParserException.WrongArgType(Symbol.If.Name, nameof(GenNode), args);
+            }
+            else if (args.LeadingCount == 2)
+            {
+                return new Branch(gens[0], gens[1], AST.Boolean.False);
+            }
+            else
+            {
+                return new Branch(gens[0], gens[1], gens[2]);
+            }
+        }
+
+        private static Sequence ParseSequence(FlatList<AstNode> args, Binding.BindingStore bs)
+        {
+            if (args.Values.Last() is not GenNode finalGen)
             {
                 throw new ParserException(
-                    string.Format("Failed to parse {0} -- final {1} must be a {2}.",
-                        nameof(Sequence), nameof(AstNode), nameof(GenNode)),
-                    stx[0],
-                    stx[^1]);
-            }
-        }
-
-
-
-
-        public static IEnumerable<Expression> ParseText(string input)
-        {
-            return Parse(Lexer.LexLines(new string[] { input }));
-        }
-
-        public static IEnumerable<Expression> ParseFile(string path)
-        {
-            IEnumerable<string> sourceLines = File.ReadAllLines(path);
-            return Parse(Lexer.LexLines(sourceLines));
-        }
-
-        public static IEnumerable<Expression> Parse(IEnumerable<Token> tokens)
-        {
-            if (!tokens.Any())
-            {
-                yield return Expression.Nil;
-                yield break;
+                    "The '{0}' form must conclude with a generative form, but was given: {1}",
+                    Symbol.Begin.Name,
+                    args.Values.Last());
             }
             else
             {
-                foreach(IEnumerable<Token> segment in Lexer.SegmentTokens(tokens))
-                {
-                    Stack<Token> stack = new Stack<Token>(segment.Reverse());
-                    yield return ParseTokens(stack);
-                }
+                return new Sequence(args.Values, finalGen);
             }
         }
 
-        public static Expression ParseTokens(Stack<Token> tokens)
+        private static BindFixed ParseDefineFixed(FlatList<AstNode> args, Binding.BindingStore bs)
         {
-            if (tokens.Count <= 0)
+            throw new NotImplementedException();
+        }
+
+        private static BindSyntax ParseDefineSyntax(FlatList<AstNode> args, Binding.BindingStore bs)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static SetFixed ParseSetFixed(FlatList<AstNode> args, Binding.BindingStore bs)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static Appl ParseApplication(GenNode op, AstNode tail, Binding.BindingStore bs)
+        {
+            if (FlatList<GenNode>.FromNested(tail) is FlatList<GenNode> args
+                && !args.IsDotted)
             {
-                throw new ParsingException("Unexpected end of token stream", null);
+                return new Appl(op, args.Values);
             }
             else
             {
-                Token current = tokens.Pop();
-
-                return current.TType switch
-                {
-                    //TokenType.VecParen => ParseVector(tokens),
-                    TokenType.OpenParenLst => ParseList(tokens),
-                    TokenType.ClosingParen => throw new ParsingException("Unexpected ')'", current),
-                    TokenType.ListDot => throw new ParsingException("Unexpected '.'", current),
-
-                    TokenType.QuoteMrk => Pair.List(Symbol.Quote, ParseTokens(tokens)),
-                    TokenType.SyntaxMrk => Pair.List(Symbol.Syntax, ParseTokens(tokens)),
-                    TokenType.QuasiquoteMrk => Pair.List(Symbol.Quasiquote, ParseTokens(tokens)),
-                    TokenType.UnquoteMrk => Pair.List(Symbol.Unquote, ParseTokens(tokens)),
-                    TokenType.UnquoteSpliceMrk => Pair.List(Symbol.UnquoteSplicing, ParseTokens(tokens)),
-                    TokenType.Ellipsis => Symbol.Ellipsis,
-
-                    TokenType.Symbol => Symbol.Ize(current.Text),
-                    TokenType.Number => new SimpleNum(decimal.Parse(current.Text)),
-                    TokenType.Boolean => (current.Text == Boolean.True.ToString()),
-                    TokenType.Character => Character.FromToken(current),
-                    TokenType.QuotedString => Charstring.FromToken(current),
-
-                    TokenType.Error => new Error("Parsing error?"),
-
-                    _ => throw new ParsingException($"Unknown token type {current.TType}", current)
-                };
+                throw new ParserException("Given node cannot be tail of applicative form: {0}", tail);
             }
         }
-
-        private static Expression ParseList(Stack<Token> tokens)
-        {
-            if (tokens.Peek().TType == TokenType.ListDot)
-            {
-                throw new ParsingException("Expected Car of dotted pair", tokens.Peek());
-            }
-
-            List<Expression> exprs = new List<Expression>();
-            bool dottedPair = false;
-
-            while (tokens.Peek().TType != TokenType.ClosingParen
-                && tokens.Peek().TType != TokenType.ListDot)
-            {
-                exprs.Add(ParseTokens(tokens));
-            }
-
-            if (tokens.Peek().TType == TokenType.ListDot)
-            {
-                dottedPair = true;
-
-                tokens.Pop(); //remove dot marker
-                exprs.Add(ParseTokens(tokens)); //grab the rest
-
-                if (tokens.Peek().TType != TokenType.ClosingParen)
-                {
-                    throw new ParsingException("Expected ')' after dotted pair.", tokens.Peek());
-                }
-            }
-
-            tokens.Pop(); //remove right paren
-
-            return dottedPair
-                ? Pair.ListStar(exprs[0], exprs[1..].ToArray())
-                : Pair.List(exprs.ToArray());
-        }
-
-        //private static Expression ParseVector(Stack<Token> tokens)
-        //{
-        //    List<Expression> newList = new();
-
-        //    while (tokens.Peek().TType != TokenType.RightParen)
-        //    {
-        //        newList.Add(ParseTokens(tokens));
-        //    }
-
-        //    tokens.Pop(); //remove right paren
-
-        //    return Vector.MkVector(newList.ToArray());
-        //}
-
     }
 }

@@ -6,24 +6,28 @@ using System.Threading.Tasks;
 
 namespace Clasp.Lexer
 {
-    internal class Token
+    public class Token
     {
         public readonly string Text;
         public readonly TokenType TType;
-        public readonly int SourceIndex;
-        public readonly int SourceLine;
+        public readonly Blob SourceBlob;
+        public readonly int LineIdx;
+        public readonly int LineNum;
 
-        protected Token(string s, TokenType t, int line, int index)
+        public string SurroundingLine => SourceBlob[LineNum - 1]; //lines of text are 1-indexed
+
+        protected Token(string s, TokenType t, Blob source, int line, int index)
         {
             Text = s;
             TType = t;
-            SourceIndex = index;
-            SourceLine = line;
+            SourceBlob = source;
+            LineIdx = index;
+            LineNum = line;
         }
 
-        public static Token Tokenize(TokenType tType, string s, int line, int index)
+        public static Token Tokenize(TokenType tType, string s, Blob source, int line, int index)
         {
-            return new Token(s, tType, line, index);
+            return new Token(s, tType, source, line, index);
         }
 
         private static readonly TokenType[] _staticMarkers = new TokenType[]
