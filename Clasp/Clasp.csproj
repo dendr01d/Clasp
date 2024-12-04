@@ -17,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Interpreter\" />
     <Folder Include="Compiler\" />
   </ItemGroup>
 

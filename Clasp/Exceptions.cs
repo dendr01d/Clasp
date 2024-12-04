@@ -1,4 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
+using Clasp.Data.AbstractSyntax;
+using Clasp.Data.Text;
 
 [assembly: InternalsVisibleTo("Tests")]
 namespace Clasp
@@ -49,8 +51,9 @@ namespace Clasp
 
         public class MalformedInput : LexerException, ISourceTraceable
         {
-            public Lexer.Token SourceTrace { get; }
-            internal MalformedInput(Lexer.Token token) : base(
+            public Token SourceTrace { get; }
+
+            internal MalformedInput(Token token) : base(
                 "Malformed input on line {0} beginning at index {1}: {2}",
                 token.LineNum,
                 token.LineIdx,
@@ -67,10 +70,10 @@ namespace Clasp
 
         public class UnmatchedParenthesis : ReaderException, ISourceTraceable
         {
-            public Lexer.Token SourceTrace { get; }
-            internal UnmatchedParenthesis(Lexer.Token errantParenToken) : base(
+            public Token SourceTrace { get; }
+            internal UnmatchedParenthesis(Token errantParenToken) : base(
                 "The reader found an {0} parenthesis on line {1}, index {2}.",
-                errantParenToken.TType == Lexer.TokenType.ClosingParen ? "un-opened" : "un-closed",
+                errantParenToken.TType == TokenType.ClosingParen ? "un-opened" : "un-closed",
                 errantParenToken.LineNum,
                 errantParenToken.LineIdx)
             {
@@ -80,8 +83,8 @@ namespace Clasp
 
         public class UnexpectedToken : ReaderException, ISourceTraceable
         {
-            public Lexer.Token SourceTrace { get; }
-            internal UnexpectedToken(Lexer.Token errantToken) : base(
+            public Token? SourceTrace { get; }
+            internal UnexpectedToken(Token errantToken) : base(
                 "Unexpected token {0} at line {1}, index {2}.",
                 errantToken,
                 errantToken.LineNum,
@@ -93,8 +96,8 @@ namespace Clasp
 
         public class ExpectedToken : ReaderException, ISourceTraceable
         {
-            public Lexer.Token SourceTrace { get; }
-            internal ExpectedToken(Lexer.TokenType expectedType, Lexer.Token receivedToken, Lexer.Token prevToken) : base(
+            public Token? SourceTrace { get; }
+            internal ExpectedToken(TokenType expectedType, Token receivedToken, Token prevToken) : base(
                 "Expected {0} token to follow after {1} at line {2}, index {3}.",
                 expectedType,
                 prevToken,
@@ -107,8 +110,8 @@ namespace Clasp
 
         public class UnhandledToken : ReaderException, ISourceTraceable
         {
-            public Lexer.Token SourceTrace { get; }
-            internal UnhandledToken(Lexer.Token errantToken) : base(
+            public Token? SourceTrace { get; }
+            internal UnhandledToken(Token errantToken) : base(
                 "Token {0} of type {1} (on line {2}, index {3}) is unhandled by CLASP at this time :)",
                 errantToken,
                 errantToken.TType,
@@ -150,7 +153,7 @@ namespace Clasp
 
         public class UnknownSyntax : ParserException
         {
-            internal UnknownSyntax(AST.AstNode error) : base(
+            internal UnknownSyntax(AstNode error) : base(
                 "The parser couldn't recognize the form of this syntax: {0}",
                 error)
             { }
@@ -158,7 +161,7 @@ namespace Clasp
 
         public class WrongArity : ParserException
         {
-            internal WrongArity(string formTag, int expectedArgNum, bool exact, IEnumerable<AST.AstNode> given) : base(
+            internal WrongArity(string formTag, int expectedArgNum, bool exact, IEnumerable<AstNode> given) : base(
                 "The '{0}' form expects {1} {2}argument{3}, but was given: {4}",
                 formTag,
                 expectedArgNum,
@@ -170,7 +173,7 @@ namespace Clasp
 
         public class WrongArgType : ParserException
         {
-            internal WrongArgType(string formTag, string expectedType, IEnumerable<AST.AstNode> given) : base(
+            internal WrongArgType(string formTag, string expectedType, IEnumerable<AstNode> given) : base(
                 "The '{0}' form expects {1} of type {2}, but was given: {3}",
                 formTag,
                 given.Count() > 1 ? "arguments" : "an argument",
@@ -178,7 +181,7 @@ namespace Clasp
                 string.Concat(given.Select(x => string.Format("{0}   -> {1}", System.Environment.NewLine, x.ToString()))))
             { }
 
-            internal WrongArgType(string formTag, string expectedType, int index, AST.AstNode given) : base(
+            internal WrongArgType(string formTag, string expectedType, int index, AstNode given) : base(
                 "The '{0}' form expects an argument of type {1} at index {2}, but was given: {3}",
                 formTag,
                 expectedType,

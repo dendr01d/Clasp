@@ -1,8 +1,8 @@
-﻿
-using Clasp.AST;
-using Clasp.Lexer;
+﻿using Clasp.Data.AbstractSyntax;
+using Clasp.Data.Text;
+using Clasp.Data.Terms;
 
-namespace Clasp.Reader
+namespace Clasp.Process
 {
     internal static class Reader
     {
@@ -64,7 +64,7 @@ namespace Clasp.Reader
 
             int parenCounter = 0;
 
-            foreach(Token token in tokenStream)
+            foreach (Token token in tokenStream)
             {
                 if (token.TType == TokenType.OpenListParen
                     || token.TType == TokenType.OpenVecParen)
@@ -101,13 +101,13 @@ namespace Clasp.Reader
             // As a syntax object may only encapsulate a list, a symbol, or some other atom...
             // Then all valid syntax must itself belong to one of these categories
 
-            Fixed nextValue = current.TType switch
+            Term nextValue = current.TType switch
             {
                 TokenType.ClosingParen => throw new ReaderException.UnexpectedToken(current),
                 TokenType.DotOperator => throw new ReaderException.UnexpectedToken(current),
 
-                TokenType.OpenListParen => ReadList(tokens),
-                TokenType.OpenVecParen => ReadVector(tokens),
+                TokenType.OpenListParen => ReadList(tokens, current),
+                TokenType.OpenVecParen => ReadVector(tokens, current),
 
                 TokenType.Quote => new List(Symbol.Quote, ReadSyntax(tokens)),
                 TokenType.Quasiquote => new List(Symbol.Quasiquote, ReadSyntax(tokens)),
@@ -122,7 +122,9 @@ namespace Clasp.Reader
                 TokenType.Symbol => Symbol.Intern(current.Text),
                 TokenType.Character => Character.Intern(current),
                 TokenType.String => new CharString(current.Text),
-                TokenType.Boolean => current.Text == AST.Boolean.True.ToString() ? AST.Boolean.True : AST.Boolean.False,
+                TokenType.Boolean => current.Text == Data.Terms.Boolean.True.ToString()
+                    ? Data.Terms.Boolean.True
+                    : Data.Terms.Boolean.False,
                 TokenType.DecInteger => new Integer(long.Parse(current.Text)),
                 TokenType.DecReal => new Real(double.Parse(current.Text)),
 
@@ -140,25 +142,27 @@ namespace Clasp.Reader
         // For a peculiarity in how lists are read in the case of dotted terminators
         // Not sure that I care to implement that here?
 
-        private static Fixed ReadList(Stack<Token> tokens)
+        private static Syntax ReadList(Stack<Token> tokens, Token source)
         {
             Tuple<Syntax[], bool> elements = ReadSeries(tokens);
 
             if (elements.Item1.Length == 0)
             {
-                return Nil.Value;
+                return Syntax.Wrap(Nil.Value, source);
             }
             else if (elements.Item2) // improper list
             {
-                return new Pair(elements.Item1[0], elements.Item1[1], elements.Item1[2..]);
+                Pair pr = new Pair(elements.Item1[0], elements.Item1[1], elements.Item1[2..]);
+                return Syntax.Wrap(pr, source);
             }
             else
             {
-                return new List(elements.Item1[0], elements.Item1[1..]);
+                List ls = new List(elements.Item1[0], elements.Item1[1..]);
+                return Syntax.Wrap(ls, source);
             }
         }
 
-        private static Vector ReadVector(Stack<Token> tokens)
+        private static Syntax ReadVector(Stack<Token> tokens, Token source)
         {
             Token vecBegin = tokens.Peek();
             Tuple<Syntax[], bool> elements = ReadSeries(tokens);
@@ -173,7 +177,8 @@ namespace Clasp.Reader
             }
             else
             {
-                return new Vector(elements.Item1);
+                Vector vec = new Vector(elements.Item1);
+                return Syntax.Wrap(vec, source);
             }
         }
 

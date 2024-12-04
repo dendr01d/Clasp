@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.Lexer
+namespace Clasp.Data.Text
 {
     /// <summary>
     /// A collection of lines of text used as input, to be parsed into tokens.

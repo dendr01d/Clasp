@@ -1,16 +1,18 @@
-﻿namespace Clasp.AST
+﻿using Clasp.Data.Text;
+
+namespace Clasp.Data.Terms
 {
-    internal abstract class Syntax : Fixed, ISourceTraceable
+    internal abstract class Syntax : Term, ISourceTraceable
     {
-        public readonly Lexer.Token? SourceToken;
+        public readonly Token? SourceToken;
         public readonly Binding.ScopeSet Context;
-        public Lexer.Token? SourceTrace => SourceToken;
+        public Token? SourceTrace => SourceToken;
 
         protected Syntax()
         {
             Context = new Binding.ScopeSet();
         }
-        protected Syntax(Lexer.Token source) : this()
+        protected Syntax(Token source) : this()
         {
             SourceToken = source;
         }
@@ -20,9 +22,9 @@
             Context = new Binding.ScopeSet(source.Context);
         }
 
-        public abstract Fixed Strip();
+        public abstract Term Strip();
 
-        public static Syntax Wrap(Fixed value, Lexer.Token source)
+        public static Syntax Wrap(Term value, Token source)
         {
             return value switch
             {
@@ -33,7 +35,7 @@
             };
         }
 
-        public static Syntax Wrap(Fixed value, Syntax source)
+        public static Syntax Wrap(Term value, Syntax source)
         {
             return value switch
             {
@@ -48,18 +50,18 @@
     internal sealed class SyntaxAtom : Syntax
     {
         public readonly Atom WrappedValue;
-        public SyntaxAtom(Atom value, Lexer.Token source) : base(source) => WrappedValue = value;
+        public SyntaxAtom(Atom value, Token source) : base(source) => WrappedValue = value;
         public SyntaxAtom(Atom value, Syntax source) : base(source) => WrappedValue = value;
-        public override Fixed Strip() => WrappedValue;
+        public override Term Strip() => WrappedValue;
         public override string ToString() => string.Format("STX({0})", WrappedValue);
     }
 
     internal sealed class SyntaxProduct : Syntax
     {
         public readonly Product WrappedValue;
-        public SyntaxProduct(Product value, Lexer.Token source) : base(source) => WrappedValue = value;
+        public SyntaxProduct(Product value, Token source) : base(source) => WrappedValue = value;
         public SyntaxProduct(Product value, Syntax source) : base(source) => WrappedValue = value;
-        public override Fixed Strip()
+        public override Term Strip()
         {
             if (WrappedValue is ConsCell cell)
             {
@@ -98,9 +100,9 @@
     internal sealed class SyntaxId : Syntax
     {
         public readonly Symbol WrappedValue;
-        public SyntaxId(Symbol value, Lexer.Token source) : base(source) => WrappedValue = value;
+        public SyntaxId(Symbol value, Token source) : base(source) => WrappedValue = value;
         public SyntaxId(Symbol value, Syntax source) : base(source) => WrappedValue = value;
-        public override Fixed Strip() => WrappedValue;
+        public override Term Strip() => WrappedValue;
         public override string ToString() => string.Format("STX({0})", WrappedValue);
     }
 }

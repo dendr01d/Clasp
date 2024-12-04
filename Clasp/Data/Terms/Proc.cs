@@ -4,8 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Clasp.Binding;
+using Clasp.Data.AbstractSyntax;
 
-namespace Clasp.AST
+namespace Clasp.Data.Terms
 {
     internal abstract class Proc : Atom { }
 

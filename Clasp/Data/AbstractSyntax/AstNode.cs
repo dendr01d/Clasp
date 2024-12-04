@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Clasp.Data.Text;
 
-namespace Clasp
+namespace Clasp.Data.AbstractSyntax
 {
-    public interface ISourceTraceable
+    internal abstract class AstNode
     {
-        public Token? SourceTrace { get; }
+        public abstract override string ToString();
     }
 }

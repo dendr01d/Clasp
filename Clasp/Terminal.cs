@@ -1,5 +1,9 @@
 ﻿using Clasp.ExtensionMethods;
 using Clasp.Binding;
+using Clasp.Data.AbstractSyntax;
+using Clasp.Process;
+using Clasp.Data.Terms;
+using Clasp.Data.Text;
 
 namespace Clasp
 {
@@ -118,16 +122,16 @@ namespace Clasp
 
                                 writer.WriteLine(" INPUT: {0}", input);
 
-                                IEnumerable<Lexer.Token> tokens = Lexer.Lexer.Lex(input);
+                                IEnumerable<Token> tokens = Lexer.Lex(input);
                                 writer.WriteLine("TOKENS: {0}", Printer.PrintTokens(tokens));
 
-                                AST.Syntax readSyntax = Reader.Reader.Read(tokens);
+                                Syntax readSyntax = Reader.Read(tokens);
                                 writer.WriteLine("  READ: {0}", readSyntax.ToString());
 
-                                AST.Syntax expandedSyntax = Expander.Expander.Expand(readSyntax, null!);
+                                Syntax expandedSyntax = Expander.Expand(readSyntax, null!);
                                 writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
 
-                                AST.AstNode parsedInput = Parser.Parser.ParseAST(expandedSyntax);
+                                AstNode parsedInput = Process.Parser.ParseAST(expandedSyntax);
                                 writer.WriteLine(" PARSE: {0}", parsedInput.ToString());
 
                                 if (_showingInput)

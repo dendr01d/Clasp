@@ -1,7 +1,6 @@
-﻿using Clasp.AST;
-using Clasp.Binding;
+﻿using Clasp.Data.Terms;
 
-namespace Clasp.Expander
+namespace Clasp.Process
 {
     internal static class Expander
     {

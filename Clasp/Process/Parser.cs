@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Reflection;
+using Clasp.Data.AbstractSyntax;
+using Clasp.Data.ConcreteSyntax;
+using Clasp.Data.Terms;
 
-using Clasp.AST;
-
-namespace Clasp.Parser
+namespace Clasp.Process
 {
     internal static class Parser
     {
@@ -12,15 +13,15 @@ namespace Clasp.Parser
             return ParseAST(stx, new Binding.BindingStore());
         }
 
-        private static AstNode ParseAST(AstNode ast, Binding.BindingStore bs)
+        public static AstNode ParseAST(Term term, Binding.BindingStore bs)
         {
-            return ast switch
+            return term switch
             {
                 SyntaxId sid => ParseIdentifier(sid, bs),
-                SyntaxAtom sat => sat.WrappedValue,
                 SyntaxProduct sp => ParseProduct(sp, bs),
-                Fixed f => f,
-                _ => throw new ParserException("Cannot parse form: ", ast)
+                SyntaxAtom sat => new Fixed(sat.WrappedValue),
+                Term t => new Fixed(t),
+                _ => throw new ParserException("Cannot parse form: ", term)
             };
         }
 
@@ -32,11 +33,12 @@ namespace Clasp.Parser
 
         private static AstNode ParseProduct(SyntaxProduct prod, Binding.BindingStore bs)
         {
-            if (prod.WrappedValue is Vector vec)
-            {
-                return ParseVector(vec, bs);
-            }
-            else if (prod.WrappedValue is ConsCell cell)
+            //if (prod.WrappedValue is Vector vec)
+            //{
+            //    return ParseVector(vec, bs);
+            //}
+            //else
+            if (prod.WrappedValue is ConsCell cell)
             {
                 return ParseApplicative(cell, bs);
             }
@@ -44,32 +46,32 @@ namespace Clasp.Parser
             throw new ParserException("Unknown syntax.", prod);
         }
 
-        private static Vector ParseVector(Vector vec, Binding.BindingStore bs)
-        {
-            List<Fixed> contents = new List<Fixed>();
-            int index = 0;
+        //private static Fixed ParseVector(Vector vec, Binding.BindingStore bs)
+        //{
+        //    List<Fixed> contents = new List<Fixed>();
+        //    int index = 0;
 
-            foreach (Fixed value in vec.Values)
-            {
-                AstNode parsed = ParseAST(value, bs);
+        //    foreach (Term value in vec.Values)
+        //    {
+        //        AstNode parsed = ParseAST(value, bs);
 
-                if (parsed is Fixed parsedValue)
-                {
-                    contents.Add(parsedValue);
-                }
-                else
-                {
-                    throw new ParserException(
-                        "Expected vector element {0} at index {1} to parse to fixed value.",
-                        value,
-                        index);
-                }
+        //        if (parsed is Fixed parsedValue)
+        //        {
+        //            contents.Add(parsedValue);
+        //        }
+        //        else
+        //        {
+        //            throw new ParserException(
+        //                "Expected vector element {0} at index {1} to parse to fixed value.",
+        //                value,
+        //                index);
+        //        }
 
-                ++index;
-            }
+        //        ++index;
+        //    }
 
-            return new Vector(contents.ToArray());
-        }
+        //    return new Vector(contents.ToArray());
+        //}
 
         private static AstNode ParseApplicative(ConsCell cell, Binding.BindingStore bs)
         {
@@ -81,7 +83,7 @@ namespace Clasp.Parser
 
             AstNode parsedCar = ParseAST(cell.Car, bs);
 
-            if (parsedCar is not GenNode genCar)
+            if (parsedCar is not Generative genCar)
             {
                 throw new ParserException("Leading term of new applicative form isn't generative: ", parsedCar);
             }
@@ -117,7 +119,7 @@ namespace Clasp.Parser
 
         private static FlatList<AstNode> ParseNestedList(AstNode node, Binding.BindingStore bs)
         {
-            return FlatList<AstNode>.FromNested(node).sele
+            throw new NotImplementedException();
         }
 
         private static AstNode ParseTaggedForm(Var car, FlatList<AstNode> tail, Binding.BindingStore bs)
@@ -178,7 +180,7 @@ namespace Clasp.Parser
             }
         }
 
-        private static Syntax ParseSyntaxForm(FlatList<AstNode> args)
+        private static Fixed ParseSyntaxForm(FlatList<AstNode> args)
         {
             //if (args.LeadingCount != 1)
             //{
@@ -226,13 +228,13 @@ namespace Clasp.Parser
             {
                 throw new ParserException.WrongArity(Symbol.If.Name, 3, true, args);
             }
-            else if (args.Values is not GenNode[] gens)
+            else if (args.Values is not Generative[] gens)
             {
-                throw new ParserException.WrongArgType(Symbol.If.Name, nameof(GenNode), args);
+                throw new ParserException.WrongArgType(Symbol.If.Name, nameof(Generative), args);
             }
             else if (args.LeadingCount == 2)
             {
-                return new Branch(gens[0], gens[1], AST.Boolean.False);
+                return new Branch(gens[0], gens[1], Data.Terms.Boolean.False);
             }
             else
             {
@@ -242,7 +244,7 @@ namespace Clasp.Parser
 
         private static Sequence ParseSequence(FlatList<AstNode> args, Binding.BindingStore bs)
         {
-            if (args.Values.Last() is not GenNode finalGen)
+            if (args.Values.Last() is not Generative finalGen)
             {
                 throw new ParserException(
                     "The '{0}' form must conclude with a generative form, but was given: {1}",
@@ -270,9 +272,9 @@ namespace Clasp.Parser
             throw new NotImplementedException();
         }
 
-        private static Appl ParseApplication(GenNode op, AstNode tail, Binding.BindingStore bs)
+        private static Appl ParseApplication(Generative op, AstNode tail, Binding.BindingStore bs)
         {
-            if (FlatList<GenNode>.FromNested(tail) is FlatList<GenNode> args
+            if (FlatList<Generative>.FromNested(tail) is FlatList<Generative> args
                 && !args.IsDotted)
             {
                 return new Appl(op, args.Values);

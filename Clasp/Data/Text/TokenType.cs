@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.Lexer
+namespace Clasp.Data.Text
 {
     public enum TokenType
     {

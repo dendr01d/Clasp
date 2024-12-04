@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Clasp.Data.Text;
 
-namespace Clasp.Lexer
+namespace Clasp.Data.Text
 {
     public class Token
     {

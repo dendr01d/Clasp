@@ -36,14 +36,14 @@ namespace Clasp.Binding
 
                 if (matches.Item1 == 0)
                 {
-                    //throw new IdResolutionException(
-                    //    "Name '{0}' with {1} {2} matched zero contexts in {3}.",
-                    //    name,
-                    //    nameof(ScopeSet),
-                    //    context.ToString(),
-                    //    nameof(BindingStore)
-                    //    );
-                    return name;
+                    // i.e. the name was bound, but not TO anything?
+                    throw new IdResolutionException(
+                        "Name '{0}' with {1} {2} matched zero contexts in {3}.",
+                        name,
+                        nameof(ScopeSet),
+                        context.ToString(),
+                        nameof(BindingStore)
+                        );
                 }
                 else if (matches.Item2.Length > 1)
                 {

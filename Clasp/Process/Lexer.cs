@@ -1,6 +1,7 @@
 ﻿using System.Text.RegularExpressions;
+using Clasp.Data.Text;
 
-namespace Clasp.Lexer
+namespace Clasp.Process
 {
     internal static class Lexer
     {
@@ -55,7 +56,7 @@ namespace Clasp.Lexer
         /// </summary>
         public static IEnumerable<Token> Lex(string text)
         {
-            return LexLines(text.Split(System.Environment.NewLine));
+            return LexLines(text.Split(Environment.NewLine));
         }
 
         /// <summary>
@@ -85,13 +86,13 @@ namespace Clasp.Lexer
 
             int lineNo = 1; //line numbers in text files are usually 1-indexed?
 
-            foreach(string line in inputLines)
+            foreach (string line in inputLines)
             {
                 if (!string.IsNullOrWhiteSpace(line))
                 {
                     var lineMatches = Regex.Matches(line, _grammar);
 
-                    foreach(Match match in lineMatches)
+                    foreach (Match match in lineMatches)
                     {
                         Token newToken = Token.Tokenize(
                             ExtractMatchedTokenType(match),

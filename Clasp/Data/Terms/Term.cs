@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.AST
+namespace Clasp.Data.Terms
 {
-    internal abstract class AstNode
+    internal abstract class Term
     {
-        public abstract override string ToString();
+
+
     }
 }

@@ -4,16 +4,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Clasp.Data.AbstractSyntax;
+using Clasp.Data.Terms;
 
-using Clasp.AST;
-
-namespace Clasp.Parser
+namespace Clasp.Data.ConcreteSyntax
 {
     /// <summary>
-    /// Represents a flattened linked list otherwise built using nested <see cref="ConsCell"/> instances.
+    /// Represents a strongly-typed list that emulates the semantics of a linked list built out of <see cref="ConsCell"/> segments.
     /// </summary>
     internal sealed class FlatList<T> : IEnumerable<T>
-        where T : AstNode
     {
         public readonly T[] Values;
         public readonly T Final;
@@ -21,6 +20,7 @@ namespace Clasp.Parser
         public int LeadingCount => Values.Length;
         public int TotalCount => Values.Length + 1;
         public bool IsDotted => Final is not Nil;
+        public bool IsEmpty => Final is Nil && Values.Length == 0;
 
         public FlatList(params T[] values)
         {

@@ -4,7 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.AST
+using Clasp.Data.Text;
+
+namespace Clasp.Data.Terms
 {
     internal abstract class Literal<T> : Atom
     {
@@ -28,7 +30,7 @@ namespace Clasp.AST
             return _internment[c];
         }
 
-        public static Character Intern(Lexer.Token token)
+        public static Character Intern(Token token)
         {
             if (token.Text.Length == 3)
             {

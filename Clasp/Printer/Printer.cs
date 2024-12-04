@@ -4,13 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Clasp.Data.Text;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Clasp
 {
     internal static class Printer
     {
-        public static string PrintLineErrorHelper(Lexer.Token token) => PrintLineErrorHelper(token.SurroundingLine, token.LineNum, token.LineIdx, token.Text);
+        public static string PrintLineErrorHelper(Token token) => PrintLineErrorHelper(token.SurroundingLine, token.LineNum, token.LineIdx, token.Text);
 
         private const string INDENT = "   ";
 
@@ -40,10 +41,10 @@ namespace Clasp
                 pointer);
         }
 
-        public static string PrintTokens(IEnumerable<Lexer.Token> tokens)
+        public static string PrintTokens(IEnumerable<Token> tokens)
         {
             return string.Join(", ", tokens
-                .Where(x => x.TType != Lexer.TokenType.Whitespace)
+                .Where(x => x.TType != TokenType.Whitespace)
                 .Select(x => string.Concat(
                     "\x1b[30;47m", //italic, black fg, white bg
                     x.Text,
