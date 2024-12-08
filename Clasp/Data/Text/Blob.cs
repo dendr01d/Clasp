@@ -13,10 +13,12 @@ namespace Clasp.Data.Text
     /// </summary>
     public class Blob : IEnumerable<string>
     {
+        public readonly string Source;
         public readonly string[] Lines;
 
-        public Blob(IEnumerable<string> lines)
+        public Blob(string source, IEnumerable<string> lines)
         {
+            Source = source;
             Lines = lines.ToArray();
         }
 

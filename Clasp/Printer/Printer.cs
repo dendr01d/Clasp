@@ -1,36 +1,38 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿using Clasp.Data.Metadata;
 using Clasp.Data.Text;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Clasp
 {
     internal static class Printer
     {
-        public static string PrintLineErrorHelper(Token token) => PrintLineErrorHelper(token.SurroundingLine, token.LineNum, token.LineIdx, token.Text);
+        public static string PrintLineErrorHelper(ISourceTraceable ist)
+        {
+            return PrintLineErrorHelper(ist.SourceText, ist.Location);
+        }
+
+        public static string PrintLineErrorHelper(Blob sourceText, SourceLocation loc)
+        {
+            return PrintLineErrorHelper(sourceText.Lines[loc.NormalizedLineNumber], loc.Column, loc.Length);
+        }
 
         private const string INDENT = "   ";
 
-        public static string PrintLineErrorHelper(string fullLine, int lineNumber, int index, string erroneousText)
+        public static string PrintLineErrorHelper(string fullLine, int column, int length)
         {
             string lineText = fullLine.Trim();
 
-            string pointer = string.Concat(new string(' ', index - (fullLine.Length - lineText.Length)), "^");
+            string pointer = string.Concat(new string(' ', column - (fullLine.Length - lineText.Length)), "^");
 
             lineText = string.Concat(
-                lineText.Substring(0, index),
+                lineText.Substring(0, column),
                 "\x1b[31;47m", //red text, white bg
-                lineText.Substring(index, erroneousText.Length),
+                lineText.Substring(column, length),
                 "\x1b[0m" //reset
             );
 
-            if (index + erroneousText.Length < fullLine.Length)
+            if (column + length < fullLine.Length)
             {
-                lineText = string.Concat(lineText, fullLine.Substring(index + erroneousText.Length));
+                lineText = string.Concat(lineText, fullLine.Substring(column + length));
             }
 
             return string.Concat(
@@ -41,7 +43,7 @@ namespace Clasp
                 pointer);
         }
 
-        public static string PrintTokens(IEnumerable<Token> tokens)
+        public static string PrintRawTokens(IEnumerable<Token> tokens)
         {
             return string.Join(", ", tokens
                 .Where(x => x.TType != TokenType.Whitespace)

@@ -28,9 +28,9 @@ namespace Clasp.Data.AbstractSyntax
     /// <remarks>This object is the lambda invocation itself, NOT the resulting <see cref="CompProc"/> it constructs.</remarks>
     internal sealed class Fun : Generative
     {
-        public readonly FlatList<Var> Parameters;
+        public readonly Var[] Parameters;
         public readonly Sequence Body;
-        public Fun(FlatList<Var> parameters, Sequence body)
+        public Fun(Var[] parameters, Sequence body)
         {
             Parameters = parameters;
             Body = body;

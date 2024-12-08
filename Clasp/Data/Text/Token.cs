@@ -1,34 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Clasp.Data.Text;
+﻿using Clasp.Data.Metadata;
 
 namespace Clasp.Data.Text
 {
-    public class Token
+    public class Token : ISourceTraceable
     {
         public readonly string Text;
         public readonly TokenType TType;
-        public readonly Blob SourceBlob;
-        public readonly int LineIdx;
-        public readonly int LineNum;
+        public Blob SourceText { get; private set; }
+        public SourceLocation Location { get; private set; }
 
-        public string SurroundingLine => SourceBlob[LineNum - 1]; //lines of text are 1-indexed
+        public string SurroundingLine => SourceText[Location.NormalizedLineNumber]; //lines of text are 1-indexed
 
-        protected Token(string s, TokenType t, Blob source, int line, int index)
+        protected Token(string s, TokenType t, Blob text, SourceLocation loc)
         {
             Text = s;
             TType = t;
-            SourceBlob = source;
-            LineIdx = index;
-            LineNum = line;
+            SourceText = text;
+            Location = loc;
         }
 
-        public static Token Tokenize(TokenType tType, string s, Blob source, int line, int index)
+        public static Token Tokenize(TokenType tType, string s, Blob text, SourceLocation loc)
         {
-            return new Token(s, tType, source, line, index);
+            return new Token(s, tType, text, loc);
         }
 
         private static readonly TokenType[] _staticMarkers = new TokenType[]

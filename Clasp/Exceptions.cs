@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using Clasp.Data.AbstractSyntax;
+using Clasp.Data.Metadata;
 using Clasp.Data.Text;
 
 [assembly: InternalsVisibleTo("Tests")]
@@ -51,15 +52,15 @@ namespace Clasp
 
         public class MalformedInput : LexerException, ISourceTraceable
         {
-            public Token SourceTrace { get; }
-
+            public SourceLocation Location { get; }
+            public Blob SourceText { get; }
             internal MalformedInput(Token token) : base(
-                "Malformed input on line {0} beginning at index {1}: {2}",
-                token.LineNum,
-                token.LineIdx,
+                "Malformed input on line {0} beginning at column {1}: {2}",
+                token.Location.LineNumber,
+                token.Location.Column,
                 token.Text)
             {
-                SourceTrace = token;
+                Location = token.Location;
             }
         }
     }
@@ -70,55 +71,63 @@ namespace Clasp
 
         public class UnmatchedParenthesis : ReaderException, ISourceTraceable
         {
-            public Token SourceTrace { get; }
+            public SourceLocation Location { get; }
+            public Blob SourceText { get; }
             internal UnmatchedParenthesis(Token errantParenToken) : base(
-                "The reader found an {0} parenthesis on line {1}, index {2}.",
+                "The reader found an {0} parenthesis on line {1}, column {2}.",
                 errantParenToken.TType == TokenType.ClosingParen ? "un-opened" : "un-closed",
-                errantParenToken.LineNum,
-                errantParenToken.LineIdx)
+                errantParenToken.Location.LineNumber,
+                errantParenToken.Location.Column)
             {
-                SourceTrace = errantParenToken;
+                Location = errantParenToken.Location;
+                SourceText = errantParenToken.SourceText;
             }
         }
 
         public class UnexpectedToken : ReaderException, ISourceTraceable
         {
-            public Token? SourceTrace { get; }
+            public SourceLocation Location { get; }
+            public Blob SourceText { get; }
             internal UnexpectedToken(Token errantToken) : base(
-                "Unexpected token {0} at line {1}, index {2}.",
+                "Unexpected token {0} at line {1}, column {2}.",
                 errantToken,
-                errantToken.LineNum,
-                errantToken.LineIdx)
+                errantToken.Location.LineNumber,
+                errantToken.Location.Column)
             {
-                SourceTrace = errantToken;
+                Location = errantToken.Location;
+                SourceText = errantToken.SourceText;
             }
         }
 
         public class ExpectedToken : ReaderException, ISourceTraceable
         {
-            public Token? SourceTrace { get; }
+            public SourceLocation Location { get; }
+            public Blob SourceText { get; }
             internal ExpectedToken(TokenType expectedType, Token receivedToken, Token prevToken) : base(
-                "Expected {0} token to follow after {1} at line {2}, index {3}.",
+                "Expected {0} token to follow after {1} on line {2}, column {3}.",
                 expectedType,
                 prevToken,
-                prevToken.LineNum,
-                prevToken.LineIdx)
+                prevToken.Location.LineNumber,
+                prevToken.Location.Column)
             {
-                SourceTrace = receivedToken;
+                Location = receivedToken.Location;
+                SourceText = receivedToken.SourceText;
             }
         }
 
         public class UnhandledToken : ReaderException, ISourceTraceable
         {
-            public Token? SourceTrace { get; }
+            public SourceLocation Location { get; }
+            public Blob SourceText { get; }
             internal UnhandledToken(Token errantToken) : base(
-                "Token {0} of type {1} (on line {2}, index {3}) is unhandled by CLASP at this time :)",
+                "Token {0} of type {1} (on line {2}, column {3}) is unhandled by CLASP at this time :)",
                 errantToken,
                 errantToken.TType,
-                errantToken.LineNum,
-                errantToken.LineIdx)
+                errantToken.Location.LineNumber,
+                errantToken.Location.Column)
             {
-                SourceTrace = errantToken;
+                Location = errantToken.Location;
+                SourceText = errantToken.SourceText;
             }
         }
     }

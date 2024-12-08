@@ -109,15 +109,15 @@ namespace Clasp.Process
                 TokenType.OpenListParen => ReadList(tokens, current),
                 TokenType.OpenVecParen => ReadVector(tokens, current),
 
-                TokenType.Quote => new List(Symbol.Quote, ReadSyntax(tokens)),
-                TokenType.Quasiquote => new List(Symbol.Quasiquote, ReadSyntax(tokens)),
-                TokenType.Unquote => new List(Symbol.Unquote, ReadSyntax(tokens)),
-                TokenType.UnquoteSplice => new List(Symbol.UnquoteSplicing, ReadSyntax(tokens)),
+                TokenType.Quote => ConsList.ProperList(Symbol.Quote, ReadSyntax(tokens)),
+                TokenType.Quasiquote => ConsList.ProperList(Symbol.Quasiquote, ReadSyntax(tokens)),
+                TokenType.Unquote => ConsList.ProperList(Symbol.Unquote, ReadSyntax(tokens)),
+                TokenType.UnquoteSplice => ConsList.ProperList(Symbol.UnquoteSplicing, ReadSyntax(tokens)),
 
-                TokenType.Syntax => new List(Symbol.Syntax, ReadSyntax(tokens)),
-                TokenType.QuasiSyntax => new List(Symbol.Quasisyntax, ReadSyntax(tokens)),
-                TokenType.Unsyntax => new List(Symbol.Unsyntax, ReadSyntax(tokens)),
-                TokenType.UnsyntaxSplice => new List(Symbol.UnsyntaxSplicing, ReadSyntax(tokens)),
+                TokenType.Syntax => ConsList.ProperList(Symbol.Syntax, ReadSyntax(tokens)),
+                TokenType.QuasiSyntax => ConsList.ProperList(Symbol.Quasisyntax, ReadSyntax(tokens)),
+                TokenType.Unsyntax => ConsList.ProperList(Symbol.Unsyntax, ReadSyntax(tokens)),
+                TokenType.UnsyntaxSplice => ConsList.ProperList(Symbol.UnsyntaxSplicing, ReadSyntax(tokens)),
 
                 TokenType.Symbol => Symbol.Intern(current.Text),
                 TokenType.Character => Character.Intern(current),
@@ -152,13 +152,13 @@ namespace Clasp.Process
             }
             else if (elements.Item2) // improper list
             {
-                Pair pr = new Pair(elements.Item1[0], elements.Item1[1], elements.Item1[2..]);
-                return Syntax.Wrap(pr, source);
+                ConsList cl = ConsList.ConstructDirect(elements.Item1);
+                return Syntax.Wrap(cl, source);
             }
             else
             {
-                List ls = new List(elements.Item1[0], elements.Item1[1..]);
-                return Syntax.Wrap(ls, source);
+                Term cl = ConsList.ProperList(elements.Item1);
+                return Syntax.Wrap(cl, source);
             }
         }
 
@@ -170,10 +170,10 @@ namespace Clasp.Process
             if (elements.Item2)
             {
                 throw new ReaderException(
-                    "Unexpected {0} token in vector starting on line {2}, index {3}.",
+                    "Unexpected {0} token in vector beginning on line {2}, column {3}.",
                     TokenType.DotOperator,
-                    vecBegin.LineNum,
-                    vecBegin.LineIdx);
+                    vecBegin.Location.LineNumber,
+                    vecBegin.Location.Column);
             }
             else
             {

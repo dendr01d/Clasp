@@ -1,4 +1,6 @@
 ﻿using System.Text.RegularExpressions;
+
+using Clasp.Data.Metadata;
 using Clasp.Data.Text;
 
 namespace Clasp.Process
@@ -51,21 +53,21 @@ namespace Clasp.Process
         private static readonly string _grammar = $"(?>{string.Join('|', _regexes)})";
 
         /// <summary>
-        /// Split input text into a sequence of tokens using the Lexer's grammar rules. The text is
-        /// first split into lines to accurately track the position of each token.
-        /// </summary>
-        public static IEnumerable<Token> Lex(string text)
-        {
-            return LexLines(text.Split(Environment.NewLine));
-        }
-
-        /// <summary>
         /// Read the text of the specified file line-by-line, and parse it into a sequence of tokens.
         /// </summary>
         public static IEnumerable<Token> LexFile(string path)
         {
             IEnumerable<string> sourceLines = File.ReadAllLines(path);
-            return LexLines(sourceLines);
+            return LexLines(path, sourceLines);
+        }
+
+        /// <summary>
+        /// Split input text into a sequence of tokens using the Lexer's grammar rules. The text is
+        /// first split into lines to accurately track the position of each token.
+        /// </summary>
+        public static IEnumerable<Token> Lex(string sourceName, string text)
+        {
+            return LexLines(sourceName, text.Split(Environment.NewLine));
         }
 
         /// <summary>
@@ -73,18 +75,19 @@ namespace Clasp.Process
         /// The line divisions are used to record the relative position of each token.
         /// </summary>
         /// <exception cref="LexerException"></exception>
-        public static IEnumerable<Token> LexLines(IEnumerable<string> inputLines)
+        public static IEnumerable<Token> LexLines(string sourceName, IEnumerable<string> inputLines)
         {
             if (!inputLines.Any())
             {
                 return Array.Empty<Token>();
             }
 
-            Blob source = new Blob(inputLines);
+            Blob sourceText = new Blob(sourceName, inputLines);
             List<Token> output = new List<Token>();
             List<LexerException> malformedInputs = new List<LexerException>();
 
-            int lineNo = 1; //line numbers in text files are usually 1-indexed?
+            int lineNo = 1; //line numbers in source text are 1-indexed
+            int charNo = 1; //ditto with character index
 
             foreach (string line in inputLines)
             {
@@ -94,12 +97,11 @@ namespace Clasp.Process
 
                     foreach (Match match in lineMatches)
                     {
-                        Token newToken = Token.Tokenize(
-                            ExtractMatchedTokenType(match),
-                            match.Value,
-                            source,
-                            lineNo,
-                            match.Index);
+                        SourceLocation locale = new SourceLocation(sourceName, lineNo, match.Index, charNo + match.Index, match.Length);
+
+                        TokenType tokType = ExtractMatchedTokenType(match);
+
+                        Token newToken = Token.Tokenize(tokType, match.Value, sourceText, locale);
 
                         if (newToken.TType == TokenType.Comment || newToken.TType == TokenType.Whitespace)
                         {
@@ -116,6 +118,7 @@ namespace Clasp.Process
                     }
                 }
 
+                charNo += line.Length;
                 ++lineNo;
             }
 

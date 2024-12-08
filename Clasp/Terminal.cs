@@ -122,8 +122,8 @@ namespace Clasp
 
                                 writer.WriteLine(" INPUT: {0}", input);
 
-                                IEnumerable<Token> tokens = Lexer.Lex(input);
-                                writer.WriteLine("TOKENS: {0}", Printer.PrintTokens(tokens));
+                                IEnumerable<Token> tokens = Lexer.Lex("REPL", input);
+                                writer.WriteLine("TOKENS: {0}", Printer.PrintRawTokens(tokens));
 
                                 Syntax readSyntax = Reader.Read(tokens);
                                 writer.WriteLine("  READ: {0}", readSyntax.ToString());
@@ -203,10 +203,10 @@ namespace Clasp
                 _ => "Unknown error: "
             });
 
-            if (ex is ISourceTraceable ist && ist.SourceTrace is not null)
+            if (ex is ISourceTraceable ist)
             {
                 Console.WriteLine(ex.Message);
-                Console.WriteLine(Printer.PrintLineErrorHelper(ist.SourceTrace));
+                Console.WriteLine(Printer.PrintLineErrorHelper(ist));
             }
             else
             {
