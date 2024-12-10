@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
+
+using Clasp.Data.AbstractSyntax;
+using Clasp.Data.Terms;
 
 namespace Clasp.Binding
 {
@@ -15,65 +19,81 @@ namespace Clasp.Binding
             _bindingLookup = new Dictionary<string, ScopeMap>();
         }
 
-        public void BindName(string newName, ScopeSet newSet, string boundName)
+        public void BindName(string symbolicName, ScopeSet newSet, string bindingName)
         {
-            if (_bindingLookup.TryGetValue(newName, out ScopeMap? map))
+            if (_bindingLookup.TryGetValue(symbolicName, out ScopeMap? map))
             {
-                map.AddMapping(newSet, boundName);
+                map.AddMapping(newSet, bindingName);
             }
             else
             {
-                _bindingLookup[newName] = new ScopeMap();
-                _bindingLookup[newName].AddMapping(newSet, boundName);
+                _bindingLookup[symbolicName] = new ScopeMap();
+                _bindingLookup[symbolicName].AddMapping(newSet, bindingName);
             }
         }
 
-        public string ResolveName(string name, ScopeSet context)
+        public bool NameIsBound(string symbolicName, ScopeSet setOfScopes)
         {
-            if (_bindingLookup.TryGetValue(name, out ScopeMap? map))
+            if (_bindingLookup.TryGetValue(symbolicName, out ScopeMap? map))
             {
-                Tuple<int, KeyValuePair<ScopeSet, string>[]> matches = map.LookupLargestSubset(context);
+                return map.LookupLargestSubset(setOfScopes).Length > 0;
+            }
 
-                if (matches.Item1 == 0)
+            return false;
+        }
+
+        public string ResolveBindingName(string symbolicName, ScopeSet setOfScopes)
+        {
+            if (_bindingLookup.TryGetValue(symbolicName, out ScopeMap? map))
+            {
+                KeyValuePair<ScopeSet, string>[] matches = map.LookupLargestSubset(setOfScopes);
+
+                if (matches.Length == 0)
                 {
-                    // i.e. the name was bound, but not TO anything?
-                    throw new IdResolutionException(
-                        "Name '{0}' with {1} {2} matched zero contexts in {3}.",
-                        name,
-                        nameof(ScopeSet),
-                        context.ToString(),
-                        nameof(BindingStore)
-                        );
+                    // i.e. no scope sets matched
+                    throw new ExpanderException.BindingResolution(symbolicName, setOfScopes);
                 }
-                else if (matches.Item2.Length > 1)
+                else if (matches.Length > 1)
                 {
-                    string formattedMatches = string.Join(System.Environment.NewLine,
-                        matches.Item2.Select(x => string.Format("   {0}", x.Key.ToString())));
-
-                    throw new IdResolutionException(
-                        "Name '{0}' with {1} {2} ambiguously matches multiple contexts in {3}.{4}{5}",
-                        name,
-                        nameof(ScopeSet),
-                        context.ToString(),
-                        nameof(BindingStore),
-                        System.Environment.NewLine,
-                        formattedMatches
-                        );
+                    // multiple scope sets ambiguously matched
+                    throw new ExpanderException.BindingResolution(symbolicName, setOfScopes, matches);
                 }
                 else
                 {
-                    return matches.Item2[0].Value;
+                    return matches[0].Value;
                 }
             }
-            else
-            {
-                //throw new IdResolutionException(
-                //    "Couldn't resolve name '{0}' in {2}.",
-                //    name,
-                //    nameof(BindingStore));
-                return name;
-            }
+
+            return symbolicName;
         }
+
+        //public string ResolveName(Identifier id, int phaseLevel)
+        //{
+        //    if (id.Context.TryGetValue(phaseLevel, out ScopeSet? ss))
+        //    {
+        //        return ResolveName(id.Name, ss);
+        //    }
+        //    throw new ClaspException.Uncategorized("Identifier '{0}' is unbound at given phase level {1}.", id, phaseLevel);
+        //}
+
+        //public string ResolveName(string name, ScopeSet context)
+        //{
+        //}
+
+        //public AstNode? ResolveBinding(Identifier id, int phaseLevel, Binding.Environment env)
+        //{
+        //    if (id.Context.TryGetValue(phaseLevel, out ScopeSet? ss))
+        //    {
+        //        string resolvedName = ResolveName(id.WrappedValue.Name, ss);
+
+        //        if (env.TryGetValue(resolvedName, out AstNode? output))
+        //        {
+        //            return output;
+        //        }
+        //    }
+
+        //    return null;
+        //}
 
     }
 }

@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Clasp.Interfaces;
+
 namespace Clasp.Data.Terms
 {
-    internal sealed class Symbol : Atom
+    internal sealed class Symbol : Atom, IBindable
     {
-        public readonly string Name;
+        public string Name { get; private init; }
         private Symbol(string name) => Name = name;
 
         private static readonly Dictionary<string, Symbol> _internment = new Dictionary<string, Symbol>();

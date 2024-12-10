@@ -29,25 +29,29 @@ namespace Clasp.Binding
         /// Find the mapped scopes containing the maximal number of elements of <paramref name="set"/>.
         /// </summary>
         /// <returns>The subset size, and the matched mappings, if any.</returns>
-        public Tuple<int, KeyValuePair<ScopeSet, string>[]> LookupLargestSubset(ScopeSet set)
+        public KeyValuePair<ScopeSet, string>[] LookupLargestSubset(ScopeSet set)
         {
-            //this is slow, but binding resolution should only happen infrequently
+            if (set.ScopeSize == 0)
+            {
+                return Array.Empty<KeyValuePair<ScopeSet, string>>();
+            }
 
+            //this is slow, but binding resolution should only happen infrequently
             var subsetRankings = _map
-                .Select(x => new Tuple<int, KeyValuePair<ScopeSet, string>>(x.Key.SubsetSize(set), x))
-                .OrderByDescending(x => x.Item1);
+                .Select(x => new Tuple<int, KeyValuePair<ScopeSet, string>>(x.Key.SubsetSize(set), x));
 
             if (!subsetRankings.Any())
             {
-                return new Tuple<int, KeyValuePair<ScopeSet, string>[]>(0, Array.Empty<KeyValuePair<ScopeSet, string>>());
+                return Array.Empty<KeyValuePair<ScopeSet, string>>();
             }
             else
             {
-                int maxRank = subsetRankings.First().Item1;
+                int maxRank = subsetRankings.Max(x => x.Item1);
 
-                var maxRankedMappings = subsetRankings.TakeWhile(x => x.Item1 == maxRank);
-
-                return new Tuple<int, KeyValuePair<ScopeSet, string>[]>(maxRank, maxRankedMappings.Select(x => x.Item2).ToArray());
+                return subsetRankings
+                    .Where(x => x.Item1 == maxRank)
+                    .Select(x => x.Item2)
+                    .ToArray();
             }
         }
     }

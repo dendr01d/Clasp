@@ -1,112 +1,154 @@
 ﻿using System;
+using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+
+using Clasp.Data.AbstractSyntax;
+using Clasp.Data.Terms;
 using Clasp.ExtensionMethods;
+using Clasp.Interfaces;
 
 namespace Clasp.Binding
 {
-    internal class Environment
+    internal class Environment : IDictionary<string, AstNode>
     {
-        public readonly string Name;
+        private readonly Dictionary<string, AstNode> _bindings;
+        private readonly Environment? _next;
 
-        //private readonly Dictionary<string, Expression> _bindings;
-        //private readonly Environment? _next;
+        public ScopeSet CurrentScope { get; private init; }
+        public int Depth { get; private init; }
+        public bool IsTopLevel => _next is null;
 
-        //public Environment()
-        //{
-        //    _bindings = new Dictionary<string, Expression>();
-        //    _next = null;
-        //}
+        public Environment()
+        {
+            _bindings = new Dictionary<string, AstNode>();
+            _next = null;
+            CurrentScope = new ScopeSet();
+            Depth = 0;
+        }
 
-        //public Environment(Environment ancestor) : this()
-        //{
-        //    _next = ancestor;
-        //}
+        public Environment(Environment ancestor) : this()
+        {
+            _next = ancestor;
+            CurrentScope = ancestor.CurrentScope.Extend(this);
+            Depth = ancestor.Depth + 1;
+        }
 
-        //#region Dictionary Access
+        public Environment(IEnumerable<KeyValuePair<string, AstNode>> extandBindings) : this()
+        {
+            _bindings = new Dictionary<string, AstNode>(extandBindings);
+        }
 
-        //public Expression LookUp(Symbol sym)
-        //{
-        //    if (_bindings.TryGetValue(sym.Name, out Expression? result))
-        //    {
-        //        return result;
-        //    }
-        //    else if (_next is null)
-        //    {
-        //        throw new MissingBindingException(sym);
-        //    }
-        //    else
-        //    {
-        //        return _next.LookUp(sym);
-        //    }
-        //}
+        #region Utilities
 
-        //public void Bind(Symbol sym, Expression def)
-        //{
-        //    _bindings[sym.Name] = def;
-        //}
+        private AstNode LookUp(string name)
+        {
+            if (_bindings.TryGetValue(name, out AstNode? result))
+            {
+                return result;
+            }
+            else if (_next is null)
+            {
+                throw new MissingBindingException(name);
+            }
+            else
+            {
+                return _next.LookUp(name);
+            }
+        }
 
-        //public void BindArgs(Expression parameters, List<Expression> values)
-        //{
-        //    int index = 0;
-        //    while (!parameters.IsAtom)
-        //    {
-        //        Bind(parameters.Car.Expect<Symbol>(), values[index++]);
-        //        parameters = parameters.Cdr;
-        //    }
+        private IEnumerable<Environment> EnumerateScope()
+        {
+            Environment? current = this;
+            while (current is not null)
+            {
+                yield return current;
+                current = current._next;
+            }
+            yield break;
+        }
 
-        //    if (parameters is Symbol sym)
-        //    {
-        //        Bind(sym, Pair.List(values.Skip(index).ToArray()));
-        //    }
-        //}
+        private IEnumerable<KeyValuePair<string, AstNode>> EnumerateAccessibleBindings()
+        {
+            return EnumerateScope()
+                .SelectMany(x => x._bindings)
+                .DistinctBy(x => x.Key);
+        }
 
-        //private bool FindContext(Symbol sym, out Environment? context)
-        //{
-        //    if (_bindings.ContainsKey(sym.Name))
-        //    {
-        //        context = this;
-        //        return true;
-        //    }
-        //    else if (_next is null)
-        //    {
-        //        context = null;
-        //        return false;
-        //    }
-        //    else
-        //    {
-        //        return _next.FindContext(sym, out context);
-        //    }
-        //}
+        public bool Binds(IBindable key) => ContainsKey(key.Name);
 
-        //public bool Binds(Symbol sym) => FindContext(sym, out _);
+        public bool BindsLocally(IBindable key) => _bindings.ContainsKey(key.Name);
 
-        //public bool BindsLocally(Symbol sym) => _bindings.ContainsKey(sym.Name);
+        public bool BindsAtTopLevel(IBindable key) => (_next is null && Binds(key)) || (_next is not null && _next.BindsAtTopLevel(key));
 
-        //public int CountBindings() => _bindings.Count + (_next?.CountBindings() ?? 0);
+        public Environment ExtractCompileTimeEnv()
+        {
+            Environment output = new Environment(EnumerateAccessibleBindings()
+                .Where(x => x.Value is Variable || x.Value is Fixed));
 
-        //#endregion
+            output.Add(Symbol.Lambda.Name, Symbol.Lambda);
+            output.Add(Symbol.Define.Name, Symbol.Define);
+            output.Add(Symbol.DefineSyntax.Name, Symbol.DefineSyntax);
+            output.Add(Symbol.Quote.Name, Symbol.Quote);
+            output.Add(Symbol.Syntax.Name, Symbol.Syntax);
 
-        //#region Supplementary functions for Syntactic Manipulation
+            return output;
+        }
 
-        ///// <summary>
-        ///// Absorb all of the local bindings in <paramref name="subEnv"/> into this environment. It's an error
-        ///// to subsume a binding that shadows one at this level.
-        ///// </summary>
-        ///// <param name="subEnv"></param>
-        ////public void Subsume(Environment subEnv)
-        ////{
-        ////    foreach(var binding in subEnv._bindings)
-        ////    {
-        ////        _bindings.Add(binding.Key, binding.Value);
-        ////    }
-        ////}
+        #endregion
 
-        ////public virtual void SubsumeRecurrent(ExpansionFrame subEnv) { }
+        #region IDictionary Implementation
 
-        ////public virtual bool MoreRecurrent() => false;
+        public AstNode this[string key]
+        {
+            get => LookUp(key);
+            set => _bindings[key] = value;
+        }
 
-        ////public virtual ExpansionFrame SplitRecurrent() => new ExpansionFrame(this);
+        public ICollection<string> Keys => EnumerateAccessibleBindings().Select(x => x.Key).ToList();
+        public ICollection<AstNode> Values => EnumerateAccessibleBindings().Select(x => x.Value).ToList();
 
-        //#endregion
+        public int Count => EnumerateAccessibleBindings().Count();
+
+        public bool IsReadOnly => false;
+
+        public void Add(string key, AstNode value) => _bindings.Add(key, value);
+        public void Add(KeyValuePair<string, AstNode> item) => _bindings.Add(item.Key, item.Value);
+
+        public void Clear() => _bindings.Clear();
+
+        public bool Contains(KeyValuePair<string, AstNode> item) => TryGetValue(item.Key, out AstNode? value) ? item.Value == value : false;
+
+        public bool ContainsKey(string key) => _bindings.ContainsKey(key) || (_next is not null && _next.ContainsKey(key));
+
+        public void CopyTo(KeyValuePair<string, AstNode>[] array, int arrayIndex)
+        {
+            foreach(var kvp in EnumerateAccessibleBindings())
+            {
+                array[arrayIndex] = kvp;
+                ++arrayIndex;
+            }
+        }
+
+        public bool Remove(string key) => _bindings.Remove(key);
+        public bool Remove(KeyValuePair<string, AstNode> item)
+        {
+            if (_bindings.TryGetValue(item.Key, out AstNode? value) && value == item.Value)
+            {
+                _bindings.Remove(item.Key);
+                return true;
+            }
+            return false;
+        }
+
+        public bool TryGetValue(string key, [MaybeNullWhen(false)] out AstNode value)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerator<KeyValuePair<string, AstNode>> GetEnumerator() => EnumerateAccessibleBindings().GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => EnumerateAccessibleBindings().GetEnumerator();
+
+        #endregion
     }
 }

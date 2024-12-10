@@ -19,22 +19,43 @@ namespace Clasp.Data.Terms
 
     internal sealed class CompProc : Proc
     {
-        public readonly Var[] Formals;
+        public readonly Variable[] Formals;
         public readonly BindFixed[] Informals;
         public readonly Binding.Environment Closure;
         public readonly Sequence Body;
 
-        public CompProc(Var[] formals, BindFixed[] informals, Binding.Environment enclosing, Sequence body)
+        public CompProc(Variable[] formals, BindFixed[] informals, Binding.Environment enclosing, Sequence body)
         {
             Formals = formals;
             Informals = informals;
-            //Closure = enclosing.Close();
+            Closure = new Binding.Environment(enclosing);
             Body = body;
         }
 
         public override string ToString()
         {
             return string.Format("#<lambda({0})>", string.Join(", ", Formals.ToArray<object>()));
+        }
+    }
+
+    internal sealed class Transformer : Proc
+    {
+        public readonly Variable Formal;
+        public readonly BindFixed[] Informals;
+        public readonly Binding.Environment Closure;
+        public readonly Sequence Body;
+
+        public Transformer(Variable formal, BindFixed[] informals, Binding.Environment enclosing, Sequence body)
+        {
+            Formal = formal;
+            Informals = informals;
+            Closure = new Binding.Environment(enclosing);
+            Body = body;
+        }
+
+        public override string ToString()
+        {
+            return string.Format("#<macro({0})>", Formal);
         }
     }
 }

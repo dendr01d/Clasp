@@ -1,6 +1,9 @@
 ﻿using System.Runtime.CompilerServices;
+
+using Clasp.Binding;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
+using Clasp.Data.Terms;
 using Clasp.Data.Text;
 
 [assembly: InternalsVisibleTo("Tests")]
@@ -46,7 +49,7 @@ namespace Clasp
         }
     }
 
-    public class LexerException : ClaspException
+    public abstract class LexerException : ClaspException
     {
         internal LexerException(string format, params object[] args) : base(format, args) { }
 
@@ -65,7 +68,7 @@ namespace Clasp
         }
     }
 
-    public class ReaderException : ClaspException
+    public abstract class ReaderException : ClaspException
     {
         internal ReaderException(string format, params object?[] args) : base(format, args) { }
 
@@ -132,33 +135,51 @@ namespace Clasp
         }
     }
 
-    public class IdResolutionException : ClaspException
+    public abstract class ExpanderException : ClaspException
     {
-        public IdResolutionException(string format, params object[] args) : base(format, args) { }
+        protected ExpanderException(string format, params object?[] args) : base(format, args) { }
+
+        public class UnknownForm : ExpanderException
+        {
+            internal UnknownForm(SyntaxProduct unknownForm) : base(
+                "The op term of the syntax pair doesn't correspond to a core form or any known syntax transformers: {0}",
+                unknownForm)
+            { }
+
+            internal UnknownForm(Syntax unknownForm, string expandingWhat) : base(
+                "The given syntax is invalid for expanding {0}: {1}",
+                expandingWhat,
+                unknownForm)
+            { }
+        }
+
+        public class BindingResolution : ExpanderException
+        {
+            internal BindingResolution(Identifier id, string? additionalMsg) : base(
+                "Unable to resolve compile-time binding of identifier{0}: {1}",
+                additionalMsg is null ? string.Empty : string.Format(" ({0})", additionalMsg),
+                id)
+            { }
+
+            internal BindingResolution(string symbolicName, ScopeSet ss) : base(
+                "Unable to resolve binding of name '{0}' with scope: {1}",
+                symbolicName,
+                ss)
+            { }
+
+            internal BindingResolution(string symbolicName, ScopeSet ss, params KeyValuePair<ScopeSet, string>[] matches) : base(
+                "Binding of name '{0}' and scope {1} ambiguously matches several bound names:{2}{3}",
+                symbolicName,
+                ss,
+                System.Environment.NewLine,
+                string.Join(System.Environment.NewLine, matches.Select(x => string.Format("   {0} @ {1}", x.Key, x.Value))))
+            { }
+        }
     }
 
-    public class ParserException : ClaspException
+    public abstract class ParserException : ClaspException
     {
         internal ParserException(string format, params object?[] args) : base(format, args) { }
-
-        //public class ExpectedNestedSyntax : ParserException
-        //{
-        //    internal ExpectedNestedSyntax(AST.AstNode error, bool car, AST.Syntax context) : base(
-        //        "Expected {0} of {1} in {2} to be syntax, but found {3}",
-        //        car ? "car" : "cdr",
-        //        nameof(AST.ConsCell),
-        //        context,
-        //        error)
-        //    { }
-
-        //    internal ExpectedNestedSyntax(AST.AstNode error, int index, AST.Syntax context) : base(
-        //        "Expected {0} element at index {1} in {2} to be syntax, but found {3}",
-        //        nameof(AST.Vector),
-        //        index,
-        //        context,
-        //        error)
-        //    { }
-        //}
 
         public class UnknownSyntax : ParserException
         {
@@ -198,20 +219,6 @@ namespace Clasp
                 given)
             { }
         }
-
-        //public class ErroneousSyntax : ParserException
-        //{
-        //    internal ErroneousSyntax(Syntax[] trace, string format, object?[] args) : base(
-        //        "{0}{2}",
-        //        string.Format(format, args),
-        //        trace.Select(x => string.Format(
-        //            "{0}\t-> ({1}, {2}) : {3}",
-        //            System.Environment.NewLine,
-        //            x.,
-        //            x.SourceIndex,
-        //            x.ToString())))
-        //    { }
-        //}
     }
 
     //internal class ExpectedTypeException<T> : ClaspException
@@ -266,12 +273,12 @@ namespace Clasp
     //    { }
     //}
 
-    //public class MissingBindingException : Exception
-    //{
-    //    internal MissingBindingException(Symbol sym) :
-    //        base($"Attempted to access non-existent binding of Symbol '{sym}'.")
-    //    { }
-    //}
+    public class MissingBindingException : ClaspException
+    {
+        internal MissingBindingException(string name) :
+            base($"Attempted to access non-existent binding of name '{name}'.")
+        { }
+    }
 
     //public class UninitializedRegisterException : Exception
     //{

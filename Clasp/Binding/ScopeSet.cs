@@ -13,6 +13,8 @@ namespace Clasp.Binding
     {
         private readonly HashSet<Environment> _scope;
 
+        public int ScopeSize => _scope.Count;
+
         /// <summary>
         /// Construct a fresh context that's nested inside zero environments.
         /// </summary>
@@ -50,7 +52,7 @@ namespace Clasp.Binding
 
         public override string ToString()
         {
-            return string.Format("{{{0}}}", string.Join(", ", _scope.Select(x => x.Name)));
+            return string.Format("{{{0}}}", string.Join(", ", _scope.Select(x => string.Format("({0})", x.Count()))));
         }
     }
 }

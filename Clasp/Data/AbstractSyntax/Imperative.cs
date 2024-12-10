@@ -18,9 +18,9 @@ namespace Clasp.Data.AbstractSyntax
     /// </summary>
     internal sealed class BindFixed : Imperative
     {
-        public readonly Var Key;
+        public readonly Variable Key;
         public readonly Generative Value;
-        public BindFixed(Var key, Generative value)
+        public BindFixed(Variable key, Generative value)
         {
             Key = key;
             Value = value;
@@ -34,9 +34,9 @@ namespace Clasp.Data.AbstractSyntax
     /// </summary>
     internal sealed class BindSyntax : Imperative
     {
-        public readonly Var Key;
+        public readonly Variable Key;
         public readonly Generative Transformer;
-        public BindSyntax(Var key, Generative transformer)
+        public BindSyntax(Variable key, Generative transformer)
         {
             Key = key;
             Transformer = transformer;
@@ -50,9 +50,9 @@ namespace Clasp.Data.AbstractSyntax
     /// </summary>
     internal sealed class SetFixed : Imperative
     {
-        public readonly Var Key;
+        public readonly Variable Key;
         public readonly Generative Value;
-        public SetFixed(Var key, Generative value)
+        public SetFixed(Variable key, Generative value)
         {
             Key = key;
             Value = value;

@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Clasp.Data.ConcreteSyntax;
+using Clasp.Data.Terms;
+using Clasp.Interfaces;
 
 namespace Clasp.Data.AbstractSyntax
 {
@@ -15,10 +17,10 @@ namespace Clasp.Data.AbstractSyntax
     /// <summary>
     /// Represents a Name (string) bound to a value in the environment. Evaluation results in dereferencing said value.
     /// </summary>
-    internal sealed class Var : Generative
+    internal sealed class Variable : Generative, IBindable
     {
-        public readonly string Name;
-        public Var(string name) => Name = name;
+        public string Name { get; private init; }
+        public Variable(string name) => Name = name;
         public override string ToString() => string.Format("VAR({0})", Name);
     }
 
@@ -28,9 +30,9 @@ namespace Clasp.Data.AbstractSyntax
     /// <remarks>This object is the lambda invocation itself, NOT the resulting <see cref="CompProc"/> it constructs.</remarks>
     internal sealed class Fun : Generative
     {
-        public readonly Var[] Parameters;
+        public readonly Variable[] Parameters;
         public readonly Sequence Body;
-        public Fun(Var[] parameters, Sequence body)
+        public Fun(Variable[] parameters, Sequence body)
         {
             Parameters = parameters;
             Body = body;
@@ -43,10 +45,12 @@ namespace Clasp.Data.AbstractSyntax
     /// <summary>
     /// Represents a literal object that evaluates to itself.
     /// </summary>
-    internal sealed class Fixed : Generative
+    internal class Fixed : Generative
     {
-        public readonly Terms.Term Value;
-        public Fixed(Terms.Term value) => Value = value;
+        public readonly Term Value;
+        public Fixed(Term value) => Value = value;
         public override string ToString() => string.Format("LIT({0})", Value);
+
+        public static implicit operator Term(Fixed f) => f.Value;
     }
 }
