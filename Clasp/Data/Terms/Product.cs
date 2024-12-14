@@ -69,21 +69,36 @@ namespace Clasp.Data.Terms
         }
 
         #region Enumeration
-        private static IEnumerable<Term> Enumerate(ConsList cl)
+
+        private static IEnumerable<ConsList> EnumerateLinks(ConsList cl)
         {
             Term target = cl;
 
             while (target is ConsList current)
             {
-                yield return current.Car;
+                yield return current;
                 target = current.Cdr;
             }
 
-            yield return target;
+            yield break;
         }
 
-        public IEnumerator<Term> GetEnumerator() => Enumerate(this).GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => Enumerate(this).GetEnumerator();
+        private static IEnumerable<Term> EnumerateValues(ConsList cl)
+        {
+            Term last = cl;
+
+            foreach(ConsList cell in EnumerateLinks(cl))
+            {
+                yield return cell.Car;
+                last = cell.Cdr;
+            }
+
+            yield return last;
+        }
+
+        public IEnumerator<Term> GetEnumerator() => EnumerateValues(this).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => EnumerateValues(this).GetEnumerator();
+
         #endregion
 
         #region Printing
@@ -169,7 +184,7 @@ namespace Clasp.Data.Terms
     //    IEnumerator IEnumerable.GetEnumerator() => Enumerate().GetEnumerator();
     //}
 
-    internal sealed class Vector : Product, IEnumerable<Term>
+    internal sealed class Vector : Product, IList<Term>
     {
         public readonly Term[] Values;
         public Vector(params Term[] values) => Values = values;

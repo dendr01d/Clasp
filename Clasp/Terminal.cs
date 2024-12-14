@@ -4,6 +4,9 @@ using Clasp.Data.AbstractSyntax;
 using Clasp.Process;
 using Clasp.Data.Terms;
 using Clasp.Data.Text;
+using System.IO;
+using System;
+using System.Collections.Generic;
 
 namespace Clasp
 {

@@ -1,45 +1,64 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
+using System.Collections.Immutable;
 
 namespace Clasp.Binding
 {
     /// <summary>
-    /// Represents a logical scoping of environments
+    /// Represents a logical scoping of uints
     /// </summary>
     internal class ScopeSet
     {
-        private readonly HashSet<Environment> _scope;
+        private readonly HashSet<uint> _scopes;
 
-        public int ScopeSize => _scope.Count;
+        public int ScopeSize => _scopes.Count;
 
         /// <summary>
-        /// Construct a fresh context that's nested inside zero environments.
+        /// Construct a fresh context that's nested inside zero uints.
         /// </summary>
         public ScopeSet()
         {
-            _scope = new HashSet<Environment>();
+            _scopes = new HashSet<uint>();
         }
 
         /// <summary>
-        /// Constructs a context nexted inside the same environments as the provided existing context.
+        /// Construct a fresh context with identical lexical scoping to the provided one.
         /// </summary>
         /// <param name="existing"></param>
         public ScopeSet(ScopeSet existing)
         {
-            _scope = new HashSet<Environment>(existing._scope);
+            _scopes = new HashSet<uint>(existing._scopes);
         }
 
         /// <summary>
-        /// Creates a new Context extended to be nested within the scope of the provided environment.
+        /// Create a fresh context with identical lexical scoping to this one, with the addition of the provided tokens
         /// </summary>
-        public ScopeSet Extend(Environment newScope)
+        public ScopeSet Extend(params uint[] tokens)
         {
             ScopeSet output = new ScopeSet(this);
-            output._scope.Add(newScope);
+            output.Add(tokens);
             return output;
+        }
+
+        /// <summary>
+        /// Expand the scope set by adding the given token to the set.
+        /// </summary>
+        public void Add(params uint[] tokens)
+        {
+            foreach (uint scope in tokens)
+            {
+                _scopes.Add(scope);
+            }
+        }
+
+        /// <summary>
+        /// For each provided token, add it to the scope set if the set doesn't already contain it. Else remove it.
+        /// </summary>
+        public void Flip(params uint[] tokens)
+        {
+            _scopes.SymmetricExceptWith(tokens);
         }
 
         /// <summary>
@@ -47,12 +66,12 @@ namespace Clasp.Binding
         /// </summary>
         public int SubsetSize(ScopeSet superSet)
         {
-            return _scope.Intersect(superSet._scope).Count();
+            return _scopes.Intersect(superSet._scopes).Count();
         }
 
         public override string ToString()
         {
-            return string.Format("{{{0}}}", string.Join(", ", _scope.Select(x => string.Format("({0})", x.Count()))));
+            return string.Format("{{{0}}}", string.Join(", ", _scopes));
         }
     }
 }

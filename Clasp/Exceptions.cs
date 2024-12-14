@@ -1,4 +1,7 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
 
 using Clasp.Binding;
 using Clasp.Data.AbstractSyntax;
@@ -56,7 +59,6 @@ namespace Clasp
         public class MalformedInput : LexerException, ISourceTraceable
         {
             public SourceLocation Location { get; }
-            public Blob SourceText { get; }
             internal MalformedInput(Token token) : base(
                 "Malformed input on line {0} beginning at column {1}: {2}",
                 token.Location.LineNumber,
@@ -141,7 +143,7 @@ namespace Clasp
 
         public class UnknownForm : ExpanderException
         {
-            internal UnknownForm(SyntaxProduct unknownForm) : base(
+            internal UnknownForm(SyntaxList unknownForm) : base(
                 "The op term of the syntax pair doesn't correspond to a core form or any known syntax transformers: {0}",
                 unknownForm)
             { }

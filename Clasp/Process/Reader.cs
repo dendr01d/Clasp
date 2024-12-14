@@ -1,6 +1,9 @@
 ﻿using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Text;
 using Clasp.Data.Terms;
+using System.Collections.Generic;
+using System.Linq;
+using System;
 
 namespace Clasp.Process
 {
@@ -21,7 +24,7 @@ namespace Clasp.Process
             }
             else
             {
-                throw new ReaderException("Token stream is empty and cannot be read.");
+                throw new ReaderException.Uncategorized("Token stream is empty and cannot be read.");
             }
 
         }
@@ -39,7 +42,7 @@ namespace Clasp.Process
 
                 if (extraParen is null)
                 {
-                    throw new ReaderException(string.Format(
+                    throw new ReaderException.Uncategorized(string.Format(
                         "The reader counted an extra {0} parenthesis, but was unable to determine where it is.",
                         extraCloseParens ? "closing" : "opening"));
                 }
@@ -169,7 +172,7 @@ namespace Clasp.Process
 
             if (elements.Item2)
             {
-                throw new ReaderException(
+                throw new ReaderException.Uncategorized(
                     "Unexpected {0} token in vector beginning on line {2}, column {3}.",
                     TokenType.DotOperator,
                     vecBegin.Location.LineNumber,

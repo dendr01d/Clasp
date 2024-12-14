@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -8,42 +9,40 @@ using Clasp.Data.Terms;
 using Clasp.ExtensionMethods;
 using Clasp.Interfaces;
 
+using System.Collections.Immutable;
+
 namespace Clasp.Binding
 {
-    internal class Environment : IDictionary<string, AstNode>
+    internal class Environment : IDictionary<string, Term>
     {
-        private readonly Dictionary<string, AstNode> _bindings;
+        private readonly Dictionary<string, Term> _bindings;
         private readonly Environment? _next;
-
-        public ScopeSet CurrentScope { get; private init; }
         public int Depth { get; private init; }
         public bool IsTopLevel => _next is null;
 
         public Environment()
         {
-            _bindings = new Dictionary<string, AstNode>();
+            _bindings = new Dictionary<string, Term>();
             _next = null;
-            CurrentScope = new ScopeSet();
             Depth = 0;
         }
 
         public Environment(Environment ancestor) : this()
         {
             _next = ancestor;
-            CurrentScope = ancestor.CurrentScope.Extend(this);
             Depth = ancestor.Depth + 1;
         }
 
-        public Environment(IEnumerable<KeyValuePair<string, AstNode>> extandBindings) : this()
+        public Environment(IEnumerable<KeyValuePair<string, Term>> extandBindings) : this()
         {
-            _bindings = new Dictionary<string, AstNode>(extandBindings);
+            _bindings = new Dictionary<string, Term>(extandBindings);
         }
 
         #region Utilities
 
-        private AstNode LookUp(string name)
+        private Term LookUp(string name)
         {
-            if (_bindings.TryGetValue(name, out AstNode? result))
+            if (_bindings.TryGetValue(name, out Term? result))
             {
                 return result;
             }
@@ -68,7 +67,7 @@ namespace Clasp.Binding
             yield break;
         }
 
-        private IEnumerable<KeyValuePair<string, AstNode>> EnumerateAccessibleBindings()
+        private IEnumerable<KeyValuePair<string, Term>> EnumerateAccessibleBindings()
         {
             return EnumerateScope()
                 .SelectMany(x => x._bindings)
@@ -99,29 +98,29 @@ namespace Clasp.Binding
 
         #region IDictionary Implementation
 
-        public AstNode this[string key]
+        public Term this[string key]
         {
             get => LookUp(key);
             set => _bindings[key] = value;
         }
 
         public ICollection<string> Keys => EnumerateAccessibleBindings().Select(x => x.Key).ToList();
-        public ICollection<AstNode> Values => EnumerateAccessibleBindings().Select(x => x.Value).ToList();
+        public ICollection<Term> Values => EnumerateAccessibleBindings().Select(x => x.Value).ToList();
 
         public int Count => EnumerateAccessibleBindings().Count();
 
         public bool IsReadOnly => false;
 
-        public void Add(string key, AstNode value) => _bindings.Add(key, value);
-        public void Add(KeyValuePair<string, AstNode> item) => _bindings.Add(item.Key, item.Value);
+        public void Add(string key, Term value) => _bindings.Add(key, value);
+        public void Add(KeyValuePair<string, Term> item) => _bindings.Add(item.Key, item.Value);
 
         public void Clear() => _bindings.Clear();
 
-        public bool Contains(KeyValuePair<string, AstNode> item) => TryGetValue(item.Key, out AstNode? value) ? item.Value == value : false;
+        public bool Contains(KeyValuePair<string, Term> item) => TryGetValue(item.Key, out Term? value) ? item.Value == value : false;
 
         public bool ContainsKey(string key) => _bindings.ContainsKey(key) || (_next is not null && _next.ContainsKey(key));
 
-        public void CopyTo(KeyValuePair<string, AstNode>[] array, int arrayIndex)
+        public void CopyTo(KeyValuePair<string, Term>[] array, int arrayIndex)
         {
             foreach(var kvp in EnumerateAccessibleBindings())
             {
@@ -131,9 +130,9 @@ namespace Clasp.Binding
         }
 
         public bool Remove(string key) => _bindings.Remove(key);
-        public bool Remove(KeyValuePair<string, AstNode> item)
+        public bool Remove(KeyValuePair<string, Term> item)
         {
-            if (_bindings.TryGetValue(item.Key, out AstNode? value) && value == item.Value)
+            if (_bindings.TryGetValue(item.Key, out Term? value) && value == item.Value)
             {
                 _bindings.Remove(item.Key);
                 return true;
@@ -141,12 +140,12 @@ namespace Clasp.Binding
             return false;
         }
 
-        public bool TryGetValue(string key, [MaybeNullWhen(false)] out AstNode value)
+        public bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value)
         {
             throw new NotImplementedException();
         }
 
-        public IEnumerator<KeyValuePair<string, AstNode>> GetEnumerator() => EnumerateAccessibleBindings().GetEnumerator();
+        public IEnumerator<KeyValuePair<string, Term>> GetEnumerator() => EnumerateAccessibleBindings().GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => EnumerateAccessibleBindings().GetEnumerator();
 
         #endregion

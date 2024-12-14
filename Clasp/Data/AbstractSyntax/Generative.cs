@@ -28,17 +28,35 @@ namespace Clasp.Data.AbstractSyntax
     /// Represents a runtime construction operation that assembles a <see cref="CompProc"/>.
     /// </summary>
     /// <remarks>This object is the lambda invocation itself, NOT the resulting <see cref="CompProc"/> it constructs.</remarks>
-    internal sealed class Fun : Generative
+    internal sealed class Functional : Generative
     {
-        public readonly Variable[] Parameters;
+        public readonly Variable[] Formals;
+        public readonly Variable[] Informals;
+        public readonly Variable[] Incidentals;
         public readonly Sequence Body;
-        public Fun(Variable[] parameters, Sequence body)
+        public Functional(Variable[] parameters, Sequence body)
         {
-            Parameters = parameters;
+            Formals = parameters;
             Body = body;
         }
         public override string ToString() => string.Format("FUN({0}; {1})",
-            string.Join(", ", Parameters.ToArray<object>()),
+            string.Join(", ", Formals.ToArray<object>()),
+            string.Join(", ", Body));
+    }
+
+    internal sealed class Macro : Generative
+    {
+        public readonly Variable Formal;
+        public readonly Variable[] Informals;
+        public readonly Sequence Body;
+
+        public Macro(Variable parameter, Sequence body)
+        {
+            Formal = parameter;
+            Body = body;
+        }
+        public override string ToString() => string.Format("MACRO({0}; {1})",
+            Formal,
             string.Join(", ", Body));
     }
 

@@ -28,7 +28,7 @@ namespace Clasp.Binding
         /// <summary>
         /// Find the mapped scopes containing the maximal number of elements of <paramref name="set"/>.
         /// </summary>
-        /// <returns>The subset size, and the matched mappings, if any.</returns>
+        /// <returns>An array of the results.</returns>
         public KeyValuePair<ScopeSet, string>[] LookupLargestSubset(ScopeSet set)
         {
             if (set.ScopeSize == 0)

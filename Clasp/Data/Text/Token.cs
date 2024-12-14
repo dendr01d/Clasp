@@ -1,4 +1,6 @@
-﻿using Clasp.Data.Metadata;
+﻿using System.Linq;
+
+using Clasp.Data.Metadata;
 
 namespace Clasp.Data.Text
 {

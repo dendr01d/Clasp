@@ -10,16 +10,16 @@ namespace Clasp.Process
 {
     internal static class Expander
     {
-        public static Syntax Expand(Syntax input, Binding.Environment env)
+        public static Syntax Expand(Syntax input, Environment env)
         {
-            ExpansionBindingMatrix ebm = new ExpansionBindingMatrix(env);
+            ExpansionHarness harness = new ExpansionHarness(env);
 
-            return Expand(input, ebm);
+            return Expand(input, harness, ExpansionContext.TopLevel);
         }
 
-        private static Syntax Expand(Syntax input, ExpansionBindingMatrix ebm)
+        private static Syntax Expand(Syntax input, ExpansionHarness harness, ExpansionContext context)
         {
-            if (input is SyntaxProduct product
+            if (input is SyntaxList product
                 && product.WrappedValue is ConsList cl
                 && cl.Car is Identifier opId
                 && ebm.ResolveBindingName(opId) is string bindingName)
@@ -178,7 +178,7 @@ namespace Clasp.Process
 
         private static bool TryExposePair(Syntax stx, [MaybeNullWhen(false)] out Syntax car, [MaybeNullWhen(false)] out Syntax cdr)
         {
-            if (stx is SyntaxProduct sp
+            if (stx is SyntaxList sp
                 && sp.WrappedValue is ConsList cl
                 && cl.Car is Syntax stxCar
                 && cl.Cdr is Syntax stxCdr)
