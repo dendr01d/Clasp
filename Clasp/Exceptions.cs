@@ -59,6 +59,7 @@ namespace Clasp
         public class MalformedInput : LexerException, ISourceTraceable
         {
             public SourceLocation Location { get; }
+            public Blob SourceText { get; }
             internal MalformedInput(Token token) : base(
                 "Malformed input on line {0} beginning at column {1}: {2}",
                 token.Location.LineNumber,
@@ -66,6 +67,7 @@ namespace Clasp
                 token.Text)
             {
                 Location = token.Location;
+                SourceText = token.SourceText;
             }
         }
     }
@@ -143,14 +145,8 @@ namespace Clasp
 
         public class UnknownForm : ExpanderException
         {
-            internal UnknownForm(SyntaxList unknownForm) : base(
-                "The op term of the syntax pair doesn't correspond to a core form or any known syntax transformers: {0}",
-                unknownForm)
-            { }
-
-            internal UnknownForm(Syntax unknownForm, string expandingWhat) : base(
-                "The given syntax is invalid for expanding {0}: {1}",
-                expandingWhat,
+            internal UnknownForm(Syntax unknownForm) : base(
+                "The given syntax is invalid for expandsion: {0}",
                 unknownForm)
             { }
         }
@@ -175,6 +171,30 @@ namespace Clasp
                 ss,
                 System.Environment.NewLine,
                 string.Join(System.Environment.NewLine, matches.Select(x => string.Format("   {0} @ {1}", x.Key, x.Value))))
+            { }
+        }
+
+        public class InvalidContext : ExpanderException
+        {
+            internal InvalidContext(Identifier op, ExpansionContext ctx) : base(
+                "Form with operator '{0}' is invalid to be expanded in '{1}' context.",
+                op,
+                ctx.ToString())
+            { }
+        }
+
+        public class InvalidFormShape : ExpanderException
+        {
+            internal InvalidFormShape(Symbol formKeyword, Syntax given) : base(
+                "Cannot expand as '{0}' form the syntax: {1}",
+                formKeyword,
+                given)
+            { }
+
+            internal InvalidFormShape(string abstractShapeName, Syntax given) : base(
+                "Cannot expand as abstract \"{0}\" the syntax: {1}",
+                abstractShapeName,
+                given)
             { }
         }
     }

@@ -18,6 +18,19 @@ namespace Clasp.Binding
             _enclosingEnv = enclosing.ExtractCompileTimeEnv();
         }
 
+        public string CreateFreshName(string initialName)
+        {
+            string newName = initialName;
+            int counter = 1;
+
+            while (_enclosingEnv.ContainsKey(newName))
+            {
+                newName = string.Format("{0}_{1}", initialName, counter++);
+            }
+
+            return newName;
+        }
+
         #region (Automatic) IDictionary Implementation
 
         public Term this[string key] { get => ((IDictionary<string, Term>)_enclosingEnv)[key]; set => ((IDictionary<string, Term>)_enclosingEnv)[key] = value; }
@@ -75,7 +88,7 @@ namespace Clasp.Binding
             return ((ICollection<KeyValuePair<string, Term>>)_enclosingEnv).Remove(item);
         }
 
-        public bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value)
+        public bool TryGetValue(string key, [NotNullWhen(true)] out Term? value)
         {
             return ((IDictionary<string, Term>)_enclosingEnv).TryGetValue(key, out value);
         }

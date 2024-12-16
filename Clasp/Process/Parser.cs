@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Reflection;
+
+using Clasp.Binding;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.ConcreteSyntax;
 using Clasp.Data.Terms;
@@ -10,25 +12,25 @@ namespace Clasp.Process
     {
         public static AstNode ParseAST(Syntax stx)
         {
-            return ParseAST(stx, new Binding.BindingStore());
+            return ParseAST(stx, new BindingStore());
         }
 
         public static AstNode ParseAST(Term term, Binding.BindingStore bs)
         {
             return term switch
             {
-                SyntaxId sid => ParseIdentifier(sid, bs),
+                Identifier sid => ParseIdentifier(sid, bs),
                 SyntaxList sp => ParseProduct(sp, bs),
                 SyntaxAtom sat => new Fixed(sat.WrappedValue),
                 Term t => new Fixed(t),
-                _ => throw new ParserException("Cannot parse form: ", term)
+                _ => throw new ParserException.UnknownSyntax(term)
             };
         }
 
-        private static Var ParseIdentifier(SyntaxId id, Binding.BindingStore bs)
+        private static Variable ParseIdentifier(Identifier id, BindingStore bs)
         {
-            string varName = bs.ResolveName(id.WrappedValue.Name, id.Context);
-            return new Var(varName);
+            string varName = bs.ResolveBindingName(id.WrappedValue.Name, id.Context);
+            return new Variable(varName);
         }
 
         private static AstNode ParseProduct(SyntaxList prod, Binding.BindingStore bs)
