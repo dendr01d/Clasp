@@ -1,5 +1,6 @@
 ﻿
 using System.Collections.Generic;
+using System.IO;
 
 using Clasp.Binding;
 using Clasp.Data.AbstractSyntax;
@@ -11,13 +12,9 @@ namespace Clasp
     {
         private Term _returnValue;
         private Environment _currentEnv;
-        private List<Term> _accArgs;
-        private Proc _currentProc;
 
-        private Stack<Instruction> _continuation;
-        private Stack<Environment> _envChain;
-        private Stack<List<Term>> _pendingArgs;
-        private Stack<Proc> _pendingProc;
+        private readonly Stack<Instruction> _continuation;
+        private readonly Stack<Environment> _envChain;
 
         private int _instructionCounter;
 
@@ -27,11 +24,9 @@ namespace Clasp
         {
             _returnValue = Undefined.Value;
             _currentEnv = env;
-            _accArgs = new List<Term>();
 
             _continuation = new Stack<Instruction>();
             _envChain = new Stack<Environment>();
-            _pendingArgs = new Stack<List<Term>>();
 
             _instructionCounter = 0;
 
@@ -52,6 +47,13 @@ namespace Clasp
             return !ComputationComplete;
         }
 
+        public Term Compute()
+        {
+            while (Step()) { }
+
+            return _returnValue;
+        }
+
         #region Instruction Dispatch
 
         private void DispatchOnInstruction(Instruction instr)
@@ -60,12 +62,16 @@ namespace Clasp
             {
                 case BindingDefinition bd:
                     _continuation.Push(new BindFresh(bd.VarName));
+                    _continuation.Push(RecallPreviousEnv.Instance);
                     _continuation.Push(bd.BoundValue);
+                    _continuation.Push(RememberCurrentEnv.Instance);
                     break;
 
                 case BindingMutation bm:
                     _continuation.Push(new RebindExisting(bm.VarName));
+                    _continuation.Push(RecallPreviousEnv.Instance);
                     _continuation.Push(bm.BoundValue);
+                    _continuation.Push(RememberCurrentEnv.Instance);
                     break;
 
                 case VariableLookup vl:
@@ -81,41 +87,39 @@ namespace Clasp
                     break;
 
                 case FunctionApplication fa:
-                    _continuation.Push(new DispatchOnProcedure(fa.Args));
-                    _continuation.Push(fa.OperatorExpression);
+                    _continuation.Push(new AccumulateProcOp(fa.Args));
+                    _continuation.Push(RecallPreviousEnv.Instance);
+                    _continuation.Push(fa.Operator);
+                    _continuation.Push(RememberCurrentEnv.Instance);
                     break;
 
                 case FunctionCreation fc:
                     {
-                        CompProc newCompoundProc = new CompProc(fc.Formals, new Environment(_currentEnv), fc.Body);
+                        CompoundProcedure newProc = new(fc.Formals, new Environment(_currentEnv), fc.Body);
                         foreach (string informalParam in fc.Informals)
                         {
-                            newCompoundProc.Closure.Add(informalParam, Undefined.Value);
+                            newProc.CapturedEnv.Add(informalParam, Undefined.Value);
                         }
 
-                        _returnValue = newCompoundProc;
+                        _returnValue = newProc;
                     }
                     break;
 
                 case ConditionalForm cf:
                     _continuation.Push(new DispatchOnCondition(cf.Consequent, cf.Alternate));
-                    _continuation.Push(new RecallPreviousArgs());
-                    _continuation.Push(new RecallPreviousEnv());
+                    _continuation.Push(RecallPreviousEnv.Instance);
                     _continuation.Push(cf.Test);
-                    _continuation.Push(new RememberCurrentEnv());
-                    _continuation.Push(new RememberCurrentArgs());
+                    _continuation.Push(RememberCurrentEnv.Instance);
                     break;
 
                 case SequentialForm sf:
                     _continuation.Push(sf.Sequence[^1]); //last term in tail-position
 
-                    foreach(AstNode node in sf.Sequence[..^1])
+                    foreach (AstNode node in sf.Sequence[..^1])
                     {
-                        _continuation.Push(new RecallPreviousArgs());
-                        _continuation.Push(new RecallPreviousEnv());
+                        _continuation.Push(RecallPreviousEnv.Instance);
                         _continuation.Push(node);
-                        _continuation.Push(new RememberCurrentEnv());
-                        _continuation.Push(new RememberCurrentArgs());
+                        _continuation.Push(RememberCurrentEnv.Instance);
                     }
                     break;
 
@@ -166,24 +170,6 @@ namespace Clasp
                     }
                     break;
 
-                case RememberCurrentArgs:
-                    _pendingArgs.Push(_accArgs);
-                    break;
-
-                case RecallPreviousArgs:
-                    {
-                        if (_pendingArgs.TryPop(out List<Term>? prevArgs))
-                        {
-                            _accArgs = prevArgs;
-                        }
-                        else
-                        {
-                            throw new ClaspException.Uncategorized("Tried to pop from pending args, but it was empty.");
-                        }
-                    }
-                    break;
-
-
 
                 case DispatchOnCondition doc:
                     if (_returnValue != Boolean.False)
@@ -193,6 +179,98 @@ namespace Clasp
                     else
                     {
                         _continuation.Push(doc.Alternate);
+                    }
+                    break;
+
+                case AccumulateProcOp apo:
+                    {
+                        if (_returnValue is Procedure proc)
+                        {
+                            AccumulateProcArgs rollup = new(proc, apo.UnevaluatedArgs);
+                            _continuation.Push(rollup);
+
+                            if (rollup.UnevaluatedArgs.Count > 0)
+                            {
+                                _continuation.Push(RecallPreviousEnv.Instance);
+                                _continuation.Push(rollup.UnevaluatedArgs.Pop());
+                                _continuation.Push(RememberCurrentEnv.Instance);
+                            }
+                        }
+                        else
+                        {
+                            throw new ClaspException.Uncategorized("Tried to apply non-procedure: {0}", _returnValue);
+                        }
+                    }
+                    break;
+
+                case AccumulateProcArgs apa:
+                    {
+                        apa.EvaluatedArgs.Add(_returnValue);
+
+                        if (apa.UnevaluatedArgs.Count > 0)
+                        {
+                            _continuation.Push(apa);
+                            _continuation.Push(RecallPreviousEnv.Instance);
+                            _continuation.Push(apa.UnevaluatedArgs.Pop());
+                            _continuation.Push(RememberCurrentEnv.Instance);
+                        }
+                        else if (apa.Operator is PrimitiveProcedure primProc)
+                        {
+                            _continuation.Push(new InvokePrimitiveProcedure(primProc, apa.EvaluatedArgs));
+                        }
+                        else if (apa.Operator is CompoundProcedure compProc)
+                        {
+                            _continuation.Push(new InvokeCompoundProcedure(compProc, apa.EvaluatedArgs));
+                        }
+                        else
+                        {
+                            throw new ClaspException.Uncategorized("Finished accumulating args, but unknown op type: {0}", apa.Operator);
+                        }
+                    }
+                    break;
+
+                case InvokePrimitiveProcedure ipp:
+                    //idk
+                    //use the operator + arity to look up the appropriate function to call
+                    //then... call it?
+                    break;
+
+                case InvokeCompoundProcedure icp:
+                    {
+                        _continuation.Push(icp.Op.Body);
+
+                        int index = 0;
+                        for (; index > icp.Op.Parameters.Length; ++index)
+                        {
+                            if (index > icp.Args.Count)
+                            {
+                                throw new ClaspException.Uncategorized("Too few arguments provided for compound proc: {0}", icp.Op);
+                            }
+                            else
+                            {
+                                _continuation.Push(new BindingDefinition(icp.Op.Parameters[index], icp.Args[index]));
+                            }
+                        }
+
+                        if (icp.Op.FinalParameter is not null)
+                        {
+                            _continuation.Push(new BindFresh(icp.Op.FinalParameter));
+
+                            if (index >= icp.Args.Count)
+                            {
+                                _continuation.Push(new ConstantValue(Nil.Value));
+                            }
+                            else
+                            {
+                                _continuation.Push(new Quotation(ConsList.ProperList(icp.Args[index..].ToArray())));
+                            }
+                        }
+                        else if (icp.Args.Count > index)
+                        {
+                            throw new ClaspException.Uncategorized("Too many arguments provided for compound proc: {0}", icp.Op);
+                        }
+
+                        _continuation.Push(new ReplaceCurrentEnv(new Environment(icp.Op.CapturedEnv)));
                     }
                     break;
 
@@ -210,61 +288,16 @@ namespace Clasp
         private const string STACK_SEP = "≤";
         private const string EMPTY_PTR = "ε";
 
-        private string FormatRegister(Expression? x) => x?.ToString() ?? EMPTY_PTR;
-        private string FormatFunctor(Action<Machine>? ptr) => ptr?.Method.Name ?? EMPTY_PTR;
-
-        public string GoingTo => FormatFunctor(_goto);
-        public string ContinueTo => FormatFunctor(_continue);
-
         public void Print(TextWriter tw)
         {
-            tw.WriteLine($" Exp: {FormatRegister(_exp)}");
-            tw.WriteLine($" Val: {FormatRegister(_val)}");
-            tw.WriteLine($"Proc: {FormatRegister(_proc)}");
-            tw.WriteLine($"Unev: {FormatRegister(_unev)}");
-            tw.WriteLine($"Argl: {FormatRegister(_argl)}");
-            if (_expStack.Any())
+            foreach (Instruction instr in _continuation)
             {
-                tw.WriteLine();
-                tw.WriteLine("Term Stack:");
-                foreach (Expression expr in _expStack)
-                {
-                    tw.WriteLine($"{STACK_SEP} {expr}");
-                }
+                tw.WriteLine(instr);
             }
-            tw.WriteLine();
-            tw.WriteLine($"Env w/ {_env.CountBindings()} defs");
-            tw.WriteLine($"{_envStack.Count} stacked environments");
-            tw.WriteLine();
-            tw.WriteLine($"GoTo -> {FormatFunctor(_goto)}");
-            tw.WriteLine($"Cont -> {FormatFunctor(_continue)}");
-            if (_ptrStack.Any())
-            {
-                tw.WriteLine();
-                tw.WriteLine("Ptr Stack:");
-                foreach (Action<Machine>? ptr in _ptrStack)
-                {
-                    tw.WriteLine($"{STACK_SEP} {FormatFunctor(ptr)}");
-                }
-            }
+
+
         }
 
         #endregion
-
-        #region Helpers
-
-        public void GoTo_Continue() => Assign_GoTo(Continue);
-
-        public void AppendArgl(Expression newArg)
-        {
-            Assign_Argl(Pair.Append(Argl, Pair.List(newArg)));
-        }
-
-        public void NextArgl() => Assign_Argl(Argl.Cdr);
-        public void NextUnev() => Assign_Unev(Unev.Cdr);
-
-        #endregion
-
-
     }
 }

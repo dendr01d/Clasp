@@ -80,19 +80,19 @@ namespace Clasp.Binding
 
         public bool BindsAtTopLevel(IBindable key) => (_next is null && Binds(key)) || (_next is not null && _next.BindsAtTopLevel(key));
 
-        public Environment ExtractCompileTimeEnv()
-        {
-            Environment output = new Environment(EnumerateAccessibleBindings()
-                .Where(x => x.Value is Variable || x.Value is Fixed));
+        //public Environment ExtractCompileTimeEnv()
+        //{
+        //    Environment output = new Environment(EnumerateAccessibleBindings()
+        //        .Where(x => x.Value is Variable || x.Value is Fixed));
 
-            output.Add(Symbol.Lambda.Name, Symbol.Lambda);
-            output.Add(Symbol.Define.Name, Symbol.Define);
-            output.Add(Symbol.DefineSyntax.Name, Symbol.DefineSyntax);
-            output.Add(Symbol.Quote.Name, Symbol.Quote);
-            output.Add(Symbol.Syntax.Name, Symbol.Syntax);
+        //    output.Add(Symbol.Lambda.Name, Symbol.Lambda);
+        //    output.Add(Symbol.Define.Name, Symbol.Define);
+        //    output.Add(Symbol.DefineSyntax.Name, Symbol.DefineSyntax);
+        //    output.Add(Symbol.Quote.Name, Symbol.Quote);
+        //    output.Add(Symbol.Syntax.Name, Symbol.Syntax);
 
-            return output;
-        }
+        //    return output;
+        //}
 
         #endregion
 

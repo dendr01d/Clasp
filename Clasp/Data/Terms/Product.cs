@@ -184,14 +184,14 @@ namespace Clasp.Data.Terms
     //    IEnumerator IEnumerable.GetEnumerator() => Enumerate().GetEnumerator();
     //}
 
-    internal sealed class Vector : Product, IList<Term>
-    {
-        public readonly Term[] Values;
-        public Vector(params Term[] values) => Values = values;
+    //internal sealed class Vector : Product, IList<Term>
+    //{
+    //    public readonly Term[] Values;
+    //    public Vector(params Term[] values) => Values = values;
 
-        public override string ToString() => string.Format("VECTOR({0})", string.Format(", ", Values.ToArray<object>()));
+    //    public override string ToString() => string.Format("VECTOR({0})", string.Format(", ", Values.ToArray<object>()));
 
-        public IEnumerator<Term> GetEnumerator() => ((IEnumerable<Term>)Values).GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => Values.GetEnumerator();
-    }
+    //    public IEnumerator<Term> GetEnumerator() => ((IEnumerable<Term>)Values).GetEnumerator();
+    //    IEnumerator IEnumerable.GetEnumerator() => Values.GetEnumerator();
+    //}
 }

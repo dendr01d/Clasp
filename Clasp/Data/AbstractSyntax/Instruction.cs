@@ -39,11 +39,50 @@ namespace Clasp.Data.AbstractSyntax
 
     #region Scope Management
 
-    internal sealed class RememberCurrentEnv() : Instruction { public override string ToString() => "MEM-ENV()"; }
-    internal sealed class RecallPreviousEnv() : Instruction { public override string ToString() => "POP-ENV()"; }
+    internal sealed class RememberCurrentEnv : Instruction
+    {
+        private RememberCurrentEnv() { }
 
-    internal sealed class RememberCurrentArgs() : Instruction { public override string ToString() => "MEM-ARGS()"; }
-    internal sealed class RecallPreviousArgs() : Instruction { public override string ToString() => "POP-ARGS()"; }
+        public static RememberCurrentEnv Instance = new RememberCurrentEnv();
+        public override string ToString() => "MEM-ENV()";
+    }
+    internal sealed class RecallPreviousEnv : Instruction
+    {
+        private RecallPreviousEnv() { }
+
+        public static readonly RecallPreviousEnv Instance = new RecallPreviousEnv();
+        public override string ToString() => "POP-ENV()";
+    }
+
+    internal sealed class ReplaceCurrentEnv : Instruction
+    {
+        public readonly Binding.Environment NewEnv;
+
+        public ReplaceCurrentEnv(Binding.Environment newEnv)
+        {
+            NewEnv = newEnv;
+        }
+        public override string ToString() => "NEW-ENV()";
+    }
+
+    #endregion
+
+    #region Branching
+
+    /// <summary>
+    /// Conditionally evaluate next either the consequent or alternate depending on the truthiness of the current value
+    /// </summary>
+    internal sealed class DispatchOnCondition : Instruction
+    {
+        public readonly AstNode Consequent;
+        public readonly AstNode Alternate;
+        public DispatchOnCondition(AstNode consequent, AstNode alternate)
+        {
+            Consequent = consequent;
+            Alternate = alternate;
+        }
+        public override string ToString() => string.Format("DISP-COND({0}, {1})", Consequent, Alternate);
+    }
 
     #endregion
 
@@ -64,66 +103,62 @@ namespace Clasp.Data.AbstractSyntax
     //      - (No need to ascend out of the closure bc it's in tail position)
 
 
-    /// <summary>
-    /// Dispatch the correct instruction depending on if the current value is a primitive or compound procedure.
-    /// </summary>
-    internal sealed class DispatchOnProcedure : Instruction
+    internal sealed class AccumulateProcOp : Instruction
     {
-        public readonly AstNode[] Args;
-        public DispatchOnProcedure(params AstNode[] args) => Args = args;
-        public override string ToString() => string.Format("DISP-PROC({0})", Args);
+        public readonly List<AstNode> UnevaluatedArgs;
+
+        public AccumulateProcOp(IEnumerable<AstNode> unevaluatedArgs)
+        {
+            UnevaluatedArgs = unevaluatedArgs.ToList();
+        }
+
+        public override string ToString() => string.Format("ARGS({0})",
+            string.Join(", ", UnevaluatedArgs));
     }
 
-    internal sealed class AccumulateArgument : Instruction
+    internal sealed class AccumulateProcArgs : Instruction
     {
-        public AccumulateArgument() { }
-        public override string ToString() => "ACC()";
+        public readonly Terms.Procedure Operator;
+        public readonly List<Terms.Term> EvaluatedArgs;
+        public readonly Stack<AstNode> UnevaluatedArgs;
+
+        public AccumulateProcArgs(Terms.Procedure op, IEnumerable<AstNode> unevaluatedArgs)
+        {
+            Operator = op;
+            UnevaluatedArgs = new Stack<AstNode>(unevaluatedArgs);
+            EvaluatedArgs = new List<Terms.Term>();
+        }
+
+        public override string ToString() => string.Format("CALL({0}; {1}; {2})",
+            Operator,
+            string.Join(", ", EvaluatedArgs),
+            string.Join(", ", UnevaluatedArgs));
     }
 
-    internal sealed class EnqueuePrimitiveProcedure : Instruction
+    internal sealed class InvokePrimitiveProcedure : Instruction
     {
-        public readonly Terms.PrimProc Op;
-        public readonly AstNode[] Args;
+        public readonly Terms.PrimitiveProcedure Op;
+        public readonly List<Terms.Term> Args;
 
-        public EnqueuePrimitiveProcedure(Terms.PrimProc op, params AstNode[] args)
+        public InvokePrimitiveProcedure(Terms.PrimitiveProcedure op, IEnumerable<Terms.Term> args)
         {
             Op = op;
-            Args = args;
+            Args = args.ToList();
         }
-        public override string ToString() => string.Format("PUSH-PRIM({0}, {1})", Op, Args);
+        public override string ToString() => string.Format("CALL-PRIM({0})", Op);
     }
 
-    internal sealed class EnqueueCompoundProcedure : Instruction
+    internal sealed class InvokeCompoundProcedure : Instruction
     {
-        public readonly Terms.CompProc Op;
-        public readonly AstNode[] Args;
+        public readonly Terms.CompoundProcedure Op;
+        public readonly List<Terms.Term> Args;
 
-        public EnqueueCompoundProcedure(Terms.CompProc op, params AstNode[] args)
+        public InvokeCompoundProcedure(Terms.CompoundProcedure op, IEnumerable<Terms.Term> args)
         {
             Op = op;
-            Args = args;
+            Args = args.ToList();
         }
-
-        public override string ToString() => string.Format("PUSH-COMP({0}, {1})", Op, Args);
-    }
-
-    #endregion
-
-    #region Branching
-
-    /// <summary>
-    /// Conditionally evaluate next either the consequent or alternate depending on the truthiness of the current value
-    /// </summary>
-    internal sealed class DispatchOnCondition : Instruction
-    {
-        public readonly AstNode Consequent;
-        public readonly AstNode Alternate;
-        public DispatchOnCondition(AstNode consequent, AstNode alternate)
-        {
-            Consequent = consequent;
-            Alternate = alternate;
-        }
-        public override string ToString() => string.Format("DISP-COND({0}, {1})", Consequent, Alternate);
+        public override string ToString() => string.Format("CALL-COMP({0})", Op);
     }
 
     #endregion

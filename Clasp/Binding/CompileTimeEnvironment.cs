@@ -13,10 +13,10 @@ namespace Clasp.Binding
         //private Dictionary<string, Macro> _boundMacros;
         //private Dictionary<string, Variable> _boundVars;
 
-        public CompileTimeEnvironment(Environment enclosing)
-        {
-            _enclosingEnv = enclosing.ExtractCompileTimeEnv();
-        }
+        //public CompileTimeEnvironment(Environment enclosing)
+        //{
+        //    _enclosingEnv = enclosing.ExtractCompileTimeEnv();
+        //}
 
         public string CreateFreshName(string initialName)
         {
