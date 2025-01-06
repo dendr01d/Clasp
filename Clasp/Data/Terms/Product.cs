@@ -96,6 +96,8 @@ namespace Clasp.Data.Terms
             yield return last;
         }
 
+        public Term[] ToArray() => EnumerateValues(this).ToArray();
+
         public IEnumerator<Term> GetEnumerator() => EnumerateValues(this).GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => EnumerateValues(this).GetEnumerator();
 

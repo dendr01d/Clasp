@@ -13,8 +13,6 @@ namespace Clasp.Data.AbstractSyntax
     internal abstract class AstNode : Instruction
     {
         public abstract override string ToString();
-
-        public abstract Terms.Term ToTerm();
     }
 
     #region Imperative Effects
@@ -22,16 +20,16 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class BindingDefinition : AstNode
     {
         public string VarName { get; private init; }
-        public AstNode BoundValue { get; private init; }
+        public Instruction BoundValue { get; private init; }
 
-        public BindingDefinition(string name, AstNode bound)
+        public BindingDefinition(string name, Instruction bound)
         {
             VarName = name;
             BoundValue = bound;
         }
         public override string ToString() => string.Format("DEF({0}, {1})", VarName, BoundValue);
 
-        public override Term ToTerm() => ConsList.ProperList(Symbol.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
+        //public override Term ToTerm() => ConsList.ProperList(Symbol.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
 
     internal sealed class BindingMutation : AstNode
@@ -46,7 +44,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override string ToString() => string.Format("SET({0}, {1})", VarName, BoundValue);
 
-        public override Term ToTerm() => ConsList.ProperList(Symbol.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
+        //public override Term ToTerm() => ConsList.ProperList(Symbol.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
 
     #endregion
@@ -59,7 +57,7 @@ namespace Clasp.Data.AbstractSyntax
         public VariableLookup(string name) => VarName = name;
         public override string ToString() => string.Format("VAR({0})", VarName);
 
-        public override Term ToTerm() => Symbol.Intern(VarName);
+        //public override Term ToTerm() => Symbol.Intern(VarName);
     }
 
     internal sealed class ConstantValue : AstNode
@@ -68,7 +66,7 @@ namespace Clasp.Data.AbstractSyntax
         public ConstantValue(Terms.Atom value) => Value = value;
         public override string ToString() => string.Format("CONST({0})", Value);
 
-        public override Term ToTerm() => Value;
+        //public override Term ToTerm() => Value;
     }
 
     internal sealed class Quotation : AstNode
@@ -77,7 +75,7 @@ namespace Clasp.Data.AbstractSyntax
         public Quotation(Terms.Term value) => Value = value;
         public override string ToString() => string.Format("QUOTE({0})", Value);
 
-        public override Term ToTerm() => ConsList.ProperList(Symbol.Quote, Value);
+        //public override Term ToTerm() => ConsList.ProperList(Symbol.Quote, Value);
     }
 
     #endregion
@@ -99,8 +97,9 @@ namespace Clasp.Data.AbstractSyntax
             Operator,
             string.Join(", ", Args.ToArray<object>()));
 
-        public override Term ToTerm() => ConsList.ProperList(
-            new Term[] { Operator.ToTerm() }.Append(Args.Select(x => x.ToTerm())).ToArray());
+        //public override Term ToTerm() => ConsList.Cons(
+        //    Operator.ToTerm(),
+        //    ConsList.ProperList(Args.Select(x => x.ToTerm()).ToArray()));
     }
 
     internal sealed class FunctionCreation : AstNode
@@ -123,10 +122,10 @@ namespace Clasp.Data.AbstractSyntax
             DottedFormal is null ? string.Empty : string.Format("; {0}", DottedFormal),
             string.Join(", ", Body));
 
-        public override Term ToTerm() => ConsList.ProperList(Symbol.Lambda,
-            ConsList.ConstructDirect(Formals.Select(x => Symbol.Intern(x)).ToList<Term>()
-                .Append(DottedFormal is null ? Nil.Value : Symbol.Intern(DottedFormal))),
-            Body.ToTerm());
+        //public override Term ToTerm() => ConsList.ProperList(Symbol.Lambda,
+        //    ConsList.ConstructDirect(Formals.Select(x => Symbol.Intern(x)).ToList<Term>()
+        //        .Append(DottedFormal is null ? Nil.Value : Symbol.Intern(DottedFormal))),
+        //    Body.ToTerm());
     }
 
     #endregion
@@ -146,8 +145,8 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override string ToString() => string.Format("BRANCH({0}, {1}, {2})", Test, Consequent, Alternate);
 
-        public override Term ToTerm() => ConsList.ProperList(Symbol.If,
-            Test.ToTerm(), Consequent.ToTerm(), Alternate.ToTerm());
+        //public override Term ToTerm() => ConsList.ProperList(Symbol.If,
+        //    Test.ToTerm(), Consequent.ToTerm(), Alternate.ToTerm());
     }
 
     internal sealed class SequentialForm : AstNode
@@ -159,8 +158,8 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToString()));
 
-        public override Term ToTerm() => ConsList.Cons(Symbol.Begin,
-            ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
+        //public override Term ToTerm() => ConsList.Cons(Symbol.Begin,
+        //    ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
     }
 
     #endregion

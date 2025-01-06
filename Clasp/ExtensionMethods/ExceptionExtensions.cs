@@ -46,7 +46,7 @@ namespace Clasp.ExtensionMethods
                 string atMethod = string.Format("{0}({1})", methodName, argTypes.Length > 0 ? "..." : string.Empty);
                 string inFile = string.IsNullOrWhiteSpace(filePath)
                     ? string.Empty
-                    : string.Format("{0}, line {1}", Path.GetFileName(filePath), lineNumber);
+                    : string.Format("{0}, line {1}", System.IO.Path.GetFileName(filePath), lineNumber);
 
                 outputLines.Add(string.Format("   at {0} in {1}", atMethod, inFile));
             }

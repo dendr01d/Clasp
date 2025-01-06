@@ -11,7 +11,7 @@ namespace Clasp.Process
 {
     internal static class Expander
     {
-        public static Syntax Expand(Syntax input, Environment env)
+        public static Syntax Expand(Syntax input, EnvFrame env)
         {
             //MetaBinder mb = new MetaBinder(input, env);
 
@@ -52,7 +52,7 @@ namespace Clasp.Process
         //            SyntaxList expandedArgs = ExpandStxDefinitionArgs(args, mb, context);
         //            return new SyntaxList(opId, expandedArgs, list);
         //        }
-        //        else if (op is Transformer tx)
+        //        else if (op is MacroProcedure tx)
         //        {
         //            Syntax transformedSyntax = InvokeMacroTransformation(list, tx, mb, context);
         //            return Expand(transformedSyntax, mb, context);
@@ -70,7 +70,7 @@ namespace Clasp.Process
         //    else if (input is Identifier id
         //        && mb.ResolveBoundValue(id) is Term deref)
         //    {
-        //        if (deref is Transformer tx)
+        //        if (deref is MacroProcedure tx)
         //        {
         //            Syntax transformedSyntax = InvokeMacroTransformation(id, tx, mb, context);
         //        }
@@ -176,7 +176,7 @@ namespace Clasp.Process
         //    {
         //        MetaBinder nextPhase = mb.EnterSubExpansion(value);
         //        Syntax expandedValue = Expand(value, nextPhase, ExpansionContext.Expression);
-        //        Transformer tx = ExpiditeTransformerCreation(expandedValue, nextPhase);
+        //        MacroProcedure tx = ExpiditeTransformerCreation(expandedValue, nextPhase);
 
         //        Identifier newTxId = mb.CreateFreshTransformerBinding(key, tx);
 
@@ -186,12 +186,12 @@ namespace Clasp.Process
         //    throw new ExpanderException.InvalidFormShape(Symbol.DefineSyntax, args);
         //}
 
-        //private static Transformer ExpiditeTransformerCreation(Syntax stx, MetaBinder mb)
+        //private static MacroProcedure ExpiditeTransformerCreation(Syntax stx, MetaBinder mb)
         //{
         //    AstNode parsedTx = Parser.ParseAST(stx);
         //    Term evaluated = Evaluator.Evaluate(parsedTx);
 
-        //    if (evaluated is Transformer output)
+        //    if (evaluated is MacroProcedure output)
         //    {
         //        return output;
         //    }
@@ -199,7 +199,7 @@ namespace Clasp.Process
         //    throw new ExpanderException.Uncategorized("Tried to expand/parse/eval presumed macro, but got incompatible output: {0}", evaluated);
         //}
 
-        //private static Syntax InvokeMacroTransformation(Syntax input, Transformer tx, MetaBinder mb, ExpansionContext context)
+        //private static Syntax InvokeMacroTransformation(Syntax input, MacroProcedure tx, MetaBinder mb, ExpansionContext context)
         //{
         //    //something about applying a macro definition and/or use scope
         //    //then flipping one of them?

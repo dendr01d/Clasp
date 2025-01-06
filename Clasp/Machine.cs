@@ -11,22 +11,22 @@ namespace Clasp
     internal class Machine
     {
         private Term _returnValue;
-        private Environment _currentEnv;
+        private EnvFrame _currentEnv;
 
         private readonly Stack<Instruction> _continuation;
-        private readonly Stack<Environment> _envChain;
+        private readonly Stack<EnvFrame> _envChain;
 
         private int _instructionCounter;
 
         public bool ComputationComplete => _continuation.Count == 0;
 
-        private Machine(AstNode evaluatee, Environment env)
+        private Machine(AstNode evaluatee, EnvFrame env)
         {
             _returnValue = Undefined.Value;
             _currentEnv = env;
 
             _continuation = new Stack<Instruction>();
-            _envChain = new Stack<Environment>();
+            _envChain = new Stack<EnvFrame>();
 
             _instructionCounter = 0;
 
@@ -62,20 +62,23 @@ namespace Clasp
             {
                 case BindingDefinition bd:
                     _continuation.Push(new BindFresh(bd.VarName));
-                    _continuation.Push(RecallPreviousEnv.Instance);
+                    ResetCurrentEnv();
                     _continuation.Push(bd.BoundValue);
-                    _continuation.Push(RememberCurrentEnv.Instance);
                     break;
 
                 case BindingMutation bm:
                     _continuation.Push(new RebindExisting(bm.VarName));
-                    _continuation.Push(RecallPreviousEnv.Instance);
+                    ResetCurrentEnv();
                     _continuation.Push(bm.BoundValue);
-                    _continuation.Push(RememberCurrentEnv.Instance);
                     break;
 
                 case VariableLookup vl:
-                    _returnValue = _currentEnv[vl.VarName];
+                    {
+                        if (_currentEnv.TryGetValue(vl.VarName, out Term? boundValue))
+                        { _returnValue = boundValue; }
+                        else
+                        { throw new ClaspException.Uncategorized("Failed to look up binding for variable '{0}'.", vl.VarName); }
+                    }
                     break;
 
                 case ConstantValue cv:
@@ -87,19 +90,18 @@ namespace Clasp
                     break;
 
                 case FunctionApplication fa:
-                    _continuation.Push(new AccumulateProcOp(fa.Args));
-                    _continuation.Push(RecallPreviousEnv.Instance);
+                    _continuation.Push(new DispatchOnOperator(fa.Args));
+                    ResetCurrentEnv();
                     _continuation.Push(fa.Operator);
-                    _continuation.Push(RememberCurrentEnv.Instance);
                     break;
 
                 case FunctionCreation fc:
                     {
-                        CompoundProcedure newProc = new(fc.Formals, new Environment(_currentEnv), fc.Body);
-                        foreach (string informalParam in fc.Informals)
-                        {
-                            newProc.CapturedEnv.Add(informalParam, Undefined.Value);
-                        }
+                        CompoundProcedure newProc = new(fc.Formals, fc.DottedFormal, new EnvFrame(_currentEnv), fc.Body);
+                        //foreach (string informalParam in fc.Informals)
+                        //{
+                        //    newProc.CapturedEnv.Add(informalParam, Undefined.Value);
+                        //}
 
                         _returnValue = newProc;
                     }
@@ -107,9 +109,8 @@ namespace Clasp
 
                 case ConditionalForm cf:
                     _continuation.Push(new DispatchOnCondition(cf.Consequent, cf.Alternate));
-                    _continuation.Push(RecallPreviousEnv.Instance);
+                    ResetCurrentEnv();
                     _continuation.Push(cf.Test);
-                    _continuation.Push(RememberCurrentEnv.Instance);
                     break;
 
                 case SequentialForm sf:
@@ -117,9 +118,8 @@ namespace Clasp
 
                     foreach (AstNode node in sf.Sequence[..^1])
                     {
-                        _continuation.Push(RecallPreviousEnv.Instance);
+                        ResetCurrentEnv();
                         _continuation.Push(node);
-                        _continuation.Push(RememberCurrentEnv.Instance);
                     }
                     break;
 
@@ -133,9 +133,7 @@ namespace Clasp
                             _returnValue = Undefined.Value;
                         }
                         else
-                        {
-                            throw new ClaspException.Uncategorized("Tried to re-define existing binding of variable '{0}'.", bf.VarName);
-                        }
+                        { throw new ClaspException.Uncategorized("Tried to re-define existing binding of variable '{0}'.", bf.VarName); }
                     }
                     break;
 
@@ -147,85 +145,65 @@ namespace Clasp
                             _returnValue = Undefined.Value;
                         }
                         else
-                        {
-                            throw new ClaspException.Uncategorized("Tried to mutate non-existent binding of variable '{0}'.", re.VarName);
-                        }
+                        { throw new ClaspException.Uncategorized("Tried to mutate non-existent binding of variable '{0}'.", re.VarName); }
                     }
                     break;
-
-                case RememberCurrentEnv:
-                    _envChain.Push(_currentEnv);
-                    break;
-
-                case RecallPreviousEnv:
-                    {
-                        if (_envChain.TryPop(out Environment? prevEnv))
-                        {
-                            _currentEnv = prevEnv;
-                        }
-                        else
-                        {
-                            throw new ClaspException.Uncategorized("Tried to pop from env chain, but it was empty.");
-                        }
-                    }
-                    break;
-
 
                 case DispatchOnCondition doc:
                     if (_returnValue != Boolean.False)
-                    {
-                        _continuation.Push(doc.Consequent);
-                    }
+                    { _continuation.Push(doc.Consequent); }
                     else
-                    {
-                        _continuation.Push(doc.Alternate);
-                    }
+                    { _continuation.Push(doc.Alternate); }
                     break;
 
-                case AccumulateProcOp apo:
+                case DispatchOnOperator doo:
                     {
-                        if (_returnValue is Procedure proc)
+                        if (_returnValue is MacroProcedure macro)
                         {
-                            AccumulateProcArgs rollup = new(proc, apo.UnevaluatedArgs);
-                            _continuation.Push(rollup);
-
-                            if (rollup.UnevaluatedArgs.Count > 0)
-                            {
-                                _continuation.Push(RecallPreviousEnv.Instance);
-                                _continuation.Push(rollup.UnevaluatedArgs.Pop());
-                                _continuation.Push(RememberCurrentEnv.Instance);
-                            }
+                            throw new ClaspException.Uncategorized("Cannot evaluate macro-procedure as normal application: {0}", macro);
                         }
-                        else
+                        else if (_returnValue is not Procedure proc)
                         {
                             throw new ClaspException.Uncategorized("Tried to apply non-procedure: {0}", _returnValue);
                         }
-                    }
-                    break;
-
-                case AccumulateProcArgs apa:
-                    {
-                        apa.EvaluatedArgs.Add(_returnValue);
-
-                        if (apa.UnevaluatedArgs.Count > 0)
+                        else if (doo.Arguments.Length < proc.Arity)
                         {
-                            _continuation.Push(apa);
-                            _continuation.Push(RecallPreviousEnv.Instance);
-                            _continuation.Push(apa.UnevaluatedArgs.Pop());
-                            _continuation.Push(RememberCurrentEnv.Instance);
+                            throw new ClaspException.Uncategorized("Too few arguments provided for procedure: {0}", proc);
                         }
-                        else if (apa.Operator is PrimitiveProcedure primProc)
+                        else if (doo.Arguments.Length > proc.Arity && !proc.IsVariadic)
                         {
-                            _continuation.Push(new InvokePrimitiveProcedure(primProc, apa.EvaluatedArgs));
+                            throw new ClaspException.Uncategorized("Too many arguments provided for fixed-arity procedure: {0}", proc);
                         }
-                        else if (apa.Operator is CompoundProcedure compProc)
+                        else if (proc is CompoundProcedure cp)
                         {
-                            _continuation.Push(new InvokeCompoundProcedure(compProc, apa.EvaluatedArgs));
+                            HandleCompoundProcedure(cp, doo.Arguments);
+                        }
+                        else if (proc is PrimitiveProcedure pp)
+                        {
+                            HandlePrimitiveProcedure(pp, doo.Arguments);
                         }
                         else
                         {
-                            throw new ClaspException.Uncategorized("Finished accumulating args, but unknown op type: {0}", apa.Operator);
+                            throw new ClaspException.Uncategorized("Tried to apply procedure of unknown type: {0}", proc);
                         }
+                    }
+                    break;
+
+                case RollupVarArgs rva:
+                    if (!rva.RollupStarted)
+                    {
+                        _continuation.Push(rva);
+                        _continuation.Push(rva.UnevaluatedArgs.Pop());
+                    }
+                    else if (!rva.RollupFinished)
+                    {
+                        rva.EvaluatedArgs.Add(_returnValue);
+                        _continuation.Push(rva);
+                        _continuation.Push(rva.UnevaluatedArgs.Pop());
+                    }
+                    else
+                    {
+                        _returnValue = ConsList.ProperList(rva.EvaluatedArgs.ToArray());
                     }
                     break;
 
@@ -235,49 +213,9 @@ namespace Clasp
                     //then... call it?
                     break;
 
-                case InvokeCompoundProcedure icp:
-                    {
-                        _continuation.Push(icp.Op.Body);
-
-                        int index = 0;
-                        for (; index > icp.Op.Parameters.Length; ++index)
-                        {
-                            if (index > icp.Args.Count)
-                            {
-                                throw new ClaspException.Uncategorized("Too few arguments provided for compound proc: {0}", icp.Op);
-                            }
-                            else
-                            {
-                                _continuation.Push(new BindingDefinition(icp.Op.Parameters[index], icp.Args[index]));
-                            }
-                        }
-
-                        if (icp.Op.FinalParameter is not null)
-                        {
-                            _continuation.Push(new BindFresh(icp.Op.FinalParameter));
-
-                            if (index >= icp.Args.Count)
-                            {
-                                _continuation.Push(new ConstantValue(Nil.Value));
-                            }
-                            else
-                            {
-                                _continuation.Push(new Quotation(ConsList.ProperList(icp.Args[index..].ToArray())));
-                            }
-                        }
-                        else if (icp.Args.Count > index)
-                        {
-                            throw new ClaspException.Uncategorized("Too many arguments provided for compound proc: {0}", icp.Op);
-                        }
-
-                        _continuation.Push(new ReplaceCurrentEnv(new Environment(icp.Op.CapturedEnv)));
-                    }
-                    break;
-
-
                 default:
-
-                    break;
+                    throw new ClaspException.Uncategorized("Unknown instruction type: {0}", instr);
+                    //break;
             }
         }
 
@@ -285,8 +223,8 @@ namespace Clasp
 
         #region Printing
 
-        private const string STACK_SEP = "≤";
-        private const string EMPTY_PTR = "ε";
+        //private const string STACK_SEP = "≤";
+        //private const string EMPTY_PTR = "ε";
 
         public void Print(TextWriter tw)
         {
@@ -296,6 +234,48 @@ namespace Clasp
             }
 
 
+        }
+
+        #endregion
+
+        #region Helpers
+
+        private void ResetCurrentEnv() => _continuation.Push(new SetCurrentEnv(_currentEnv));
+
+        private void HandleCompoundProcedure(CompoundProcedure cp, AstNode[] args)
+        {
+            Environment closure = new EnvFrame(cp.CapturedEnv);
+
+            _continuation.Push(cp.Body);
+
+            int i = 0;
+            for (; i < cp.Parameters.Length; ++i)
+            {
+                _continuation.Push(new BindingDefinition(cp.Parameters[i], args[i]));
+            }
+
+            if (cp.FinalParameter is not null)
+            {
+                if (args.Length >= i)
+                {
+                    _continuation.Push(new BindingDefinition(cp.FinalParameter, new RollupVarArgs(args[i..])));
+                }
+                else
+                {
+                    _continuation.Push(new BindFresh(cp.FinalParameter));
+                    _continuation.Push(new ConstantValue(Nil.Value));
+                }
+            }
+
+            // handle internal definitions here...?
+
+            _continuation.Push(new SetCurrentEnv(closure));
+        }
+
+        private void HandlePrimitiveProcedure(PrimitiveProcedure pp, AstNode[] args)
+        {
+            _continuation.Push(new InvokePrimitiveProcedure(pp));
+            _continuation.Push(new RollupVarArgs(args));
         }
 
         #endregion

@@ -22,7 +22,7 @@ namespace Clasp.Data.AbstractSyntax
     {
         public string VarName { get; private init; }
         public BindFresh(string name) => VarName = name;
-        public override string ToString() => string.Format("BIND({0})", VarName);
+        public override string ToString() => string.Format("*DEF({0}, [])", VarName);
     }
 
     /// <summary>
@@ -32,37 +32,37 @@ namespace Clasp.Data.AbstractSyntax
     {
         public string VarName { get; private init; }
         public RebindExisting(string name) => VarName = name;
-        public override string ToString() => string.Format("REBIND({0})", VarName);
+        public override string ToString() => string.Format("*SET({0}, [])", VarName);
     }
 
     #endregion
 
     #region Scope Management
 
-    internal sealed class RememberCurrentEnv : Instruction
-    {
-        private RememberCurrentEnv() { }
+    //internal sealed class RememberCurrentEnv : Instruction
+    //{
+    //    private RememberCurrentEnv() { }
 
-        public static RememberCurrentEnv Instance = new RememberCurrentEnv();
-        public override string ToString() => "MEM-ENV()";
-    }
-    internal sealed class RecallPreviousEnv : Instruction
-    {
-        private RecallPreviousEnv() { }
+    //    public static RememberCurrentEnv Instance = new RememberCurrentEnv();
+    //    public override string ToString() => "MEM-ENV()";
+    //}
+    //internal sealed class RecallPreviousEnv : Instruction
+    //{
+    //    private RecallPreviousEnv() { }
 
-        public static readonly RecallPreviousEnv Instance = new RecallPreviousEnv();
-        public override string ToString() => "POP-ENV()";
-    }
+    //    public static readonly RecallPreviousEnv Instance = new RecallPreviousEnv();
+    //    public override string ToString() => "POP-ENV()";
+    //}
 
-    internal sealed class ReplaceCurrentEnv : Instruction
+    internal sealed class SetCurrentEnv : Instruction
     {
         public readonly Binding.Environment NewEnv;
 
-        public ReplaceCurrentEnv(Binding.Environment newEnv)
+        public SetCurrentEnv(Binding.Environment newEnv)
         {
             NewEnv = newEnv;
         }
-        public override string ToString() => "NEW-ENV()";
+        public override string ToString() => "SET-ENV()";
     }
 
     #endregion
@@ -81,7 +81,7 @@ namespace Clasp.Data.AbstractSyntax
             Consequent = consequent;
             Alternate = alternate;
         }
-        public override string ToString() => string.Format("DISP-COND({0}, {1})", Consequent, Alternate);
+        public override string ToString() => string.Format("*BRANCH([], {0}, {1})", Consequent, Alternate);
     }
 
     #endregion
@@ -102,63 +102,48 @@ namespace Clasp.Data.AbstractSyntax
     //      - Evaluate the sequential body
     //      - (No need to ascend out of the closure bc it's in tail position)
 
-
-    internal sealed class AccumulateProcOp : Instruction
+    internal sealed class DispatchOnOperator : Instruction
     {
-        public readonly List<AstNode> UnevaluatedArgs;
+        public readonly AstNode[] Arguments;
 
-        public AccumulateProcOp(IEnumerable<AstNode> unevaluatedArgs)
+        public DispatchOnOperator(AstNode[] arguments)
         {
-            UnevaluatedArgs = unevaluatedArgs.ToList();
+            Arguments = arguments;
         }
 
-        public override string ToString() => string.Format("ARGS({0})",
-            string.Join(", ", UnevaluatedArgs));
+        public override string ToString() => string.Format("*APPL([]; {0}", string.Join(", ", Arguments.ToArray<object>()));
     }
 
-    internal sealed class AccumulateProcArgs : Instruction
+    internal sealed class RollupVarArgs : Instruction
     {
-        public readonly Terms.Procedure Operator;
-        public readonly List<Terms.Term> EvaluatedArgs;
         public readonly Stack<AstNode> UnevaluatedArgs;
+        public readonly List<Terms.Term> EvaluatedArgs;
 
-        public AccumulateProcArgs(Terms.Procedure op, IEnumerable<AstNode> unevaluatedArgs)
+        public bool RollupStarted => EvaluatedArgs.Count > 0;
+        public bool RollupFinished => UnevaluatedArgs.Count == 0;
+
+        public RollupVarArgs(AstNode[] args)
         {
-            Operator = op;
-            UnevaluatedArgs = new Stack<AstNode>(unevaluatedArgs);
+            UnevaluatedArgs = new Stack<AstNode>(args.Reverse());
             EvaluatedArgs = new List<Terms.Term>();
         }
 
-        public override string ToString() => string.Format("CALL({0}; {1}; {2})",
-            Operator,
-            string.Join(", ", EvaluatedArgs),
-            string.Join(", ", UnevaluatedArgs));
+        public override string ToString()
+        {
+            return string.Format("VAR-ARGS({0}{1}{2}{3}{4})",
+                string.Join(", ", EvaluatedArgs),
+                EvaluatedArgs.Count > 0 ? ", " : string.Empty,
+                "[]",
+                UnevaluatedArgs.Count > 0 ? ", " : string.Empty,
+                string.Join(", ", UnevaluatedArgs));
+        }
     }
 
     internal sealed class InvokePrimitiveProcedure : Instruction
     {
         public readonly Terms.PrimitiveProcedure Op;
-        public readonly List<Terms.Term> Args;
-
-        public InvokePrimitiveProcedure(Terms.PrimitiveProcedure op, IEnumerable<Terms.Term> args)
-        {
-            Op = op;
-            Args = args.ToList();
-        }
-        public override string ToString() => string.Format("CALL-PRIM({0})", Op);
-    }
-
-    internal sealed class InvokeCompoundProcedure : Instruction
-    {
-        public readonly Terms.CompoundProcedure Op;
-        public readonly List<Terms.Term> Args;
-
-        public InvokeCompoundProcedure(Terms.CompoundProcedure op, IEnumerable<Terms.Term> args)
-        {
-            Op = op;
-            Args = args.ToList();
-        }
-        public override string ToString() => string.Format("CALL-COMP({0})", Op);
+        public InvokePrimitiveProcedure(Terms.PrimitiveProcedure op) => Op = op;
+        public override string ToString() => string.Format("*APPL({0}; [])", Op);
     }
 
     #endregion

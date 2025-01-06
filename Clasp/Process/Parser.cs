@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Reflection;
 
 using Clasp.Binding;
@@ -25,7 +26,6 @@ namespace Clasp.Process
                 Identifier sid => ParseIdentifier(sid, bs),
                 SyntaxList sp => ParseProduct(sp, bs),
                 SyntaxAtom sat => new ConstantValue(sat.WrappedValue),
-                Term t => new Quotation(t),
                 _ => throw new ParserException.UnknownSyntax(term)
             };
         }
@@ -45,7 +45,7 @@ namespace Clasp.Process
             //else
             if (prod.WrappedValue is ConsList cell)
             {
-                return ParseApplicative(cell, bs);
+                return ParseApplication(cell, bs);
             }
 
             throw new ParserException.UnknownSyntax(prod);
@@ -78,48 +78,122 @@ namespace Clasp.Process
         //    return new Vector(contents.ToArray());
         ////}
 
-        private static AstNode ParseApplicative(ConsList cell, Binding.BindingStore bs)
+        private static AstNode ParseApplication(ConsList cell, Binding.BindingStore bs)
         {
-            //the only valid way to start a list is with a proc or otherwise not-fixed gennode
-            //buuuut procs technically can't be represented syntactically
-            //primitives are indirectly accessed by reference
-            //and compounds can only be constructed during runtime
-            //so only non-fixed gennodes are allowed
-
             AstNode parsedCar = ParseAST(cell.Car, bs);
 
-            if (parsedCar is not Generative genCar)
+            if (parsedCar is VariableLookup vl)
             {
-                throw new ParserException("Leading term of new applicative form isn't generative: ", parsedCar);
-            }
-            else if (genCar is Fixed fixCar)
-            {
-                throw new ParserException("Leading term of new applicative form is a fixed value: {0}", fixCar);
-            }
-            else
-            {
-                FlatList<AstNode> tail = FlatList<AstNode>.FromNested(cell.Cdr)
-                    ?? throw new ParserException("Couldn't flatten args to applicative form: {0}", cell);
-
-                if (tail.IsDotted)
+                if (cell.Cdr is SyntaxList args)
                 {
-                    throw new ParserException("Implicit applicative form was given dotted argument list: {0}", tail);
-                }
-                else if (genCar is Functional funCar)
-                {
-                    // Application of dynamically constructed compound proc
-                    return ParseApplication(funCar, tail, bs);
-                }
-                else if (genCar is Var varCar)
-                {
-                    // Dispatch and potentially format a special form
-                    return ParseTaggedForm(varCar, tail, bs);
+                    if (vl.VarName == Symbol.Define.Name)
+                    {
+                        return ParseDefinition(vl.VarName, args);
+                    }
+                    else if (vl.VarName == Symbol.Set.Name)
+                    {
+                        return ParseSet(vl.VarName, args);
+                    }
+                    else if (vl.VarName == Symbol.Quote.Name)
+                    {
+                        return ParseQuote(args);
+                    }
+                    else if (vl.VarName == Symbol.Lambda.Name)
+                    {
+                        return ParseLambda(args);
+                    }
+                    else if (vl.VarName == Symbol.If.Name)
+                    {
+                        return ParseBranch(args);
+                    }
+                    else if (vl.VarName == Symbol.Begin.Name)
+                    {
+                        return ParseBegin(args);
+                    }
                 }
                 else
                 {
-                    throw new ParserException.UnknownSyntax(parsedCar);
+                    throw new ParserException.UnknownSyntax(cell.Cdr);
                 }
             }
+
+            if (parsedCar is BindingDefinition or BindingMutation)
+            {
+                throw new ParserException.Uncategorized("Can't use imperative binding form as applicative operator.");
+            }
+            else if (parsedCar is Quotation)
+            {
+                throw new ParserException.Uncategorized("Can't used quoted value as applicative operator.");
+            }
+
+            if (cell.Cdr is SyntaxList sl && sl.WrappedValue is ConsList cl)
+            {
+                return new FunctionApplication(parsedCar, cl.Select(x => ParseAST(x, bs)).ToArray());
+            }
+            else
+            {
+                throw new ParserException.Uncategorized("Function application cannot take the form of a dotted list.");
+            }
+        }
+
+        private static BindingDefinition ParseDefinition(string varName, SyntaxList args, BindingStore bs)
+        {
+            if (args.WrappedValue is ConsList cl
+                && cl.Car is Syntax arg
+                && cl.Cdr is Nil)
+            {
+                AstNode boundValue = ParseAST(arg, bs);
+                return new BindingDefinition(varName, boundValue);
+            }
+            else
+            {
+                throw new ParserException.Uncategorized("Wrong type/arg number for '{0}' form.", Symbol.Define.Name);
+            }
+        }
+
+        private static BindingMutation ParseSet(string varName, SyntaxList args, BindingStore bs)
+        {
+            if (args.WrappedValue is ConsList cl
+                && cl.Car is Syntax arg
+                && cl.Cdr is Nil)
+            {
+                AstNode mutatedValue = ParseAST(arg, bs);
+                return new BindingMutation(varName, mutatedValue);
+            }
+            else
+            {
+                throw new ParserException.Uncategorized("Wrong type/arg number for '{0}' form.", Symbol.Set.Name);
+            }
+        }
+
+        private static Quotation ParseQuote(SyntaxList args, BindingStore bs)
+        {
+            if (args.WrappedValue is ConsList cl
+                && cl.Car is Syntax arg
+                && cl.Cdr is Nil)
+            {
+                AstNode mutatedValue = ParseAST(arg, bs);
+                return new Quotation(varName, mutatedValue);
+            }
+            else
+            {
+                throw new ParserException.Uncategorized("Wrong type/arg number for '{0}' form.", Symbol.Quote.Name);
+            }
+        }
+
+        private static FunctionCreation ParseLambda(SyntaxList args, BindingStore bs)
+        {
+
+        }
+
+        private static ConditionalForm ParseBranch(SyntaxList args, BindingStore bs)
+        {
+
+        }
+
+        private static SequentialForm ParseBegin(SyntaxList args, BindingStore bs)
+        {
+
         }
 
         //private static FlatList<AstNode> ParseNestedList(AstNode node, Binding.BindingStore bs)

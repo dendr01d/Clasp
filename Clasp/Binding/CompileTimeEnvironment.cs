@@ -9,14 +9,14 @@ namespace Clasp.Binding
 {
     internal class CompileTimeEnvironment : IDictionary<string, Term>
     {
-        private Environment _enclosingEnv;
+        private EnvFrame _enclosingEnv;
         //private Dictionary<string, Macro> _boundMacros;
         //private Dictionary<string, Variable> _boundVars;
 
-        //public CompileTimeEnvironment(Environment enclosing)
-        //{
-        //    _enclosingEnv = enclosing.ExtractCompileTimeEnv();
-        //}
+        public CompileTimeEnvironment(EnvFrame enclosing)
+        {
+            _enclosingEnv = enclosing.ExtractCompileTimeEnv();
+        }
 
         public string CreateFreshName(string initialName)
         {
