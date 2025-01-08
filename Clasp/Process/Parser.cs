@@ -25,7 +25,7 @@ namespace Clasp.Process
             {
                 Identifier sid => ParseIdentifier(sid, bs),
                 SyntaxList sp => ParseProduct(sp, bs),
-                SyntaxAtom sat => new ConstantValue(sat.WrappedValue),
+                SyntaxAtom sat => new Quotation(sat.WrappedValue),
                 _ => throw new ParserException.UnknownSyntax(term)
             };
         }

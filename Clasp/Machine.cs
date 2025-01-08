@@ -13,7 +13,7 @@ namespace Clasp
         private Term _returnValue;
         private EnvFrame _currentEnv;
 
-        private readonly Stack<Instruction> _continuation;
+        private readonly Stack<EvFrame> _continuation;
         private readonly Stack<EnvFrame> _envChain;
 
         private int _instructionCounter;
@@ -25,7 +25,7 @@ namespace Clasp
             _returnValue = Undefined.Value;
             _currentEnv = env;
 
-            _continuation = new Stack<Instruction>();
+            _continuation = new Stack<EvFrame>();
             _envChain = new Stack<EnvFrame>();
 
             _instructionCounter = 0;
@@ -37,7 +37,7 @@ namespace Clasp
         {
             if (!ComputationComplete)
             {
-                Instruction nextInstruction = _continuation.Pop();
+                EvFrame nextInstruction = _continuation.Pop();
 
                 DispatchOnInstruction(nextInstruction);
             }
@@ -56,28 +56,15 @@ namespace Clasp
 
         #region Instruction Dispatch
 
-        private void DispatchOnInstruction(Instruction instr)
+        private void DispatchOnInstruction(EvFrame instr)
         {
             switch (instr)
             {
-                case BindingDefinition bd:
-                    _continuation.Push(new BindFresh(bd.VarName));
-                    ResetCurrentEnv();
-                    _continuation.Push(bd.BoundValue);
-                    break;
-
                 case BindingMutation bm:
-                    _continuation.Push(new RebindExisting(bm.VarName));
-                    ResetCurrentEnv();
-                    _continuation.Push(bm.BoundValue);
                     break;
 
                 case VariableLookup vl:
                     {
-                        if (_currentEnv.TryGetValue(vl.VarName, out Term? boundValue))
-                        { _returnValue = boundValue; }
-                        else
-                        { throw new ClaspException.Uncategorized("Failed to look up binding for variable '{0}'.", vl.VarName); }
                     }
                     break;
 
@@ -127,33 +114,15 @@ namespace Clasp
 
                 case BindFresh bf:
                     {
-                        if (!_currentEnv.TryGetValue(bf.VarName, out Term? def) || def is Undefined)
-                        {
-                            _currentEnv[bf.VarName] = _returnValue;
-                            _returnValue = Undefined.Value;
-                        }
-                        else
-                        { throw new ClaspException.Uncategorized("Tried to re-define existing binding of variable '{0}'.", bf.VarName); }
                     }
                     break;
 
                 case RebindExisting re:
                     {
-                        if (_currentEnv.ContainsKey(re.VarName))
-                        {
-                            _currentEnv[re.VarName] = _returnValue;
-                            _returnValue = Undefined.Value;
-                        }
-                        else
-                        { throw new ClaspException.Uncategorized("Tried to mutate non-existent binding of variable '{0}'.", re.VarName); }
                     }
                     break;
 
                 case DispatchOnCondition doc:
-                    if (_returnValue != Boolean.False)
-                    { _continuation.Push(doc.Consequent); }
-                    else
-                    { _continuation.Push(doc.Alternate); }
                     break;
 
                 case DispatchOnOperator doo:
@@ -228,7 +197,7 @@ namespace Clasp
 
         public void Print(TextWriter tw)
         {
-            foreach (Instruction instr in _continuation)
+            foreach (EvFrame instr in _continuation)
             {
                 tw.WriteLine(instr);
             }
