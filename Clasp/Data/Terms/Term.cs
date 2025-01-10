@@ -10,6 +10,6 @@ namespace Clasp.Data.Terms
 {
     internal abstract class Term
     {
-        public static implicit operator AstNode(Term t) => new Fixed(t);
+        public abstract override string ToString();
     }
 }

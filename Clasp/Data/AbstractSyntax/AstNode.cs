@@ -13,7 +13,7 @@ namespace Clasp.Data.AbstractSyntax
 {
     internal abstract class AstNode : EvFrame
     {
-        protected AstNode(Binding.Environment evalEnv) : base(evalEnv) { }
+        protected AstNode() : base() { }
         public abstract Term ToTerm();
     }
 
@@ -23,16 +23,17 @@ namespace Clasp.Data.AbstractSyntax
     {
         public string VarName { get; private init; }
         public AstNode BoundValue { get; private init; }
-        public BindingDefinition(Binding.Environment evalEnv, string key, AstNode value) : base(evalEnv)
+        public BindingDefinition(string key, AstNode value) : base()
         {
             VarName = key;
             BoundValue = value;
         }
-        public override void RunOnMachine(Stack<EvFrame> continuation, ref Term returnValue)
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
         {
-            continuation.Push(new BindFresh(EvaluationEnv, VarName));
+            continuation.Push(new BindFresh(VarName));
             continuation.Push(BoundValue);
         }
+        public override EvFrame CopyContinuation() => new BindingDefinition(VarName, BoundValue);
         public override string ToString() => string.Format("DEF({0}, {1})", VarName, BoundValue);
         public override Term ToTerm() => ConsList.ProperList(Symbol.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
@@ -42,16 +43,17 @@ namespace Clasp.Data.AbstractSyntax
         public string VarName { get; private init; }
         public AstNode BoundValue { get; private init; }
 
-        public BindingMutation(Binding.Environment evalEnv, string name, AstNode bound) : base(evalEnv)
+        public BindingMutation(string name, AstNode bound) : base()
         {
             VarName = name;
             BoundValue = bound;
         }
-        public override void RunOnMachine(Stack<EvFrame> continuation, ref Term returnValue)
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
         {
-            continuation.Push(new RebindExisting(EvaluationEnv, VarName));
+            continuation.Push(new RebindExisting(VarName));
             continuation.Push(BoundValue);
         }
+        public override EvFrame CopyContinuation() => new BindingMutation(VarName, BoundValue);
         public override string ToString() => string.Format("SET({0}, {1})", VarName, BoundValue);
         public override Term ToTerm() => ConsList.ProperList(Symbol.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
@@ -63,21 +65,22 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class VariableLookup : AstNode
     {
         public string VarName { get; private init; }
-        public VariableLookup(Binding.Environment evalEnv, string key) : base(evalEnv)
+        public VariableLookup(string key) : base()
         {
             VarName = key;
         }
-        public override void RunOnMachine(Stack<EvFrame> continuation, ref Term returnValue)
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
         {
-            if (EvaluationEnv.TryGetValue(VarName, out Term? boundValue))
+            if (currentEnv.TryGetValue(VarName, out Term? boundValue))
             {
-                returnValue = boundValue;
+                currentValue = boundValue;
             }
             else
             {
                 throw new ClaspException.Uncategorized("Failed to look up binding for variable '{0}'.", VarName);
             }
         }
+        public override EvFrame CopyContinuation() => new VariableLookup(VarName);
         public override string ToString() => string.Format("VAR({0})", VarName);
         public override Term ToTerm() => Symbol.Intern(VarName);
     }
@@ -85,20 +88,19 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class Quotation : AstNode
     {
         public Term Value { get; private init; }
-        private readonly bool SelfQuoting;
 
-        public Quotation(Binding.Environment evalEnv, Terms.Atom value) : base(evalEnv)
+        public Quotation(Term value) : base()
         {
             Value = value;
-            throw new NotImplementedException();
-            // should be if it's a terminal value
-            //SelfQuoting = Value is Atom;
         }
-        public override void RunOnMachine(Stack<EvFrame> continuation, ref Term returnValue)
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
         {
-            returnValue = Value;
+            currentValue = Value;
         }
-        public override string ToString() => string.Format("QUOTE({0})", Value);
+        public override EvFrame CopyContinuation() => new Quotation(Value);
+        public override string ToString() => Value is Atom
+            ? Value.ToString()
+            : string.Format("QUOTE({0})", Value);
         public override Term ToTerm() => ConsList.ProperList(Symbol.Quote, Value);
     }
 
@@ -109,26 +111,30 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class FunctionApplication : AstNode
     {
         public readonly AstNode Operator;
-        public readonly AstNode[] Args;
+        public readonly AstNode[] Arguments;
 
-        public FunctionApplication(Binding.Environment evalEnv, AstNode op, AstNode[] args) : base(evalEnv)
+        public FunctionApplication(AstNode op, AstNode[] args) : base()
         {
             Operator = op;
-            Args = args;
+            Arguments = args;
         }
-        public override void RunOnMachine(Stack<EvFrame> continuation, ref Term returnValue)
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
         {
-            continuation.Push(new DispatchOnOperator(Args));
+            continuation.Push(new RollUpArguments(Arguments));
+            continuation.Push(new ChangeCurrentEnvironment(currentEnv));
             continuation.Push(Operator);
         }
+
+        public override EvFrame CopyContinuation() => new FunctionApplication(Operator, Arguments);
+
         public override string ToString() => string.Format(
             "APPL({0}; {1})",
             Operator,
-            string.Join(", ", Args.ToArray<object>()));
+            string.Join(", ", Arguments.ToArray<object>()));
 
         public override Term ToTerm() => ConsList.Cons(
             Operator.ToTerm(),
-            ConsList.ProperList(Args.Select(x => x.ToTerm()).ToArray()));
+            ConsList.ProperList(Arguments.Select(x => x.ToTerm()).ToArray()));
     }
 
     internal sealed class FunctionCreation : AstNode
@@ -145,16 +151,23 @@ namespace Clasp.Data.AbstractSyntax
             Informals = internalKeys;
             Body = body;
         }
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        {
+            continuation.Push(new Quotation(new CompoundProcedure(Formals, DottedFormal, currentEnv, Body)));
+        }
+        public override EvFrame CopyContinuation() => new FunctionCreation(Formals, DottedFormal, Informals, Body);
 
         public override string ToString() => string.Format("FUN({0}{1}; {2})",
             string.Join(", ", Formals.ToArray<object>()),
             DottedFormal is null ? string.Empty : string.Format("; {0}", DottedFormal),
             string.Join(", ", Body));
 
-        //public override Term ToTerm() => ConsList.ProperList(Symbol.Lambda,
-        //    ConsList.ConstructDirect(Formals.Select(x => Symbol.Intern(x)).ToList<Term>()
-        //        .Append(DottedFormal is null ? Nil.Value : Symbol.Intern(DottedFormal))),
-        //    Body.ToTerm());
+        public override Term ToTerm() => ConsList.ProperList(Symbol.Lambda,
+            ConsList.ConstructDirect(Formals
+                .Select(x => Symbol.Intern(x))
+                .ToList<Term>()
+                .Append(DottedFormal is null ? Nil.Value : Symbol.Intern(DottedFormal))),
+            Body.ToTerm());
     }
 
     #endregion
@@ -172,10 +185,17 @@ namespace Clasp.Data.AbstractSyntax
             Consequent = consequent;
             Alternate = alternate;
         }
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        {
+            continuation.Push(new DispatchOnCondition(Consequent, Alternate));
+            continuation.Push(new ChangeCurrentEnvironment(currentEnv));
+            continuation.Push(Test);
+        }
+        public override EvFrame CopyContinuation() => new ConditionalForm(Test, Consequent, Alternate);
         public override string ToString() => string.Format("BRANCH({0}, {1}, {2})", Test, Consequent, Alternate);
 
-        //public override Term ToTerm() => ConsList.ProperList(Symbol.If,
-        //    Test.ToTerm(), Consequent.ToTerm(), Alternate.ToTerm());
+        public override Term ToTerm() => ConsList.ProperList(Symbol.If,
+            Test.ToTerm(), Consequent.ToTerm(), Alternate.ToTerm());
     }
 
     internal sealed class SequentialForm : AstNode
@@ -185,10 +205,47 @@ namespace Clasp.Data.AbstractSyntax
         {
             Sequence = series;
         }
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        {
+            foreach(AstNode node in Sequence.Reverse())
+            {
+                continuation.Push(node);
+                continuation.Push(new ChangeCurrentEnvironment(currentEnv));
+            }
+        }
+        public override EvFrame CopyContinuation() => new SequentialForm(Sequence);
         public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToString()));
 
-        //public override Term ToTerm() => ConsList.Cons(Symbol.Begin,
-        //    ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
+        public override Term ToTerm() => ConsList.Cons(Symbol.Begin,
+            ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
+    }
+
+    internal sealed class TopLevelSequentialForm : AstNode
+    {
+        public readonly AstNode[] Sequence;
+        public TopLevelSequentialForm(AstNode[] series)
+        {
+            Sequence = series;
+        }
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        {
+            if (Sequence.Length > 1)
+            {
+                continuation.Push(new TopLevelSequentialForm(Sequence[1..]));
+            }
+            continuation.Push(Sequence[0]);
+        }
+        public override EvFrame CopyContinuation() => new TopLevelSequentialForm(Sequence);
+        public override string ToString() => string.Format("SEQ-D({0})", string.Join(", ", Sequence.ToString()));
+
+        public override Term ToTerm() => ConsList.Cons(Symbol.Begin,
+            ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
+    }
+
+    internal sealed class CallWithCurrentContinuation : AstNode
+    {
+        // needs to copy the continuation of the runtime
+        // but skipping over any top-level forms at the bottom of the stack
     }
 
     #endregion

@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using Clasp.Binding;
 using Clasp.Data.Terms;
@@ -11,13 +8,12 @@ namespace Clasp.Data.AbstractSyntax
 {
     internal abstract class EvFrame
     {
-        public readonly Binding.Environment EvaluationEnv;
-        public abstract void RunOnMachine(Stack<EvFrame> continuation, ref Term returnValue);
+        public abstract void RunOnMachine(
+            Stack<EvFrame> continuation,
+            ref Environment currentEnv,
+            ref Term currentValue);
 
-        protected EvFrame(Binding.Environment evalEnv)
-        {
-            EvaluationEnv = evalEnv;
-        }
+        public abstract EvFrame CopyContinuation();
 
         public abstract override string ToString();
     }
@@ -30,22 +26,23 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class BindFresh : EvFrame
     {
         public string VarName { get; private init; }
-        public BindFresh(Binding.Environment evalEnv, string key) : base(evalEnv)
+        public BindFresh(string key) : base()
         {
             VarName = key;
         }
-        public override void RunOnMachine(Stack<EvFrame> continuation, ref Term returnValue)
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
         {
-            if (!EvaluationEnv.TryGetValue(VarName, out Term? def) || def is Undefined)
+            if (!currentEnv.TryGetValue(VarName, out Term? def) || def is Undefined)
             {
-                EvaluationEnv[VarName] = returnValue;
-                returnValue = Undefined.Value;
+                currentEnv[VarName] = currentValue;
+                currentValue = Undefined.Value;
             }
             else
             {
                 throw new ClaspException.Uncategorized("Tried to re-define existing binding of variable '{0}'.", VarName);
             }
         }
+        public override EvFrame CopyContinuation() => new BindFresh(VarName);
         public override string ToString() => string.Format("*DEF({0}, [])", VarName);
     }
 
@@ -55,20 +52,23 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class RebindExisting : EvFrame
     {
         public string VarName { get; private init; }
-        public RebindExisting(Binding.Environment evalEnv, string key) : base(evalEnv)
+        public RebindExisting(string key) : base()
         {
             VarName = key;
         }
-        public override void RunOnMachine(Stack<EvFrame> continuation, ref Term returnValue)
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
         {
-            if (EvaluationEnv.ContainsKey(VarName))
+            if (currentEnv.ContainsKey(VarName))
             {
-                EvaluationEnv[VarName] = returnValue;
-                returnValue = Undefined.Value;
+                currentEnv[VarName] = currentValue;
+                currentValue = Undefined.Value;
             }
             else
-            { throw new ClaspException.Uncategorized("Tried to mutate non-existent binding of variable '{0}'.", VarName); }
+            {
+                throw new ClaspException.Uncategorized("Tried to mutate non-existent binding of variable '{0}'.", VarName);
+            }
         }
+        public override EvFrame CopyContinuation() => new RebindExisting(VarName);
         public override string ToString() => string.Format("*SET({0}, [])", VarName);
 
     }
@@ -84,14 +84,15 @@ namespace Clasp.Data.AbstractSyntax
     {
         public readonly AstNode Consequent;
         public readonly AstNode Alternate;
-        public DispatchOnCondition(Binding.Environment evalEnv, AstNode consequent, AstNode alternate) : base(evalEnv)
+        public DispatchOnCondition(AstNode consequent, AstNode alternate) : base()
         {
             Consequent = consequent;
             Alternate = alternate;
         }
-        public override void RunOnMachine(Stack<EvFrame> continuation, ref Term returnValue)
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
+
         {
-            if (returnValue == Terms.Boolean.False)
+            if (currentValue == Boolean.False)
             {
                 continuation.Push(Alternate);
             }
@@ -100,6 +101,7 @@ namespace Clasp.Data.AbstractSyntax
                 continuation.Push(Consequent);
             }
         }
+        public override EvFrame CopyContinuation() => new DispatchOnCondition(Consequent, Alternate);
         public override string ToString() => string.Format("*BRANCH([], {0}, {1})", Consequent, Alternate);
     }
 
@@ -107,37 +109,25 @@ namespace Clasp.Data.AbstractSyntax
 
     #region Function Application
 
-    // - Evaluate the operator
-    // - Branch based on whether the evaluated operator is primitive or compound:
-
-    // - If Primitive:
-    //      - Evaluate the arguments one by one, accumulating them into a list
-    //      - Determine the desired arity of the primitive operation, then call the correct function on the items in the list
-
-    // - If Compound:
-    //      - Replace the current environment with (do not descend into) the closure of the compound procedure
-    //      - Evaluate (Define) the arguments one by one, binding them according to the formal parameter name
-    //      - The informal parameters may(?) already exist as undefined placeholders within the closure? Unsure...
-    //      - Evaluate the sequential body
-    //      - (No need to ascend out of the closure bc it's in tail position)
-
-    internal sealed class DispatchOnOperator : EvFrame
+    internal sealed class RollUpArguments : EvFrame
     {
+        private static readonly System.Random _rng = new System.Random();
+
         public readonly AstNode[] Arguments;
 
-        public DispatchOnOperator(Binding.Environment evalEnv, AstNode[] arguments) : base(evalEnv)
+        public RollUpArguments(AstNode[] arguments) : base()
         {
             Arguments = arguments;
         }
-        public override void RunOnMachine(Stack<EvFrame> continuation, ref Term returnValue)
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
         {
-            if (returnValue is MacroProcedure macro)
+            if (currentValue is MacroProcedure macro)
             {
                 throw new ClaspException.Uncategorized("Cannot evaluate macro-procedure as normal application: {0}", macro);
             }
-            else if (returnValue is not Procedure proc)
+            else if (currentValue is not Procedure proc)
             {
-                throw new ClaspException.Uncategorized("Tried to apply non-procedure: {0}", returnValue);
+                throw new ClaspException.Uncategorized("Tried to apply non-procedure: {0}", currentValue);
             }
             else if (Arguments.Length < proc.Arity)
             {
@@ -147,79 +137,163 @@ namespace Clasp.Data.AbstractSyntax
             {
                 throw new ClaspException.Uncategorized("Too many arguments provided for fixed-arity procedure: {0}", proc);
             }
-            else if (proc is CompoundProcedure cp)
+            else
             {
-                Binding.Environment closure = new EnvFrame(cp.CapturedEnv);
+                continuation.Push(new ApplyProcedure(proc));
+
+                if (Arguments.Length > 0)
+                {
+                    EvFrame unrolled = new Quotation(Nil.Value);
+
+                    foreach(AstNode arg in Arguments.Reverse().Skip(1))
+                    {
+                        unrolled = unrolled = new ArgumentSplitter(arg, unrolled, RandomBool());
+                    }
+
+                    continuation.Push(unrolled);
+                }
+            }
+        }
+        public override EvFrame CopyContinuation() => new RollUpArguments(Arguments.ToArray());
+        public override string ToString() => string.Format("*APPL([]; {0}", string.Join(", ", Arguments.ToArray<object>()));
+
+        private static bool RandomBool() => _rng.Next(2) == 0;
+    }
+
+    internal sealed class ArgumentSplitter : EvFrame
+    {
+        public readonly EvFrame Head;
+        public readonly EvFrame Tail;
+        public readonly bool HeadFirst;
+
+        public ArgumentSplitter(EvFrame head, EvFrame tail, bool headFirst) : base()
+        {
+            Head = head;
+            Tail = tail;
+            HeadFirst = headFirst;
+        }
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
+        {
+            if (HeadFirst)
+            {
+                continuation.Push(new ArgumentSwitcher(Tail, false));
+                continuation.Push(Head);
+            }
+            else
+            {
+                continuation.Push(new ArgumentSwitcher(Head, true));
+                continuation.Push(Tail);
+            }
+        }
+        public override EvFrame CopyContinuation() => new ArgumentSplitter(Head, Tail, HeadFirst);
+        public override string ToString() => string.Format("ROLL-ARGS({0}{1}, {2}{3})",
+            Head, HeadFirst ? "º" : string.Empty,
+            Tail, HeadFirst ? string.Empty : "º");
+    }
+
+    internal sealed class ArgumentSwitcher : EvFrame
+    {
+        public readonly EvFrame RemainingTerm;
+        public readonly bool RemainingIsHead;
+
+        public ArgumentSwitcher(EvFrame remaining, bool remainingFirst)
+        {
+            RemainingTerm = remaining;
+            RemainingIsHead = remainingFirst;
+        }
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
+        {
+            continuation.Push(new ArgumentAccumulator(currentValue, !RemainingIsHead));
+            continuation.Push(RemainingTerm);
+        }
+        public override EvFrame CopyContinuation() => new ArgumentSwitcher(RemainingTerm, RemainingIsHead);
+        public override string ToString() => string.Format("SWITCH-ARGS({0}, {1})",
+            RemainingIsHead ? RemainingTerm : "[]",
+            RemainingIsHead ? "[]" : RemainingTerm);
+    }
+
+    internal sealed class ArgumentAccumulator : EvFrame
+    {
+        public readonly Term CompletedTerm;
+        public readonly bool CompletedIsHead;
+
+        public ArgumentAccumulator(Term completed, bool completedFirst)
+        {
+            CompletedTerm = completed;
+            CompletedIsHead = completedFirst;
+        }
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
+        {
+            if (CompletedIsHead)
+            {
+                currentValue = ConsList.Cons(CompletedTerm, currentValue);
+            }
+            else
+            {
+                currentValue = ConsList.Cons(currentValue, CompletedTerm);
+            }
+        }
+        public override EvFrame CopyContinuation() => new ArgumentAccumulator(CompletedTerm, CompletedIsHead);
+        public override string ToString() => string.Format("ACC-ARGS({0}, {1})",
+            CompletedIsHead ? CompletedTerm : "[]",
+            CompletedIsHead ? "[]" : CompletedTerm);
+    }
+
+    internal sealed class ApplyProcedure : EvFrame
+    {
+        public readonly Procedure Op;
+        public ApplyProcedure(Procedure op) => Op = op;
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
+        {
+            Term args = currentValue;
+
+            if (currentValue is not ConsList)
+            {
+                throw new ClaspException.Uncategorized("Expected current value to be args list: {0}", currentValue);
+            }
+
+            if (Op is CompoundProcedure cp)
+            {
+                Environment closure = new EnvFrame(cp.CapturedEnv);
 
                 continuation.Push(cp.Body);
+                continuation.Push(new ChangeCurrentEnvironment(closure));
 
-                int i = 0;
-                for (; i < cp.Parameters.Length; ++i)
+                for (int i = 0; i < cp.Parameters.Length; ++i)
                 {
-                    continuation.Push(new BindingDefinition(closure, cp.Parameters[i], Arguments[i]));
+                    continuation.Push(new Quotation((args as ConsList)!.Car));
+                    continuation.Push(new BindFresh(cp.Parameters[i]));
+                    continuation.Push(new ChangeCurrentEnvironment(closure));
+
+                    args = (args as ConsList)!.Cdr;
                 }
 
                 if (cp.FinalParameter is not null)
                 {
-
-                    continuation.Push(new BindFresh(closure, cp.FinalParameter));
-
-                    if (Arguments.Length >= i)
-                    {
-                        continuation.Push(new RollupVarArgs(Arguments[i..]));
-                    }
-                    else
-                    {
-                        continuation.Push(new Quotation(closure, Nil.Value));
-                    }
+                    continuation.Push(new Quotation(args));
+                    continuation.Push(new BindFresh(cp.FinalParameter));
+                    continuation.Push(new ChangeCurrentEnvironment(closure));
                 }
-
-                // handle internal definitions here...?
-            }
-            else if (proc is PrimitiveProcedure pp)
-            {
-                continuation.Push(new InvokePrimitiveProcedure(pp));
-                continuation.Push(new RollupVarArgs(Arguments));
-            }
-            else
-            {
-                throw new ClaspException.Uncategorized("Tried to apply procedure of unknown type: {0}", proc);
             }
         }
-        public override string ToString() => string.Format("*APPL([]; {0}", string.Join(", ", Arguments.ToArray<object>()));
-    }
-
-    internal sealed class RollupVarArgs : EvFrame
-    {
-        public readonly Stack<AstNode> UnevaluatedArgs;
-        public readonly List<Terms.Term> EvaluatedArgs;
-
-        public bool RollupStarted => EvaluatedArgs.Count > 0;
-        public bool RollupFinished => UnevaluatedArgs.Count == 0;
-
-        public RollupVarArgs(AstNode[] args)
-        {
-            UnevaluatedArgs = new Stack<AstNode>(args.Reverse());
-            EvaluatedArgs = new List<Terms.Term>();
-        }
-
-        public override string ToString()
-        {
-            return string.Format("VAR-ARGS({0}{1}{2}{3}{4})",
-                string.Join(", ", EvaluatedArgs),
-                EvaluatedArgs.Count > 0 ? ", " : string.Empty,
-                "[]",
-                UnevaluatedArgs.Count > 0 ? ", " : string.Empty,
-                string.Join(", ", UnevaluatedArgs));
-        }
-    }
-
-    internal sealed class InvokePrimitiveProcedure : EvFrame
-    {
-        public readonly Terms.PrimitiveProcedure Op;
-        public InvokePrimitiveProcedure(Terms.PrimitiveProcedure op) => Op = op;
+        public override EvFrame CopyContinuation() => new ApplyProcedure(Op);
         public override string ToString() => string.Format("*APPL({0}; [])", Op);
     }
 
     #endregion
+
+    internal sealed class ChangeCurrentEnvironment : EvFrame
+    {
+        public readonly Environment NewEnvironment;
+        public ChangeCurrentEnvironment(Environment newEnv)
+        {
+            NewEnvironment = newEnv;
+        }
+        public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
+        {
+            currentEnv = NewEnvironment;
+        }
+        public override EvFrame CopyContinuation() => new ChangeCurrentEnvironment(NewEnvironment);
+        public override string ToString() => string.Format("MOD-ENV()");
+    }
 }

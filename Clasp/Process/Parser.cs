@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 
@@ -19,14 +20,14 @@ namespace Clasp.Process
             return ParseAST(stx, new BindingStore());
         }
 
-        public static AstNode ParseAST(Term term, Binding.BindingStore bs)
+        public static AstNode ParseAST(Term term, BindingStore bs)
         {
             return term switch
             {
                 Identifier sid => ParseIdentifier(sid, bs),
                 SyntaxList sp => ParseProduct(sp, bs),
                 SyntaxAtom sat => new Quotation(sat.WrappedValue),
-                _ => throw new ParserException.UnknownSyntax(term)
+                _ => throw new ParserException.Uncategorized("Unknown form: {0}", term)
             };
         }
 
@@ -77,6 +78,41 @@ namespace Clasp.Process
 
         //    return new Vector(contents.ToArray());
         ////}
+
+        private static bool TryParseSpecialForm(ConsList cell, BindingStore bs,
+            [MaybeNullWhen(false)] out AstNode? specialForm)
+        {
+            specialForm = null;
+
+            if (cell.Car is Symbol keyword)
+            {
+                if (keyword.Name == Symbol.Define.Name
+                    && args)
+                {
+                    return ParseDefinition(keyword.VarName, args);
+                }
+                else if (keyword.Name == Symbol.Set.Name)
+                {
+                    return ParseSet(keyword.Name, args);
+                }
+                else if (keyword.Name == Symbol.Quote.Name)
+                {
+                    return ParseQuote(args);
+                }
+                else if (keyword.Name == Symbol.Lambda.Name)
+                {
+                    return ParseLambda(args);
+                }
+                else if (keyword.Name == Symbol.If.Name)
+                {
+                    return ParseBranch(args);
+                }
+                else if (keyword.Name == Symbol.Begin.Name)
+                {
+                    return ParseBegin(args);
+                }
+            }
+        }
 
         private static AstNode ParseApplication(ConsList cell, Binding.BindingStore bs)
         {

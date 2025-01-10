@@ -34,13 +34,13 @@ namespace Clasp.Data.Terms
     {
         public readonly string[] Parameters;
         public readonly string? FinalParameter;
-        public readonly EnvFrame CapturedEnv;
+        public readonly Environment CapturedEnv;
         public readonly SequentialForm Body;
 
         public override int Arity { get; }
         public override bool IsVariadic { get; }
 
-        public CompoundProcedure(string[] parameters, EnvFrame enclosing, SequentialForm body)
+        public CompoundProcedure(string[] parameters, Environment enclosing, SequentialForm body)
         {
             Parameters = parameters;
             FinalParameter = null;
@@ -51,7 +51,7 @@ namespace Clasp.Data.Terms
             IsVariadic = false;
         }
 
-        public CompoundProcedure(string[] parameters, string? finalParameter, EnvFrame enclosing, SequentialForm body)
+        public CompoundProcedure(string[] parameters, string? finalParameter, Environment enclosing, SequentialForm body)
             : this(parameters, enclosing, body)
         {
             FinalParameter = finalParameter;
