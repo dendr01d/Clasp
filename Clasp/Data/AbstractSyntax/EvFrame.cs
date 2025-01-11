@@ -143,7 +143,7 @@ namespace Clasp.Data.AbstractSyntax
 
                 if (Arguments.Length > 0)
                 {
-                    EvFrame unrolled = new Quotation(Nil.Value);
+                    EvFrame unrolled = new ConstValue(Nil.Value);
 
                     foreach(AstNode arg in Arguments.Reverse().Skip(1))
                     {
@@ -261,7 +261,7 @@ namespace Clasp.Data.AbstractSyntax
 
                 for (int i = 0; i < cp.Parameters.Length; ++i)
                 {
-                    continuation.Push(new Quotation((args as ConsList)!.Car));
+                    continuation.Push(new ConstValue((args as ConsList)!.Car));
                     continuation.Push(new BindFresh(cp.Parameters[i]));
                     continuation.Push(new ChangeCurrentEnvironment(closure));
 
@@ -270,7 +270,7 @@ namespace Clasp.Data.AbstractSyntax
 
                 if (cp.FinalParameter is not null)
                 {
-                    continuation.Push(new Quotation(args));
+                    continuation.Push(new ConstValue(args));
                     continuation.Push(new BindFresh(cp.FinalParameter));
                     continuation.Push(new ChangeCurrentEnvironment(closure));
                 }

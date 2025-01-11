@@ -1,11 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 using System.Reflection;
 
 using Clasp.Binding;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.ConcreteSyntax;
+using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
 
 namespace Clasp.Process
@@ -15,389 +18,287 @@ namespace Clasp.Process
         // the MOST IMPORTANT thing to remember here is that every syntactic form must break down
         // into ONLY the forms representable by AstNodes
 
-        public static AstNode ParseAST(Syntax stx)
+        public static AstNode ParseAST(SyntaxWrapper stx, int startingPhase)
         {
-            return ParseAST(stx, new BindingStore());
+            return ParseAST(stx, new BindingStore(), startingPhase);
         }
 
-        public static AstNode ParseAST(Term term, BindingStore bs)
+        public static AstNode ParseAST(SyntaxWrapper stx, BindingStore bs, int phase)
         {
-            return term switch
+            if (stx.TryExposeIdentifier(out Symbol? sym, out string? _))
             {
-                Identifier sid => ParseIdentifier(sid, bs),
-                SyntaxList sp => ParseProduct(sp, bs),
-                SyntaxAtom sat => new Quotation(sat.WrappedValue),
-                _ => throw new ParserException.Uncategorized("Unknown form: {0}", term)
-            };
-        }
-
-        private static VariableLookup ParseIdentifier(Identifier id, BindingStore bs)
-        {
-            //string varName = bs.ResolveBindingName(id.WrappedValue.Name, id.Context);
-            return new VariableLookup(id.WrappedValue.Name);
-        }
-
-        private static AstNode ParseProduct(SyntaxList prod, Binding.BindingStore bs)
-        {
-            //if (prod.WrappedValue is Vector vec)
-            //{
-            //    return ParseVector(vec, bs);
-            //}
-            //else
-            if (prod.WrappedValue is ConsList cell)
-            {
-                return ParseApplication(cell, bs);
+                string bindingName = bs.ResolveBindingName(sym.Name, stx.Context[phase]);
+                return new VariableLookup(bindingName);
             }
-
-            throw new ParserException.UnknownSyntax(prod);
-        }
-
-        ////private static Fixed ParseVector(Vector vec, Binding.BindingStore bs)
-        ////{
-        ////    List<Fixed> contents = new List<Fixed>();
-        ////    int index = 0;
-
-        ////    foreach (Term value in vec.Values)
-        ////    {
-        ////        AstNode parsed = ParseAST(value, bs);
-
-        ////        if (parsed is Fixed parsedValue)
-        ////        {
-        ////            contents.Add(parsedValue);
-        ////        }
-        ////        else
-        ////        {
-        ////            throw new ParserException(
-        ////                "Expected vector element {0} at index {1} to parse to fixed value.",
-        ////                value,
-        ////                index);
-        ////        }
-
-        ////        ++index;
-        ////    }
-
-        //    return new Vector(contents.ToArray());
-        ////}
-
-        private static bool TryParseSpecialForm(ConsList cell, BindingStore bs,
-            [MaybeNullWhen(false)] out AstNode? specialForm)
-        {
-            specialForm = null;
-
-            if (cell.Car is Symbol keyword)
+            else if (stx.TryExposeList(out SyntaxWrapper? car, out SyntaxWrapper? cdr))
             {
-                if (keyword.Name == Symbol.Define.Name
-                    && args)
-                {
-                    return ParseDefinition(keyword.VarName, args);
-                }
-                else if (keyword.Name == Symbol.Set.Name)
-                {
-                    return ParseSet(keyword.Name, args);
-                }
-                else if (keyword.Name == Symbol.Quote.Name)
-                {
-                    return ParseQuote(args);
-                }
-                else if (keyword.Name == Symbol.Lambda.Name)
-                {
-                    return ParseLambda(args);
-                }
-                else if (keyword.Name == Symbol.If.Name)
-                {
-                    return ParseBranch(args);
-                }
-                else if (keyword.Name == Symbol.Begin.Name)
-                {
-                    return ParseBegin(args);
-                }
+                return ParseApplication(car, cdr, bs, phase);
+            }
+            else
+            {
+                return ParseQuote(stx);
             }
         }
 
-        private static AstNode ParseApplication(ConsList cell, Binding.BindingStore bs)
+        private static AstNode ParseApplication(SyntaxWrapper car, SyntaxWrapper cdr, BindingStore bs, int phase)
         {
-            AstNode parsedCar = ParseAST(cell.Car, bs);
+            // Parse the op-term first, then decide what to do
+            AstNode opTerm = ParseAST(car, bs, phase);
 
-            if (parsedCar is VariableLookup vl)
+            // Check to see if it's a special form
+            if (opTerm is VariableLookup vl)
             {
-                if (cell.Cdr is SyntaxList args)
+                string keyword = vl.VarName;
+
+                if (keyword == Symbol.Quote.Name)
                 {
-                    if (vl.VarName == Symbol.Define.Name)
-                    {
-                        return ParseDefinition(vl.VarName, args);
-                    }
-                    else if (vl.VarName == Symbol.Set.Name)
-                    {
-                        return ParseSet(vl.VarName, args);
-                    }
-                    else if (vl.VarName == Symbol.Quote.Name)
-                    {
-                        return ParseQuote(args);
-                    }
-                    else if (vl.VarName == Symbol.Lambda.Name)
-                    {
-                        return ParseLambda(args);
-                    }
-                    else if (vl.VarName == Symbol.If.Name)
-                    {
-                        return ParseBranch(args);
-                    }
-                    else if (vl.VarName == Symbol.Begin.Name)
-                    {
-                        return ParseBegin(args);
-                    }
+                    return ParseQuote(cdr);
+                }
+                else if (keyword == Symbol.Syntax.Name)
+                {
+                    return ParseSyntax(cdr);
+                }
+                else if (keyword == Symbol.Define.Name)
+                {
+                    return ParseDefinition(cdr, bs, phase);
+                }
+                else if (keyword == Symbol.Set.Name)
+                {
+                    return ParseSet(cdr, bs, phase);
+                }
+                else if (keyword == Symbol.Lambda.Name)
+                {
+                    return ParseLambda(cdr, bs, phase);
+                }
+                else if (keyword == Symbol.If.Name)
+                {
+                    return ParseBranch(cdr, bs, phase);
+                }
+                else if (keyword == Symbol.Begin.Name)
+                {
+                    return ParseBegin(cdr, bs, phase);
+                }
+            }
+
+            // Check to make sure it's not an imperative command
+            if (opTerm is BindingDefinition || opTerm is BindingMutation)
+            {
+                throw new ParserException.Uncategorized("Can't use imperative command as op term in function application");
+            }
+
+            // Otherwise we just have to trust that it'll make sense in the final program
+            IEnumerable<AstNode> argTerms = ParseArgs(cdr, bs, phase);
+            return new FunctionApplication(opTerm, argTerms.ToArray());
+        }
+
+        #region Special Forms
+
+        private static ConstValue ParseQuote(SyntaxWrapper args)
+        {
+            if (TryExposeOneArg(args, out SyntaxWrapper? quotedValue))
+            {
+                Term strippedExpr = quotedValue.Strip();
+                return new ConstValue(strippedExpr);
+            }
+
+            throw new ParserException.WrongFormat(Symbol.Quote.Name, args);
+        }
+
+        private static ConstValue ParseSyntax(SyntaxWrapper args)
+        {
+            if (TryExposeOneArg(args, out SyntaxWrapper? syntacticValue))
+            {
+                return new ConstValue(syntacticValue);
+            }
+
+            throw new ParserException.WrongFormat(Symbol.Syntax.Name, args);
+        }
+
+        private static BindingDefinition ParseDefinition(SyntaxWrapper args, BindingStore bs, int phase)
+        {
+            if (TryExposeTwoArgs(args, out SyntaxWrapper? arg1, out SyntaxWrapper? arg2)
+                && TryExposeBindingId(arg1, bs, phase, out string? key))
+            {
+                AstNode boundValueExpr = ParseAST(arg2, bs, phase);
+                return new BindingDefinition(key, boundValueExpr);
+            }
+
+            throw new ParserException.WrongFormat(Symbol.Define.Name, args);
+        }
+
+        private static BindingMutation ParseSet(SyntaxWrapper args, BindingStore bs, int phase)
+        {
+            if (TryExposeTwoArgs(args, out SyntaxWrapper? arg1, out SyntaxWrapper? arg2)
+                && TryExposeBindingId(arg1, bs, phase, out string? key))
+            {
+                AstNode boundValueExpr = ParseAST(arg2, bs, phase);
+                return new BindingMutation(key, boundValueExpr);
+            }
+
+            throw new ParserException.WrongFormat(Symbol.Set.Name, args);
+        }
+
+        private static string[] AnalyzeInternalDefinitions(SequentialForm seq)
+        {
+            List<string> internalKeys = new List<string>();
+
+            foreach(AstNode node in seq.Sequence)
+            {
+                if (node is BindingDefinition bd)
+                {
+                    internalKeys.Add(bd.VarName);
+                }
+            }
+
+            return internalKeys.ToArray();
+        }
+
+        private static FunctionCreation ParseLambda(SyntaxWrapper args, BindingStore bs, int phase)
+        {
+            if (TryExposeTwoArgs(args, out SyntaxWrapper? paramStx, out SyntaxWrapper? bodyStx))
+            {
+                Tuple<string[], string?> parameters = ParseParams(paramStx, bs, phase);
+                SequentialForm body = ParseBegin(bodyStx, bs, phase);
+
+                string[] internalKeys = AnalyzeInternalDefinitions(body);
+
+                return new FunctionCreation(parameters.Item1, parameters.Item2, internalKeys, body);
+            }
+
+            throw new ParserException.WrongFormat(Symbol.Lambda.Name, args);
+        }
+
+        private static ConditionalForm ParseBranch(SyntaxWrapper args, BindingStore bs, int phase)
+        {
+            if (TryExposeThreeArgs(args, out SyntaxWrapper? arg1, out SyntaxWrapper? arg2, out SyntaxWrapper? arg3))
+            {
+                AstNode test = ParseAST(arg1, bs, phase);
+                AstNode consequent = ParseAST(arg2, bs, phase);
+                AstNode alternate = ParseAST(arg3, bs, phase);
+
+                return new ConditionalForm(test, consequent, alternate);
+            }
+
+            throw new ParserException.WrongFormat(Symbol.If.Name, args);
+        }
+
+        private static SequentialForm ParseBegin(SyntaxWrapper args, BindingStore bs, int phase)
+        {
+            AstNode[] series = ParseArgs(args, bs, phase).ToArray();
+
+            if (series.Length == 0)
+            {
+                throw new ParserException.WrongFormat(Symbol.Begin.Name, args);
+            }
+            else
+            {
+                return new SequentialForm(series);
+            }
+        }
+
+        #endregion
+
+        #region Auxiliary Structures
+
+        private static IEnumerable<AstNode> ParseArgs(SyntaxWrapper argList, BindingStore bs, int phase)
+        {
+            SyntaxWrapper current = argList;
+
+            while (current.TryExposeList(out SyntaxWrapper? first, out SyntaxWrapper? rest))
+            {
+                AstNode newArg = ParseAST(first, bs, phase);
+                yield return newArg;
+                current = rest;
+            }
+
+            if (current.Expose() is not Nil)
+            {
+                throw new ParserException.Uncategorized("Cannot supply dotted list as function arguments.");
+            }
+
+            yield break;
+        }
+
+        private static Tuple<string[], string?> ParseParams(SyntaxWrapper paramList, BindingStore bs, int phase)
+        {
+            List<string> regularParams = new List<string>();
+
+            SyntaxWrapper current = paramList;
+
+            while (current.TryExposeList(out SyntaxWrapper? first, out SyntaxWrapper? rest))
+            {
+                if (TryExposeBindingId(first, bs, phase, out string? paramName))
+                {
+                    regularParams.Add(paramName);
                 }
                 else
                 {
-                    throw new ParserException.UnknownSyntax(cell.Cdr);
+                    throw new ParserException.WrongFormat("Lambda parameter list", paramList);
                 }
+
+                current = rest;
             }
 
-            if (parsedCar is BindingDefinition or BindingMutation)
+            if (TryExposeBindingId(current, bs, phase, out string? dottedParam))
             {
-                throw new ParserException.Uncategorized("Can't use imperative binding form as applicative operator.");
-            }
-            else if (parsedCar is Quotation)
-            {
-                throw new ParserException.Uncategorized("Can't used quoted value as applicative operator.");
-            }
-
-            if (cell.Cdr is SyntaxList sl && sl.WrappedValue is ConsList cl)
-            {
-                return new FunctionApplication(parsedCar, cl.Select(x => ParseAST(x, bs)).ToArray());
+                return new Tuple<string[], string?>(regularParams.ToArray(), dottedParam);
             }
             else
             {
-                throw new ParserException.Uncategorized("Function application cannot take the form of a dotted list.");
+                return new Tuple<string[], string?>(regularParams.ToArray(), null);
             }
         }
 
-        private static BindingDefinition ParseDefinition(string varName, SyntaxList args, BindingStore bs)
+        #endregion
+
+        #region Helpers
+
+        private static bool TryExposeBindingId(SyntaxWrapper stx, BindingStore bs, int phase,
+            [NotNullWhen(true)] out string? bindingName)
         {
-            if (args.WrappedValue is ConsList cl
-                && cl.Car is Syntax arg
-                && cl.Cdr is Nil)
+            if (stx.TryExposeIdentifier(out Symbol? _, out string? symbolicName))
             {
-                AstNode boundValue = ParseAST(arg, bs);
-                return new BindingDefinition(varName, boundValue);
+                bindingName = bs.ResolveBindingName(symbolicName, stx.Context[phase]);
+                return true;
             }
-            else
-            {
-                throw new ParserException.Uncategorized("Wrong type/arg number for '{0}' form.", Symbol.Define.Name);
-            }
+            bindingName = null;
+            return false;
         }
 
-        private static BindingMutation ParseSet(string varName, SyntaxList args, BindingStore bs)
+        private static bool TryExposeOneArg(SyntaxWrapper stx,
+            [NotNullWhen(true)] out SyntaxWrapper? arg1)
         {
-            if (args.WrappedValue is ConsList cl
-                && cl.Car is Syntax arg
-                && cl.Cdr is Nil)
-            {
-                AstNode mutatedValue = ParseAST(arg, bs);
-                return new BindingMutation(varName, mutatedValue);
-            }
-            else
-            {
-                throw new ParserException.Uncategorized("Wrong type/arg number for '{0}' form.", Symbol.Set.Name);
-            }
+            return stx.TryExposeList(out arg1, out SyntaxWrapper? terminator)
+                && terminator.Expose() is Nil;
         }
 
-        private static Quotation ParseQuote(SyntaxList args, BindingStore bs)
+        private static bool TryExposeTwoArgs(SyntaxWrapper stx,
+            [NotNullWhen(true)] out SyntaxWrapper? arg1,
+            [NotNullWhen(true)] out SyntaxWrapper? arg2)
         {
-            if (args.WrappedValue is ConsList cl
-                && cl.Car is Syntax arg
-                && cl.Cdr is Nil)
-            {
-                AstNode mutatedValue = ParseAST(arg, bs);
-                return new Quotation(varName, mutatedValue);
-            }
-            else
-            {
-                throw new ParserException.Uncategorized("Wrong type/arg number for '{0}' form.", Symbol.Quote.Name);
-            }
+            arg2 = null;
+
+            return stx.TryExposeList(out arg1, out SyntaxWrapper? rest)
+                && rest.TryExposeList(out arg2, out SyntaxWrapper? terminator)
+                && terminator.Expose() is Nil;
         }
 
-        private static FunctionCreation ParseLambda(SyntaxList args, BindingStore bs)
+        private static bool TryExposeThreeArgs(SyntaxWrapper stx,
+            [NotNullWhen(true)] out SyntaxWrapper? arg1,
+            [NotNullWhen(true)] out SyntaxWrapper? arg2,
+            [NotNullWhen(true)] out SyntaxWrapper? arg3)
         {
+            arg2 = null;
+            arg3 = null;
 
+            return stx.TryExposeList(out arg1, out SyntaxWrapper? rest1)
+                && rest1.TryExposeList(out arg2, out SyntaxWrapper? rest2)
+                && rest2.TryExposeList(out arg3, out SyntaxWrapper? terminator)
+                && terminator.Expose() is Nil;
         }
 
-        private static ConditionalForm ParseBranch(SyntaxList args, BindingStore bs)
-        {
 
-        }
 
-        private static SequentialForm ParseBegin(SyntaxList args, BindingStore bs)
-        {
-
-        }
-
-        //private static FlatList<AstNode> ParseNestedList(AstNode node, Binding.BindingStore bs)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
-        //private static AstNode ParseTaggedForm(Var car, FlatList<AstNode> tail, Binding.BindingStore bs)
-        //{
-        //    if (car.Name == Symbol.Quote.Name)
-        //    {
-        //        return ParseQuote(tail);
-        //    }
-        //    else if (car.Name == Symbol.Syntax.Name)
-        //    {
-        //        return ParseSyntaxForm(tail);
-        //    }
-        //    else if (car.Name == Symbol.Lambda.Name)
-        //    {
-        //        return ParseFun(tail, bs);
-        //    }
-        //    else if (car.Name == Symbol.If.Name)
-        //    {
-        //        return ParseBranch(tail, bs);
-        //    }
-        //    else if (car.Name == Symbol.Begin.Name)
-        //    {
-        //        return ParseSequence(tail, bs);
-        //    }
-        //    else if (car.Name == Symbol.Define.Name)
-        //    {
-        //        return ParseDefineFixed(tail, bs);
-        //    }
-        //    else if (car.Name == Symbol.DefineSyntax.Name)
-        //    {
-        //        return ParseDefineSyntax(tail, bs);
-        //    }
-        //    else if (car.Name == Symbol.Set.Name)
-        //    {
-        //        return ParseSetFixed(tail, bs);
-        //    }
-        //    else
-        //    {
-        //        return ParseApplication(car, tail);
-        //    }
-        //}
-
-        //private static Fixed ParseQuote(FlatList<AstNode> args)
-        //{
-        //    if (args.LeadingCount != 1)
-        //    {
-        //        throw new ParserException.WrongArity(Symbol.Quote.Name, 1, true, args);
-        //    }
-        //    else if (args[0] is not Fixed fixedArg)
-        //    {
-        //        throw new ParserException.WrongArgType(Symbol.Quote.Name, nameof(Fixed), args);
-        //    }
-        //    else
-        //    {
-        //        return fixedArg is Syntax stx
-        //            ? stx.Strip()
-        //            : fixedArg;
-        //    }
-        //}
-
-        //private static Fixed ParseSyntaxForm(FlatList<AstNode> args)
-        //{
-        //    //if (args.LeadingCount != 1)
-        //    //{
-        //    //    throw new ParserException.WrongArity(Symbol.Syntax.Name, 1, true, args);
-        //    //}
-        //    //else if (args[0] is not Fixed fixedArg)
-        //    //{
-        //    //    throw new ParserException.WrongArgType(Symbol.Syntax.Name, nameof(Fixed), args[0]);
-        //    //}
-        //    //else
-        //    //{
-        //    //    return fixedArg is Syntax stx
-        //    //        ? stx
-        //    //        : Syntax.Wrap(fixedArg)
-        //    //}
-        //    throw new NotImplementedException();
-        //}
-
-        //private static Functional ParseFun(FlatList<AstNode> args, Binding.BindingStore bs)
-        //{
-        //    if (args.LeadingCount < 2)
-        //    {
-        //        throw new ParserException.WrongArity(Symbol.Lambda.Name, 1, false, args);
-        //    }
-        //    else if (args[0] is not ConsCell cell
-        //        || FlatList<Var>.FromNested(cell) is not FlatList<Var> vars)
-        //    {
-        //        throw new ParserException.WrongArgType(Symbol.Lambda.Name, "Var list", 1, args[0]);
-        //    }
-        //    else
-        //    {
-        //        Sequence body = ParseSequence(new FlatList<AstNode>(args.Skip(1)), bs);
-
-        //        return new Fun(vars, body);
-        //    }
-        //}
-
-        //private static Branch ParseBranch(FlatList<AstNode> args, Binding.BindingStore bs)
-        //{
-        //    if (args.LeadingCount < 2)
-        //    {
-        //        throw new ParserException.WrongArity(Symbol.If.Name, 2, false, args);
-        //    }
-        //    else if (args.LeadingCount > 3)
-        //    {
-        //        throw new ParserException.WrongArity(Symbol.If.Name, 3, true, args);
-        //    }
-        //    else if (args.Values is not Generative[] gens)
-        //    {
-        //        throw new ParserException.WrongArgType(Symbol.If.Name, nameof(Generative), args);
-        //    }
-        //    else if (args.LeadingCount == 2)
-        //    {
-        //        return new Branch(gens[0], gens[1], Data.Terms.Boolean.False);
-        //    }
-        //    else
-        //    {
-        //        return new Branch(gens[0], gens[1], gens[2]);
-        //    }
-        //}
-
-        //private static Sequence ParseSequence(FlatList<AstNode> args, Binding.BindingStore bs)
-        //{
-        //    if (args.Values.Last() is not Generative finalGen)
-        //    {
-        //        throw new ParserException(
-        //            "The '{0}' form must conclude with a generative form, but was given: {1}",
-        //            Symbol.Begin.Name,
-        //            args.Values.Last());
-        //    }
-        //    else
-        //    {
-        //        return new Sequence(args.Values, finalGen);
-        //    }
-        //}
-
-        //private static BindFixed ParseDefineFixed(FlatList<AstNode> args, Binding.BindingStore bs)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
-        //private static BindSyntax ParseDefineSyntax(FlatList<AstNode> args, Binding.BindingStore bs)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
-        //private static SetFixed ParseSetFixed(FlatList<AstNode> args, Binding.BindingStore bs)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
-        //private static Appl ParseApplication(Generative op, AstNode tail, Binding.BindingStore bs)
-        //{
-        //    if (FlatList<Generative>.FromNested(tail) is FlatList<Generative> args
-        //        && !args.IsDotted)
-        //    {
-        //        return new Appl(op, args.Values);
-        //    }
-        //    else
-        //    {
-        //        throw new ParserException("Given node cannot be tail of applicative form: {0}", tail);
-        //    }
-        //}
+        #endregion
     }
 }

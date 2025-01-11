@@ -85,11 +85,11 @@ namespace Clasp.Data.AbstractSyntax
         public override Term ToTerm() => Symbol.Intern(VarName);
     }
 
-    internal sealed class Quotation : AstNode
+    internal sealed class ConstValue : AstNode
     {
         public Term Value { get; private init; }
 
-        public Quotation(Term value) : base()
+        public ConstValue(Term value) : base()
         {
             Value = value;
         }
@@ -97,7 +97,7 @@ namespace Clasp.Data.AbstractSyntax
         {
             currentValue = Value;
         }
-        public override EvFrame CopyContinuation() => new Quotation(Value);
+        public override EvFrame CopyContinuation() => new ConstValue(Value);
         public override string ToString() => Value is Atom
             ? Value.ToString()
             : string.Format("QUOTE({0})", Value);
@@ -153,7 +153,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
         {
-            continuation.Push(new Quotation(new CompoundProcedure(Formals, DottedFormal, currentEnv, Body)));
+            continuation.Push(new ConstValue(new CompoundProcedure(Formals, DottedFormal, currentEnv, Body)));
         }
         public override EvFrame CopyContinuation() => new FunctionCreation(Formals, DottedFormal, Informals, Body);
 

@@ -13,7 +13,7 @@ namespace Clasp.Process
         /// Reads the given tokens into the syntactic representation of a program.
         /// The given sequence is assumed not to be empty.
         /// </summary>
-        public static Syntax Read(IEnumerable<Token> tokens)
+        public static SyntaxWrapper Read(IEnumerable<Token> tokens)
         {
             // First, do a quick check to make sure the parentheses all match up
             CheckParentheses(tokens);
@@ -89,7 +89,7 @@ namespace Clasp.Process
         }
         #endregion
 
-        private static Syntax ReadSyntax(Stack<Token> tokens)
+        private static SyntaxWrapper ReadSyntax(Stack<Token> tokens)
         {
             // Use this later to extract metadata about the syntax
             Token current = tokens.Pop();
@@ -109,8 +109,8 @@ namespace Clasp.Process
                 TokenType.ClosingParen => throw new ReaderException.UnexpectedToken(current),
                 TokenType.DotOperator => throw new ReaderException.UnexpectedToken(current),
 
-                TokenType.OpenListParen => ReadList(tokens, current),
-                TokenType.OpenVecParen => ReadVector(tokens, current),
+                TokenType.OpenListParen => ReadList(tokens),
+                TokenType.OpenVecParen => ReadVector(tokens),
 
                 TokenType.Quote => ConsList.ProperList(Symbol.Quote, ReadSyntax(tokens)),
                 TokenType.Quasiquote => ConsList.ProperList(Symbol.Quasiquote, ReadSyntax(tokens)),
@@ -136,67 +136,28 @@ namespace Clasp.Process
                 _ => throw new ReaderException.UnhandledToken(current)
             };
 
-            Syntax wrappedValue = Syntax.Wrap(nextValue, current);
+            SyntaxWrapper wrappedValue = SyntaxWrapper.Wrap(nextValue, current);
 
             return wrappedValue;
+        }
+
+        private static Term ReadVector(Stack<Token> tokens)
+        {
+            throw new NotImplementedException();
         }
 
         // See here https://docs.racket-lang.org/reference/reader.html#%28part._parse-pair%29
         // For a peculiarity in how lists are read in the case of dotted terminators
         // Not sure that I care to implement that here?
 
-        private static Syntax ReadList(Stack<Token> tokens, Token source)
-        {
-            Tuple<Syntax[], bool> elements = ReadSeries(tokens);
-
-            if (elements.Item1.Length == 0)
-            {
-                return Syntax.Wrap(Nil.Value, source);
-            }
-            else if (elements.Item2) // improper list
-            {
-                ConsList cl = ConsList.ConstructDirect(elements.Item1);
-                return Syntax.Wrap(cl, source);
-            }
-            else
-            {
-                Term cl = ConsList.ProperList(elements.Item1);
-                return Syntax.Wrap(cl, source);
-            }
-        }
-
-        private static Syntax ReadVector(Stack<Token> tokens, Token source)
-        {
-            Token vecBegin = tokens.Peek();
-            Tuple<Syntax[], bool> elements = ReadSeries(tokens);
-
-            if (elements.Item2)
-            {
-                throw new ReaderException.Uncategorized(
-                    "Unexpected {0} token in vector beginning on line {2}, column {3}.",
-                    TokenType.DotOperator,
-                    vecBegin.Location.LineNumber,
-                    vecBegin.Location.Column);
-            }
-            else
-            {
-                Vector vec = new Vector(elements.Item1);
-                return Syntax.Wrap(vec, source);
-            }
-        }
-
-        /// <summary>
-        /// Consumes and reads tokens until a closing paren is encountered.
-        /// Returns a tuple with the contents and a bool indicating whether the series was dotted at the end.
-        /// </summary>
-        private static Tuple<Syntax[], bool> ReadSeries(Stack<Token> tokens)
+        private static Term ReadList(Stack<Token> tokens)
         {
             if (tokens.Peek().TType == TokenType.DotOperator)
             {
                 throw new ReaderException.UnexpectedToken(tokens.Peek());
             }
 
-            List<Syntax> output = new List<Syntax>();
+            List<SyntaxWrapper> output = new List<SyntaxWrapper>();
             Token previous = tokens.Peek();
             bool dotted = false;
 
@@ -222,7 +183,9 @@ namespace Clasp.Process
 
             tokens.Pop(); //remove closing paren
 
-            return new Tuple<Syntax[], bool>(output.ToArray(), dotted);
+            return dotted
+                ? ConsList.ConstructDirect(output)
+                : ConsList.ProperList(output.ToArray());
         }
 
     }

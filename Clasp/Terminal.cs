@@ -128,13 +128,13 @@ namespace Clasp
                                 IEnumerable<Token> tokens = Lexer.Lex("REPL", input);
                                 writer.WriteLine("TOKENS: {0}", Printer.PrintRawTokens(tokens));
 
-                                Syntax readSyntax = Reader.Read(tokens);
+                                SyntaxWrapper readSyntax = Reader.Read(tokens);
                                 writer.WriteLine("  READ: {0}", readSyntax.ToString());
 
-                                Syntax expandedSyntax = Expander.Expand(readSyntax, null!);
+                                SyntaxWrapper expandedSyntax = Expander.Expand(readSyntax, null!);
                                 writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
 
-                                AstNode parsedInput = Process.Parser.ParseAST(expandedSyntax);
+                                AstNode parsedInput = Process.Parser.ParseAST(expandedSyntax, 0);
                                 writer.WriteLine(" PARSE: {0}", parsedInput.ToString());
 
                                 if (_showingInput)

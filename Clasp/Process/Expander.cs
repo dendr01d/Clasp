@@ -11,7 +11,7 @@ namespace Clasp.Process
 {
     internal static class Expander
     {
-        public static Syntax Expand(Syntax input, EnvFrame env)
+        public static SyntaxWrapper Expand(SyntaxWrapper input, EnvFrame env)
         {
             //MetaBinder mb = new MetaBinder(input, env);
 

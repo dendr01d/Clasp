@@ -145,7 +145,7 @@ namespace Clasp
 
         public class UnknownForm : ExpanderException
         {
-            internal UnknownForm(Syntax unknownForm) : base(
+            internal UnknownForm(SyntaxWrapper unknownForm) : base(
                 "The given syntax is invalid for expandsion: {0}",
                 unknownForm)
             { }
@@ -153,7 +153,7 @@ namespace Clasp
 
         public class BindingResolution : ExpanderException
         {
-            internal BindingResolution(Identifier id, string? additionalMsg) : base(
+            internal BindingResolution(Symbol id, string? additionalMsg) : base(
                 "Unable to resolve compile-time binding of identifier{0}: {1}",
                 additionalMsg is null ? string.Empty : string.Format(" ({0})", additionalMsg),
                 id)
@@ -176,7 +176,7 @@ namespace Clasp
 
         public class InvalidContext : ExpanderException
         {
-            internal InvalidContext(Identifier op, ExpansionContext ctx) : base(
+            internal InvalidContext(Symbol op, ExpansionContext ctx) : base(
                 "Form with operator '{0}' is invalid to be expanded in '{1}' context.",
                 op,
                 ctx.ToString())
@@ -185,13 +185,13 @@ namespace Clasp
 
         public class InvalidFormShape : ExpanderException
         {
-            internal InvalidFormShape(Symbol formKeyword, Syntax given) : base(
+            internal InvalidFormShape(Symbol formKeyword, SyntaxWrapper given) : base(
                 "Cannot expand as '{0}' form the syntax: {1}",
                 formKeyword,
                 given)
             { }
 
-            internal InvalidFormShape(string abstractShapeName, Syntax given) : base(
+            internal InvalidFormShape(string abstractShapeName, SyntaxWrapper given) : base(
                 "Cannot expand as abstract \"{0}\" the syntax: {1}",
                 abstractShapeName,
                 given)
@@ -208,6 +208,15 @@ namespace Clasp
             internal UnknownSyntax(AstNode error) : base(
                 "The parser couldn't recognize the form of this syntax: {0}",
                 error)
+            { }
+        }
+
+        public class WrongFormat : ParserException
+        {
+            internal WrongFormat(string formKeyword, SyntaxWrapper args) : base(
+                "Wrong number or types of arguments for '{0}' form: {1}",
+                formKeyword,
+                args)
             { }
         }
 
