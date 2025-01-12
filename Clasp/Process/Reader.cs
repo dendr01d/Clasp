@@ -13,7 +13,7 @@ namespace Clasp.Process
         /// Reads the given tokens into the syntactic representation of a program.
         /// The given sequence is assumed not to be empty.
         /// </summary>
-        public static SyntaxWrapper Read(IEnumerable<Token> tokens)
+        public static Syntax Read(IEnumerable<Token> tokens)
         {
             // First, do a quick check to make sure the parentheses all match up
             CheckParentheses(tokens);
@@ -24,7 +24,7 @@ namespace Clasp.Process
             }
             else
             {
-                throw new ReaderException.Uncategorized("Token stream is empty and cannot be read.");
+                throw new ReaderException.EmptyTokenStream();
             }
 
         }
@@ -42,9 +42,7 @@ namespace Clasp.Process
 
                 if (extraParen is null)
                 {
-                    throw new ReaderException.Uncategorized(string.Format(
-                        "The reader counted an extra {0} parenthesis, but was unable to determine where it is.",
-                        extraCloseParens ? "closing" : "opening"));
+                    throw new ReaderException.AmbiguousParenthesis(!extraCloseParens);
                 }
                 else
                 {
@@ -89,7 +87,7 @@ namespace Clasp.Process
         }
         #endregion
 
-        private static SyntaxWrapper ReadSyntax(Stack<Token> tokens)
+        private static Syntax ReadSyntax(Stack<Token> tokens)
         {
             // Use this later to extract metadata about the syntax
             Token current = tokens.Pop();
@@ -136,7 +134,7 @@ namespace Clasp.Process
                 _ => throw new ReaderException.UnhandledToken(current)
             };
 
-            SyntaxWrapper wrappedValue = SyntaxWrapper.Wrap(nextValue, current);
+            Syntax wrappedValue = Syntax.Wrap(nextValue, current);
 
             return wrappedValue;
         }
@@ -157,7 +155,7 @@ namespace Clasp.Process
                 throw new ReaderException.UnexpectedToken(tokens.Peek());
             }
 
-            List<SyntaxWrapper> output = new List<SyntaxWrapper>();
+            List<Syntax> output = new List<Syntax>();
             Token previous = tokens.Peek();
             bool dotted = false;
 
@@ -181,11 +179,14 @@ namespace Clasp.Process
                 throw new ReaderException.ExpectedToken(TokenType.ClosingParen, tokens.Peek(), previous);
             }
 
+            if (!dotted)
+            {
+                output.Add(Syntax.Wrap(Nil.Value, tokens.Peek()));
+            }
+
             tokens.Pop(); //remove closing paren
 
-            return dotted
-                ? ConsList.ConstructDirect(output)
-                : ConsList.ProperList(output.ToArray());
+            return ConsList.ConstructDirect(output);
         }
 
     }

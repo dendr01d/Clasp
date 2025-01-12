@@ -101,7 +101,8 @@ namespace Clasp.Process
 
                     foreach (Match match in lineMatches)
                     {
-                        SourceLocation locale = new SourceLocation(sourceName, lineNo, match.Index, charNo + match.Index, match.Length);
+                        SourceLocation locale = new SourceLocation(
+                            sourceName, lineNo, match.Index, charNo + match.Index, match.Length, sourceText);
 
                         TokenType tokType = ExtractMatchedTokenType(match);
 

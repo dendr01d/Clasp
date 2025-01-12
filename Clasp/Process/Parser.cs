@@ -18,29 +18,24 @@ namespace Clasp.Process
         // the MOST IMPORTANT thing to remember here is that every syntactic form must break down
         // into ONLY the forms representable by AstNodes
 
-        public static AstNode ParseAST(SyntaxWrapper stx, int startingPhase)
-        {
-            return ParseAST(stx, new BindingStore(), startingPhase);
-        }
-
-        public static AstNode ParseAST(SyntaxWrapper stx, BindingStore bs, int phase)
+        public static AstNode ParseAST(Syntax stx, BindingStore bs, int phase)
         {
             if (stx.TryExposeIdentifier(out Symbol? sym, out string? _))
             {
-                string bindingName = bs.ResolveBindingName(sym.Name, stx.Context[phase]);
+                string bindingName = bs.ResolveBindingName(sym.Name, stx.GetContext(phase), stx);
                 return new VariableLookup(bindingName);
             }
-            else if (stx.TryExposeList(out SyntaxWrapper? car, out SyntaxWrapper? cdr))
+            else if (stx.TryExposeList(out Syntax? car, out Syntax? cdr))
             {
-                return ParseApplication(car, cdr, bs, phase);
+                return ParseApplication(car, cdr, stx, bs, phase);
             }
             else
             {
-                return ParseQuote(stx);
+                return new ConstValue(stx.Strip());
             }
         }
 
-        private static AstNode ParseApplication(SyntaxWrapper car, SyntaxWrapper cdr, BindingStore bs, int phase)
+        private static AstNode ParseApplication(Syntax car, Syntax cdr, Syntax input, BindingStore bs, int phase)
         {
             // Parse the op-term first, then decide what to do
             AstNode opTerm = ParseAST(car, bs, phase);
@@ -52,90 +47,98 @@ namespace Clasp.Process
 
                 if (keyword == Symbol.Quote.Name)
                 {
-                    return ParseQuote(cdr);
+                    return ParseQuote(cdr, input);
                 }
-                else if (keyword == Symbol.Syntax.Name)
+                else if (keyword == Symbol.QuoteSyntax.Name)
                 {
-                    return ParseSyntax(cdr);
+                    return ParseQuoteSyntax(cdr, input);
                 }
                 else if (keyword == Symbol.Define.Name)
                 {
-                    return ParseDefinition(cdr, bs, phase);
+                    return ParseDefinition(cdr, input, bs, phase);
                 }
                 else if (keyword == Symbol.Set.Name)
                 {
-                    return ParseSet(cdr, bs, phase);
+                    return ParseSet(cdr, input, bs, phase);
                 }
                 else if (keyword == Symbol.Lambda.Name)
                 {
-                    return ParseLambda(cdr, bs, phase);
+                    return ParseLambda(cdr, input, bs, phase);
                 }
                 else if (keyword == Symbol.If.Name)
                 {
-                    return ParseBranch(cdr, bs, phase);
+                    return ParseBranch(cdr, input, bs, phase);
                 }
                 else if (keyword == Symbol.Begin.Name)
                 {
-                    return ParseBegin(cdr, bs, phase);
+                    return ParseBeginOrLambdaBody(cdr, input, bs, phase);
                 }
             }
 
             // Check to make sure it's not an imperative command
             if (opTerm is BindingDefinition || opTerm is BindingMutation)
             {
-                throw new ParserException.Uncategorized("Can't use imperative command as op term in function application");
+                throw new ParserException.InvalidOperator(opTerm.GetType().ToString(), input);
             }
 
             // Otherwise we just have to trust that it'll make sense in the final program
-            IEnumerable<AstNode> argTerms = ParseArgs(cdr, bs, phase);
+            IEnumerable<AstNode> argTerms = ParseList(cdr, bs, phase);
             return new FunctionApplication(opTerm, argTerms.ToArray());
         }
 
         #region Special Forms
 
-        private static ConstValue ParseQuote(SyntaxWrapper args)
+        private static ConstValue ParseQuote(Syntax args, Syntax full)
         {
-            if (TryExposeOneArg(args, out SyntaxWrapper? quotedValue))
+            if (TryExposeOneArg(args, out Syntax? quotedValue))
             {
                 Term strippedExpr = quotedValue.Strip();
                 return new ConstValue(strippedExpr);
             }
 
-            throw new ParserException.WrongFormat(Symbol.Quote.Name, args);
+            throw new ParserException.WrongArity(Symbol.Quote.Name, "exactly one", full);
         }
 
-        private static ConstValue ParseSyntax(SyntaxWrapper args)
+        private static ConstValue ParseQuoteSyntax(Syntax args, Syntax full)
         {
-            if (TryExposeOneArg(args, out SyntaxWrapper? syntacticValue))
+            if (TryExposeOneArg(args, out Syntax? syntacticValue))
             {
                 return new ConstValue(syntacticValue);
             }
 
-            throw new ParserException.WrongFormat(Symbol.Syntax.Name, args);
+            throw new ParserException.WrongArity(Symbol.QuoteSyntax.Name, "exactly one", full);
         }
 
-        private static BindingDefinition ParseDefinition(SyntaxWrapper args, BindingStore bs, int phase)
+        private static BindingDefinition ParseDefinition(Syntax args, Syntax full, BindingStore bs, int phase)
         {
-            if (TryExposeTwoArgs(args, out SyntaxWrapper? arg1, out SyntaxWrapper? arg2)
-                && TryExposeBindingId(arg1, bs, phase, out string? key))
+            if (TryExposeTwoArgs(args, out Syntax? arg1, out Syntax? arg2))
             {
-                AstNode boundValueExpr = ParseAST(arg2, bs, phase);
-                return new BindingDefinition(key, boundValueExpr);
+                if (TryExposeBindingId(arg1, bs, phase, out string? key))
+                {
+                    AstNode boundValueExpr = ParseAST(arg2, bs, phase);
+                    return new BindingDefinition(key, boundValueExpr);
+                }
+
+                throw new ParserException.WrongType(Symbol.Define.Name, "identifier", full);
             }
 
-            throw new ParserException.WrongFormat(Symbol.Define.Name, args);
+            throw new ParserException.WrongArity(Symbol.Define.Name, "exactly two", full);
         }
 
-        private static BindingMutation ParseSet(SyntaxWrapper args, BindingStore bs, int phase)
+        private static BindingMutation ParseSet(Syntax args, Syntax full, BindingStore bs, int phase)
         {
-            if (TryExposeTwoArgs(args, out SyntaxWrapper? arg1, out SyntaxWrapper? arg2)
-                && TryExposeBindingId(arg1, bs, phase, out string? key))
+            if (TryExposeTwoArgs(args, out Syntax? arg1, out Syntax? arg2))
             {
-                AstNode boundValueExpr = ParseAST(arg2, bs, phase);
-                return new BindingMutation(key, boundValueExpr);
+                if (TryExposeBindingId(arg1, bs, phase, out string? key))
+                {
+                    AstNode boundValueExpr = ParseAST(arg2, bs, phase);
+                    return new BindingMutation(key, boundValueExpr);
+                }
+
+                throw new ParserException.WrongType(Symbol.Define.Name, "identifier", full);
             }
 
-            throw new ParserException.WrongFormat(Symbol.Set.Name, args);
+            throw new ParserException.WrongArity(Symbol.Define.Name, "exactly two", full);
         }
 
         private static string[] AnalyzeInternalDefinitions(SequentialForm seq)
@@ -153,24 +156,24 @@ namespace Clasp.Process
             return internalKeys.ToArray();
         }
 
-        private static FunctionCreation ParseLambda(SyntaxWrapper args, BindingStore bs, int phase)
+        private static FunctionCreation ParseLambda(Syntax args, Syntax full, BindingStore bs, int phase)
         {
-            if (TryExposeTwoArgs(args, out SyntaxWrapper? paramStx, out SyntaxWrapper? bodyStx))
+            if (args.TryExposeList(out Syntax? paramStx, out Syntax? bodyStx))
             {
                 Tuple<string[], string?> parameters = ParseParams(paramStx, bs, phase);
-                SequentialForm body = ParseBegin(bodyStx, bs, phase);
+                SequentialForm body = ParseBeginOrLambdaBody(bodyStx, full, bs, phase);
 
                 string[] internalKeys = AnalyzeInternalDefinitions(body);
 
                 return new FunctionCreation(parameters.Item1, parameters.Item2, internalKeys, body);
             }
 
-            throw new ParserException.WrongFormat(Symbol.Lambda.Name, args);
+            throw new ParserException.WrongArity(Symbol.Lambda.Name, "two or more", full);
         }
 
-        private static ConditionalForm ParseBranch(SyntaxWrapper args, BindingStore bs, int phase)
+        private static ConditionalForm ParseBranch(Syntax args, Syntax full, BindingStore bs, int phase)
         {
-            if (TryExposeThreeArgs(args, out SyntaxWrapper? arg1, out SyntaxWrapper? arg2, out SyntaxWrapper? arg3))
+            if (TryExposeThreeArgs(args, out Syntax? arg1, out Syntax? arg2, out Syntax? arg3))
             {
                 AstNode test = ParseAST(arg1, bs, phase);
                 AstNode consequent = ParseAST(arg2, bs, phase);
@@ -179,16 +182,16 @@ namespace Clasp.Process
                 return new ConditionalForm(test, consequent, alternate);
             }
 
-            throw new ParserException.WrongFormat(Symbol.If.Name, args);
+            throw new ParserException.WrongArity(Symbol.Lambda.Name, "exactly three", full);
         }
 
-        private static SequentialForm ParseBegin(SyntaxWrapper args, BindingStore bs, int phase)
+        private static SequentialForm ParseBeginOrLambdaBody(Syntax args, Syntax full, BindingStore bs, int phase)
         {
-            AstNode[] series = ParseArgs(args, bs, phase).ToArray();
+            AstNode[] series = ParseList(args, bs, phase).ToArray();
 
             if (series.Length == 0)
             {
-                throw new ParserException.WrongFormat(Symbol.Begin.Name, args);
+                throw new ParserException.WrongArity("Begin/Body", "at least one", full);
             }
             else
             {
@@ -200,11 +203,11 @@ namespace Clasp.Process
 
         #region Auxiliary Structures
 
-        private static IEnumerable<AstNode> ParseArgs(SyntaxWrapper argList, BindingStore bs, int phase)
+        private static IEnumerable<AstNode> ParseList(Syntax argList, BindingStore bs, int phase)
         {
-            SyntaxWrapper current = argList;
+            Syntax current = argList;
 
-            while (current.TryExposeList(out SyntaxWrapper? first, out SyntaxWrapper? rest))
+            while (current.TryExposeList(out Syntax? first, out Syntax? rest))
             {
                 AstNode newArg = ParseAST(first, bs, phase);
                 yield return newArg;
@@ -213,19 +216,19 @@ namespace Clasp.Process
 
             if (current.Expose() is not Nil)
             {
-                throw new ParserException.Uncategorized("Cannot supply dotted list as function arguments.");
+                throw new ParserException.InvalidSyntax(argList);
             }
 
             yield break;
         }
 
-        private static Tuple<string[], string?> ParseParams(SyntaxWrapper paramList, BindingStore bs, int phase)
+        private static Tuple<string[], string?> ParseParams(Syntax paramList, BindingStore bs, int phase)
         {
             List<string> regularParams = new List<string>();
 
-            SyntaxWrapper current = paramList;
+            Syntax current = paramList;
 
-            while (current.TryExposeList(out SyntaxWrapper? first, out SyntaxWrapper? rest))
+            while (current.TryExposeList(out Syntax? first, out Syntax? rest))
             {
                 if (TryExposeBindingId(first, bs, phase, out string? paramName))
                 {
@@ -233,7 +236,7 @@ namespace Clasp.Process
                 }
                 else
                 {
-                    throw new ParserException.WrongFormat("Lambda parameter list", paramList);
+                    throw new ParserException.InvalidFormInput(Symbol.Lambda.Name, "parameter list", paramList);
                 }
 
                 current = rest;
@@ -253,47 +256,47 @@ namespace Clasp.Process
 
         #region Helpers
 
-        private static bool TryExposeBindingId(SyntaxWrapper stx, BindingStore bs, int phase,
+        private static bool TryExposeBindingId(Syntax stx, BindingStore bs, int phase,
             [NotNullWhen(true)] out string? bindingName)
         {
             if (stx.TryExposeIdentifier(out Symbol? _, out string? symbolicName))
             {
-                bindingName = bs.ResolveBindingName(symbolicName, stx.Context[phase]);
+                bindingName = bs.ResolveBindingName(symbolicName, stx.GetContext(phase), stx);
                 return true;
             }
             bindingName = null;
             return false;
         }
 
-        private static bool TryExposeOneArg(SyntaxWrapper stx,
-            [NotNullWhen(true)] out SyntaxWrapper? arg1)
+        private static bool TryExposeOneArg(Syntax stx,
+            [NotNullWhen(true)] out Syntax? arg1)
         {
-            return stx.TryExposeList(out arg1, out SyntaxWrapper? terminator)
+            return stx.TryExposeList(out arg1, out Syntax? terminator)
                 && terminator.Expose() is Nil;
         }
 
-        private static bool TryExposeTwoArgs(SyntaxWrapper stx,
-            [NotNullWhen(true)] out SyntaxWrapper? arg1,
-            [NotNullWhen(true)] out SyntaxWrapper? arg2)
+        private static bool TryExposeTwoArgs(Syntax stx,
+            [NotNullWhen(true)] out Syntax? arg1,
+            [NotNullWhen(true)] out Syntax? arg2)
         {
             arg2 = null;
 
-            return stx.TryExposeList(out arg1, out SyntaxWrapper? rest)
-                && rest.TryExposeList(out arg2, out SyntaxWrapper? terminator)
+            return stx.TryExposeList(out arg1, out Syntax? rest)
+                && rest.TryExposeList(out arg2, out Syntax? terminator)
                 && terminator.Expose() is Nil;
         }
 
-        private static bool TryExposeThreeArgs(SyntaxWrapper stx,
-            [NotNullWhen(true)] out SyntaxWrapper? arg1,
-            [NotNullWhen(true)] out SyntaxWrapper? arg2,
-            [NotNullWhen(true)] out SyntaxWrapper? arg3)
+        private static bool TryExposeThreeArgs(Syntax stx,
+            [NotNullWhen(true)] out Syntax? arg1,
+            [NotNullWhen(true)] out Syntax? arg2,
+            [NotNullWhen(true)] out Syntax? arg3)
         {
             arg2 = null;
             arg3 = null;
 
-            return stx.TryExposeList(out arg1, out SyntaxWrapper? rest1)
-                && rest1.TryExposeList(out arg2, out SyntaxWrapper? rest2)
-                && rest2.TryExposeList(out arg3, out SyntaxWrapper? terminator)
+            return stx.TryExposeList(out arg1, out Syntax? rest1)
+                && rest1.TryExposeList(out arg2, out Syntax? rest2)
+                && rest2.TryExposeList(out arg3, out Syntax? terminator)
                 && terminator.Expose() is Nil;
         }
 
