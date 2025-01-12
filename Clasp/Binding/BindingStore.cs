@@ -42,7 +42,7 @@ namespace Clasp.Binding
             return false;
         }
 
-        public string ResolveBindingName(string symbolicName, ScopeSet setOfScopes)
+        public string ResolveBindingName(string symbolicName, ScopeSet setOfScopes, Syntax identifier)
         {
             if (_bindingLookup.TryGetValue(symbolicName, out ScopeMap? map))
             {
@@ -51,12 +51,12 @@ namespace Clasp.Binding
                 if (matches.Length == 0)
                 {
                     // i.e. no scope sets matched
-                    throw new ExpanderException.BindingResolution(symbolicName, setOfScopes);
+                    throw new ExpanderException.UnboundIdentifier(symbolicName, identifier);
                 }
                 else if (matches.Length > 1)
                 {
                     // multiple scope sets ambiguously matched
-                    throw new ExpanderException.BindingResolution(symbolicName, setOfScopes, matches);
+                    throw new ExpanderException.AmbiguousIdentifier(symbolicName, identifier);
                 }
                 else
                 {
@@ -66,34 +66,6 @@ namespace Clasp.Binding
 
             return symbolicName;
         }
-
-        //public string ResolveName(Identifier id, int phaseLevel)
-        //{
-        //    if (id.Context.TryGetValue(phaseLevel, out ScopeSet? ss))
-        //    {
-        //        return ResolveName(id.Name, ss);
-        //    }
-        //    throw new ClaspException.Uncategorized("Identifier '{0}' is unbound at given phase level {1}.", id, phaseLevel);
-        //}
-
-        //public string ResolveName(string name, ScopeSet context)
-        //{
-        //}
-
-        //public AstNode? ResolveBinding(Identifier id, int phaseLevel, Binding.Environment env)
-        //{
-        //    if (id.Context.TryGetValue(phaseLevel, out ScopeSet? ss))
-        //    {
-        //        string resolvedName = ResolveName(id.WrappedValue.Name, ss);
-
-        //        if (env.TryGetValue(resolvedName, out AstNode? output))
-        //        {
-        //            return output;
-        //        }
-        //    }
-
-        //    return null;
-        //}
 
     }
 }

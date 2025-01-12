@@ -96,10 +96,7 @@ namespace Clasp.Binding
             return false;
         }
 
-        public bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value)
-        {
-            throw new NotImplementedException();
-        }
+        public abstract bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value);
 
         public IEnumerator<KeyValuePair<string, Term>> GetEnumerator() => EnumerateAccessibleBindings().GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => EnumerateAccessibleBindings().GetEnumerator();
@@ -147,14 +144,29 @@ namespace Clasp.Binding
         }
 
         public override bool ContainsKey(string key) => _mutableBindings.ContainsKey(key) || _staticBindings.ContainsKey(key);
-    }
+        public override bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value)
+        {
+            if (_mutableBindings.TryGetValue(key, out Term? mutableValue))
+            {
+                value = mutableValue;
+                return true;
+            }
+            else if (_staticBindings.TryGetValue(key, out Term? staticValue))
+            {
+                value = staticValue;
+                return true;
+            }
 
+            value = null;
+            return false;
+        }
+    }
 
     internal class EnvFrame : Environment
     {
         protected readonly Environment _next;
         public override GlobalEnvironment TopLevel { get; }
-        public override bool IsTopLevel => true;
+        public override bool IsTopLevel => false;
 
         public EnvFrame(Environment ancestor) : base(ancestor.Depth + 1)
         {
@@ -187,6 +199,51 @@ namespace Clasp.Binding
             }
         }
 
-        public override bool ContainsKey(string key) => _mutableBindings.ContainsKey(key) || (_next is not null && _next.ContainsKey(key));
+        public override bool ContainsKey(string key) => _mutableBindings.ContainsKey(key) || _next.ContainsKey(key);
+        public override bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value)
+        {
+            return _mutableBindings.TryGetValue(key, out value)
+                || _next.TryGetValue(key, out value);
+        }
+    }
+
+    internal class ExpansionEnv : EnvFrame
+    {
+        private static readonly Symbol _variableMarker = new GenSym("variable");
+
+        public ExpansionEnv(Environment ancestor) : base(ancestor) { }
+
+        public bool IsVariable(string bindingName)
+        {
+            if (TryGetValue(bindingName, out Term? value))
+            {
+                return value == _variableMarker;
+            }
+            return false;
+        }
+
+        public void MarkVariable(string bindingName)
+        {
+            this[bindingName] = _variableMarker;
+        }
+
+        public void BindMacro(string bindingName, MacroProcedure macro)
+        {
+            this[bindingName] = macro;
+        }
+
+        public bool TryGetMacro(string bindingName,
+            [NotNullWhen(true)] out MacroProcedure? macro)
+        {
+            if (TryGetValue(bindingName, out Term? value)
+                && value is MacroProcedure result)
+            {
+                macro = result;
+                return true;
+            }
+
+            macro = null;
+            return false;
+        }
     }
 }

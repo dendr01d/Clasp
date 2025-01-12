@@ -47,10 +47,12 @@ namespace Clasp.Binding
         /// </summary>
         public void Add(params uint[] tokens)
         {
-            foreach (uint scope in tokens)
-            {
-                _scopes.Add(scope);
-            }
+            _scopes.UnionWith(tokens);
+        }
+
+        public void Add(ScopeSet other)
+        {
+            _scopes.UnionWith(other._scopes);
         }
 
         /// <summary>
