@@ -47,6 +47,7 @@ namespace Clasp.Data.Terms
 
         //TODO review these constructors and their usage...
 
+        public static Term ProperList(params Term[] terms) => ProperList(terms.AsEnumerable());
         public static Term ProperList(IEnumerable<Term> terms)
         {
             Term output = Nil.Value;
@@ -78,7 +79,7 @@ namespace Clasp.Data.Terms
 
             if (realized.Length < 2)
             {
-                throw new ClaspException.Uncategorized("At least two terms needed to construct a cons cell.");
+                throw new ClaspGeneralException("At least two terms needed to construct a cons cell.");
             }
             else
             {

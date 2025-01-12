@@ -25,14 +25,14 @@ namespace Clasp
 
         private static readonly System.Text.Encoding CharFormat = System.Text.Encoding.Default;
 
-        private const string _SHOW_HELP_CMD = "help";
-        private const string _SHOW_INPUT_STEPS_CMD = "mirror";
-        private const string _SHOW_MACHINE_CMD = "show";
-        private const string _PAUSE_MACHINE_CMD = "pause";
-        private const string _CLEAR_SCREEN_CMD = "clear";
-        private const string _RELOAD_ENV_CMD = "reload";
-        private const string _TIMER_CMD = "timer";
-        private const string _QUIT_CMD = "quit";
+        private const string _SHOW_HELP_CMD = "\\help";
+        private const string _SHOW_INPUT_STEPS_CMD = "\\mirror";
+        private const string _SHOW_MACHINE_CMD = "\\show";
+        private const string _PAUSE_MACHINE_CMD = "\\pause";
+        private const string _CLEAR_SCREEN_CMD = "\\clear";
+        private const string _RELOAD_ENV_CMD = "\\reload";
+        private const string _TIMER_CMD = "\\timer";
+        private const string _QUIT_CMD = "\\quit";
 
         private static bool _showingInput = true;
         private static bool _showingSteps = false;
@@ -48,15 +48,16 @@ namespace Clasp
             errors.AutoFlush = true;
 
             bool showHeader = true;
-            bool showHelp = false;
-            bool reloadEnv = true;
+            bool showHelp = true;
+            bool reloadEnv = false;
 
             bool showTimer = false;
 
             string input = string.Empty;
             string output = string.Empty;
 
-            //Environment? scope = null;
+            Binding.Environment env = StandardEnv.CreateNew();
+            Binding.BindingStore store = new BindingStore();
 
             while (input != _QUIT_CMD)
             {
@@ -81,6 +82,13 @@ namespace Clasp
                         showHelp = false;
                     }
 
+                    if (reloadEnv)
+                    {
+                        env = StandardEnv.CreateNew();
+                        store = new BindingStore();
+                        reloadEnv = false;
+                    }
+
                     writer.WriteLine();
                     writer.Write("> ");
                     input = reader.ReadLine() ?? string.Empty;
@@ -88,6 +96,9 @@ namespace Clasp
 
                     switch (input.ToLower())
                     {
+                        case _SHOW_HELP_CMD:
+                            showHelp = true;
+                            break;
 
                         case _SHOW_INPUT_STEPS_CMD:
                             _showingInput = !_showingInput;
@@ -121,26 +132,24 @@ namespace Clasp
                         default:
                             if (!string.IsNullOrWhiteSpace(input))
                             {
-                                //int i = 1;
-
-                                writer.WriteLine(" INPUT: {0}", input);
+                                if (_showingInput) writer.WriteLine(" INPUT: {0}", input);
 
                                 IEnumerable<Token> tokens = Lexer.Lex("REPL", input);
-                                writer.WriteLine("TOKENS: {0}", Printer.PrintRawTokens(tokens));
+                                if (_showingInput) writer.WriteLine("TOKENS: {0}", Printer.PrintRawTokens(tokens));
 
-                                SyntaxWrapper readSyntax = Reader.Read(tokens);
-                                writer.WriteLine("  READ: {0}", readSyntax.ToString());
+                                Syntax readSyntax = Reader.Read(tokens);
+                                if (_showingInput) writer.WriteLine("  READ: {0}", readSyntax.ToString());
 
-                                SyntaxWrapper expandedSyntax = Expander.Expand(readSyntax, null!);
-                                writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
+                                Syntax expandedSyntax = Expander.Expand(readSyntax, env, store);
+                                if (_showingInput) writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
 
-                                AstNode parsedInput = Process.Parser.ParseAST(expandedSyntax, 0);
-                                writer.WriteLine(" PARSE: {0}", parsedInput.ToString());
+                                AstNode parsedInput = Parser.ParseAST(expandedSyntax, store, 0);
+                                if (_showingInput) writer.WriteLine(" PARSE: {0}", parsedInput.ToString());
 
-                                if (_showingInput)
-                                {
-                                    writer.WriteLine("-------");
-                                }
+                                if (_showingInput) writer.WriteLine("-------");
+
+                                Term result = Machine.Interpret(parsedInput, env);
+                                output = result.ToString();
 
                                 //System.Diagnostics.Stopwatch? timer = showTimer
                                 //    ? System.Diagnostics.Stopwatch.StartNew()
@@ -202,6 +211,7 @@ namespace Clasp
             {
                 LexerException => "Lexing error: ",
                 ReaderException => "Reading error: ",
+                ExpanderException => "Expansion error: ",
                 ParserException => "Parsing error: ",
                 _ => "Unknown error: "
             });

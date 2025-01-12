@@ -10,7 +10,7 @@ namespace Clasp
     {
         public static string PrintLineErrorHelper(ISourceTraceable ist)
         {
-            return PrintLineErrorHelper(ist.SourceText, ist.Location);
+            return PrintLineErrorHelper(ist.Location.SourceText, ist.Location);
         }
 
         public static string PrintLineErrorHelper(Blob sourceText, SourceLocation loc)

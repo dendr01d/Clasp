@@ -29,6 +29,11 @@ namespace Clasp
         }
     }
 
+    public sealed class ClaspGeneralException : ClaspException
+    {
+        internal ClaspGeneralException(string format, params object?[] args) : base(format, args) { }
+    }
+
     public abstract class LexerException : ClaspException, ISourceTraceable
     {
         public SourceLocation Location { get; private set; }

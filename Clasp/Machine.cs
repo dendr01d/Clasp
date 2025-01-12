@@ -19,7 +19,7 @@ namespace Clasp
 
         public bool ComputationComplete => _continuation.Count == 0;
 
-        private Machine(AstNode evaluatee, EnvFrame env)
+        private Machine(AstNode evaluatee, Environment env)
         {
             _returnValue = Undefined.Value;
             _currentEnv = env;
@@ -36,8 +36,7 @@ namespace Clasp
             if (!ComputationComplete)
             {
                 EvFrame nextInstruction = _continuation.Pop();
-
-                DispatchOnInstruction(nextInstruction);
+                nextInstruction.RunOnMachine(_continuation, ref _currentEnv, ref _returnValue);
             }
 
             ++_instructionCounter;
@@ -45,21 +44,14 @@ namespace Clasp
             return !ComputationComplete;
         }
 
-        public Term Compute()
+        public static Term Interpret(AstNode program, Environment env)
         {
-            while (Step()) { }
+            Machine mx = new Machine(program, env);
 
-            return _returnValue;
+            while (mx.Step()) ;
+
+            return mx._returnValue;
         }
-
-        #region Instruction Dispatch
-
-        private void DispatchOnInstruction(EvFrame instr)
-        {
-            instr.RunOnMachine(_continuation, ref _currentEnv, ref _returnValue);
-        }
-
-        #endregion
 
         #region Printing
 
