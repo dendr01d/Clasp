@@ -30,10 +30,10 @@ namespace Clasp.Data.Terms
         public override string ToString() => string.Format("#<{0}>", OpCode.ToString());
     }
 
-    internal sealed class CompoundProcedure : Procedure
+    internal class CompoundProcedure : Procedure
     {
         public readonly string[] Parameters;
-        public readonly string? FinalParameter;
+        public readonly string? VariadicParameter;
         public readonly Environment CapturedEnv;
         public readonly SequentialForm Body;
 
@@ -43,7 +43,7 @@ namespace Clasp.Data.Terms
         public CompoundProcedure(string[] parameters, Environment enclosing, SequentialForm body)
         {
             Parameters = parameters;
-            FinalParameter = null;
+            VariadicParameter = null;
             CapturedEnv = enclosing;
             Body = body;
 
@@ -54,29 +54,24 @@ namespace Clasp.Data.Terms
         public CompoundProcedure(string[] parameters, string? finalParameter, Environment enclosing, SequentialForm body)
             : this(parameters, enclosing, body)
         {
-            FinalParameter = finalParameter;
-            IsVariadic = FinalParameter is not null;
+            VariadicParameter = finalParameter;
+            IsVariadic = VariadicParameter is not null;
         }
 
         public override string ToString() => string.Format("#<lambda({0}{1})>",
                 string.Join(", ", Parameters),
-                FinalParameter is null ? string.Empty : string.Format("; {0}", FinalParameter));
+                VariadicParameter is null ? string.Empty : string.Format("; {0}", VariadicParameter));
     }
 
-    internal sealed class MacroProcedure : Procedure
+    internal sealed class MacroProcedure : CompoundProcedure
     {
-        public readonly string Parameter;
-        public readonly SequentialForm Body;
-
         public override int Arity => 1;
         public override bool IsVariadic => false;
 
         public MacroProcedure(string parameter, SequentialForm body)
-        {
-            Parameter = parameter;
-            Body = body;
-        }
+            : base(new string[] { parameter }, StandardEnv.CreateNew(), body)
+        { }
 
-        public override string ToString() => string.Format("#<macro({0})>", Parameter);
+        public override string ToString() => "#<macro>";
     }
 }

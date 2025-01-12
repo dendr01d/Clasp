@@ -8,10 +8,10 @@ using Clasp.Interfaces;
 
 namespace Clasp.Data.Terms
 {
-    internal sealed class Symbol : Atom, IBindable
+    internal class Symbol : Atom, IBindable
     {
-        public string Name { get; private init; }
-        private Symbol(string name) => Name = name;
+        public string Name { get; protected init; }
+        protected Symbol(string name) => Name = name;
 
         private static readonly Dictionary<string, Symbol> _internment = new Dictionary<string, Symbol>();
         public static Symbol Intern(string name)
@@ -40,6 +40,9 @@ namespace Clasp.Data.Terms
         public static readonly Symbol Unquote = Intern("unquote");
         public static readonly Symbol UnquoteSplicing = Intern("unquote-splicing");
 
+        public static readonly Symbol QuoteSyntax = Intern("quote-syntax");
+        public static readonly Symbol LetSyntax = Intern("let-syntax");
+
         public static readonly Symbol Syntax = Intern("syntax");
         public static readonly Symbol Quasisyntax = Intern("quasisyntax");
         public static readonly Symbol Unsyntax = Intern("unsyntax");
@@ -48,5 +51,13 @@ namespace Clasp.Data.Terms
         public static readonly Symbol Ellipsis = Intern("...");
 
         #endregion
+    }
+
+    internal class GenSym : Symbol, IBindable
+    {
+        private static uint _globalCounter = 0;
+        private static string GenerateUniqueName(string partial) => string.Format("{0}Γ{1}", partial, _globalCounter++);
+        public GenSym() : base(GenerateUniqueName("GenSym")) { }
+        public GenSym(string fromName) : base(GenerateUniqueName(fromName)) { }
     }
 }
