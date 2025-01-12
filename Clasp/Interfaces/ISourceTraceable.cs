@@ -9,9 +9,11 @@ using Clasp.Data.Text;
 
 namespace Clasp
 {
+    /// <summary>
+    /// Indicates that this class can trace its origin back to a <see cref="SourceLocation"/>.
+    /// </summary>
     public interface ISourceTraceable
     {
         public SourceLocation Location { get; }
-        public Blob SourceText { get; }
     }
 }

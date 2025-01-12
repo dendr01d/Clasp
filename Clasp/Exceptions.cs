@@ -12,74 +12,67 @@ using Clasp.Data.Text;
 [assembly: InternalsVisibleTo("Tests")]
 namespace Clasp
 {
-    public static class ExceptionExtensions
-    {
-        public static string SimplifyStackTrace(this Exception ex)
-        {
-            const string PATTERN = @"at (?<namespace>.*\(.*\))(?: in (?<path>\w\:(?>\\\w+)+(?:\.\w+)?\:.*))?";
-
-            string trace = new string(ex.StackTrace);
-            if (string.IsNullOrWhiteSpace(trace))
-            {
-                return "No stacktrace available.";
-            }
-
-            var matches = System.Text.RegularExpressions.Regex.Matches(trace, PATTERN);
-
-            IEnumerable<string> condensedLines = matches
-                .Select(x => new Tuple<string, string>(
-                    x.Groups[1].Value,
-                    x.Groups.Count > 2 ? x.Groups[2].Value : string.Empty))
-                .Select(x => new Tuple<string, string>(
-                    x.Item1.Split('.').Last(),
-                    x.Item2.Split('\\').Last()))
-                .Select(x => string.Format("   in {0}{1}{2}",
-                    x.Item1,
-                    string.IsNullOrEmpty(x.Item2) ? string.Empty : " at ",
-                    x.Item2));
-
-            return string.Join(System.Environment.NewLine, condensedLines);
-        }
-    }
-
     public abstract class ClaspException : Exception
     {
         protected ClaspException(string format, params object?[] args) : base(string.Format(format, args)) { }
 
-        public class Uncategorized : ClaspException
+        //public class Uncategorized : ClaspException
+        //{
+        //    public Uncategorized(string format, params object?[] args) : base(format, args) { }
+        //}
+
+        public class FailedDispatch : ClaspException
         {
-            public Uncategorized(string format, params object?[] args) : base(format, args) { }
+            internal FailedDispatch() : base(
+                "Unexpectedly fell out of case expression.")
+            { }
         }
     }
 
-    public abstract class LexerException : ClaspException
+    public abstract class LexerException : ClaspException, ISourceTraceable
     {
-        internal LexerException(string format, params object[] args) : base(format, args) { }
+        public SourceLocation Location { get; private set; }
 
-        public class MalformedInput : LexerException, ISourceTraceable
+        private LexerException(SourceLocation loc, string format, params object[] args) : base(format, args)
         {
-            public SourceLocation Location { get; }
-            public Blob SourceText { get; }
+            Location = loc;
+        }
+
+        public class MalformedInput : LexerException
+        {
             internal MalformedInput(Token token) : base(
+                token.Location,
                 "Malformed input on line {0} beginning at column {1}: {2}",
                 token.Location.LineNumber,
                 token.Location.Column,
                 token.Text)
-            {
-                Location = token.Location;
-                SourceText = token.SourceText;
-            }
+            { }
         }
     }
 
     public abstract class ReaderException : ClaspException
     {
-        internal ReaderException(string format, params object?[] args) : base(format, args) { }
+        private ReaderException(string format, params object?[] args) : base(format, args) { }
+
+        public class EmptyTokenStream : ReaderException
+        {
+            internal EmptyTokenStream() : base(
+                "The reader received an empty token stream.")
+            { }
+        }
+
+        public class AmbiguousParenthesis : ReaderException
+        {
+            internal AmbiguousParenthesis(bool opening) : base(
+                "The reader counted an extra {0} parenthesis, but was unable to determine where it is.",
+                opening ? "opening" : "closing")
+            { }
+        }
 
         public class UnmatchedParenthesis : ReaderException, ISourceTraceable
         {
-            public SourceLocation Location { get; }
-            public Blob SourceText { get; }
+            public SourceLocation Location { get; private set; }
+
             internal UnmatchedParenthesis(Token errantParenToken) : base(
                 "The reader found an {0} parenthesis on line {1}, column {2}.",
                 errantParenToken.TType == TokenType.ClosingParen ? "un-opened" : "un-closed",
@@ -87,14 +80,13 @@ namespace Clasp
                 errantParenToken.Location.Column)
             {
                 Location = errantParenToken.Location;
-                SourceText = errantParenToken.SourceText;
             }
         }
 
         public class UnexpectedToken : ReaderException, ISourceTraceable
         {
-            public SourceLocation Location { get; }
-            public Blob SourceText { get; }
+            public SourceLocation Location { get; private set; }
+
             internal UnexpectedToken(Token errantToken) : base(
                 "Unexpected token {0} at line {1}, column {2}.",
                 errantToken,
@@ -102,14 +94,13 @@ namespace Clasp
                 errantToken.Location.Column)
             {
                 Location = errantToken.Location;
-                SourceText = errantToken.SourceText;
             }
         }
 
         public class ExpectedToken : ReaderException, ISourceTraceable
         {
-            public SourceLocation Location { get; }
-            public Blob SourceText { get; }
+            public SourceLocation Location { get; private set; }
+
             internal ExpectedToken(TokenType expectedType, Token receivedToken, Token prevToken) : base(
                 "Expected {0} token to follow after {1} on line {2}, column {3}.",
                 expectedType,
@@ -118,14 +109,13 @@ namespace Clasp
                 prevToken.Location.Column)
             {
                 Location = receivedToken.Location;
-                SourceText = receivedToken.SourceText;
             }
         }
 
         public class UnhandledToken : ReaderException, ISourceTraceable
         {
-            public SourceLocation Location { get; }
-            public Blob SourceText { get; }
+            public SourceLocation Location { get; private set; }
+
             internal UnhandledToken(Token errantToken) : base(
                 "Token {0} of type {1} (on line {2}, column {3}) is unhandled by CLASP at this time :)",
                 errantToken,
@@ -134,120 +124,211 @@ namespace Clasp
                 errantToken.Location.Column)
             {
                 Location = errantToken.Location;
-                SourceText = errantToken.SourceText;
             }
         }
     }
 
-    public abstract class ExpanderException : ClaspException
+    public abstract class ExpanderException : ClaspException, ISourceTraceable
     {
-        protected ExpanderException(string format, params object?[] args) : base(format, args) { }
+        public SourceLocation Location { get; private set; }
 
-        public class UnknownForm : ExpanderException
+        private ExpanderException(SourceLocation loc, string format, params object?[] args) : base(format, args)
         {
-            internal UnknownForm(SyntaxWrapper unknownForm) : base(
-                "The given syntax is invalid for expandsion: {0}",
+            Location = loc;
+        }
+
+        public class InvalidSyntax : ExpanderException
+        {
+            internal InvalidSyntax(Syntax unknownForm) : base(
+                unknownForm.Location,
+                "The given syntax is invalid for expansion: {0}",
                 unknownForm)
             { }
         }
 
-        public class BindingResolution : ExpanderException
+        public class UnboundIdentifier : ExpanderException
         {
-            internal BindingResolution(Symbol id, string? additionalMsg) : base(
-                "Unable to resolve compile-time binding of identifier{0}: {1}",
-                additionalMsg is null ? string.Empty : string.Format(" ({0})", additionalMsg),
-                id)
-            { }
-
-            internal BindingResolution(string symbolicName, ScopeSet ss) : base(
-                "Unable to resolve binding of name '{0}' with scope: {1}",
-                symbolicName,
-                ss)
-            { }
-
-            internal BindingResolution(string symbolicName, ScopeSet ss, params KeyValuePair<ScopeSet, string>[] matches) : base(
-                "Binding of name '{0}' and scope {1} ambiguously matches several bound names:{2}{3}",
-                symbolicName,
-                ss,
-                System.Environment.NewLine,
-                string.Join(System.Environment.NewLine, matches.Select(x => string.Format("   {0} @ {1}", x.Key, x.Value))))
+            internal UnboundIdentifier(string name, Syntax unboundIdentifier) : base(
+                unboundIdentifier.Location,
+                "The variable name '{0}' is free (unbound) within the given context.",
+                name)
             { }
         }
 
-        public class InvalidContext : ExpanderException
+        public class AmbiguousIdentifier : ExpanderException
         {
-            internal InvalidContext(Symbol op, ExpansionContext ctx) : base(
-                "Form with operator '{0}' is invalid to be expanded in '{1}' context.",
-                op,
-                ctx.ToString())
+            internal AmbiguousIdentifier(string name, Syntax ambiguousIdentifier) : base(
+                ambiguousIdentifier.Location,
+                "The variable name '{0}' ambiguously refers to multiple bindings within the given context.",
+                name)
             { }
         }
 
-        public class InvalidFormShape : ExpanderException
+        public class ExpectedEvaluation : ExpanderException
         {
-            internal InvalidFormShape(Symbol formKeyword, SyntaxWrapper given) : base(
-                "Cannot expand as '{0}' form the syntax: {1}",
-                formKeyword,
-                given)
+            internal ExpectedEvaluation(string expectedTypeName, Term received, Syntax source) : base(
+                source.Location,
+                "Expected evaluation to yield Term of type '{0}', but instead: {1} --> {2}",
+                expectedTypeName,
+                source,
+                received
+                )
+            { }
+        }
+
+        public class ExpectedProperList : ExpanderException
+        {
+            internal ExpectedProperList(Syntax notAProperList) : base(
+                notAProperList.Location,
+                "Expected proper list: {0}",
+                notAProperList)
+            { }
+        }
+
+        //public class InvalidContext : ExpanderException
+        //{
+        //    internal InvalidContext(Symbol op, ExpansionContext ctx) : base(
+        //        "Form with operator '{0}' is invalid to be expanded in '{1}' context.",
+        //        op,
+        //        ctx.ToString())
+        //    { }
+        //}
+
+        public class InvalidFormInput : ExpanderException
+        {
+            internal InvalidFormInput(string formName, Syntax invalidForm) : base(
+                invalidForm.Location,
+                "Invalid input in expansion of '{0}' form: {1}",
+                formName,
+                invalidForm)
             { }
 
-            internal InvalidFormShape(string abstractShapeName, SyntaxWrapper given) : base(
-                "Cannot expand as abstract \"{0}\" the syntax: {1}",
-                abstractShapeName,
-                given)
+            internal InvalidFormInput(string formName, string inputDescription, Syntax invalidForm) : base(
+                invalidForm.Location,
+                "Invalid input in expansion of {0} within '{1}' form: {2}",
+                inputDescription,
+                formName,
+                invalidForm)
             { }
         }
     }
 
-    public abstract class ParserException : ClaspException
+    public abstract class ParserException : ClaspException, ISourceTraceable
     {
-        internal ParserException(string format, params object?[] args) : base(format, args) { }
-
-        public class UnknownSyntax : ParserException
+        public SourceLocation Location { get; private set; }
+        private ParserException(SourceLocation loc, string format, params object?[] args) : base(format, args)
         {
-            internal UnknownSyntax(AstNode error) : base(
-                "The parser couldn't recognize the form of this syntax: {0}",
-                error)
+            Location = loc;
+        }
+
+        public class InvalidSyntax : ParserException
+        {
+            internal InvalidSyntax(Syntax badSyntax) : base(
+                badSyntax.Location,
+                "The parser is unable to parse this syntax: {0}",
+                badSyntax)
             { }
         }
 
-        public class WrongFormat : ParserException
+        public class InvalidOperator : ParserException
         {
-            internal WrongFormat(string formKeyword, SyntaxWrapper args) : base(
-                "Wrong number or types of arguments for '{0}' form: {1}",
-                formKeyword,
-                args)
+            internal InvalidOperator(string receivedType, Syntax badApplication) : base(
+                badApplication.Location,
+                "Form of type '{0}' can't be used as the operator term of a function application: {1}",
+                receivedType,
+                badApplication)
             { }
         }
 
         public class WrongArity : ParserException
         {
-            internal WrongArity(string formTag, int expectedArgNum, bool exact, IEnumerable<AstNode> given) : base(
-                "The '{0}' form expects {1} {2}argument{3}, but was given: {4}",
-                formTag,
-                expectedArgNum,
-                exact ? string.Empty : "or more ",
-                expectedArgNum == 1 ? string.Empty : "s",
-                string.Concat(given.Select(x => string.Format("{0}   -> {1}", System.Environment.NewLine, x.ToString()))))
+            internal WrongArity(string formName, string howMany, Syntax badApplication) : base(
+                badApplication.Location,
+                "Form of type '{0}' requires {1} argument/s in a proper list: {2}",
+                formName,
+                howMany,
+                badApplication)
             { }
         }
 
-        public class WrongArgType : ParserException
+        public class WrongType : ParserException
         {
-            internal WrongArgType(string formTag, string expectedType, IEnumerable<AstNode> given) : base(
-                "The '{0}' form expects {1} of type {2}, but was given: {3}",
-                formTag,
-                given.Count() > 1 ? "arguments" : "an argument",
+            internal WrongType(string formName, string expectedType, Syntax badApplication) : base(
+                badApplication.Location,
+                "An argument of type '{0}' is required for a '{1}' form: {2}",
                 expectedType,
-                string.Concat(given.Select(x => string.Format("{0}   -> {1}", System.Environment.NewLine, x.ToString()))))
+                formName,
+                badApplication)
             { }
+        }
 
-            internal WrongArgType(string formTag, string expectedType, int index, AstNode given) : base(
-                "The '{0}' form expects an argument of type {1} at index {2}, but was given: {3}",
-                formTag,
-                expectedType,
-                index,
-                given)
+        public class InvalidFormInput : ParserException
+        {
+            internal InvalidFormInput(string formName, string inputDescription, Syntax invalidForm) : base(
+                invalidForm.Location,
+                "Invalid syntax in expansion of {0} within '{1}' form: {2}",
+                inputDescription,
+                formName,
+                invalidForm)
+            { }
+        }
+
+        //public class WrongFormat : ParserException
+        //{
+        //    internal WrongFormat(string formKeyword, Syntax args) : base(
+        //        "Wrong number or types of arguments for '{0}' form: {1}",
+        //        formKeyword,
+        //        args)
+        //    { }
+        //}
+
+        //public class WrongArity : ParserException
+        //{
+        //    internal WrongArity(string formTag, int expectedArgNum, bool exact, IEnumerable<AstNode> given) : base(
+        //        "The '{0}' form expects {1} {2}argument{3}, but was given: {4}",
+        //        formTag,
+        //        expectedArgNum,
+        //        exact ? string.Empty : "or more ",
+        //        expectedArgNum == 1 ? string.Empty : "s",
+        //        string.Concat(given.Select(x => string.Format("{0}   -> {1}", System.Environment.NewLine, x.ToString()))))
+        //    { }
+        //}
+
+        //public class WrongArgType : ParserException
+        //{
+        //    internal WrongArgType(string formTag, string expectedType, IEnumerable<AstNode> given) : base(
+        //        "The '{0}' form expects {1} of type {2}, but was given: {3}",
+        //        formTag,
+        //        given.Count() > 1 ? "arguments" : "an argument",
+        //        expectedType,
+        //        string.Concat(given.Select(x => string.Format("{0}   -> {1}", System.Environment.NewLine, x.ToString()))))
+        //    { }
+
+        //    internal WrongArgType(string formTag, string expectedType, int index, AstNode given) : base(
+        //        "The '{0}' form expects an argument of type {1} at index {2}, but was given: {3}",
+        //        formTag,
+        //        expectedType,
+        //        index,
+        //        given)
+        //    { }
+        //}
+    }
+
+    public class InterpreterException : ClaspException
+    {
+        internal EvFrame[] ContinuationTrace;
+
+        internal InterpreterException(Stack<EvFrame> cont, string format, params object?[] args) : base(format, args)
+        {
+            ContinuationTrace = cont.ToArray();
+        }
+
+        public class InvalidBinding : InterpreterException
+        {
+            internal InvalidBinding(string varName, Stack<EvFrame> cont) : base(
+                cont,
+                "Unable to dereference binding of identifier '{0}'.",
+                varName)
             { }
         }
     }
