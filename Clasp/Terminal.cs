@@ -7,6 +7,7 @@ using Clasp.Data.Text;
 using System.IO;
 using System;
 using System.Collections.Generic;
+using Clasp.Data.Metadata;
 
 namespace Clasp
 {
@@ -47,6 +48,21 @@ namespace Clasp
             writer.AutoFlush = true;
             errors.AutoFlush = true;
 
+            void PrintStep(int i, MachineState machine)
+            {
+                writer.WriteLine("------------------------------------------------------------");
+                writer.WriteLine("Step {0}:", i);
+                writer.WriteLine();
+                Interpreter.PrintMachineState(machine, writer);
+                writer.WriteLine();
+            }
+
+            void PrintStepAndPause(int i, MachineState machine)
+            {
+                PrintStep(i, machine);
+                Console.ReadKey(true);
+            }
+
             bool showHeader = true;
             bool showHelp = true;
             bool reloadEnv = false;
@@ -56,8 +72,7 @@ namespace Clasp
             string input = string.Empty;
             string output = string.Empty;
 
-            Binding.Environment env = StandardEnv.CreateNew();
-            Binding.BindingStore store = new BindingStore();
+            Processor clasp = new Processor();
 
             while (input != _QUIT_CMD)
             {
@@ -84,8 +99,7 @@ namespace Clasp
 
                     if (reloadEnv)
                     {
-                        env = StandardEnv.CreateNew();
-                        store = new BindingStore();
+                        clasp.ReloadEnv();
                         reloadEnv = false;
                     }
 
@@ -134,48 +148,49 @@ namespace Clasp
                             {
                                 if (_showingInput) writer.WriteLine(" INPUT: {0}", input);
 
-                                IEnumerable<Token> tokens = Lexer.Lex("REPL", input);
+                                IEnumerable<Token> tokens = clasp.Lex("REPL", input);
                                 if (_showingInput) writer.WriteLine("TOKENS: {0}", Printer.PrintRawTokens(tokens));
 
-                                Syntax readSyntax = Reader.Read(tokens);
+                                Syntax readSyntax = clasp.Read(tokens);
                                 if (_showingInput) writer.WriteLine("  READ: {0}", readSyntax.ToString());
 
-                                Syntax expandedSyntax = Expander.Expand(readSyntax, env, store);
+                                Syntax expandedSyntax = clasp.Expand(readSyntax);
                                 if (_showingInput) writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
 
-                                AstNode parsedInput = Parser.ParseAST(expandedSyntax, store, 0);
-                                if (_showingInput) writer.WriteLine(" PARSE: {0}", parsedInput.ToString());
+                                AstNode parsedInput = clasp.Parse(expandedSyntax);
+                                if (_showingInput) writer.WriteLine(" PARSE: {0}", parsedInput.ToTerm());
 
                                 if (_showingInput) writer.WriteLine("-------");
 
-                                Term result = Machine.Interpret(parsedInput, env);
+                                System.Diagnostics.Stopwatch? timer = showTimer
+                                    ? System.Diagnostics.Stopwatch.StartNew()
+                                    : null;
+
+                                Term result;
+
+                                if (_showingSteps)
+                                {
+                                    if (_pausing)
+                                    {
+                                        result = clasp.Interpret(parsedInput, PrintStepAndPause);
+                                    }
+                                    else
+                                    {
+                                        result = clasp.Interpret(parsedInput, PrintStep);
+                                    }
+                                }
+                                else
+                                {
+                                    result = clasp.Interpret(parsedInput);
+                                }
+
+                                timer?.Stop();
                                 output = result.ToString();
 
-                                //System.Diagnostics.Stopwatch? timer = showTimer
-                                //    ? System.Diagnostics.Stopwatch.StartNew()
-                                //    : null;
-
-                                //foreach (Expression expr in exprs)
-                                //{
-                                //    try
-                                //    {
-                                //        Expression result = Evaluator.Evaluate(expr, scope, _showingSteps, _pausing);
-                                //        output = result.Write();
-                                //    }
-                                //    catch (Exception ex)
-                                //    {
-                                //        errors.WriteLine("ERROR: " + ex.Message);
-                                //        errors.WriteLine($"\tin expression {i}: " + expr.Write());
-                                //        errors.WriteLine(ex.StackTrace);
-                                //    }
-                                //}
-
-                                //timer?.Stop();
-
-                                //if (timer is not null)
-                                //{
-                                //    Console.WriteLine("(In {0:N3} seconds)", timer.Elapsed.TotalSeconds);
-                                //}
+                                if (timer is not null)
+                                {
+                                    Console.WriteLine("(In {0:N3} seconds)", timer.Elapsed.TotalSeconds);
+                                }
                             }
                             break;
                     }
@@ -191,12 +206,10 @@ namespace Clasp
                     {
                         PrintExceptionInfo(ex);
                     }
-                    //ExceptionContinue();
                 }
                 catch (Exception ex)
                 {
                     PrintExceptionInfo(ex);
-                    //ExceptionContinue();
                 }
             }
 
@@ -213,17 +226,33 @@ namespace Clasp
                 ReaderException => "Reading error: ",
                 ExpanderException => "Expansion error: ",
                 ParserException => "Parsing error: ",
+                InterpreterException => "Runtime error:",
                 _ => "Unknown error: "
             });
 
-            if (ex is ISourceTraceable ist)
+            Console.WriteLine(ex.Message);
+
+            if (ex is InterpreterException ie)
             {
-                Console.WriteLine(ex.Message);
+                Console.WriteLine();
+                Console.WriteLine("Stack trace:");
+                foreach(EvFrame frame in ie.ContinuationTrace)
+                {
+                    Console.Write("   ");
+                    Console.WriteLine(frame.ToString());
+                }
+            }
+            
+            if(ex is ISourceTraceable ist)
+            {
+                Console.WriteLine();
+                Console.WriteLine("At source:");
                 Console.WriteLine(Printer.PrintLineErrorHelper(ist));
             }
-            else
+
+            if (ex is not ClaspException) 
             {
-                Console.WriteLine("{0}{1}{2}", ex.Message, System.Environment.NewLine, ex.GetSimpleStackTrace());
+                Console.WriteLine(ex.GetSimpleStackTrace());
 
                 if (ex.InnerException is not null)
                 {
@@ -231,12 +260,8 @@ namespace Clasp
                     PrintExceptionInfo(ex.InnerException);
                 }
             }
-        }
 
-        private static void ExceptionContinue()
-        {
-            Console.WriteLine("Press any key to exit...");
-            Console.ReadKey(true);
+            Console.WriteLine();
         }
     }
 }

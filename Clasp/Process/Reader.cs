@@ -4,6 +4,7 @@ using Clasp.Data.Terms;
 using System.Collections.Generic;
 using System.Linq;
 using System;
+using Clasp.Data.Metadata;
 
 namespace Clasp.Process
 {
@@ -110,15 +111,15 @@ namespace Clasp.Process
                 TokenType.OpenListParen => ReadList(tokens),
                 TokenType.OpenVecParen => ReadVector(tokens),
 
-                TokenType.Quote => ConsList.ProperList(Symbol.Quote, ReadSyntax(tokens)),
-                TokenType.Quasiquote => ConsList.ProperList(Symbol.Quasiquote, ReadSyntax(tokens)),
-                TokenType.Unquote => ConsList.ProperList(Symbol.Unquote, ReadSyntax(tokens)),
-                TokenType.UnquoteSplice => ConsList.ProperList(Symbol.UnquoteSplicing, ReadSyntax(tokens)),
+                TokenType.Quote => NativelyExpandSyntax(current, Symbol.Quote, tokens),
+                TokenType.Quasiquote => NativelyExpandSyntax(current, Symbol.Quasiquote, tokens),
+                TokenType.Unquote => NativelyExpandSyntax(current, Symbol.Unquote, tokens),
+                TokenType.UnquoteSplice => NativelyExpandSyntax(current, Symbol.UnquoteSplicing, tokens),
 
-                TokenType.Syntax => ConsList.ProperList(Symbol.Syntax, ReadSyntax(tokens)),
-                TokenType.QuasiSyntax => ConsList.ProperList(Symbol.Quasisyntax, ReadSyntax(tokens)),
-                TokenType.Unsyntax => ConsList.ProperList(Symbol.Unsyntax, ReadSyntax(tokens)),
-                TokenType.UnsyntaxSplice => ConsList.ProperList(Symbol.UnsyntaxSplicing, ReadSyntax(tokens)),
+                TokenType.Syntax => NativelyExpandSyntax(current, Symbol.Syntax, tokens),
+                TokenType.QuasiSyntax => NativelyExpandSyntax(current, Symbol.Quasisyntax, tokens),
+                TokenType.Unsyntax => NativelyExpandSyntax(current, Symbol.Unsyntax, tokens),
+                TokenType.UnsyntaxSplice => NativelyExpandSyntax(current, Symbol.UnsyntaxSplicing, tokens),
 
                 TokenType.Symbol => Symbol.Intern(current.Text),
                 TokenType.Character => Character.Intern(current),
@@ -134,9 +135,34 @@ namespace Clasp.Process
                 _ => throw new ReaderException.UnhandledToken(current)
             };
 
-            Syntax wrappedValue = Syntax.Wrap(nextValue, current);
+            SourceLocation loc = new SourceLocation(
+                current.Location.Source,
+                current.Location.LineNumber,
+                current.Location.Column,
+                current.Location.StartingPosition,
+                tokens.Count > 0
+                    ? tokens.Peek().Location.StartingPosition - current.Location.StartingPosition - 1
+                    : current.Location.SourceText.Sum(x => x.Length) - current.Location.StartingPosition - 1,
+                current.Location.SourceText,
+                true);
+
+            Syntax wrappedValue = Syntax.Wrap(nextValue, loc, Array.Empty<Binding.ScopeSet>());
 
             return wrappedValue;
+        }
+
+        private static Term NativelyExpandSyntax(Token opToken, Symbol opSym, Stack<Token> tokens)
+        {
+            Token subListToken = tokens.Peek();
+            Syntax arg = ReadSyntax(tokens);
+
+            Syntax terminator = Syntax.Wrap(Nil.Value, arg);
+
+            return ConsList.Cons(
+                Syntax.Wrap(opSym,
+                    opToken),
+                Syntax.Wrap(ConsList.Cons(arg, terminator),
+                    subListToken));
         }
 
         private static Term ReadVector(Stack<Token> tokens)
@@ -154,40 +180,93 @@ namespace Clasp.Process
             {
                 throw new ReaderException.UnexpectedToken(tokens.Peek());
             }
-
-            List<Syntax> output = new List<Syntax>();
-            Token previous = tokens.Peek();
-            bool dotted = false;
-
-            while (tokens.Peek().TType != TokenType.ClosingParen
-                && tokens.Peek().TType != TokenType.DotOperator)
+            else if (tokens.Peek().TType == TokenType.ClosingParen)
             {
-                previous = tokens.Peek();
-                output.Add(ReadSyntax(tokens));
+                tokens.Pop(); // remove closing paren
+                return Nil.Value;
             }
+
+            Syntax car = ReadSyntax(tokens);
 
             if (tokens.Peek().TType == TokenType.DotOperator)
             {
-                previous = tokens.Peek();
-                dotted = true;
-                tokens.Pop(); //remove dot
-                output.Add(ReadSyntax(tokens)); //add the rest
-            }
+                tokens.Pop(); // remove dot operator
+                Syntax cdr = ReadSyntax(tokens);
 
-            if (tokens.Peek().TType != TokenType.ClosingParen)
+                return ConsList.Cons(car, cdr);
+            }
+            else
             {
-                throw new ReaderException.ExpectedToken(TokenType.ClosingParen, tokens.Peek(), previous);
+                Token subListBeginning = tokens.Peek();
+                Term subList = ReadList(tokens);
+                Syntax cdr = Syntax.Wrap(subList, subListBeginning);
+
+                return ConsList.Cons(car, cdr);
             }
-
-            if (!dotted)
-            {
-                output.Add(Syntax.Wrap(Nil.Value, tokens.Peek()));
-            }
-
-            tokens.Pop(); //remove closing paren
-
-            return ConsList.ConstructDirect(output);
         }
+
+        //private static Term ReadList(Stack<Token> tokens)
+        //{
+        //    if (tokens.Peek().TType == TokenType.DotOperator)
+        //    {
+        //        throw new ReaderException.UnexpectedToken(tokens.Peek());
+        //    }
+
+        //    Stack<Syntax> output = new Stack<Syntax>();
+        //    Token previous = tokens.Peek();
+        //    bool dotted = false;
+
+        //    while (tokens.Peek().TType != TokenType.ClosingParen
+        //        && tokens.Peek().TType != TokenType.DotOperator)
+        //    {
+        //        previous = tokens.Peek();
+        //        output.Push(ReadSyntax(tokens));
+        //    }
+
+        //    if (tokens.Peek().TType == TokenType.DotOperator)
+        //    {
+        //        previous = tokens.Peek();
+        //        dotted = true;
+        //        tokens.Pop(); //remove dot
+        //        output.Push(ReadSyntax(tokens)); //add the rest
+        //    }
+
+        //    if (tokens.Peek().TType != TokenType.ClosingParen)
+        //    {
+        //        throw new ReaderException.ExpectedToken(TokenType.ClosingParen, tokens.Peek(), previous);
+        //    }
+
+        //    tokens.Pop(); //remove closing paren
+
+        //    if (output.Count == 0)
+        //    {
+        //        return Nil.Value;
+        //    }
+        //    else if (!dotted)
+        //    {
+        //        output.Push(Syntax.Wrap(Nil.Value, tokens.Peek()));
+        //    }
+
+        //    return ConstructSyntacticList(output);
+        //}
+
+        //private static Term ConstructSyntacticList(Stack<Syntax> stk)
+        //{
+        //    Term output = stk.Pop();
+
+        //    while(stk.Count > 0)
+        //    {
+        //        Syntax car = stk.Pop();
+        //        output = ConsList.Cons(car, output);
+
+        //        if (stk.Count > 0)
+        //        {
+        //            output = Syntax.Wrap(output, car);
+        //        }
+        //    }
+
+        //    return output;
+        //}
 
     }
 }

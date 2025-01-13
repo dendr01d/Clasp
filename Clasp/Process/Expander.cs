@@ -11,13 +11,9 @@ namespace Clasp.Process
     {
         // credit to https://github.com/mflatt/expander/blob/pico/main.rkt
 
-        public static Syntax Expand(Syntax input, Environment env, BindingStore bs)
+        public static Syntax Expand(Syntax input, Environment env, BindingStore bs, ScopeTokenGenerator gen)
         {
-            ExpansionParameters exParams = new ExpansionParameters(
-                new ExpansionEnv(env),
-                bs,
-                0,
-                new ScopeTokenGenerator());
+            ExpansionParameters exParams = new ExpansionParameters(new ExpansionEnv(env), bs, 0, gen);
             return Expand(input, exParams);
         }
 
@@ -125,7 +121,7 @@ namespace Clasp.Process
             input.Paint(exParams.Phase, introScope);
 
             AstNode acceleratedProgram = new MacroApplication(macro, input);
-            Term output = Machine.Interpret(acceleratedProgram, macro.CapturedEnv);
+            Term output = Interpreter.Interpret(acceleratedProgram, macro.CapturedEnv);
 
             if (output is not Syntax stxOutput)
             {
@@ -257,7 +253,7 @@ namespace Clasp.Process
 
             Syntax expandedInput = Expand(input, newParams);
             AstNode parsedInput = Parser.ParseAST(expandedInput, newParams.Store, newParams.Phase);
-            Term output = Machine.Interpret(parsedInput, StandardEnv.CreateNew());
+            Term output = Interpreter.Interpret(parsedInput, StandardEnv.CreateNew());
 
             if (output is not MacroProcedure macro)
             {
