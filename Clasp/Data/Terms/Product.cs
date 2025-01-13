@@ -124,14 +124,34 @@ namespace Clasp.Data.Terms
 
         #region Printing
 
-        public override string ToString() => string.Format("LIST({0}{1})", Car, PrintAsTail(Cdr));
+        //public override string ToString() => string.Format("LIST({0}{1})", Car, PrintAsTail(Cdr));
 
-        private static string PrintAsTail(Term t) => t switch
+        //private static string PrintAsTail(Term t) => t switch
+        //{
+        //    Nil => string.Empty,
+        //    ConsList cl => string.Format(", {0}{1}", cl.Car, PrintAsTail(cl.Cdr)),
+        //    _ => string.Format("; {0}", t)
+        //};
+
+        public override string ToString() => string.Format("({0})", string.Join(' ', EnumerateAndPrint(this)));
+
+        private static IEnumerable<string> EnumerateAndPrint(Term ls)
         {
-            Nil => string.Empty,
-            ConsList cl => string.Format(", {0}{1}", cl.Car, PrintAsTail(cl.Cdr)),
-            _ => string.Format("; {0}", t)
-        };
+            Term current = ls;
+
+            while (current is ConsList cl)
+            {
+                yield return cl.Car.ToString();
+                current = cl.Cdr;
+            }
+
+            if (current is not Nil
+                && !(current is Syntax stx && stx.Expose() is Nil))
+            {
+                yield return ".";
+                yield return current.ToString();
+            }
+        }
 
 
         #endregion

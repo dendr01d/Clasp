@@ -180,6 +180,33 @@ namespace Clasp.Data.Terms
             }
         }
 
-        public override string ToString() => string.Format("STX({0})", _wrappedTerm);
+        //public override string ToString() => string.Format("#'{0}", _wrappedTerm);
+
+        public override string ToString() => Expose() switch
+        {
+            ConsList cl => string.Format("#'({0})", string.Join(' ', EnumerateAndPrint(this))),
+            Symbol sym => string.Format("#'{0}", sym),
+            _ => _wrappedTerm.ToString()
+        };
+
+        private static IEnumerable<string> EnumerateAndPrint(Syntax stx)
+        {
+            Term current = stx;
+
+            while (current is Syntax currentStx
+                && currentStx.Expose() is ConsList cl)
+            {
+                yield return cl.Car.ToString();
+
+                current = cl.Cdr;
+            }
+
+            if (current is not Syntax terminatorStx
+                || terminatorStx.Expose() is not Nil)
+            {
+                yield return ";";
+                yield return current.ToString();
+            }
+        }
     }
 }

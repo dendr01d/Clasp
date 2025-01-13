@@ -16,7 +16,7 @@ namespace Clasp.Data.Terms
     {
         public static readonly Nil Value = new Nil();
         private Nil() { }
-        public override string ToString() => "nil";
+        public override string ToString() => "'()";
     }
 
     internal sealed class Undefined : Atom

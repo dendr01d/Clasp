@@ -32,7 +32,9 @@ namespace Clasp.Data.Terms
 
         public static Character Intern(Token token)
         {
-            if (token.Text.Length == 3)
+            if (token.Text.Length == 3
+                && token.Text[0] == '#'
+                && token.Text[1] == '\\')
             {
                 return Intern(token.Text[2]);
             }
@@ -44,7 +46,7 @@ namespace Clasp.Data.Terms
                     "tab" => Intern('\t'),
                     "newline" => Intern('\n'),
                     "return" => Intern('\r'),
-                    _ => throw new Exception(string.Format("Unknown character: '{0}'", token.Text))
+                    _ => throw new ClaspGeneralException(string.Format("Unknown character: '{0}'", token.Text))
                 };
             }
         }

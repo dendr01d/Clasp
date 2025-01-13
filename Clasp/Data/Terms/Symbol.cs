@@ -56,7 +56,9 @@ namespace Clasp.Data.Terms
     internal class GenSym : Symbol, IBindable
     {
         private static uint _globalCounter = 0;
-        private static string GenerateUniqueName(string partial) => string.Format("{0}Γ{1}", partial, _globalCounter++);
+        private const string _SEP = "⌠";
+
+        private static string GenerateUniqueName(string partial) => string.Format("{0}{1}{2}", partial, _SEP, _globalCounter++);
         public GenSym() : base(GenerateUniqueName("GenSym")) { }
         public GenSym(string fromName) : base(GenerateUniqueName(fromName)) { }
     }
