@@ -12,7 +12,6 @@ namespace Clasp.Data.Terms
     /// </summary>
     internal abstract class Product : Term { }
 
-
     internal sealed class ConsList : Product, IEnumerable<Term>
     {
         public Term Car { get; private set; }
@@ -163,7 +162,7 @@ namespace Clasp.Data.Terms
         public Vector(params Term[] values) => Values = values;
 
         public override string ToString() => string.Format(
-            "VECTOR({0})",
+            "#({0})",
             string.Format(", ", Values.ToArray<object>()));
     }
 }

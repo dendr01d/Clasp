@@ -207,43 +207,12 @@ namespace Clasp.Binding
         }
     }
 
-    internal class ExpansionEnv : EnvFrame
-    {
-        private static readonly Symbol _variableMarker = new GenSym("variable");
+    //internal class ExpansionEnv : EnvFrame
+    //{
+    //    private static readonly Symbol _variableMarker = new GenSym("variable");
 
-        public ExpansionEnv(Environment ancestor) : base(ancestor) { }
+    //    public ExpansionEnv(Environment ancestor) : base(ancestor) { }
 
-        public bool IsVariable(string bindingName)
-        {
-            if (TryGetValue(bindingName, out Term? value))
-            {
-                return value == _variableMarker;
-            }
-            return false;
-        }
 
-        public void MarkVariable(string bindingName)
-        {
-            this[bindingName] = _variableMarker;
-        }
-
-        public void BindMacro(string bindingName, MacroProcedure macro)
-        {
-            this[bindingName] = macro;
-        }
-
-        public bool TryGetMacro(string bindingName,
-            [NotNullWhen(true)] out MacroProcedure? macro)
-        {
-            if (TryGetValue(bindingName, out Term? value)
-                && value is MacroProcedure result)
-            {
-                macro = result;
-                return true;
-            }
-
-            macro = null;
-            return false;
-        }
-    }
+    //}
 }

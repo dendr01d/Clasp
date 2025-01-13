@@ -114,10 +114,20 @@ namespace Clasp.Data.Terms
                     return cl;
                 }
             }
-            //else if (WrappedTerm is Vector vec)
-            //{
+            else if (_wrappedTerm is Vector vec)
+            {
+                if (vec.Values.All(x => x is not Syntax))
+                {
+                    return vec;
+                }
 
-            //}
+                Term[] strippedValues = vec.Values
+                    .Select(x => x is Syntax stx
+                        ? stx.Strip()
+                        : x)
+                    .ToArray();
+                return new Vector(strippedValues);
+            }
             else
             {
                 return _wrappedTerm;
@@ -132,10 +142,14 @@ namespace Clasp.Data.Terms
                 cl.SetCdr(Wrap(cl.Cdr, this));
                 return cl;
             }
-            //else if (WrappedTerm is Vector vec)
-            //{
-
-            //}
+            else if (_wrappedTerm is Vector vec)
+            {
+                for (int i = 0; i < vec.Values.Length; ++i)
+                {
+                    vec.Values[i] = Wrap(vec.Values[i], this);
+                }
+                return vec;
+            }
             else
             {
                 return _wrappedTerm;
@@ -178,6 +192,23 @@ namespace Clasp.Data.Terms
                 name = null;
                 return false;
             }
+        }
+
+        public bool TryExposeVector(
+            [NotNullWhen(true)] out Syntax[]? values)
+        {
+            if (Expose() is Vector vec)
+            {
+                values = vec.Values
+                    .Select(x => x is Syntax stx
+                        ? stx
+                        : Wrap(x, this))
+                    .ToArray();
+                return true;
+            }
+
+            values = null;
+            return false;
         }
 
         //public override string ToString() => string.Format("#'{0}", _wrappedTerm);

@@ -13,25 +13,29 @@ namespace Clasp.Process
 
         public static Syntax Expand(Syntax input, Environment env, BindingStore bs, ScopeTokenGenerator gen)
         {
-            ExpansionParameters exParams = new ExpansionParameters(new ExpansionEnv(env), bs, 0, gen);
-            return Expand(input, exParams);
+            ExpansionState exState = new ExpansionState(new EnvFrame(env), bs, 0, gen);
+            return Expand(input, exState);
         }
 
-        private static Syntax Expand(Syntax input, ExpansionParameters exParams)
+        private static Syntax Expand(Syntax input, ExpansionState exState)
         {
             if (input.TryExposeIdentifier(out Symbol? sym, out string? _))
             {
-                return ExpandIdentifier(sym, input, exParams);
+                return ExpandIdentifier(sym, input, exState);
             }
             else if (input.TryExposeList(out Syntax? car, out Syntax? cdr)
                 && car.TryExposeIdentifier(out Symbol? op, out string? _))
             {
-                return ExpandIdApplication(op, car, cdr, input, exParams);
+                return ExpandIdApplication(op, car, cdr, input, exState);
+            }
+            else if (input.TryExposeVector(out Syntax[]? values))
+            {
+                return ExpandVector(values, input, exState);
             }
             else if (input.Expose() is Term t
                 && (t is ConsList || t is Nil))
             {
-                return ExpandList(input, exParams);
+                return ExpandList(input, exState);
             }
             else
             {
@@ -60,9 +64,9 @@ namespace Clasp.Process
             "map"
         };
 
-        private static Syntax ExpandIdentifier(Symbol sym, Syntax input, ExpansionParameters exParams)
+        private static Syntax ExpandIdentifier(Symbol sym, Syntax input, ExpansionState exState)
         {
-            string binding = exParams.Store.ResolveBindingName(sym.Name, input.GetContext(exParams.Phase), input);
+            string binding = exState.Store.ResolveBindingName(sym.Name, input.GetContext(exState.Phase), input);
 
             if (_corePrimitives.Contains(binding))
             {
@@ -72,53 +76,53 @@ namespace Clasp.Process
             //{
             //    throw new ExpanderException.Uncategorized("Symbol '{0}' erroneously expands to core form.", binding);
             //}
-            else if (!exParams.Env.ContainsKey(binding))
+            else if (!exState.Env.ContainsKey(binding))
             {
                 throw new ExpanderException.UnboundIdentifier(binding, input);
             }
-            else if (exParams.Env.IsVariable(binding))
+            else if (exState.IsVariable(binding))
             {
                 return Syntax.Wrap(Symbol.Intern(binding), input);
             }
             else
             {
                 throw new ExpanderException.InvalidSyntax(input);
-                //Term value = exParams.Env[binding];
+                //Term value = exState.Env[binding];
                 //throw new ExpanderException.Uncategorized("Cannot expand bound symbol '{0}': {1}", binding, value);
             }
         }
 
-        private static Syntax ExpandIdApplication(Symbol op, Syntax opStx, Syntax argsStx, Syntax input, ExpansionParameters exParams)
+        private static Syntax ExpandIdApplication(Symbol op, Syntax opStx, Syntax argsStx, Syntax input, ExpansionState exState)
         {
-            string binding = exParams.Store.ResolveBindingName(op.Name, opStx.GetContext(exParams.Phase), opStx);
+            string binding = exState.Store.ResolveBindingName(op.Name, opStx.GetContext(exState.Phase), opStx);
 
             if (binding == Symbol.Lambda.Name)
             {
-                return ExpandLambda(opStx, argsStx, input, exParams);
+                return ExpandLambda(opStx, argsStx, input, exState);
             }
             else if (binding == Symbol.LetSyntax.Name)
             {
-                return ExpandLetSyntax(argsStx, input, exParams);
+                return ExpandLetSyntax(argsStx, input, exState);
             }
             else if (binding == Symbol.Quote.Name
                 || binding == Symbol.QuoteSyntax.Name)
             {
                 return input;
             }
-            else if (exParams.Env.TryGetMacro(binding, out MacroProcedure? macro))
+            else if (exState.TryGetMacro(binding, out MacroProcedure? macro))
             {
-                return ApplySyntaxTransformer(macro, input, exParams);
+                return ApplySyntaxTransformer(macro, input, exState);
             }
             else
             {
-                return ExpandList(input, exParams);
+                return ExpandList(input, exState);
             }
         }
 
-        private static Syntax ApplySyntaxTransformer(MacroProcedure macro, Syntax input, ExpansionParameters exParams)
+        private static Syntax ApplySyntaxTransformer(MacroProcedure macro, Syntax input, ExpansionState exState)
         {
-            uint introScope = exParams.TokenGen.FreshToken();
-            input.Paint(exParams.Phase, introScope);
+            uint introScope = exState.TokenGen.FreshToken();
+            input.Paint(exState.Phase, introScope);
 
             AstNode acceleratedProgram = new MacroApplication(macro, input);
             Term output = Interpreter.Interpret(acceleratedProgram, macro.CapturedEnv);
@@ -129,12 +133,12 @@ namespace Clasp.Process
             }
             else
             {
-                stxOutput.FlipScope(exParams.Phase, introScope);
+                stxOutput.FlipScope(exState.Phase, introScope);
                 return stxOutput;
             }
         }
 
-        private static Syntax ExpandLambda(Syntax lambdaId, Syntax args, Syntax input, ExpansionParameters exParams)
+        private static Syntax ExpandLambda(Syntax lambdaId, Syntax args, Syntax input, ExpansionState exState)
         {
             if (!args.TryExposeList(out Syntax? paramList, out Syntax? body))
             {
@@ -142,14 +146,14 @@ namespace Clasp.Process
             }
             else
             {
-                uint newScope = exParams.TokenGen.FreshToken();
-                paramList.Paint(exParams.Phase, newScope);
-                body.Paint(exParams.Phase, newScope);
+                uint newScope = exState.TokenGen.FreshToken();
+                paramList.Paint(exState.Phase, newScope);
+                body.Paint(exState.Phase, newScope);
 
-                ExpansionParameters innerParams = exParams.WithExtendedEnv();
+                ExpansionState innerState = exState.WithExtendedEnv();
 
-                Syntax newParamList = BindLocalVariableList(paramList, innerParams);
-                Syntax expandedBody = Expand(body, innerParams);
+                Syntax newParamList = BindLocalVariableList(paramList, innerState);
+                Syntax expandedBody = Expand(body, innerState);
 
                 Syntax newArgs = Syntax.Wrap(ConsList.Cons(newParamList, expandedBody), args);
                 Syntax output = Syntax.Wrap(ConsList.Cons(lambdaId, newArgs), input);
@@ -157,7 +161,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax BindLocalVariableList(Syntax parameters, ExpansionParameters exParams)
+        private static Syntax BindLocalVariableList(Syntax parameters, ExpansionState exState)
         {
             if (parameters.Expose() is Nil)
             {
@@ -165,13 +169,13 @@ namespace Clasp.Process
             }
             else if (parameters.TryExposeIdentifier(out Symbol? _, out string? dottedParamName))
             {
-                return BindLocalVariable(dottedParamName, parameters, exParams);
+                return BindLocalVariable(dottedParamName, parameters, exState);
             }
             else if (parameters.TryExposeList(out Syntax? car, out Syntax? cdr)
                 && car.TryExposeIdentifier(out Symbol? _, out string? nextParamName))
             {
-                Syntax newIdentifier = BindLocalVariable(nextParamName, car, exParams);
-                Syntax remainingParams = BindLocalVariableList(cdr, exParams);
+                Syntax newIdentifier = BindLocalVariable(nextParamName, car, exState);
+                Syntax remainingParams = BindLocalVariableList(cdr, exState);
 
                 return Syntax.Wrap(ConsList.Cons(newIdentifier, remainingParams), parameters);
             }
@@ -181,18 +185,18 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax BindLocalVariable(string symbolicName, Syntax input, ExpansionParameters exParams)
+        private static Syntax BindLocalVariable(string symbolicName, Syntax input, ExpansionState exState)
         {
             Symbol newSym = new GenSym(symbolicName);
-            exParams.Env.MarkVariable(newSym.Name);
+            exState.MarkVariable(newSym.Name);
 
             Syntax newIdentifier = Syntax.Wrap(newSym, input);
-            exParams.Store.BindName(symbolicName, newIdentifier.GetContext(exParams.Phase), newSym.Name);
+            exState.Store.BindName(symbolicName, newIdentifier.GetContext(exState.Phase), newSym.Name);
 
             return newIdentifier;
         }
 
-        private static Syntax ExpandLetSyntax(Syntax args, Syntax input, ExpansionParameters exParams)
+        private static Syntax ExpandLetSyntax(Syntax args, Syntax input, ExpansionState exState)
         {
             if (!args.TryExposeList(out Syntax? letList, out Syntax? body))
             {
@@ -200,21 +204,21 @@ namespace Clasp.Process
             }
             else
             {
-                uint newScope = exParams.TokenGen.FreshToken();
-                letList.Paint(exParams.Phase, newScope);
-                body.Paint(exParams.Phase, newScope);
+                uint newScope = exState.TokenGen.FreshToken();
+                letList.Paint(exState.Phase, newScope);
+                body.Paint(exState.Phase, newScope);
 
-                ExpansionParameters innerParams = exParams.WithExtendedEnv();
+                ExpansionState innerState = exState.WithExtendedEnv();
 
-                ExpandLetBindingList(letList, innerParams);
+                ExpandLetBindingList(letList, innerState);
 
                 // the point of this form is to install temporary macros over the body
                 // we only care about returning the expanded body itself, however
-                return Expand(body, innerParams);
+                return Expand(body, innerState);
             }
         }
 
-        private static void ExpandLetBindingList(Syntax letList, ExpansionParameters exParams)
+        private static void ExpandLetBindingList(Syntax letList, ExpansionState exState)
         {
             if (letList.Expose() is Nil)
             {
@@ -222,8 +226,8 @@ namespace Clasp.Process
             }
             else if (letList.TryExposeList(out Syntax? nextBinding, out Syntax? remainingBindings))
             {
-                ExpandLetBinding(nextBinding, exParams);
-                ExpandLetBindingList(remainingBindings, exParams);
+                ExpandLetBinding(nextBinding, exState);
+                ExpandLetBindingList(remainingBindings, exState);
             }
             else
             {
@@ -231,15 +235,15 @@ namespace Clasp.Process
             }
         }
 
-        private static void ExpandLetBinding(Syntax bindingPair, ExpansionParameters exParams)
+        private static void ExpandLetBinding(Syntax bindingPair, ExpansionState exState)
         {
             if (bindingPair.TryExposeList(out Syntax? car, out Syntax? cdr)
                 && car.TryExposeIdentifier(out Symbol? _, out string? lhs)
                 && cdr.TryExposeList(out Syntax? rhs, out Syntax? terminator)
                 && terminator.Expose() is Nil)
             {
-                MacroProcedure macro = ParseAndEvalMacro(rhs, exParams);
-                BindLocalMacro(lhs, car, macro, exParams);
+                MacroProcedure macro = ParseAndEvalMacro(rhs, exState);
+                BindLocalMacro(lhs, car, macro, exState);
             }
             else
             {
@@ -247,12 +251,12 @@ namespace Clasp.Process
             }
         }
 
-        private static MacroProcedure ParseAndEvalMacro(Syntax input, ExpansionParameters exParams)
+        private static MacroProcedure ParseAndEvalMacro(Syntax input, ExpansionState exState)
         {
-            ExpansionParameters newParams = exParams.WithNextPhase();
+            ExpansionState nextPhaseState = exState.WithNextPhase();
 
-            Syntax expandedInput = Expand(input, newParams);
-            AstNode parsedInput = Parser.ParseAST(expandedInput, newParams.Store, newParams.Phase);
+            Syntax expandedInput = Expand(input, nextPhaseState);
+            AstNode parsedInput = Parser.ParseAST(expandedInput, nextPhaseState.Store, nextPhaseState.Phase);
             Term output = Interpreter.Interpret(parsedInput, StandardEnv.CreateNew());
 
             if (output is not MacroProcedure macro)
@@ -265,16 +269,22 @@ namespace Clasp.Process
             }
         }
 
-        private static void BindLocalMacro(string symbolicName, Syntax input, MacroProcedure value, ExpansionParameters exParams)
+        private static void BindLocalMacro(string symbolicName, Syntax input, MacroProcedure value, ExpansionState exState)
         {
             Symbol newSym = new GenSym(symbolicName);
-            exParams.Env.BindMacro(newSym.Name, value);
+            exState.BindMacro(newSym.Name, value);
 
             Syntax newIdentifier = Syntax.Wrap(newSym, input);
-            exParams.Store.BindName(symbolicName, newIdentifier.GetContext(exParams.Phase), newSym.Name);
+            exState.Store.BindName(symbolicName, newIdentifier.GetContext(exState.Phase), newSym.Name);
         }
 
-        private static Syntax ExpandList(Syntax input, ExpansionParameters exParams)
+        private static Syntax ExpandVector(Syntax[] values, Syntax input, ExpansionState exState)
+        {
+            Syntax[] expandedValues = values.Select(x => Expand(x, exState)).ToArray();
+            return Syntax.Wrap(new Vector(expandedValues), input);
+        }
+
+        private static Syntax ExpandList(Syntax input, ExpansionState exState)
         {
             if (input.Expose() is Nil)
             {
@@ -282,8 +292,8 @@ namespace Clasp.Process
             }
             else if (input.TryExposeList(out Syntax? car, out Syntax? cdr))
             {
-                Syntax newCar = Expand(car, exParams);
-                Syntax newCdr = Expand(cdr, exParams);
+                Syntax newCar = Expand(car, exState);
+                Syntax newCdr = Expand(cdr, exState);
 
                 return Syntax.Wrap(ConsList.Cons(newCar, newCdr), input);
             }

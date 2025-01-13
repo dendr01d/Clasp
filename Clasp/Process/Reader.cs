@@ -167,7 +167,17 @@ namespace Clasp.Process
 
         private static Term ReadVector(Stack<Token> tokens)
         {
-            throw new NotImplementedException();
+            List<Syntax> contents = new List<Syntax>();
+
+            while (tokens.Peek().TType != TokenType.ClosingParen)
+            {
+                Syntax nextTerm = ReadSyntax(tokens);
+                contents.Add(nextTerm);
+            }
+
+            tokens.Pop(); // remove closing paren
+
+            return new Vector(contents.ToArray());
         }
 
         // See here https://docs.racket-lang.org/reference/reader.html#%28part._parse-pair%29
