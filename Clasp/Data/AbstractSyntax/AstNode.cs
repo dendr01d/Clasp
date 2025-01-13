@@ -96,7 +96,7 @@ namespace Clasp.Data.AbstractSyntax
             currentValue = Value;
         }
         public override EvFrame CopyContinuation() => new ConstValue(Value);
-        public override string ToString() => Value is Atom
+        public override string ToString() => Value is Terms.Atom
             ? Value.ToString()
             : string.Format("QUOTE({0})", Value);
         public override Term ToTerm() => ConsList.ProperList(Symbol.Quote, Value);
@@ -146,7 +146,7 @@ namespace Clasp.Data.AbstractSyntax
             }
         }
         public override EvFrame CopyContinuation() => new SequentialForm(Sequence);
-        public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToString()));
+        public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToArray<object>()));
 
         public override Term ToTerm() => ConsList.Cons(Symbol.Begin,
             ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
@@ -168,7 +168,7 @@ namespace Clasp.Data.AbstractSyntax
             continuation.Push(Sequence[0]);
         }
         public override EvFrame CopyContinuation() => new TopLevelSequentialForm(Sequence);
-        public override string ToString() => string.Format("SEQ-D({0})", string.Join(", ", Sequence.ToString()));
+        public override string ToString() => string.Format("SEQ-D({0})", string.Join(", ", Sequence.ToArray<object>()));
 
         public override Term ToTerm() => ConsList.Cons(Symbol.Begin,
             ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
@@ -230,14 +230,14 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
         {
-            continuation.Push(new ConstValue(new CompoundProcedure(Formals, DottedFormal, currentEnv, Body)));
+            currentValue = new CompoundProcedure(Formals, DottedFormal, currentEnv, Body);
         }
         public override EvFrame CopyContinuation() => new FunctionCreation(Formals, DottedFormal, Informals, Body);
 
         public override string ToString() => string.Format("FUN({0}{1}; {2})",
             string.Join(", ", Formals.ToArray<object>()),
             DottedFormal is null ? string.Empty : string.Format("; {0}", DottedFormal),
-            string.Join(", ", Body));
+            string.Join(", ", Body.Sequence.ToArray<object>()));
 
         public override Term ToTerm() => ConsList.ProperList(Symbol.Lambda,
             ConsList.ConstructDirect(Formals
@@ -264,7 +264,7 @@ namespace Clasp.Data.AbstractSyntax
 
         public override void RunOnMachine(Stack<EvFrame> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
         {
-            throw new NotImplementedException();
+            continuation.Push(new FunctionDispatch(Macro, Argument));
         }
         public override EvFrame CopyContinuation() => new MacroApplication(Macro, Argument);
         public override string ToString() => string.Format("MACRO-APPL({0}; {1})", Macro, Argument);

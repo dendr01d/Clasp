@@ -8,6 +8,8 @@ namespace Clasp.Data.AbstractSyntax
 {
     internal abstract class EvFrame
     {
+        protected const string HOLE = "[_]";
+
         public abstract void RunOnMachine(
             Stack<EvFrame> continuation,
             ref Environment currentEnv,
@@ -16,6 +18,13 @@ namespace Clasp.Data.AbstractSyntax
         public abstract EvFrame CopyContinuation();
 
         public abstract override string ToString();
+
+        public void PrintAsStackFrame(System.IO.StreamWriter sw) => sw.WriteLine(ToString());
+        public void PrintAsStackFrame(System.IO.StreamWriter sw, int i)
+        {
+            sw.Write("{0,3}: ", i);
+            PrintAsStackFrame(sw);
+        }
     }
 
     #region Binding Operations
@@ -43,7 +52,7 @@ namespace Clasp.Data.AbstractSyntax
             }
         }
         public override EvFrame CopyContinuation() => new BindFresh(VarName);
-        public override string ToString() => string.Format("*DEF({0}, [])", VarName);
+        public override string ToString() => string.Format("*DEF({0}, {1})", VarName, HOLE);
     }
 
     /// <summary>
@@ -69,7 +78,7 @@ namespace Clasp.Data.AbstractSyntax
             }
         }
         public override EvFrame CopyContinuation() => new RebindExisting(VarName);
-        public override string ToString() => string.Format("*SET({0}, [])", VarName);
+        public override string ToString() => string.Format("*SET({0}, {1})", VarName, HOLE);
 
     }
 
@@ -102,7 +111,7 @@ namespace Clasp.Data.AbstractSyntax
             }
         }
         public override EvFrame CopyContinuation() => new DispatchOnCondition(Consequent, Alternate);
-        public override string ToString() => string.Format("*BRANCH([], {0}, {1})", Consequent, Alternate);
+        public override string ToString() => string.Format("*BRANCH({0}, {1}, {2})", HOLE, Consequent, Alternate);
     }
 
     #endregion
@@ -146,7 +155,7 @@ namespace Clasp.Data.AbstractSyntax
             }
         }
         public override EvFrame CopyContinuation() => new FunctionVerification(Arguments.ToArray());
-        public override string ToString() => string.Format("APPL([]; {0})", Arguments.ToArray());
+        public override string ToString() => string.Format("APPL-VERF({0}; {1})", HOLE, Arguments.ToArray());
     }
 
     /// <summary>
@@ -168,7 +177,7 @@ namespace Clasp.Data.AbstractSyntax
         {
             Op = op;
             RawArguments = arguments;
-            EvaluatedArguments = Enumerable.Repeat(Undefined.Value, RawArguments.Length).ToArray();
+            EvaluatedArguments = Enumerable.Repeat<Term>(Undefined.Value, RawArguments.Length).ToArray();
 
             EvaluationOrder = Enumerable.Range(0, RawArguments.Length).ToArray();
             _rng.Shuffle(EvaluationOrder);
@@ -190,7 +199,7 @@ namespace Clasp.Data.AbstractSyntax
         {
             if (CurrentIndex >= 0)
             {
-                EvaluatedArguments[EvaluationOrder[CurrentIndex]] = currentValue;
+                EvaluatedArguments[EvaluationOrder[CurrentIndex]] = currentValue as Term;
             }
 
             ++CurrentIndex;
@@ -202,7 +211,7 @@ namespace Clasp.Data.AbstractSyntax
                 // Could do some type-checking here, eg:
                 if (nextArg is BindingDefinition or BindingMutation)
                 {
-                    throw new InterpreterException(continuation, "Illegal to use this expression type as an argument: {0}", nextArg);
+                    throw new InterpreterException(continuation, "Illegal to use this expression type as a function argument: {0}", nextArg);
                 }
 
                 continuation.Push(this); // is it safe to reuse a mutable evaluation frame multiple times ...?
@@ -217,7 +226,7 @@ namespace Clasp.Data.AbstractSyntax
 
         public override EvFrame CopyContinuation() => new FunctionArgs(Op, RawArguments, EvaluatedArguments, EvaluationOrder, CurrentIndex);
 
-        public override string ToString() => string.Format("APPL({0}; {1})", Op, string.Join(", ", BuildArgsList()));
+        public override string ToString() => string.Format("APPL-ARGS({0}; {1})", Op, string.Join(", ", BuildArgsList()));
 
         private string[] BuildArgsList()
         {
@@ -233,7 +242,7 @@ namespace Clasp.Data.AbstractSyntax
                 }
                 else if (i == CurrentIndex)
                 {
-                    output[randomIndex] = "[]";
+                    output[randomIndex] = HOLE;
                 }
                 else
                 {
@@ -288,7 +297,7 @@ namespace Clasp.Data.AbstractSyntax
             }
         }
         public override EvFrame CopyContinuation() => new FunctionDispatch(Op, Arguments.ToArray());
-        public override string ToString() => string.Format("APPL({0}; {1})", Op, string.Join(", ", Arguments.ToArray<object>()));
+        public override string ToString() => string.Format("APPL-DISP({0}; {1})", Op, string.Join(", ", Arguments.ToArray<object>()));
     }
 
     //internal sealed class RollUpArguments : EvFrame
