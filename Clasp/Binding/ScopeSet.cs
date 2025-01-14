@@ -66,7 +66,7 @@ namespace Clasp.Binding
         /// <summary>
         /// Returns how many elements of <paramref name="superSet"/> are also contained in this set.
         /// </summary>
-        public int SubsetSize(ScopeSet superSet)
+        public int IntersectionSize(ScopeSet superSet)
         {
             return _scopes.Intersect(superSet._scopes).Count();
         }

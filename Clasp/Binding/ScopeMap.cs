@@ -38,7 +38,7 @@ namespace Clasp.Binding
 
             //this is slow, but binding resolution should only happen infrequently
             var subsetRankings = _map
-                .Select(x => new Tuple<int, KeyValuePair<ScopeSet, string>>(x.Key.SubsetSize(set), x));
+                .Select(x => new Tuple<int, KeyValuePair<ScopeSet, string>>(x.Key.IntersectionSize(set), x));
 
             if (!subsetRankings.Any())
             {
