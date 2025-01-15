@@ -10,214 +10,194 @@ using Clasp.Interfaces;
 
 namespace Clasp.Data.Terms
 {
-    internal class Syntax : Term, ISourceTraceable
+    internal sealed class Syntax : Term, ISourceTraceable
     {
         public SourceLocation Location { get; private set; }
 
-        private readonly List<ScopeSet> _context;
-        private readonly Term _wrappedTerm;
+        private readonly Term _wrappedValue;
+        private readonly Dictionary<int, HashSet<uint>> _phasedScopeSets;
+        private readonly HashSet<string> _properties;
 
-        private Syntax(Term term, SourceLocation source, IEnumerable<ScopeSet> lexInfo)
+        public static Dictionary<int, HashSet<uint>> BlankScope => new Dictionary<int, HashSet<uint>> ();
+
+        private Syntax(Term term, SourceLocation location, Dictionary<int, HashSet<uint>> scopeSets)
         {
-            _wrappedTerm = term;
+            Location = location;
 
-            Location = source;
-            _context = lexInfo.ToList();
+            _wrappedValue = term;
+            _phasedScopeSets = scopeSets.ToDictionary(x => x.Key, x => new HashSet<uint>(x.Value));
+            _properties = new HashSet<string>();
         }
 
-        public static Syntax Wrap(Term term, SourceLocation source, IEnumerable<ScopeSet> lexInfo)
+        /// <summary>
+        /// Create a syntax with blank scope derived from the given location.
+        /// </summary>
+        public static Syntax Wrap(Term term, SourceLocation location)
         {
-            if (term is Syntax sw)
+            return term switch
             {
-                throw new InvalidOperationException("Can't wrap existing syntax wrapper.");
-            }
-            else
-            {
-                return new Syntax(term, source, lexInfo);
-            }
+                Syntax stx => stx,
+                ConsList cl => new Syntax(
+                    ConsList.Cons(Wrap(cl.Car, location.Derivation()), Wrap(cl.Cdr, location.Derivation())),
+                    location,
+                    BlankScope),
+                _ => new Syntax(term, location, BlankScope)
+            };
         }
 
-        public static Syntax Wrap(Term term, Syntax extantWrapper)
-        {
-            if (term is Syntax sw)
-            {
-                for (int i = 0; i < extantWrapper._context.Count; ++i)
-                {
-                    if (sw._context.Count <= i)
-                    {
-                        sw._context.Add(new ScopeSet(extantWrapper._context[i]));
-                    }
-                    else
-                    {
-                        sw._context[i].Add(extantWrapper._context[i]);
-                    }
-                }
-                return sw;
-            }
-            else
-            {
-                return new Syntax(term, extantWrapper.Location, extantWrapper._context);
-            }
-        }
+        /// <summary>
+        /// Create a syntax with blank scope corresponding to the location of the given token.
+        /// </summary>
+        public static Syntax Wrap(Term term, Token token) => Wrap(term, token.Location);
 
-        public static Syntax Wrap(Term term, Token token) => Wrap(term, token.Location, Array.Empty<ScopeSet>());
+        /// <summary>
+        /// Create a syntax with the same scope and location as an existing syntax.
+        /// </summary>
+        public static Syntax Wrap<T>(T term, Syntax existingSyntax)
+            where T : Term
+        {
+            return term switch
+            {
+                Syntax stx => stx,
+                ConsList cl => new Syntax(
+                    ConsList.Cons(Wrap(cl.Car, existingSyntax), Wrap(cl.Cdr, existingSyntax)),
+                    existingSyntax.Location.Derivation(),
+                    existingSyntax._phasedScopeSets),
+                _ => new Syntax(term, existingSyntax.Location, BlankScope)
+            };
+        }
 
         // ---
 
-        public ScopeSet GetContext(int phase)
+        public bool GetProperty(string propName) => _properties.Contains(propName);
+        public bool AddProperty(string propName) => _properties.Add(propName);
+
+        public HashSet<uint> GetContext(int phase)
         {
-            while (_context.Count <= phase)
+            if (!_phasedScopeSets.TryGetValue(phase, out HashSet<uint>? scopeSet))
             {
-                _context.Add(new ScopeSet());
+                _phasedScopeSets[phase] = new HashSet<uint>();
             }
-            return _context[phase];
+            return _phasedScopeSets[phase];
         }
 
-        public void Paint(int phase, params uint[] scopeTokens)
+        public Term SyntaxE()
         {
-            while (_context.Count <= phase)
-            {
-                _context.Add(new ScopeSet());
-            }
-            _context[phase].Add(scopeTokens);
+            return _wrappedValue;
         }
 
-        public void FlipScope(int phase, params uint[] scopeTokens)
+        // ---
+
+        private static Term EagerlyAdjustScope(Term term, int phase, uint[] scopeIds, Action<HashSet<uint>, uint[]> adjustment)
         {
-            while (_context.Count <= phase)
+            if (term is Syntax stx)
             {
-                _context.Add(new ScopeSet());
+                stx.GetContext(phase);
+                adjustment(stx._phasedScopeSets[phase], scopeIds);
+                return stx;
             }
-            _context[phase].Flip(scopeTokens);
-        }
-
-        public Term Strip()
-        {
-            if (_wrappedTerm is ConsList cl)
+            else if (term is ConsList cl)
             {
-                Term outCar = cl.Car is Syntax stxCar
-                    ? stxCar.Strip()
-                    : cl.Car;
-
-                Term outCdr = cl.Cdr is Syntax stxCdr
-                    ? stxCdr.Strip()
-                    : cl.Cdr;
-
-                if (cl.Car is Syntax || cl.Cdr is Syntax)
-                {
-                    return ConsList.Cons(
-                        outCar == cl.Car ? cl.Car : outCar,
-                        outCdr == cl.Cdr ? cl.Cdr : outCdr);
-                }
-                else
-                {
-                    return cl;
-                }
-            }
-            else if (_wrappedTerm is Vector vec)
-            {
-                if (vec.Values.All(x => x is not Syntax))
-                {
-                    return vec;
-                }
-
-                Term[] strippedValues = vec.Values
-                    .Select(x => x is Syntax stx
-                        ? stx.Strip()
-                        : x)
-                    .ToArray();
-                return new Vector(strippedValues);
+                Term car = PaintScope(cl, phase, scopeIds);
+                Term cdr = PaintScope(cl, phase, scopeIds);
+                return ConsList.Cons(car, cdr);
             }
             else
             {
-                return _wrappedTerm;
+                return term;
             }
         }
 
-        public Term Expose()
+        public static Term PaintScope(Term term, int phase, params uint[] scopeIds)
+            => EagerlyAdjustScope(term, phase, scopeIds, (scopeSet, ids) => scopeSet.UnionWith(ids));
+
+        public static Term FlipScope(Term term, int phase, params uint[] scopeIds)
+            => EagerlyAdjustScope(term, phase, scopeIds, (scopeSet, ids) => scopeSet.SymmetricExceptWith(ids));
+
+        public static Term RemoveScope(Term term, int phase, params uint[] scopeIds)
+            => EagerlyAdjustScope(term, phase, scopeIds, (scopeSet, ids) => scopeSet.RemoveWhere(x => ids.Contains(x)));
+
+        // ---
+
+        public static Term ToDatum(Term term)
         {
-            if (_wrappedTerm is ConsList cl)
+            if (term is Syntax stx)
             {
-                cl.SetCar(Wrap(cl.Car, this));
-                cl.SetCdr(Wrap(cl.Cdr, this));
-                return cl;
+                return ToDatum(stx.SyntaxE());
             }
-            else if (_wrappedTerm is Vector vec)
+            if (term is ConsList cl)
             {
-                for (int i = 0; i < vec.Values.Length; ++i)
-                {
-                    vec.Values[i] = Wrap(vec.Values[i], this);
-                }
-                return vec;
+                return ConsList.Cons(ToDatum(cl.Car), ToDatum(cl.Cdr));
+            }
+            else if (term is Vector vec)
+            {
+                return new Vector(vec.Values.Select(x => ToDatum(x)).ToArray());
             }
             else
             {
-                return _wrappedTerm;
+                return term;
             }
         }
 
-        public bool TryExposeList(
+        public static bool TryExposeList(
+            Term term,
+            [NotNullWhen(true)] out ConsList? cons,
             [NotNullWhen(true)] out Syntax? car,
             [NotNullWhen(true)] out Syntax? cdr)
         {
-            if (Expose() is ConsList cl
-                && cl.Car is Syntax stxCar
-                && cl.Cdr is Syntax stxCdr)
+            if (term is ConsList cl)
             {
-                car = stxCar;
-                cdr = stxCdr;
+                cons = cl;
+                car = Wrap(cl.c)
+                cdr = cl.Cdr;
                 return true;
             }
-            else
-            {
-                car = null;
-                cdr = null;
-                return false;
-            }
+
+            cons = null;
+            car = null;
+            cdr = null;
+            return false;
         }
 
         public bool TryExposeIdentifier(
             [NotNullWhen(true)] out Symbol? sym,
             [NotNullWhen(true)] out string? name)
         {
-            if (_wrappedTerm is Symbol s)
+            if (_wrappedValue is Symbol s)
             {
                 sym = s;
                 name = s.Name;
                 return true;
             }
-            else
-            {
-                sym = null;
-                name = null;
-                return false;
-            }
+
+            sym = null;
+            name = null;
+            return false;
         }
 
         public bool TryExposeVector(
-            [NotNullWhen(true)] out Syntax[]? values)
+            [NotNullWhen(true)] out Vector? vec,
+            [NotNullWhen(true)] out Term[]? values)
         {
-            if (Expose() is Vector vec)
+            if (_wrappedValue is Vector v)
             {
-                values = vec.Values
-                    .Select(x => x is Syntax stx
-                        ? stx
-                        : Wrap(x, this))
-                    .ToArray();
+                vec = v;
+                values = v.Values;
                 return true;
             }
 
+            vec = null;
             values = null;
             return false;
         }
 
         //public override string ToString() => string.Format("#'{0}", _wrappedTerm);
 
-        public override string ToString() => Expose() switch
+        public override string ToString() => _wrappedValue switch
         {
             ConsList cl => string.Format("#'({0})", string.Join(' ', EnumerateAndPrint(this))),
             Symbol sym => string.Format("#'{0}", sym),
-            _ => _wrappedTerm.ToString()
+            _ => _wrappedValue.ToString()
         };
 
         private static IEnumerable<string> EnumerateAndPrint(Syntax stx)
@@ -225,7 +205,7 @@ namespace Clasp.Data.Terms
             Term current = stx;
 
             while (current is Syntax currentStx
-                && currentStx.Expose() is ConsList cl)
+                && currentStx._wrappedValue is ConsList cl)
             {
                 yield return cl.Car.ToString();
 
@@ -233,7 +213,7 @@ namespace Clasp.Data.Terms
             }
 
             if (current is not Syntax terminatorStx
-                || terminatorStx.Expose() is not Nil)
+                || terminatorStx._wrappedValue is not Nil)
             {
                 yield return ";";
                 yield return current.ToString();

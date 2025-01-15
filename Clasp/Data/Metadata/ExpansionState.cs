@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using Clasp.Binding;
 using Clasp.Data.Terms;
@@ -10,6 +11,11 @@ namespace Clasp.Data.Metadata
         public readonly Environment Env;
         public readonly BindingStore Store;
         public readonly int Phase;
+
+        // Keep track of new scopes we paint on, so that we can strip them off quoted syntax
+        public readonly HashSet<uint> NewScopes;
+
+        public readonly HashSet<uint> CurrentMacroIntroductionScope;
 
         public readonly ScopeTokenGenerator TokenGen;
 

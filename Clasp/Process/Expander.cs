@@ -23,7 +23,7 @@ namespace Clasp.Process
             {
                 return ExpandIdentifier(sym, input, exState);
             }
-            else if (input.TryExposeList(out Syntax? car, out Syntax? cdr)
+            else if (input.TryExposeList(out ConsList? _, out Term? car, out Term? cdr)
                 && car.TryExposeIdentifier(out Symbol? op, out string? _))
             {
                 return ExpandIdApplication(op, car, cdr, input, exState);

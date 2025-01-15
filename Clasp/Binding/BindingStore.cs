@@ -12,6 +12,8 @@ namespace Clasp.Binding
 {
     internal class BindingStore
     {
+        private Dictionary<string, List<KeyValuePair<HashSet<uint>, string>>> _nameToSetToName;
+
         private Dictionary<string, ScopeMap> _bindingLookup;
 
         public BindingStore()
