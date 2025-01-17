@@ -20,6 +20,10 @@ namespace Clasp.Data.Terms
 
         public static Dictionary<int, HashSet<uint>> BlankScope => new Dictionary<int, HashSet<uint>> ();
 
+        //TODO: Review the semantics of wrapping. DO scopes get merged, or replaced?
+        //what happens if you try to wrap syntax itself?
+
+
         private Syntax(Term term, SourceLocation location, Dictionary<int, HashSet<uint>> scopeSets)
         {
             Location = location;
@@ -81,7 +85,10 @@ namespace Clasp.Data.Terms
             return _phasedScopeSets[phase];
         }
 
-        public Term SyntaxE()
+        /// <summary>
+        /// Unwraps this Syntax's datum while preserving the context of any nested Syntax.
+        /// </summary>
+        public Term ExposeTop()
         {
             return _wrappedValue;
         }
@@ -123,7 +130,7 @@ namespace Clasp.Data.Terms
         {
             if (term is Syntax stx)
             {
-                return ToDatum(stx.SyntaxE());
+                return ToDatum(stx.ExposeTop());
             }
             if (term is ConsList cl)
             {
@@ -139,17 +146,16 @@ namespace Clasp.Data.Terms
             }
         }
 
-        public static bool TryExposeList(
-            Term term,
+        public bool TryExposeList(
             [NotNullWhen(true)] out ConsList? cons,
-            [NotNullWhen(true)] out Syntax? car,
-            [NotNullWhen(true)] out Syntax? cdr)
+            [NotNullWhen(true)] out Term? car,
+            [NotNullWhen(true)] out Term? cdr)
         {
-            if (term is ConsList cl)
+            if (_wrappedValue is ConsList cl)
             {
                 cons = cl;
-                car = Wrap(cl.c)
-                cdr = cl.Cdr;
+                car = Wrap(cl.Car, this);
+                cdr = Wrap(cl.Cdr, this);
                 return true;
             }
 

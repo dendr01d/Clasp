@@ -8,7 +8,7 @@ namespace Clasp.Binding
         {
             GlobalEnvironment output = new GlobalEnvironment();
 
-            output.DefineInitial(Symbol.Define.Name, Symbol.Define);
+            output.DefineInitial(Symbol.Define.Name, Symbol.Define); //remove at some point?
             output.DefineInitial(Symbol.Set.Name, Symbol.Set);
 
             output.DefineInitial(Symbol.Quote.Name, Symbol.Quote);

@@ -321,16 +321,16 @@ namespace Clasp
 
     public class InterpreterException : ClaspException
     {
-        internal EvFrame[] ContinuationTrace;
+        internal MxInstruction[] ContinuationTrace;
 
-        internal InterpreterException(Stack<EvFrame> cont, string format, params object?[] args) : base(format, args)
+        internal InterpreterException(Stack<MxInstruction> cont, string format, params object?[] args) : base(format, args)
         {
             ContinuationTrace = cont.ToArray();
         }
 
         public class InvalidBinding : InterpreterException
         {
-            internal InvalidBinding(string varName, Stack<EvFrame> cont) : base(
+            internal InvalidBinding(string varName, Stack<MxInstruction> cont) : base(
                 cont,
                 "Unable to dereference binding of identifier '{0}'.",
                 varName)

@@ -9,6 +9,15 @@ namespace Clasp.Process
 {
     internal static class Expander
     {
+        // certain core forms are represented implicitly
+        // e.g. how a list is assumed to be a function application
+        // tagging each core form makes parsing a lot easier
+
+        public const string MARK_APP = "#app";
+        public const string MARK_PARAMS = "#params";
+        public const string MARK_DEREF = "#var";
+
+
         // credit to https://github.com/mflatt/expander/blob/pico/main.rkt
 
         public static Syntax Expand(Syntax input, Environment env, BindingStore bs, ScopeTokenGenerator gen)
@@ -23,24 +32,23 @@ namespace Clasp.Process
             {
                 return ExpandIdentifier(sym, input, exState);
             }
-            else if (input.TryExposeList(out ConsList? _, out Term? car, out Term? cdr)
+            else if (input.TryExposeList(out ConsList? _, out Syntax? car, out Syntax? cdr)
                 && car.TryExposeIdentifier(out Symbol? op, out string? _))
             {
                 return ExpandIdApplication(op, car, cdr, input, exState);
             }
-            else if (input.TryExposeVector(out Syntax[]? values))
+            else if (input.TryExposeVector(out Vector? _, out Syntax[]? values))
             {
                 return ExpandVector(values, input, exState);
             }
-            else if (input.Expose() is Term t
+            else if (input.ExposeTop() is Term t
                 && (t is ConsList || t is Nil))
             {
                 return ExpandList(input, exState);
             }
             else
             {
-                return input;
-                //throw new ExpanderException.Uncategorized("Unknown syntax: {0}", input);
+                throw new ExpanderException.InvalidSyntax(input);
             }
         }
 
@@ -124,7 +132,7 @@ namespace Clasp.Process
             uint introScope = exState.TokenGen.FreshToken();
             input.Paint(exState.Phase, introScope);
 
-            AstNode acceleratedProgram = new MacroApplication(macro, input);
+            CoreForm acceleratedProgram = new MacroApplication(macro, input);
             Term output = Interpreter.Interpret(acceleratedProgram, macro.CapturedEnv);
 
             if (output is not Syntax stxOutput)
@@ -256,7 +264,7 @@ namespace Clasp.Process
             ExpansionState nextPhaseState = exState.WithNextPhase();
 
             Syntax expandedInput = Expand(input, nextPhaseState);
-            AstNode parsedInput = Parser.ParseAST(expandedInput, nextPhaseState.Store, nextPhaseState.Phase);
+            CoreForm parsedInput = Parser.Parse(expandedInput, nextPhaseState.Store, nextPhaseState.Phase);
             Term output = Interpreter.Interpret(parsedInput, StandardEnv.CreateNew());
 
             if (output is not MacroProcedure macro)

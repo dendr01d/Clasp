@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,66 +10,127 @@ using System.Xml.Linq;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Terms;
 
+using ScopeSet = System.Collections.Generic.HashSet<uint>;
+using ScopeMap = System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<System.Collections.Generic.HashSet<uint>, string>>;
+
 namespace Clasp.Binding
 {
     internal class BindingStore
     {
-        private Dictionary<string, List<KeyValuePair<HashSet<uint>, string>>> _nameToSetToName;
-
-        private Dictionary<string, ScopeMap> _bindingLookup;
+        private Dictionary<string, ScopeMap> _renamesByScope;
+        private int _count;
 
         public BindingStore()
         {
-            _bindingLookup = new Dictionary<string, ScopeMap>();
+            _renamesByScope = new Dictionary<string, List<KeyValuePair<HashSet<uint>, string>>>();
+            _count = 0;
         }
 
-        public void BindName(string symbolicName, ScopeSet newSet, string bindingName)
+        /// <summary>
+        /// Given a collection of sets-of-scopes mapped to binding names, find the subset of binding names
+        /// whose keys form the largest subset of <paramref name="keys"/>
+        /// </summary>
+        private static string[] IndexBySubset(ScopeMap map, IEnumerable<uint> keys)
         {
-            if (_bindingLookup.TryGetValue(symbolicName, out ScopeMap? map))
-            {
-                map.AddMapping(newSet, bindingName);
-            }
-            else
-            {
-                _bindingLookup[symbolicName] = new ScopeMap();
-                _bindingLookup[symbolicName].AddMapping(newSet, bindingName);
-            }
+            // group all entries in the map according to subset size
+            // then pick the group with the biggest key
+
+            return map.GroupBy(x => x.Key.Intersect(keys).Count())
+                .MaxBy(x => x.Key)
+                ?.Select(x => x.Value)
+                .ToArray()
+                ?? Array.Empty<string>();
         }
 
-        public bool NameIsBound(string symbolicName, ScopeSet setOfScopes)
+        /// <summary>
+        /// Attempt to resolve the binding name of the given identifier.
+        /// </summary>
+        /// <param name="stx">The identifier to be resolved. The <see cref="Syntax"/> must be wrapped around a <see cref="Symbol"/>.</param>
+        /// <param name="phase">The expansion phase in which the resolution is being performed.</param>
+        /// <returns>
+        /// The binding name of the identifier, assuming <paramref name="stx"/> is really an identifier,
+        /// <paramref name="stx"/> is truly bound in this <see cref="BindingStore"/>,
+        /// and the scope set of <paramref name="stx"/> doesn't ambiguously point to multiple bindings.
+        /// </returns>
+        /// <exception cref="ExpanderException.UnboundIdentifier"></exception>
+        /// <exception cref="ExpanderException.AmbiguousIdentifier"></exception>
+        /// <exception cref="ClaspGeneralException"></exception>
+        public string Resolve(Syntax stx, int phase)
         {
-            if (_bindingLookup.TryGetValue(symbolicName, out ScopeMap? map))
+            if (stx.TryExposeIdentifier(out Symbol? _, out string? symName))
             {
-                return map.LookupLargestSubset(setOfScopes).Length > 0;
+                if (_renamesByScope.TryGetValue(symName, out ScopeMap? map))
+                {
+                    string[] candidates = IndexBySubset(map, stx.GetContext(phase));
+
+                    if (candidates.Length == 0)
+                    {
+                        throw new ExpanderException.UnboundIdentifier(symName, stx);
+                    }
+                    else if (candidates.Length > 1)
+                    {
+                        throw new ExpanderException.AmbiguousIdentifier(symName, stx);
+                    }
+                    else
+                    {
+                        return candidates[0];
+                    }
+                }
             }
 
-            return false;
+            throw new ClaspGeneralException("Tried to resolve rename binding of non-identifier: {0}", stx);
         }
 
-        public string ResolveBindingName(string symbolicName, ScopeSet setOfScopes, Syntax identifier)
+        /// <summary>
+        /// Attempt to bind the symbolic name of the identifier <paramref name="stx"/> to
+        /// the given <paramref name="bindingName"/> within the set-of-scopes of <paramref name="stx"/>
+        /// corresponding to the given expansion <paramref name="phase"/>.
+        /// </summary>
+        /// <param name="stx">The identifier to be resolved. The <see cref="Syntax"/> must be wrapped around a <see cref="Symbol"/>.</param>
+        /// <param name="phase">The expansion phase in which the rename binding is being performed.</param>
+        /// <param name="bindingName">
+        /// The name that the identifier <paramref name="stx"/> should assume in the current set-of-scopes.
+        /// </param>
+        /// <exception cref="ClaspGeneralException"></exception>
+        public void RenameInScope(Syntax stx, int phase, string bindingName)
         {
-            if (_bindingLookup.TryGetValue(symbolicName, out ScopeMap? map))
+            if (stx.TryExposeIdentifier(out Symbol? _, out string? symName))
             {
-                KeyValuePair<ScopeSet, string>[] matches = map.LookupLargestSubset(setOfScopes);
+                if (stx.GetContext(phase) is HashSet<uint> symScope && symScope.Count > 1)
+                {
+                    if (!_renamesByScope.ContainsKey(symName))
+                    {
+                        _renamesByScope[symName] = new ScopeMap();
+                    }
 
-                if (matches.Length == 0)
-                {
-                    // i.e. no scope sets matched
-                    throw new ExpanderException.UnboundIdentifier(symbolicName, identifier);
-                }
-                else if (matches.Length > 1)
-                {
-                    // multiple scope sets ambiguously matched
-                    throw new ExpanderException.AmbiguousIdentifier(symbolicName, identifier);
-                }
-                else
-                {
-                    return matches[0].Value;
+                    var binding = new KeyValuePair<HashSet<uint>, string>(symScope, bindingName);
+                    _renamesByScope[symName].Add(binding);
+
+                    ++_count;
                 }
             }
 
-            return symbolicName;
+            throw new ClaspGeneralException("Tried to create rename binding of non-identifier: {0}", stx);
         }
 
+
+        #region IDictionary Implementation
+
+        public string this[Syntax key, int phase]
+        {
+            get => Resolve(key, phase);
+            set => RenameInScope(key, phase, value);
+        }
+
+        public int Count => _count;
+
+        public void Add(Syntax key, int phase, string value) => RenameInScope(key, phase, value);
+
+        //public bool Remove(Syntax key)
+        //{
+        //    throw new NotImplementedException();
+        //}
+
+        #endregion
     }
 }

@@ -127,6 +127,8 @@ namespace Clasp.Binding
             _staticBindings.Add(key, value);
         }
 
+        public void DefineCoreForm(Symbol sym) => DefineInitial(sym.Name, sym);
+
         public override Term LookUp(string name)
         {
             if (_mutableBindings.TryGetValue(name, out Term? result1))

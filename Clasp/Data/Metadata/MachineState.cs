@@ -10,15 +10,15 @@ namespace Clasp.Data.Metadata
     {
         public Term ReturningValue;
         public Environment CurrentEnv;
-        public Stack<EvFrame> Continuation;
+        public Stack<MxInstruction> Continuation;
 
         public bool Complete => Continuation.Count == 0;
 
-        public MachineState(AstNode program, Environment env)
+        public MachineState(CoreForm program, Environment env)
         {
             ReturningValue = Undefined.Value;
             CurrentEnv = env;
-            Continuation = new Stack<EvFrame>();
+            Continuation = new Stack<MxInstruction>();
 
             Continuation.Push(program);
         }

@@ -10,14 +10,14 @@ namespace Clasp.Process
 {
     internal static class Interpreter
     {
-        public static Term Interpret(AstNode program, Environment env)
+        public static Term Interpret(CoreForm program, Environment env)
         {
             MachineState machine = new MachineState(program, env);
             RunToCompletion(machine);
             return machine.ReturningValue;
         }
 
-        public static Term Interpret(AstNode program, Environment env, System.Action<int, MachineState> postStepHook)
+        public static Term Interpret(CoreForm program, Environment env, System.Action<int, MachineState> postStepHook)
         {
             MachineState machine = new MachineState(program, env);
             RunToCompletion(machine, postStepHook);
@@ -26,16 +26,42 @@ namespace Clasp.Process
 
         public static Term Interpret(MacroApplication macroAppl) => Interpret(macroAppl, macroAppl.Macro.CapturedEnv);
 
+        public static MachineState InterpretToCompletion(MachineState machine)
+        {
+            RunToCompletion(machine);
+            return machine;
+        }
+
+        // ---
+
         private static bool Step(MachineState machine)
         {
             if (!machine.Complete)
             {
-                EvFrame nextInstruction = machine.Continuation.Pop();
+                MxInstruction nextInstruction = machine.Continuation.Pop();
 
                 nextInstruction.RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
             }
 
             return !machine.Complete;
+        }
+
+        private static MachineState StepPurely(MachineState machine)
+        {
+            if (machine.Complete)
+            {
+                return machine;
+            }
+            else
+            {
+                MachineState outputState = new MachineState(machine);
+
+                MxInstruction nextInstruction = outputState.Continuation.Pop();
+
+                nextInstruction.RunOnMachine(outputState);
+
+                return outputState;
+            }
         }
 
         private static void RunToCompletion(MachineState machine)
@@ -60,7 +86,7 @@ namespace Clasp.Process
 
             int counter = 1;
 
-            foreach (EvFrame frame in machine.Continuation.Reverse())
+            foreach (MxInstruction frame in machine.Continuation.Reverse())
             {
                 frame.PrintAsStackFrame(sw, counter++);
             }

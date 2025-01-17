@@ -157,7 +157,7 @@ namespace Clasp
                                 Syntax expandedSyntax = clasp.Expand(readSyntax);
                                 if (_showingInput) writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
 
-                                AstNode parsedInput = clasp.Parse(expandedSyntax);
+                                CoreForm parsedInput = clasp.Parse(expandedSyntax);
                                 if (_showingInput) writer.WriteLine(" PARSE: {0}", parsedInput.ToTerm());
 
                                 if (_showingInput) writer.WriteLine("-------");
@@ -236,7 +236,7 @@ namespace Clasp
             {
                 Console.WriteLine();
                 Console.WriteLine("Stack trace:");
-                foreach(EvFrame frame in ie.ContinuationTrace)
+                foreach(MxInstruction frame in ie.ContinuationTrace)
                 {
                     Console.Write("   ");
                     Console.WriteLine(frame.ToString());

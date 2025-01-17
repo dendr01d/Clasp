@@ -18,7 +18,7 @@ namespace Clasp.Process
         // the MOST IMPORTANT thing to remember here is that every syntactic form must break down
         // into ONLY the forms representable by AstNodes
 
-        public static AstNode ParseAST(Syntax stx, BindingStore bs, int phase)
+        public static CoreForm Parse(Syntax stx, BindingStore bs, int phase)
         {
             if (stx.TryExposeIdentifier(out Symbol? sym, out string? _))
             {
@@ -35,10 +35,10 @@ namespace Clasp.Process
             }
         }
 
-        private static AstNode ParseApplication(Syntax car, Syntax cdr, Syntax input, BindingStore bs, int phase)
+        private static CoreForm ParseApplication(Syntax car, Syntax cdr, Syntax input, BindingStore bs, int phase)
         {
             // Parse the op-term first, then decide what to do
-            AstNode opTerm = ParseAST(car, bs, phase);
+            CoreForm opTerm = Parse(car, bs, phase);
 
             // Check to see if it's a special form
             if (opTerm is VariableLookup vl)
@@ -82,7 +82,7 @@ namespace Clasp.Process
             }
 
             // Otherwise we just have to trust that it'll make sense in the final program
-            IEnumerable<AstNode> argTerms = ParseList(cdr, bs, phase);
+            IEnumerable<CoreForm> argTerms = ParseList(cdr, bs, phase);
             return new FunctionApplication(opTerm, argTerms.ToArray());
         }
 
@@ -115,7 +115,7 @@ namespace Clasp.Process
             {
                 if (TryExposeBindingId(arg1, bs, phase, out string? key))
                 {
-                    AstNode boundValueExpr = ParseAST(arg2, bs, phase);
+                    CoreForm boundValueExpr = Parse(arg2, bs, phase);
                     return new BindingDefinition(key, boundValueExpr);
                 }
 
@@ -131,7 +131,7 @@ namespace Clasp.Process
             {
                 if (TryExposeBindingId(arg1, bs, phase, out string? key))
                 {
-                    AstNode boundValueExpr = ParseAST(arg2, bs, phase);
+                    CoreForm boundValueExpr = Parse(arg2, bs, phase);
                     return new BindingMutation(key, boundValueExpr);
                 }
 
@@ -145,7 +145,7 @@ namespace Clasp.Process
         {
             List<string> internalKeys = new List<string>();
 
-            foreach(AstNode node in seq.Sequence)
+            foreach(CoreForm node in seq.Sequence)
             {
                 if (node is BindingDefinition bd)
                 {
@@ -175,9 +175,9 @@ namespace Clasp.Process
         {
             if (TryExposeThreeArgs(args, out Syntax? arg1, out Syntax? arg2, out Syntax? arg3))
             {
-                AstNode test = ParseAST(arg1, bs, phase);
-                AstNode consequent = ParseAST(arg2, bs, phase);
-                AstNode alternate = ParseAST(arg3, bs, phase);
+                CoreForm test = Parse(arg1, bs, phase);
+                CoreForm consequent = Parse(arg2, bs, phase);
+                CoreForm alternate = Parse(arg3, bs, phase);
 
                 return new ConditionalForm(test, consequent, alternate);
             }
@@ -187,7 +187,7 @@ namespace Clasp.Process
 
         private static SequentialForm ParseBeginOrLambdaBody(Syntax args, Syntax full, BindingStore bs, int phase)
         {
-            AstNode[] series = ParseList(args, bs, phase).ToArray();
+            CoreForm[] series = ParseList(args, bs, phase).ToArray();
 
             if (series.Length == 0)
             {
@@ -203,13 +203,13 @@ namespace Clasp.Process
 
         #region Auxiliary Structures
 
-        private static IEnumerable<AstNode> ParseList(Syntax argList, BindingStore bs, int phase)
+        private static IEnumerable<CoreForm> ParseList(Syntax argList, BindingStore bs, int phase)
         {
             Syntax current = argList;
 
             while (current.TryExposeList(out Syntax? first, out Syntax? rest))
             {
-                AstNode newArg = ParseAST(first, bs, phase);
+                CoreForm newArg = Parse(first, bs, phase);
                 yield return newArg;
                 current = rest;
             }
