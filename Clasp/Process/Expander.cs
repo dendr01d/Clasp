@@ -77,7 +77,10 @@ namespace Clasp.Process
         private static Syntax ExpandIdentifier(Syntax<Symbol> stx, ExpansionState exState)
         {
             string bindingName = exState.ResolveBindingName(stx);
-
+            // TODO: need another step here where the name is dereferenced in the env
+            // to see if the name is bound to the core form in question
+            // (on case of shadowing)
+            
             if (_corePrimitives.Contains(bindingName))
             {
                 return Syntax.Wrap(Symbol.Intern(bindingName), stx);
