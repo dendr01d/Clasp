@@ -146,7 +146,7 @@ namespace Clasp.Process
                 current.Location.SourceText,
                 true);
 
-            Syntax wrappedValue = Syntax.Wrap(nextValue, loc, Array.Empty<Binding.ScopeSet>());
+            Syntax wrappedValue = Syntax.Wrap(nextValue, current);
 
             return wrappedValue;
         }

@@ -30,6 +30,13 @@ namespace Clasp.Data.Metadata
         public ExpansionState WithExtendedEnv() => new ExpansionState(new EnvFrame(Env), Store, Phase, TokenGen);
         public ExpansionState WithNextPhase() => new ExpansionState(new EnvFrame(Env.TopLevel), Store, Phase + 1, TokenGen);
 
+
+        public string ResolveBindingName(Syntax stx) => Store.ResolveBindingName(stx, Phase);
+        public void RenameInCurrentScope(Syntax stx, string bindingName) => Store.RenameInScope(stx, Phase, bindingName);
+
+        public void PaintScope(Syntax stx, params uint[] scopes) => Syntax.PaintScope(stx, Phase, scopes);
+        public void FlipScope(Syntax stx, params uint[] scopes) => Syntax.FlipScope(stx, Phase, scopes);
+
         #region Env Helpers
 
         private static readonly Symbol _variableMarker = new GenSym("variable");
