@@ -246,12 +246,14 @@ namespace Clasp
             if(ex is ISourceTraceable ist)
             {
                 Console.WriteLine();
-                Console.WriteLine("At source:");
+                Console.WriteLine("At input source:");
                 Console.WriteLine(Printer.PrintLineErrorHelper(ist));
             }
 
-            if (ex is not ClaspException) 
-            {
+            //if (ex is not ClaspException) 
+            //{
+            Console.WriteLine();
+            Console.WriteLine("From CLASP source:");
                 Console.WriteLine(ex.GetSimpleStackTrace());
 
                 if (ex.InnerException is not null)
@@ -259,7 +261,7 @@ namespace Clasp
                     Console.WriteLine("└─>");
                     PrintExceptionInfo(ex.InnerException);
                 }
-            }
+            //}
 
             Console.WriteLine();
         }

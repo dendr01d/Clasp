@@ -62,12 +62,16 @@ namespace Clasp.Data.Terms
                 _ => string.Format("#\\{0}", Value)
             };
         }
+
+        protected override string FormatType() => "character";
     }
 
     internal sealed class CharString : Literal<string>
     {
         public CharString(string s) : base(s) { }
         public override string ToString() => string.Format("\"{0}\"", Value);
+
+        protected override string FormatType() => "string";
     }
 
     internal sealed class Boolean : Literal<bool>
@@ -76,15 +80,18 @@ namespace Clasp.Data.Terms
         public static readonly Boolean False = new Boolean(false);
         private Boolean(bool b) : base(b) { }
         public override string ToString() => Value ? "#t" : "#f";
+        protected override string FormatType() => "boolean";
     }
 
     internal sealed class Integer : Literal<long>
     {
         public Integer(long l) : base(l) { }
+        protected override string FormatType() => "integer";
     }
 
     internal sealed class Real : Literal<double>
     {
         public Real(double d) : base(d) { }
+        protected override string FormatType() => "real";
     }
 }

@@ -14,7 +14,7 @@ namespace Clasp.Process
         /// Reads the given tokens into the syntactic representation of a program.
         /// The given sequence is assumed not to be empty.
         /// </summary>
-        public static Syntax Read(IEnumerable<Token> tokens)
+        public static Syntax ReadTokens(IEnumerable<Token> tokens)
         {
             // First, do a quick check to make sure the parentheses all match up
             CheckParentheses(tokens);

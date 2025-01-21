@@ -69,7 +69,7 @@ namespace Clasp.Process
         /// Split input text into a sequence of tokens using the Lexer's grammar rules. The text is
         /// first split into lines to accurately track the position of each token.
         /// </summary>
-        public static IEnumerable<Token> Lex(string sourceName, string text)
+        public static IEnumerable<Token> LexText(string sourceName, string text)
         {
             return LexLines(sourceName, text.Split(Environment.NewLine));
         }

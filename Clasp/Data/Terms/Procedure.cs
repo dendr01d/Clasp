@@ -9,6 +9,8 @@ namespace Clasp.Data.Terms
     {
         public abstract int Arity { get; }
         public abstract bool IsVariadic { get; }
+
+        protected override string FormatType() => string.Format("{0}{1}", Arity, IsVariadic ? "+" : string.Empty);
     }
 
     internal sealed class PrimitiveProcedure : Procedure
@@ -28,6 +30,8 @@ namespace Clasp.Data.Terms
             IsVariadic = variadic;
         }
         public override string ToString() => string.Format("#<{0}>", OpCode.ToString());
+
+        protected override string FormatType() => string.Format("primitive({0})", base.FormatType());
     }
 
     internal class CompoundProcedure : Procedure
@@ -61,6 +65,8 @@ namespace Clasp.Data.Terms
         public override string ToString() => string.Format("#<lambda({0}{1})>",
                 string.Join(", ", Parameters),
                 VariadicParameter is null ? string.Empty : string.Format("; {0}", VariadicParameter));
+
+        protected override string FormatType() => string.Format("compound({0})", base.FormatType());
     }
 
     internal sealed class MacroProcedure : CompoundProcedure
@@ -73,5 +79,7 @@ namespace Clasp.Data.Terms
         { }
 
         public override string ToString() => "#<macro>";
+
+        protected override string FormatType() => string.Format("macro({0})", base.FormatType());
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -154,6 +155,8 @@ namespace Clasp.Data.Terms
 
 
         #endregion
+
+        protected override string FormatType() => string.Format("cons<{0}, {1}>", Car.TypeName, Cdr.TypeName);
     }
 
     internal sealed class Vector : Product
@@ -164,5 +167,7 @@ namespace Clasp.Data.Terms
         public override string ToString() => string.Format(
             "#({0})",
             string.Format(", ", Values.ToArray<object>()));
+
+        protected override string FormatType() => string.Format("vec<{0}>", string.Join(", ", Values.Select(x => x.TypeName)));
     }
 }

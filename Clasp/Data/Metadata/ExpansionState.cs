@@ -15,7 +15,7 @@ namespace Clasp.Data.Metadata
         // Keep track of new scopes we paint on, so that we can strip them off quoted syntax
         public readonly HashSet<uint> NewScopes;
 
-        public readonly HashSet<uint> CurrentMacroIntroductionScope;
+        public readonly HashSet<uint> CurrentMacroIntroductionScope; //???
 
         public readonly ScopeTokenGenerator TokenGen;
 
@@ -24,6 +24,9 @@ namespace Clasp.Data.Metadata
             Env = env;
             Store = bs;
             Phase = phase;
+
+            NewScopes = new HashSet<uint>();
+
             TokenGen = gen;
         }
 
@@ -34,7 +37,21 @@ namespace Clasp.Data.Metadata
         public string ResolveBindingName(Syntax stx) => Store.ResolveBindingName(stx, Phase);
         public void RenameInCurrentScope(Syntax stx, string bindingName) => Store.RenameInScope(stx, Phase, bindingName);
 
-        public void PaintScope(Syntax stx, params uint[] scopes) => Syntax.PaintScope(stx, Phase, scopes);
+        public string? MaybeDereferenceBinding(string bindingName)
+        {
+            if (Env.TryGetValue(bindingName, out Term? deref)
+                && deref is Syntax<Symbol> derefId)
+            {
+                return derefId.Expose.Name;
+            }
+            return null;
+        }
+
+        public void PaintScope(Syntax stx, params uint[] scopes)
+        {
+            Syntax.PaintScope(stx, Phase, scopes);
+            NewScopes.UnionWith(scopes);
+        }
         public void FlipScope(Syntax stx, params uint[] scopes) => Syntax.FlipScope(stx, Phase, scopes);
 
         #region Env Helpers

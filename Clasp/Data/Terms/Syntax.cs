@@ -221,5 +221,7 @@ namespace Clasp.Data.Terms
                 yield return current.ToString();
             }
         }
+
+        protected override string FormatType() => string.Format("Syntax<{0}>", Expose.TypeName);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -51,6 +52,9 @@ namespace Clasp.Data.Terms
         public static readonly Symbol Ellipsis = Intern("...");
 
         #endregion
+
+
+        protected override string FormatType() => "symbol";
     }
 
     internal class GenSym : Symbol, IBindable
@@ -61,5 +65,6 @@ namespace Clasp.Data.Terms
         private static string GenerateUniqueName(string partial) => string.Format("{0}{1}{2}", partial, _SEP, _globalCounter++);
         public GenSym() : base(GenerateUniqueName("GenSym")) { }
         public GenSym(string fromName) : base(GenerateUniqueName(fromName)) { }
+        protected override string FormatType() => "gensym";
     }
 }

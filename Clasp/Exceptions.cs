@@ -146,7 +146,8 @@ namespace Clasp
         {
             internal InvalidSyntax(Syntax unknownForm) : base(
                 unknownForm.Location,
-                "The given syntax is invalid for expansion: {0}",
+                "The given syntax (of type '{0}') is invalid for expansion: {1}",
+                unknownForm.TypeName,
                 unknownForm)
             { }
         }
@@ -224,6 +225,16 @@ namespace Clasp
         private ParserException(SourceLocation loc, string format, params object?[] args) : base(format, args)
         {
             Location = loc;
+        }
+
+        public class NotSyntax : ParserException
+        {
+            internal NotSyntax(Term notSyntax, SourceLocation loc) : base(
+                loc,
+                "Tried to parse non-syntax: {0}",
+                notSyntax
+                )
+            { }
         }
 
         public class InvalidSyntax : ParserException

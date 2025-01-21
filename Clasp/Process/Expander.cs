@@ -24,13 +24,15 @@ namespace Clasp.Process
 
         // credit to https://github.com/mflatt/expander/blob/pico/main.rkt
 
-        public static Syntax Expand(Syntax input, Environment env, BindingStore bs, ScopeTokenGenerator gen)
+        public static Syntax ExpandSyntax<T>(Syntax<T> input, Environment env, BindingStore bs, ScopeTokenGenerator gen)
+            where T : Term
         {
             ExpansionState exState = new ExpansionState(new EnvFrame(env), bs, 0, gen);
             return Expand(input, exState);
         }
 
-        private static Syntax Expand(Syntax stx, ExpansionState exState)
+        private static Syntax Expand<T>(Syntax<T> stx, ExpansionState exState)
+            where T : Term
         {
             if (stx is Syntax<Symbol> identifier)
             {
@@ -77,9 +79,12 @@ namespace Clasp.Process
         private static Syntax ExpandIdentifier(Syntax<Symbol> stx, ExpansionState exState)
         {
             string bindingName = exState.ResolveBindingName(stx);
+
             // TODO: need another step here where the name is dereferenced in the env
             // to see if the name is bound to the core form in question
             // (on case of shadowing)
+            string? derefName = exState.MaybeDereferenceBinding(bindingName);
+            // ???
             
             if (_corePrimitives.Contains(bindingName))
             {
@@ -138,11 +143,11 @@ namespace Clasp.Process
             exState.PaintScope(input, introScope);
 
             CoreForm acceleratedProgram = new MacroApplication(macro, input);
-            Term output = Interpreter.Interpret(acceleratedProgram, macro.CapturedEnv);
+            Term output = Interpreter.InterpretProgram(acceleratedProgram, macro.CapturedEnv);
 
             if (output is not Syntax stxOutput)
             {
-                throw new ExpanderException.ExpectedEvaluation(typeof(Syntax).ToString(), output, input);
+                throw new ExpanderException.ExpectedEvaluation(typeof(Syntax).Name.ToString(), output, input);
             }
 
             //TODO: do I need a use-site scope as well? I can't remember
@@ -159,12 +164,12 @@ namespace Clasp.Process
             {
                 uint newScope = exState.TokenGen.FreshToken();
                 Syntax.PaintScope(stxParams, exState.Phase, newScope);
-                Syntax.PaintScope(stxArgs, exState.Phase, newScope);
+                Syntax.PaintScope(stxBody, exState.Phase, newScope);
 
                 ExpansionState subState = exState.WithExtendedEnv();
 
                 Syntax expandedParams = ExpandParameterList(stxParams, subState);
-                Syntax expandedBody = ExpandList(stxArgs, subState);
+                Syntax expandedBody = ExpandList(stxBody, subState);
 
                 Syntax expandedArgs = Syntax.Wrap(ConsList.Cons(expandedParams, expandedBody), stxArgs);
                 Syntax expandedStx = Syntax.Wrap(ConsList.Cons(stxOp, expandedArgs), stx);
@@ -182,11 +187,11 @@ namespace Clasp.Process
             }
             else if (stx is Syntax<Symbol> identifier)
             {
-                return BindLocalVariable(identifier, exState);
+                return RenameLocalVariable(identifier, exState);
             }
             else if (TryExposeList(stx, out Syntax<Symbol>? stxCar, out Syntax? stxCdr))
             {
-                Syntax newIdentifier = BindLocalVariable(stxCar, exState);
+                Syntax newIdentifier = RenameLocalVariable(stxCar, exState);
                 Syntax expandedTail = ExpandParameterList(stxCdr, exState);
 
                 return Syntax.Wrap(ConsList.Cons(newIdentifier, expandedTail), stx);
@@ -197,7 +202,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax BindLocalVariable(Syntax<Symbol> stx, ExpansionState exState)
+        private static Syntax RenameLocalVariable(Syntax<Symbol> stx, ExpansionState exState)
         {
             Symbol newSym = new GenSym(stx.Expose.Name);
             exState.MarkVariable(newSym.Name);
@@ -248,9 +253,9 @@ namespace Clasp.Process
         private static void ExpandLetBinding(Syntax<ConsList> stx, ExpansionState exState)
         {
             if (TryExposeList(stx, out Syntax<Symbol>? identifier, out Syntax<ConsList>? stxRhs)
-                && TryExposeList(stx, out Syntax? stxValue, out Syntax<Nil>? _))
+                && TryExposeList(stxRhs, out Syntax? stxValue, out Syntax<Nil>? _))
             {
-                MacroProcedure macro = ParseAndEvalMacro(stxRhs, exState);
+                MacroProcedure macro = ParseAndEvalMacro(stxValue, exState);
                 BindLocalMacro(identifier, macro, exState);
             }
             else
@@ -264,8 +269,8 @@ namespace Clasp.Process
             ExpansionState nextPhaseState = exState.WithNextPhase();
 
             Syntax expandedInput = Expand(input, nextPhaseState);
-            CoreForm parsedInput = Parser.Parse(expandedInput, nextPhaseState.Store, nextPhaseState.Phase);
-            Term output = Interpreter.Interpret(parsedInput, StandardEnv.CreateNew());
+            CoreForm parsedInput = Parser.ParseSyntax(expandedInput, nextPhaseState.Store, nextPhaseState.Phase);
+            Term output = Interpreter.InterpretProgram(parsedInput, StandardEnv.CreateNew());
 
             if (output is MacroProcedure macro)
             {

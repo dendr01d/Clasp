@@ -10,7 +10,7 @@ namespace Clasp.Process
 {
     internal static class Interpreter
     {
-        public static Term Interpret(CoreForm program, Environment env)
+        public static Term InterpretProgram(CoreForm program, Environment env)
         {
             MachineState machine = new MachineState(program, env);
             RunToCompletion(machine);
@@ -24,7 +24,7 @@ namespace Clasp.Process
             return machine.ReturningValue;
         }
 
-        public static Term Interpret(MacroApplication macroAppl) => Interpret(macroAppl, macroAppl.Macro.CapturedEnv);
+        public static Term Interpret(MacroApplication macroAppl) => InterpretProgram(macroAppl, macroAppl.Macro.CapturedEnv);
 
         public static MachineState InterpretToCompletion(MachineState machine)
         {
