@@ -11,58 +11,50 @@ using Clasp.Interfaces;
 
 namespace Clasp.Data.Terms
 {
-    internal abstract class Syntax : Term, ISourceTraceable
+    internal sealed class Syntax : Term, ISourceTraceable
     {
         public SourceLocation Location { get; private set; }
 
         private readonly Dictionary<int, HashSet<uint>> _phasedScopeSets;
         private readonly HashSet<string> _properties;
 
-        public abstract Term Expose { get; }
+        /// <summary>Exposé</summary>
+        public Term Exposee { get; }
 
-        public static Dictionary<int, HashSet<uint>> BlankScope => new Dictionary<int, HashSet<uint>> ();
+        //public static Dictionary<int, HashSet<uint>> BlankScope => new Dictionary<int, HashSet<uint>> ();
 
         //TODO: Review the semantics of wrapping. DO scopes get merged, or replaced?
         //what happens if you try to wrap syntax itself?
 
-        protected Syntax(SourceLocation location, Dictionary<int, HashSet<uint>> scopeSets)
+        private Syntax(Term term, SourceLocation location, Dictionary<int, HashSet<uint>>? scopeSets)
         {
             Location = location;
 
-            _phasedScopeSets = scopeSets.ToDictionary(x => x.Key, x => new HashSet<uint>(x.Value));
+            _phasedScopeSets = scopeSets?.ToDictionary(x => x.Key, x => new HashSet<uint>(x.Value))
+                ?? new Dictionary<int, HashSet<uint>>();
             _properties = new HashSet<string>();
+
+            Exposee = term;
         }
 
-        #region Static Construction
-
-        private static Syntax Wrap<T>(T term, SourceLocation location, Dictionary<int, HashSet<uint>> scopeSet)
-            where T : Term
-        {
-            return term switch
-            {
-                Syntax stx => stx,
-                ConsList cl => new Syntax<ConsList>(
-                    ConsList.Cons(Wrap(cl.Car, location.Derivation()), Wrap(cl.Cdr, location.Derivation())),
-                    location,
-                    scopeSet),
-                _ => new Syntax<T>(term, location, scopeSet)
-            };
-        }
+        #region Static Constructors
 
         /// <summary>
         /// Create a syntax with blank scope derived from the given location.
         /// </summary>
-        public static Syntax Wrap(Term term, SourceLocation location) => Wrap(term, location, BlankScope);
+        public static Syntax Wrap(Term term, SourceLocation location) => new Syntax(term, location, null);
 
         /// <summary>
         /// Create a syntax with blank scope corresponding to the location of the given token.
         /// </summary>
-        public static Syntax Wrap(Term term, Token token) => Wrap(term, token.Location);
+        public static Syntax Wrap(Term term, Token token) => new Syntax(term, token.Location, null);
 
         /// <summary>
         /// Create a syntax with the same scope and location as an existing syntax.
         /// </summary>
-        public static Syntax Wrap(Term term, Syntax existingSyntax) => Wrap(term, existingSyntax.Location, existingSyntax._phasedScopeSets);
+        public static Syntax Wrap(Term term, Syntax existingSyntax) => new Syntax(term, existingSyntax.Location.Derivation(), existingSyntax._phasedScopeSets);
+
+        public static Syntax Wrap(Term car, Term cdr, Syntax existingSyntax) => Wrap(ConsList.Cons(car, cdr), existingSyntax); //?
 
         #endregion
 
@@ -117,7 +109,7 @@ namespace Clasp.Data.Terms
         {
             if (term is Syntax stx)
             {
-                return ToDatum(stx.Expose);
+                return ToDatum(stx.Exposee);
             }
             if (term is ConsList cl)
             {
@@ -133,46 +125,116 @@ namespace Clasp.Data.Terms
             }
         }
 
-        //public bool TryExposeList(
-        //    [NotNullWhen(true)] out ConsList? cons,
-        //    [NotNullWhen(true)] out Term? car,
-        //    [NotNullWhen(true)] out Term? cdr)
-        //{
-        //    if (_wrappedValue is ConsList cl)
-        //    {
-        //        cons = cl;
-        //        car = Wrap(cl.Car, this);
-        //        cdr = Wrap(cl.Cdr, this);
-        //        return true;
-        //    }
+        #region Term Overrides
 
-        //    cons = null;
-        //    car = null;
-        //    cdr = null;
-        //    return false;
-        //}
+        public override string ToString() => string.Format("#'{0}", Exposee is ConsList
+            ? string.Format("({0})", string.Join(", ", EnumerateAndPrint(this)))
+            : Exposee.ToString());
 
-        //public bool TryExposeIdentifier(
-        //    [NotNullWhen(true)] out Symbol? sym,
-        //    [NotNullWhen(true)] out string? name)
-        //{
-        //    if (_wrappedValue is Symbol s)
-        //    {
-        //        sym = s;
-        //        name = s.Name;
-        //        return true;
-        //    }
+        private static IEnumerable<string> EnumerateAndPrint(Syntax stx)
+        {
+            Term current = stx;
 
-        //    sym = null;
-        //    name = null;
-        //    return false;
-        //}
+            while (current is Syntax stxCurrent && stxCurrent.Exposee is ConsList cl)
+            {
+                yield return cl.Car.ToString();
+                current = cl.Cdr;
+            }
 
-        //public bool TryExposeVector(
+            if (current is not Syntax terminatorStx
+                || terminatorStx.Exposee is not Nil)
+            {
+                yield return ".";
+                yield return current.ToString();
+            }
+        }
+
+        protected override string FormatType() => string.Format("Syntax<{0}>", Exposee.TypeName);
+
+        #endregion
+
+
+        #region Exposition
+
+        public bool TryExposeList(
+            [NotNullWhen(true)] out ConsList? cons)
+        {
+            if (Exposee is ConsList cl)
+            {
+                cons = cl;
+                return true;
+            }
+
+            cons = null;
+            return false;
+        }
+
+        public bool TryExposeList<T1, T2>(
+            [NotNullWhen(true)] out ConsList? cons,
+            [NotNullWhen(true)] out T1? car,
+            [NotNullWhen(true)] out T2? cdr)
+            where T1 : Term
+            where T2 : Term
+        {
+            if (TryExposeList(out cons)
+                && cons.Car is T1 listCar
+                && cons.Cdr is T2 listCdr)
+            {
+                car = listCar;
+                cdr = listCdr;
+                return true;
+            }
+
+            car = null;
+            cdr = null;
+            return false;
+        }
+
+        public bool TryExposeList<T1, T2>(
+            [NotNullWhen(true)] out T1? car,
+            [NotNullWhen(true)] out T2? cdr)
+            where T1 : Term
+            where T2 : Term
+        {
+            return TryExposeList(out ConsList? _, out car, out cdr);
+        }
+
+        // ---
+
+        public bool TryExposeIdentifier(
+            [NotNullWhen(true)] out Symbol? sym,
+            [NotNullWhen(true)] out string? name)
+        {
+            if (Exposee is Symbol s)
+            {
+                sym = s;
+                name = s.Name;
+                return true;
+            }
+
+            sym = null;
+            name = null;
+            return false;
+        }
+
+        public bool TryExposeIdentifier(
+            [NotNullWhen(true)] out Symbol? sym)
+        {
+            return TryExposeIdentifier(out sym, out string? _);
+        }
+
+        public bool TryExposeIdentifier(
+            [NotNullWhen(true)] out string? name)
+        {
+            return TryExposeIdentifier(out Symbol? _, out name);
+        }
+
+        //public bool TryExposeVector<T>(
         //    [NotNullWhen(true)] out Vector? vec,
-        //    [NotNullWhen(true)] out Term[]? values)
+        //    [NotNullWhen(true)] out T[]? values)
+        //    where T : Term
         //{
-        //    if (_wrappedValue is Vector v)
+        //    if (Exposee is Vector v)
         //    {
         //        vec = v;
         //        values = v.Values;
@@ -183,45 +245,7 @@ namespace Clasp.Data.Terms
         //    values = null;
         //    return false;
         //}
-    }
 
-    internal sealed class Syntax<T> : Syntax
-        where T : Term
-    {
-        public override T Expose { get; }
-
-        public Syntax(T term, SourceLocation location, Dictionary<int, HashSet<uint>> scopeSets)
-            : base(location, scopeSets)
-        {
-            Expose = term;
-        }
-
-        public override string ToString() => this switch
-        {
-            Syntax<ConsList> cl => string.Format("#'({0})", string.Join(' ', EnumerateAndPrint(cl))),
-            Syntax<Symbol> sym => string.Format("#'{0}", sym.Expose),
-            _ => Expose.ToString()
-        };
-
-        private static IEnumerable<string> EnumerateAndPrint(Syntax stx)
-        {
-            Term current = stx;
-
-            while (current is Syntax<ConsList> currentStx)
-            {
-                yield return currentStx.Expose.Car.ToString();
-
-                current = currentStx.Expose.Cdr;
-            }
-
-            if (current is not Syntax terminatorStx
-                || terminatorStx.Expose is not Nil)
-            {
-                yield return ".";
-                yield return current.ToString();
-            }
-        }
-
-        protected override string FormatType() => string.Format("Syntax<{0}>", Expose.TypeName);
+        #endregion
     }
 }

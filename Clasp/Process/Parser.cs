@@ -25,16 +25,14 @@ namespace Clasp.Process
 
         private static CoreForm Parse(Syntax stx, BindingStore bs, int phase, bool topLevel = false)
         {
-            if (stx is Syntax<Symbol> identifier)
+            if (stx.TryExposeIdentifier(out string? idName))
             {
-                string bindingName = bs.ResolveBindingName(identifier, phase);
+                string bindingName = bs.ResolveBindingName(stx, idName, phase);
                 return new VariableLookup(bindingName);
             }
-            else if (stx is Syntax<ConsList> stxList
-                && stxList.Expose.Car is Syntax stxOp
-                && stxList.Expose.Cdr is Syntax stxArgs)
+            else if (stx.TryExposeList(out Syntax? stxOp, out Syntax? stxArgs))
             {
-                return ParseApplication(stxList, stxList, stxArgs, bs, phase, topLevel);
+                return ParseApplication(stx, stxOp, stxArgs, bs, phase, topLevel);
             }
             else
             {
@@ -54,7 +52,7 @@ namespace Clasp.Process
             throw new ParserException.NotSyntax(maybeSyntax, loc);
         }
 
-        private static CoreForm ParseApplication(Syntax<ConsList> stx, Syntax stxOp, Syntax stxArgs,
+        private static CoreForm ParseApplication(Syntax stx, Syntax stxOp, Syntax stxArgs,
             BindingStore bs, int phase, bool topLevel)
         {
             // Parse the op-term first, then decide what to do
@@ -87,11 +85,11 @@ namespace Clasp.Process
                 }
                 else if (keyword == Symbol.If.Name)
                 {
-                    return ParseBranch(stx, stxArgs, bs, phase);
+                    return ParseConditional(stx, stxArgs, bs, phase);
                 }
                 else if (keyword == Symbol.Begin.Name)
                 {
-                    return ParseBeginOrLambdaBody(stx, stxArgs, bs, phase);
+                    return ParseSequence(stx, stxArgs, bs, phase);
                 }
             }
 
@@ -181,12 +179,10 @@ namespace Clasp.Process
 
         private static FunctionCreation ParseLambda(Syntax stx, Syntax stxArgs, BindingStore bs, int phase)
         {
-            if (stxArgs is Syntax<ConsList> stxPair
-                && stxPair.Expose.Car is Syntax stxParams
-                && stxPair.Expose.Cdr is Syntax<ConsList> stxBody)
+            if (stxArgs.TryExposeList(out Syntax? stxParams, out Syntax? stxBody))
             {
                 Tuple<string[], string?> parameters = ParseParams(stxParams, bs, phase);
-                SequentialForm body = ParseBeginOrLambdaBody(stxBody, stx, bs, phase);
+                SequentialForm body = ParseSequence(stxBody, stx, bs, phase);
 
                 string[] internalKeys = AnalyzeInternalDefinitions(body);
 
@@ -196,7 +192,7 @@ namespace Clasp.Process
             throw new ParserException.WrongArity(Symbol.Lambda.Name, "two or more", stx);
         }
 
-        private static ConditionalForm ParseBranch(Syntax stx, Syntax stxArgs, BindingStore bs, int phase)
+        private static ConditionalForm ParseConditional(Syntax stx, Syntax stxArgs, BindingStore bs, int phase)
         {
             if (TryExposeThreeArgs(stxArgs, out Syntax? arg1, out Syntax? arg2, out Syntax? arg3))
             {
@@ -210,7 +206,7 @@ namespace Clasp.Process
             throw new ParserException.WrongArity(Symbol.Lambda.Name, "exactly three", stx);
         }
 
-        private static SequentialForm ParseBeginOrLambdaBody(Syntax stx, Syntax stxArgs, BindingStore bs, int phase)
+        private static SequentialForm ParseSequence(Syntax stx, Syntax stxArgs, BindingStore bs, int phase)
         {
             CoreForm[] series = ParseList(stxArgs, bs, phase).ToArray();
 
@@ -232,14 +228,14 @@ namespace Clasp.Process
         {
             Syntax current = argList;
 
-            while (TryExposeList(current, out Syntax? first, out Syntax? rest))
+            while (current.TryExposeList(out Syntax? first, out Syntax? rest))
             {
                 CoreForm newArg = Parse(first, bs, phase);
                 yield return newArg;
                 current = rest;
             }
 
-            if (current.Expose is not Nil)
+            if (current.Exposee is not Nil)
             {
                 throw new ParserException.InvalidSyntax(argList);
             }
@@ -253,7 +249,7 @@ namespace Clasp.Process
 
             Syntax current = paramList;
 
-            while (TryExposeList(current, out Syntax? first, out Syntax? rest))
+            while (current.TryExposeList(out Syntax? first, out Syntax? rest))
             {
                 if (TryExposeBindingId(first, bs, phase, out string? paramName))
                 {
@@ -284,38 +280,20 @@ namespace Clasp.Process
         private static bool TryExposeBindingId(Syntax stx, BindingStore bs, int phase,
             [NotNullWhen(true)] out string? bindingName)
         {
-            if (stx is Syntax<Symbol> identifier)
+            if (stx.TryExposeIdentifier(out string? idName))
             {
-                bindingName = bs.ResolveBindingName(identifier, phase);
+                bindingName = bs.ResolveBindingName(stx, idName, phase);
                 return true;
             }
             bindingName = null;
             return false;
         }
 
-        private static bool TryExposeList(Syntax stx,
-            [NotNullWhen(true)] out Syntax? stxCar,
-            [NotNullWhen(true)] out Syntax? stxCdr)
-        {
-            if (stx is Syntax<ConsList> stxList
-                && stxList.Expose.Car is Syntax stxListCar
-                && stxList.Expose.Cdr is Syntax stxListCdr)
-            {
-                stxCar = stxListCar;
-                stxCdr = stxListCdr;
-                return true;
-            }
-
-            stxCar = null;
-            stxCdr = null;
-            return false;
-        }
-
         private static bool TryExposeOneArg(Syntax stx,
             [NotNullWhen(true)] out Syntax? arg1)
         {
-            return TryExposeList(stx, out arg1, out Syntax? terminator)
-                && terminator.Expose is Nil;
+            return stx.TryExposeList(out arg1, out Syntax? terminator)
+                && terminator.Exposee is Nil;
         }
 
         private static bool TryExposeTwoArgs(Syntax stx,
@@ -324,7 +302,7 @@ namespace Clasp.Process
         {
             arg2 = null;
 
-            return TryExposeList(stx, out arg1, out Syntax? rest)
+            return stx.TryExposeList(out arg1, out Syntax? rest)
                 && TryExposeOneArg(rest, out arg2);
         }
 
@@ -336,7 +314,7 @@ namespace Clasp.Process
             arg2 = null;
             arg3 = null;
 
-            return TryExposeList(stx, out arg1, out Syntax? rest)
+            return stx.TryExposeList(out arg1, out Syntax? rest)
                 && TryExposeTwoArgs(stx, out arg2, out arg3);
         }
 

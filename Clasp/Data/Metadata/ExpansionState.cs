@@ -34,18 +34,24 @@ namespace Clasp.Data.Metadata
         public ExpansionState WithNextPhase() => new ExpansionState(new EnvFrame(Env.TopLevel), Store, Phase + 1, TokenGen);
 
 
-        public string ResolveBindingName(Syntax stx) => Store.ResolveBindingName(stx, Phase);
-        public void RenameInCurrentScope(Syntax stx, string bindingName) => Store.RenameInScope(stx, Phase, bindingName);
+        public string ResolveBindingName(Syntax stx, string symbolicName) => Store.ResolveBindingName(stx, symbolicName, Phase);
+        public void RenameInCurrentScope(Syntax stx, string symbolicName, string bindingName) => Store.RenameInScope(stx, symbolicName, Phase, bindingName);
 
-        public string? MaybeDereferenceBinding(string bindingName)
+        public bool TryResolveBindingName(Syntax stx, string symbolicName,
+            [NotNullWhen(true)] out string? bindingName)
         {
-            if (Env.TryGetValue(bindingName, out Term? deref)
-                && deref is Syntax<Symbol> derefId)
-            {
-                return derefId.Expose.Name;
-            }
-            return null;
+            return Store.TryResolveBindingName(stx, symbolicName, Phase, out bindingName);
         }
+
+        //public string? MaybeDereferenceBinding(string bindingName)
+        //{
+        //    if (Env.TryGetValue(bindingName, out Term? deref)
+        //        && deref is Syntax<Symbol> derefId)
+        //    {
+        //        return derefId.Expose.Name;
+        //    }
+        //    return null;
+        //}
 
         public void PaintScope(Syntax stx, params uint[] scopes)
         {

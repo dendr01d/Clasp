@@ -55,32 +55,29 @@ namespace Clasp.Binding
         /// <exception cref="ExpanderException.UnboundIdentifier"></exception>
         /// <exception cref="ExpanderException.AmbiguousIdentifier"></exception>
         /// <exception cref="ClaspGeneralException"></exception>
-        public string ResolveBindingName(Syntax stx, int phase)
+        public string ResolveBindingName(Syntax stx, string symbolicName, int phase)
         {
-            if (stx is Syntax<Symbol> stxSym)
+            if (_renamesByScope.TryGetValue(symbolicName, out ScopeMap? map))
             {
-                string symbolicName = stxSym.Expose.Name;
+                string[] candidates = IndexBySubset(map, stx.GetContext(phase));
 
-                if (_renamesByScope.TryGetValue(stxSym.Expose.Name, out ScopeMap? map))
+                if (candidates.Length == 0)
                 {
-                    string[] candidates = IndexBySubset(map, stx.GetContext(phase));
-
-                    if (candidates.Length == 0)
-                    {
-                        throw new ExpanderException.UnboundIdentifier(symbolicName, stx);
-                    }
-                    else if (candidates.Length > 1)
-                    {
-                        throw new ExpanderException.AmbiguousIdentifier(symbolicName, stx);
-                    }
-                    else
-                    {
-                        return candidates[0];
-                    }
+                    throw new ExpanderException.UnboundIdentifier(symbolicName, stx);
+                }
+                else if (candidates.Length > 1)
+                {
+                    throw new ExpanderException.AmbiguousIdentifier(symbolicName, stx);
+                }
+                else
+                {
+                    return candidates[0];
                 }
             }
 
-            throw new ClaspGeneralException("Tried to resolve rename binding of non-identifier: {0}", stx);
+            return symbolicName;
+
+            //throw new ClaspGeneralException("Tried to resolve rename-binding of non-identifier: {0}", stx);
         }
 
         /// <summary>
@@ -94,24 +91,19 @@ namespace Clasp.Binding
         /// The name that the identifier <paramref name="stx"/> should assume in the current set-of-scopes.
         /// </param>
         /// <exception cref="ClaspGeneralException"></exception>
-        public void RenameInScope(Syntax stx, int phase, string bindingName)
+        public void RenameInScope(Syntax stx, string symbolicName, int phase, string bindingName)
         {
-            if (stx is Syntax<Symbol> stxSym)
+            if (stx.GetContext(phase) is HashSet<uint> symScope && symScope.Count > 1)
             {
-                string symbolicName = stxSym.Expose.Name;
-
-                if (stx.GetContext(phase) is HashSet<uint> symScope && symScope.Count > 1)
+                if (!_renamesByScope.ContainsKey(symbolicName))
                 {
-                    if (!_renamesByScope.ContainsKey(symbolicName))
-                    {
-                        _renamesByScope[symbolicName] = new ScopeMap();
-                    }
-
-                    var binding = new KeyValuePair<HashSet<uint>, string>(symScope, bindingName);
-                    _renamesByScope[symbolicName].Add(binding);
-
-                    ++_count;
+                    _renamesByScope[symbolicName] = new ScopeMap();
                 }
+
+                var binding = new KeyValuePair<HashSet<uint>, string>(symScope, bindingName);
+                _renamesByScope[symbolicName].Add(binding);
+
+                ++_count;
             }
             else
             {
@@ -122,15 +114,43 @@ namespace Clasp.Binding
 
         #region IDictionary Implementation
 
-        public string this[Syntax key, int phase]
+        public bool TryResolveBindingName(Syntax stx, string symbolicName, int phase,
+            [NotNullWhen(true)] string? bindingName)
         {
-            get => ResolveBindingName(key, phase);
-            set => RenameInScope(key, phase, value);
+            if (_renamesByScope.TryGetValue(symbolicName, out ScopeMap? map))
+            {
+                string[] candidates = IndexBySubset(map, stx.GetContext(phase));
+
+                if (candidates.Length > 1)
+                {
+                    throw new ExpanderException.AmbiguousIdentifier(symbolicName, stx);
+                }
+                else if (candidates.Length > 0)
+                {
+                    bindingName = candidates[0];
+                    return true;
+                }
+            }
+
+            bindingName = null;
+            return false;
         }
+
+        public bool ContainsKey(Syntax stx, string symbolicName, int phase)
+        {
+            return _renamesByScope.TryGetValue(symbolicName, out ScopeMap? map)
+                && map.Any(x => x.Key.Intersect(stx.GetContext(phase)).Any());
+        }
+
+        //public string this[Syntax key, int phase]
+        //{
+        //    get => ResolveBindingName(key, phase);
+        //    set => RenameInScope(key, phase, value);
+        //}
 
         public int Count => _count;
 
-        public void Add(Syntax key, int phase, string value) => RenameInScope(key, phase, value);
+        //public void Add(Syntax key, int phase, string value) => RenameInScope(key, phase, value);
 
         //public bool Remove(Syntax key)
         //{

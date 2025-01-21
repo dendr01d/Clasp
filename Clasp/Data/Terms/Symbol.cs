@@ -51,6 +51,10 @@ namespace Clasp.Data.Terms
 
         public static readonly Symbol Ellipsis = Intern("...");
 
+        public static readonly Symbol ImplicitApp = Intern("#%app");
+        public static readonly Symbol ImplicitDatum = Intern("#%datum");
+        public static readonly Symbol ImplicitTop = Intern("#%top");
+
         #endregion
 
 

@@ -15,8 +15,10 @@ namespace Clasp.Process
         // e.g. how a list is assumed to be a function application
         // tagging each core form makes parsing a lot easier
 
-        //public const string MARK_APP = "#app";
-        //public const string MARK_PARAMS = "#params";
+        public const string IMPLICIT_APP = "#%app";
+        public const string IMPLICIT_DATUM = "#%datum";
+        public const string IMPLICIT_TOP = "#%top";
+        //public const string MARK_PARAMS = "#%params";
         //public const string MARK_DEREF = "#var";
 
         // or maybe that's too much. lol
@@ -24,118 +26,148 @@ namespace Clasp.Process
 
         // credit to https://github.com/mflatt/expander/blob/pico/main.rkt
 
-        public static Syntax ExpandSyntax<T>(Syntax<T> input, Environment env, BindingStore bs, ScopeTokenGenerator gen)
-            where T : Term
+        public static Syntax ExpandSyntax(Syntax input, Environment env, BindingStore bs, ScopeTokenGenerator gen)
         {
             ExpansionState exState = new ExpansionState(new EnvFrame(env), bs, 0, gen);
             return Expand(input, exState);
         }
 
-        private static Syntax Expand<T>(Syntax<T> stx, ExpansionState exState)
-            where T : Term
+        private static Syntax Expand(Syntax stx, ExpansionState exState)
         {
-            if (stx is Syntax<Symbol> identifier)
+            if (stx.TryExposeIdentifier(out string? idName))
             {
-                return ExpandIdentifier(identifier, exState);
+                return ExpandIdentifier(stx, idName, exState);
             }
-            else if (TryExposeList(stx, out Syntax<Symbol>? stxOp, out Syntax<ConsList>? stxArgs))
+            else if (stx.TryExposeList(out Syntax? stxOp, out Syntax? stxArgs)
+                && stxOp.TryExposeIdentifier(out string? opName))
             {
-                return ExpandIdApplication(stx, stxOp, stxArgs, exState);
+                return ExpandIdApplication(stx, stxOp, opName, stxArgs, exState);
             }
-            else if (stx is Syntax<Vector> stxVec)
-            {
-                return ExpandVector(stxVec, exState);
-            }
-            else if (stx.Expose is ConsList or Nil)
-            {
-                return ExpandList(stx, exState);
-            }
-            else
-            {
-                throw new ExpanderException.InvalidSyntax(stx);
-            }
-        }
-
-        private static readonly string[] _coreForms = new string[]
-        {
-            Symbol.Lambda.Name,
-            Symbol.LetSyntax.Name, // has to be a core form because how else would we define it? macros? lol
-            Symbol.Quote.Name,
-            Symbol.QuoteSyntax.Name
-        };
-
-        private static readonly string[] _corePrimitives = new string[]
-        {
-            "datum->syntax",
-            "syntax->datum",
-            "syntax-e",
-            "list",
-            "cons",
-            "car",
-            "cdr",
-            "map"
-        };
-
-        private static Syntax ExpandIdentifier(Syntax<Symbol> stx, ExpansionState exState)
-        {
-            string bindingName = exState.ResolveBindingName(stx);
-
-            // TODO: need another step here where the name is dereferenced in the env
-            // to see if the name is bound to the core form in question
-            // (on case of shadowing)
-            string? derefName = exState.MaybeDereferenceBinding(bindingName);
-            // ???
-            
-            if (_corePrimitives.Contains(bindingName))
-            {
-                return Syntax.Wrap(Symbol.Intern(bindingName), stx);
-            }
-            //else if (_coreForms.Contains(binding))
+            //else if (stx.Exposee is Vector)
             //{
-            //    throw new ExpanderException.Uncategorized("Symbol '{0}' erroneously expands to core form.", binding);
+            //    return ExpandVector(stx, exState);
             //}
-            else if (!exState.Env.ContainsKey(bindingName))
+            else if (stx.Exposee is ConsList or Nil)
             {
-                throw new ExpanderException.UnboundIdentifier(bindingName, stx);
-            }
-            else if (exState.IsVariable(bindingName))
-            {
-                return Syntax.Wrap(Symbol.Intern(bindingName), stx);
+                return ExpandImplicit(Symbol.ImplicitApp, stx, exState);
             }
             else
             {
-                throw new ExpanderException.InvalidSyntax(stx);
-                //Term value = exState.Env[binding];
-                //throw new ExpanderException.Uncategorized("Cannot expand bound symbol '{0}': {1}", binding, value);
+                return ExpandImplicit(Symbol.ImplicitDatum, stx, exState);
             }
         }
 
-        private static Syntax ExpandIdApplication(Syntax stx, Syntax<Symbol> stxOp, Syntax<ConsList> stxArgs, ExpansionState exState)
+        private static readonly Term[] _specialForms = new Term[]
         {
-            string bindingName = exState.ResolveBindingName(stxOp);
+            Symbol.Lambda,
+            Symbol.LetSyntax, // has to be a core form because how else would we define it? macros? lol
+            Symbol.Quote,
+            Symbol.QuoteSyntax
+        };
 
-            if (bindingName == Symbol.Lambda.Name)
+        //private static readonly string[] _corePrimitives = new string[]
+        //{
+        //    "datum->syntax",
+        //    "syntax->datum",
+        //    "syntax-e",
+        //    "list",
+        //    "cons",
+        //    "car",
+        //    "cdr",
+        //    "map"
+        //};
+
+        private static Syntax ExpandIdentifier(Syntax stx, string idName, ExpansionState exState)
+        {
+            if (exState.TryResolveBindingName(stx, idName, out string? bindingName))
             {
-                return ExpandLambda(stx, stxOp, stxArgs, exState);
+                return ExpandBoundIdentifier(stx, bindingName, exState);
             }
-            else if (bindingName == Symbol.LetSyntax.Name)
+            else
             {
-                return ExpandLetSyntax(stx, stxArgs, exState);
+                return ExpandImplicit(Symbol.ImplicitTop, stx, exState);
             }
-            else if (bindingName == Symbol.Quote.Name
-                || bindingName == Symbol.QuoteSyntax.Name)
+        }
+
+        private static Syntax ExpandIdApplication(Syntax stx, Syntax stxOp, string idName, Syntax stxArgs, ExpansionState exState)
+        {
+            if (exState.TryResolveBindingName(stx, idName, out string? bindingName))
             {
-                return stx;
+                Term deref = exState.Env.LookUp(bindingName);
+
+                if (deref is Syntax stxVar
+                    && stxVar.TryExposeIdentifier(out string? name)
+                    && exState.IsVariable(name))
+                {
+                    return ExpandImplicit(Symbol.ImplicitApp, stx, exState);
+                }
+                else
+                {
+                    return ExpandBoundIdentifier(stx, bindingName, exState);
+                }
             }
-            else if (exState.TryGetMacro(bindingName, out MacroProcedure? macro))
+            else
+            {
+                return ExpandImplicit(Symbol.ImplicitApp, stx, exState);
+            }
+        }
+
+        private static Syntax ExpandBoundIdentifier(Syntax stx, string bindingName, ExpansionState exState)
+        {
+            Term deref = exState.Env.LookUp(bindingName);
+
+            if (_specialForms.Contains(deref))
+            {
+                if (exState.ExpandingOnlyImmediateContext)
+                {
+                    return stx;
+                }
+                else
+                {
+                    // ?
+                    // https://github.com/mflatt/expander/blob/demi/expand.rkt#L102
+                }
+            }
+            else if (deref is MacroProcedure macro)
             {
                 return ApplySyntaxTransformer(macro, stx, exState);
             }
+            else if (deref is Syntax stxVar
+                && stxVar.TryExposeIdentifier(out string? name)
+                && exState.IsVariable(name))
+            {
+                return stxVar;
+            }
             else
             {
-                return ExpandList(stx, exState);
+                throw new ExpanderException.InvalidSyntax(stx);
             }
         }
+
+        // https://github.com/mflatt/expander/blob/demi/expand.rkt#L75
+        private static Syntax ExpandImplicit(Symbol formSym, Syntax stx, ExpansionState exState)
+        {
+            Syntax formId = Syntax.Wrap(formSym, stx);
+
+            if (stx.Exposee is Nil)
+            {
+                return Syntax.Wrap(formId, stx);
+            }
+            else if (stx.TryExposeList(out Syntax? car, out Syntax? cdr))
+            {
+                Syntax expandedCar = Expand(car, exState);
+                Syntax expandedCdr = Expand(cdr, exState);
+                Syntax expandedList = Syntax.Wrap(expandedCar, expandedCdr, stx);
+
+                return Syntax.Wrap(formId, stx, stx);
+            }
+            else
+            {
+                throw new ExpanderException.ExpectedProperList(stx);
+            }
+        }
+
+
 
         private static Syntax ApplySyntaxTransformer(MacroProcedure macro, Syntax input, ExpansionState exState)
         {
@@ -156,11 +188,9 @@ namespace Clasp.Process
             return stxOutput;
         }
 
-        private static Syntax ExpandLambda(Syntax stx, Syntax<Symbol> stxOp, Syntax<ConsList> stxArgs, ExpansionState exState)
+        private static Syntax ExpandLambda(Syntax stx, Syntax stxOp, Syntax stxArgs, ExpansionState exState)
         {
-            if (stxArgs is Syntax<ConsList> stxPair
-                && stxPair.Expose.Car is Syntax stxParams
-                && stxPair.Expose.Cdr is Syntax<ConsList> stxBody)
+            if (stxArgs.TryExposeList(out Syntax? stxParams, out Syntax? stxBody))
             {
                 uint newScope = exState.TokenGen.FreshToken();
                 Syntax.PaintScope(stxParams, exState.Phase, newScope);
@@ -169,7 +199,7 @@ namespace Clasp.Process
                 ExpansionState subState = exState.WithExtendedEnv();
 
                 Syntax expandedParams = ExpandParameterList(stxParams, subState);
-                Syntax expandedBody = ExpandList(stxBody, subState);
+                Syntax expandedBody = ExpandImplicit(stxBody, subState);
 
                 Syntax expandedArgs = Syntax.Wrap(ConsList.Cons(expandedParams, expandedBody), stxArgs);
                 Syntax expandedStx = Syntax.Wrap(ConsList.Cons(stxOp, expandedArgs), stx);
@@ -181,17 +211,18 @@ namespace Clasp.Process
 
         private static Syntax ExpandParameterList(Syntax stx, ExpansionState exState)
         {
-            if (stx.Expose is Nil)
+            if (stx.Exposee is Nil)
             {
                 return stx;
             }
-            else if (stx is Syntax<Symbol> identifier)
+            else if (stx.TryExposeIdentifier(out string? idName))
             {
-                return RenameLocalVariable(identifier, exState);
+                return RenameLocalVariable(stx, idName, exState);
             }
-            else if (TryExposeList(stx, out Syntax<Symbol>? stxCar, out Syntax? stxCdr))
+            else if (stx.TryExposeList(out Syntax? stxCar, out Syntax? stxCdr)
+                && stxCar.TryExposeIdentifier(out string? firstIdName))
             {
-                Syntax newIdentifier = RenameLocalVariable(stxCar, exState);
+                Syntax newIdentifier = RenameLocalVariable(stxCar, firstIdName, exState);
                 Syntax expandedTail = ExpandParameterList(stxCdr, exState);
 
                 return Syntax.Wrap(ConsList.Cons(newIdentifier, expandedTail), stx);
@@ -202,20 +233,20 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax RenameLocalVariable(Syntax<Symbol> stx, ExpansionState exState)
+        private static Syntax RenameLocalVariable(Syntax stx, string idName, ExpansionState exState)
         {
-            Symbol newSym = new GenSym(stx.Expose.Name);
+            Symbol newSym = new GenSym(idName);
             exState.MarkVariable(newSym.Name);
 
             Syntax newIdentifier = Syntax.Wrap(newSym, stx);
-            exState.RenameInCurrentScope(newIdentifier, newSym.Name);
+            exState.RenameInCurrentScope(newIdentifier, idName, newSym.Name);
 
             return newIdentifier;
         }
 
-        private static Syntax ExpandLetSyntax(Syntax stx, Syntax<ConsList> stxArgs, ExpansionState exState)
+        private static Syntax ExpandLetSyntax(Syntax stx, Syntax stxArgs, ExpansionState exState)
         {
-            if (TryExposeList(stxArgs, out Syntax? stxLetBindings, out Syntax<ConsList>? stxBody))
+            if (stxArgs.TryExposeList(out Syntax? stxLetBindings, out Syntax? stxBody))
             {
                 uint newScope = exState.TokenGen.FreshToken();
                 exState.PaintScope(stxLetBindings, newScope);
@@ -235,11 +266,11 @@ namespace Clasp.Process
 
         private static void ExpandLetBindingList(Syntax stx, ExpansionState exState)
         {
-            if (stx.Expose is Nil)
+            if (stx.Exposee is Nil)
             {
                 return;
             }
-            else if (TryExposeList(stx, out Syntax<ConsList>? stxCar, out Syntax? stxCdr))
+            else if (stx.TryExposeList(out Syntax? stxCar, out Syntax? stxCdr))
             {
                 ExpandLetBinding(stxCar, exState);
                 ExpandLetBindingList(stxCdr, exState);
@@ -250,13 +281,14 @@ namespace Clasp.Process
             }
         }
 
-        private static void ExpandLetBinding(Syntax<ConsList> stx, ExpansionState exState)
+        private static void ExpandLetBinding(Syntax stx, ExpansionState exState)
         {
-            if (TryExposeList(stx, out Syntax<Symbol>? identifier, out Syntax<ConsList>? stxRhs)
-                && TryExposeList(stxRhs, out Syntax? stxValue, out Syntax<Nil>? _))
+            if (stx.TryExposeList(out Syntax? stxLhs, out Syntax? stxRhs)
+                && stxLhs.TryExposeIdentifier(out string? idName)
+                && stxRhs.TryExposeList(out Syntax? stxValue, out Syntax? _))
             {
-                MacroProcedure macro = ParseAndEvalMacro(stxValue, exState);
-                BindLocalMacro(identifier, macro, exState);
+                MacroProcedure macro = SyntaxAndEvalMacro(stxValue, exState);
+                BindLocalMacro(stxLhs, idName, macro, exState);
             }
             else
             {
@@ -264,13 +296,13 @@ namespace Clasp.Process
             }
         }
 
-        private static MacroProcedure ParseAndEvalMacro(Syntax input, ExpansionState exState)
+        private static MacroProcedure SyntaxAndEvalMacro(Syntax input, ExpansionState exState)
         {
             ExpansionState nextPhaseState = exState.WithNextPhase();
 
             Syntax expandedInput = Expand(input, nextPhaseState);
-            CoreForm parsedInput = Parser.ParseSyntax(expandedInput, nextPhaseState.Store, nextPhaseState.Phase);
-            Term output = Interpreter.InterpretProgram(parsedInput, StandardEnv.CreateNew());
+            CoreForm SyntaxdInput = Parser.ParseSyntax(expandedInput, nextPhaseState.Store, nextPhaseState.Phase);
+            Term output = Interpreter.InterpretProgram(SyntaxdInput, StandardEnv.CreateNew());
 
             if (output is MacroProcedure macro)
             {
@@ -280,94 +312,33 @@ namespace Clasp.Process
             throw new ExpanderException.ExpectedEvaluation(typeof(MacroProcedure).ToString(), output, input);
         }
 
-        private static void BindLocalMacro(Syntax<Symbol> identifier, MacroProcedure value, ExpansionState exState)
+        private static void BindLocalMacro(Syntax identifier, string idName, MacroProcedure value, ExpansionState exState)
         {
-            Symbol newSym = new GenSym(identifier.Expose.Name);
+            Symbol newSym = new GenSym(idName);
             exState.BindMacro(newSym.Name, value);
 
             Syntax newIdentifier = Syntax.Wrap(newSym, identifier);
-            exState.RenameInCurrentScope(newIdentifier, newSym.Name);
+            exState.RenameInCurrentScope(newIdentifier, idName, newSym.Name);
         }
 
-        private static Syntax ExpandVector(Syntax<Vector> stx, ExpansionState exState)
-        {
-            if (TryExposeVector(stx, out IEnumerable<Syntax>? stxValues))
-            {
-                Syntax[] expandedValues = stxValues.Select(x => Expand(x, exState)).ToArray();
-                return Syntax.Wrap(new Vector(expandedValues), stx);
-            }
+        //private static Syntax ExpandVector(Syntax stx, ExpansionState exState)
+        //{
+        //    if (stx.TryExposeVector(out Vector? _, out Term[]? values))
+        //    {
+                
+        //    }
+        //    else
+        //    {
+        //        throw new ExpanderException.InvalidFormInput(typeof(Vector).Name.ToString(), stx);
+        //    }
 
-            throw new ExpanderException.InvalidFormInput(typeof(Vector).Name.ToString(), stx);
-        }
+        //    if (stx.TryExposeVector(out Vector? _, out IEnumerable<Syntax>? stxValues))
+        //    {
+        //        Syntax[] expandedValues = stxValues.Select(x => Expand(x, exState)).ToArray();
+        //        return Syntax.Wrap(new Vector(expandedValues), stx);
+        //    }
 
-        private static Syntax ExpandList(Syntax stx, ExpansionState exState)
-        {
-            if (stx.Expose is Nil)
-            {
-                return stx;
-            }
-            else if (TryExposeList(stx, out Syntax? car, out Syntax? cdr))
-            {
-                Syntax expandedCar = Expand(car, exState);
-                Syntax expandedCdr = Expand(cdr, exState);
+        //}
 
-                return Syntax.Wrap(ConsList.Cons(expandedCar, expandedCdr), stx);
-            }
-            else
-            {
-                throw new ExpanderException.ExpectedProperList(stx);
-            }
-        }
-
-        #region Helpers
-
-        private static bool TryExposeList<T1, T2>(Syntax stx,
-            [NotNullWhen(true)] out T1? car,
-            [NotNullWhen(true)] out T2? cdr)
-            where T1 : Syntax
-            where T2 : Syntax
-        {
-            if (stx is Syntax<ConsList> stxCons
-                && stxCons.Expose.Car is T1 stxCar
-                && stxCons.Expose.Cdr is T2 stxCdr)
-            {
-                car = stxCar;
-                cdr = stxCdr;
-                return true;
-            }
-
-            car = null;
-            cdr = null;
-            return false;
-        }
-
-        private static bool TryExposeVector(Syntax stx,
-            [NotNullWhen(true)] out IEnumerable<Syntax>? values)
-        {
-            if (stx is Syntax<Vector> stxVec)
-            {
-                List<Syntax> stxValues = new List<Syntax>();
-
-                foreach(Term t in stxVec.Expose.Values)
-                {
-                    if (t is Syntax stxValue)
-                    {
-                        stxValues.Add(stxValue);
-                    }
-                    else
-                    {
-                        throw new ExpanderException.InvalidFormInput(typeof(Vector).Name.ToString(), stx);
-                    }
-                }
-
-                values = stxValues;
-                return true;
-            }
-
-            values = null;
-            return false;
-        }
-
-        #endregion
     }
 }
