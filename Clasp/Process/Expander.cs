@@ -28,11 +28,11 @@ namespace Clasp.Process
 
         public static Syntax ExpandSyntax(Syntax input, Environment env, BindingStore bs, ScopeTokenGenerator gen)
         {
-            ExpansionState exState = new ExpansionState(new EnvFrame(env), bs, 0, gen);
+            ExpansionContext exState = new ExpansionContext(new EnvFrame(env), bs, 0, gen);
             return Expand(input, exState);
         }
 
-        private static Syntax Expand(Syntax stx, ExpansionState exState)
+        private static Syntax Expand(Syntax stx, ExpansionContext exState)
         {
             if (stx.TryExposeIdentifier(out string? idName))
             {
@@ -47,7 +47,7 @@ namespace Clasp.Process
             //{
             //    return ExpandVector(stx, exState);
             //}
-            else if (stx.Exposee is ConsList or Nil)
+            else if (stx.Wrapped is ConsList or Nil)
             {
                 return ExpandImplicit(Symbol.ImplicitApp, stx, exState);
             }
@@ -77,7 +77,7 @@ namespace Clasp.Process
         //    "map"
         //};
 
-        private static Syntax ExpandIdentifier(Syntax stx, string idName, ExpansionState exState)
+        private static Syntax ExpandIdentifier(Syntax stx, string idName, ExpansionContext exState)
         {
             if (exState.TryResolveBindingName(stx, idName, out string? bindingName))
             {
@@ -89,7 +89,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax ExpandIdApplication(Syntax stx, Syntax stxOp, string idName, Syntax stxArgs, ExpansionState exState)
+        private static Syntax ExpandIdApplication(Syntax stx, Syntax stxOp, string idName, Syntax stxArgs, ExpansionContext exState)
         {
             if (exState.TryResolveBindingName(stx, idName, out string? bindingName))
             {
@@ -112,7 +112,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax ExpandBoundIdentifier(Syntax stx, string bindingName, ExpansionState exState)
+        private static Syntax ExpandBoundIdentifier(Syntax stx, string bindingName, ExpansionContext exState)
         {
             Term deref = exState.Env.LookUp(bindingName);
 
@@ -145,11 +145,11 @@ namespace Clasp.Process
         }
 
         // https://github.com/mflatt/expander/blob/demi/expand.rkt#L75
-        private static Syntax ExpandImplicit(Symbol formSym, Syntax stx, ExpansionState exState)
+        private static Syntax ExpandImplicit(Symbol formSym, Syntax stx, ExpansionContext exState)
         {
             Syntax formId = Syntax.Wrap(formSym, stx);
 
-            if (stx.Exposee is Nil)
+            if (stx.Wrapped is Nil)
             {
                 return Syntax.Wrap(formId, stx);
             }
@@ -169,7 +169,7 @@ namespace Clasp.Process
 
 
 
-        private static Syntax ApplySyntaxTransformer(MacroProcedure macro, Syntax input, ExpansionState exState)
+        private static Syntax ApplySyntaxTransformer(MacroProcedure macro, Syntax input, ExpansionContext exState)
         {
             uint introScope = exState.TokenGen.FreshToken();
             exState.PaintScope(input, introScope);
@@ -188,7 +188,7 @@ namespace Clasp.Process
             return stxOutput;
         }
 
-        private static Syntax ExpandLambda(Syntax stx, Syntax stxOp, Syntax stxArgs, ExpansionState exState)
+        private static Syntax ExpandLambda(Syntax stx, Syntax stxOp, Syntax stxArgs, ExpansionContext exState)
         {
             if (stxArgs.TryExposeList(out Syntax? stxParams, out Syntax? stxBody))
             {
@@ -196,7 +196,7 @@ namespace Clasp.Process
                 Syntax.PaintScope(stxParams, exState.Phase, newScope);
                 Syntax.PaintScope(stxBody, exState.Phase, newScope);
 
-                ExpansionState subState = exState.WithExtendedEnv();
+                ExpansionContext subState = exState.WithSubEnv();
 
                 Syntax expandedParams = ExpandParameterList(stxParams, subState);
                 Syntax expandedBody = ExpandImplicit(stxBody, subState);
@@ -209,9 +209,9 @@ namespace Clasp.Process
             throw new ExpanderException.InvalidFormInput(Symbol.Lambda.Name, stx);
         }
 
-        private static Syntax ExpandParameterList(Syntax stx, ExpansionState exState)
+        private static Syntax ExpandParameterList(Syntax stx, ExpansionContext exState)
         {
-            if (stx.Exposee is Nil)
+            if (stx.Wrapped is Nil)
             {
                 return stx;
             }
@@ -233,7 +233,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax RenameLocalVariable(Syntax stx, string idName, ExpansionState exState)
+        private static Syntax RenameLocalVariable(Syntax stx, string idName, ExpansionContext exState)
         {
             Symbol newSym = new GenSym(idName);
             exState.MarkVariable(newSym.Name);
@@ -244,7 +244,7 @@ namespace Clasp.Process
             return newIdentifier;
         }
 
-        private static Syntax ExpandLetSyntax(Syntax stx, Syntax stxArgs, ExpansionState exState)
+        private static Syntax ExpandLetSyntax(Syntax stx, Syntax stxArgs, ExpansionContext exState)
         {
             if (stxArgs.TryExposeList(out Syntax? stxLetBindings, out Syntax? stxBody))
             {
@@ -252,7 +252,7 @@ namespace Clasp.Process
                 exState.PaintScope(stxLetBindings, newScope);
                 exState.FlipScope(stxBody, newScope);
 
-                ExpansionState subState = exState.WithExtendedEnv();
+                ExpansionContext subState = exState.WithSubEnv();
 
                 ExpandLetBindingList(stxLetBindings, subState);
 
@@ -264,9 +264,9 @@ namespace Clasp.Process
             throw new ExpanderException.InvalidFormInput(Symbol.LetSyntax.Name, stx);
         }
 
-        private static void ExpandLetBindingList(Syntax stx, ExpansionState exState)
+        private static void ExpandLetBindingList(Syntax stx, ExpansionContext exState)
         {
-            if (stx.Exposee is Nil)
+            if (stx.Wrapped is Nil)
             {
                 return;
             }
@@ -281,7 +281,7 @@ namespace Clasp.Process
             }
         }
 
-        private static void ExpandLetBinding(Syntax stx, ExpansionState exState)
+        private static void ExpandLetBinding(Syntax stx, ExpansionContext exState)
         {
             if (stx.TryExposeList(out Syntax? stxLhs, out Syntax? stxRhs)
                 && stxLhs.TryExposeIdentifier(out string? idName)
@@ -296,9 +296,9 @@ namespace Clasp.Process
             }
         }
 
-        private static MacroProcedure SyntaxAndEvalMacro(Syntax input, ExpansionState exState)
+        private static MacroProcedure SyntaxAndEvalMacro(Syntax input, ExpansionContext exState)
         {
-            ExpansionState nextPhaseState = exState.WithNextPhase();
+            ExpansionContext nextPhaseState = exState.WithNextPhase();
 
             Syntax expandedInput = Expand(input, nextPhaseState);
             CoreForm SyntaxdInput = Parser.ParseSyntax(expandedInput, nextPhaseState.Store, nextPhaseState.Phase);
@@ -312,7 +312,7 @@ namespace Clasp.Process
             throw new ExpanderException.ExpectedEvaluation(typeof(MacroProcedure).ToString(), output, input);
         }
 
-        private static void BindLocalMacro(Syntax identifier, string idName, MacroProcedure value, ExpansionState exState)
+        private static void BindLocalMacro(Syntax identifier, string idName, MacroProcedure value, ExpansionContext exState)
         {
             Symbol newSym = new GenSym(idName);
             exState.BindMacro(newSym.Name, value);

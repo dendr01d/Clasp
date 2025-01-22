@@ -15,62 +15,67 @@ namespace Clasp.Data.Terms
     {
         public SourceLocation Location { get; private set; }
 
-        private readonly Dictionary<int, HashSet<uint>> _phasedScopeSets;
-        private readonly HashSet<string> _properties;
+        public readonly MultiScope MultiScope;
+        public readonly HashSet<string> Properties;
 
-        /// <summary>Exposé</summary>
-        public Term Exposee { get; }
-
-        //public static Dictionary<int, HashSet<uint>> BlankScope => new Dictionary<int, HashSet<uint>> ();
+        public Term Wrapped { get; }
 
         //TODO: Review the semantics of wrapping. DO scopes get merged, or replaced?
         //what happens if you try to wrap syntax itself?
 
-        private Syntax(Term term, SourceLocation location, Dictionary<int, HashSet<uint>>? scopeSets)
+        private Syntax(Term term, SourceLocation loc, Syntax? copy)
         {
-            Location = location;
+            Wrapped = term;
+            Location = loc;
 
-            _phasedScopeSets = scopeSets?.ToDictionary(x => x.Key, x => new HashSet<uint>(x.Value))
-                ?? new Dictionary<int, HashSet<uint>>();
-            _properties = new HashSet<string>();
-
-            Exposee = term;
+            MultiScope = copy?.MultiScope ?? new MultiScope(); // are they allowed to share?
+            Properties = copy?.Properties ?? new HashSet<string>();
         }
 
         #region Static Constructors
 
+        private static Syntax TrueWrap(Term term, SourceLocation loc, Syntax? copy)
+        {
+            return term switch
+            {
+                Syntax s => s,
+                ConsList cl => new Syntax(ConsList.Cons(TrueWrap(cl.Car, loc, copy), TrueWrap(cl.Cdr, loc, copy)), loc, copy),
+                _ => new Syntax(term, loc, copy)
+            };
+        }
+
         /// <summary>
         /// Create a syntax with blank scope derived from the given location.
         /// </summary>
-        public static Syntax Wrap(Term term, SourceLocation location) => new Syntax(term, location, null);
+        public static Syntax Wrap(Term term, SourceLocation location) => TrueWrap(term, location, null);
 
         /// <summary>
         /// Create a syntax with blank scope corresponding to the location of the given token.
         /// </summary>
-        public static Syntax Wrap(Term term, Token token) => new Syntax(term, token.Location, null);
+        public static Syntax Wrap(Term term, Token token) => TrueWrap(term, token.Location, null);
 
         /// <summary>
         /// Create a syntax with the same scope and location as an existing syntax.
         /// </summary>
-        public static Syntax Wrap(Term term, Syntax existingSyntax) => new Syntax(term, existingSyntax.Location.Derivation(), existingSyntax._phasedScopeSets);
+        public static Syntax Wrap(Term term, Syntax existingSyntax)
+        {
+            return TrueWrap(term, existingSyntax.Location.Derivation(), existingSyntax);
+        }
 
-        public static Syntax Wrap(Term car, Term cdr, Syntax existingSyntax) => Wrap(ConsList.Cons(car, cdr), existingSyntax); //?
+        /// <summary>
+        /// Create a syntax wrapped around the cons of <paramref name="car"/> and <paramref name="cdr"/>.
+        /// </summary>
+        public static Syntax Wrap(Term car, Term cdr, Syntax existingSyntax)
+        {
+            return Wrap(ConsList.Cons(car, cdr), existingSyntax);
+        }
 
         #endregion
 
         // ---
 
-        public bool GetProperty(string propName) => _properties.Contains(propName);
-        public bool AddProperty(string propName) => _properties.Add(propName);
-
-        public HashSet<uint> GetContext(int phase)
-        {
-            if (!_phasedScopeSets.TryGetValue(phase, out HashSet<uint>? scopeSet))
-            {
-                _phasedScopeSets[phase] = new HashSet<uint>();
-            }
-            return _phasedScopeSets[phase];
-        }
+        public bool GetProperty(string propName) => Properties.Contains(propName);
+        public bool AddProperty(string propName) => Properties.Add(propName);
 
         // ---
 
@@ -105,11 +110,12 @@ namespace Clasp.Data.Terms
 
         // ---
 
-        public static Term ToDatum(Term term)
+        public Term ToDatum() => ToDatum(Wrapped);
+        private static Term ToDatum(Term term)
         {
             if (term is Syntax stx)
             {
-                return ToDatum(stx.Exposee);
+                return ToDatum(stx.Wrapped);
             }
             if (term is ConsList cl)
             {
@@ -127,29 +133,29 @@ namespace Clasp.Data.Terms
 
         #region Term Overrides
 
-        public override string ToString() => string.Format("#'{0}", Exposee is ConsList
+        public override string ToString() => string.Format("#'{0}", Wrapped is ConsList
             ? string.Format("({0})", string.Join(", ", EnumerateAndPrint(this)))
-            : Exposee.ToString());
+            : Wrapped.ToString());
 
         private static IEnumerable<string> EnumerateAndPrint(Syntax stx)
         {
             Term current = stx;
 
-            while (current is Syntax stxCurrent && stxCurrent.Exposee is ConsList cl)
+            while (current is Syntax stxCurrent && stxCurrent.Wrapped is ConsList cl)
             {
                 yield return cl.Car.ToString();
                 current = cl.Cdr;
             }
 
             if (current is not Syntax terminatorStx
-                || terminatorStx.Exposee is not Nil)
+                || terminatorStx.Wrapped is not Nil)
             {
                 yield return ".";
                 yield return current.ToString();
             }
         }
 
-        protected override string FormatType() => string.Format("Syntax<{0}>", Exposee.TypeName);
+        protected override string FormatType() => string.Format("Syntax<{0}>", Wrapped.TypeName);
 
         #endregion
 
@@ -159,7 +165,7 @@ namespace Clasp.Data.Terms
         public bool TryExposeList(
             [NotNullWhen(true)] out ConsList? cons)
         {
-            if (Exposee is ConsList cl)
+            if (Wrapped is ConsList cl)
             {
                 cons = cl;
                 return true;
@@ -205,7 +211,7 @@ namespace Clasp.Data.Terms
             [NotNullWhen(true)] out Symbol? sym,
             [NotNullWhen(true)] out string? name)
         {
-            if (Exposee is Symbol s)
+            if (Wrapped is Symbol s)
             {
                 sym = s;
                 name = s.Name;

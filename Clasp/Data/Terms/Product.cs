@@ -146,7 +146,7 @@ namespace Clasp.Data.Terms
             }
 
             if (current is not Nil
-                && !(current is Syntax stx && stx.Exposee is Nil))
+                && !(current is Syntax stx && stx.Wrapped is Nil))
             {
                 yield return ".";
                 yield return current.ToString();
