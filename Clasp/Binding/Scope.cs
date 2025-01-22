@@ -87,5 +87,8 @@ namespace Clasp.Binding
 
         public static Term RemoveFromAll(Term term, params uint[] scopeIds)
             => EagerlyAdjustAll(term, scopeIds, SetSubtract);
+
+        public static string ToString(uint scopeToken)
+            => string.Format("#<scope:{0}>", scopeToken);
     }
 }
