@@ -6,25 +6,40 @@ using System.Threading.Tasks;
 
 namespace Clasp.Binding
 {
-    using ScopeMap = List<KeyValuePair<HashSet<uint>, string>>;
+    using ScopeSet = HashSet<uint>;
+    using BoundName = KeyValuePair<HashSet<uint>, string>;
+    using BindingMap = List<KeyValuePair<HashSet<uint>, string>>;
+    using SymbolicMap = Dictionary<string, List<KeyValuePair<HashSet<uint>, string>>>;
 
-    internal class Scope
+    /// <summary>
+    /// Essentially just an extremely convoluted way of mapping names to other names, depending
+    /// on which nested syntactic structure they live in.
+    /// </summary>
+    internal class Scope : IComparable<Scope>
     {
         private static uint _globalCounter = 0;
 
         public readonly uint Id;
-        private readonly ScopeMap _bindings;
+        private readonly SymbolicMap _bindings;
 
         public Scope()
         {
             Id = _globalCounter++;
-            _bindings = new ScopeMap();
+            _bindings = new SymbolicMap();
         }
 
-        public Scope(IEnumerable<KeyValuePair<HashSet<uint>, string>> bindings) : this()
+        public int CompareTo(Scope? other) => Id.CompareTo(other?.Id);
+    }
+
+    internal class RepresentativeScope : Scope
+    {
+        public readonly MultiScope Owner;
+        public readonly uint Phase;
+
+        public RepresentativeScope(MultiScope owner, uint phase)
         {
-            _bindings = bindings.ToList();
+            Owner = owner;
+            Phase = phase;
         }
-
     }
 }

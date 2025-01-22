@@ -15,22 +15,35 @@ namespace Clasp.Data.Terms
     {
         public SourceLocation Location { get; private set; }
 
-        public readonly MultiScope MultiScope;
+        public readonly Scope InvariantScope;
+        public readonly MultiScope PhasedScopes;
         public readonly HashSet<string> Properties;
 
-        public Term Wrapped { get; }
+        private Lazy<Term> _lazyWrapped;
+        public Term Wrapped => _lazyWrapped.Value;
 
         //TODO: Review the semantics of wrapping. DO scopes get merged, or replaced?
         //what happens if you try to wrap syntax itself?
 
         private Syntax(Term term, SourceLocation loc, Syntax? copy)
         {
-            Wrapped = term;
+            _lazyWrapped = new Lazy<Term>(term);
             Location = loc;
 
-            MultiScope = copy?.MultiScope ?? new MultiScope(); // are they allowed to share?
+            InvariantScope = copy?.InvariantScope ?? new Scope();
+            PhasedScopes = copy?.PhasedScopes ?? new MultiScope();
             Properties = copy?.Properties ?? new HashSet<string>();
         }
+
+        // Too complicated to deal with lazy initialization rn
+        //private Syntax(Func<Term> thunk, SourceLocation loc, Syntax? copy)
+        //{
+        //    _lazyWrapped = new Lazy<Term>(thunk);
+        //    Location = loc;
+
+        //    MultiScope = copy?.MultiScope ?? new MultiScope();
+        //    Properties = copy?.Properties ?? new HashSet<string>();
+        //}
 
         #region Static Constructors
 
@@ -74,7 +87,7 @@ namespace Clasp.Data.Terms
 
         // ---
 
-        public bool GetProperty(string propName) => Properties.Contains(propName);
+        public bool HasProperty(string propName) => Properties.Contains(propName);
         public bool AddProperty(string propName) => Properties.Add(propName);
 
         // ---
@@ -83,6 +96,8 @@ namespace Clasp.Data.Terms
         {
             if (term is Syntax stx)
             {
+
+
                 stx.GetContext(phase);
                 adjustment(stx._phasedScopeSets[phase], scopeIds);
                 return stx;
@@ -160,98 +175,98 @@ namespace Clasp.Data.Terms
         #endregion
 
 
-        #region Exposition
+        //#region Exposition
 
-        public bool TryExposeList(
-            [NotNullWhen(true)] out ConsList? cons)
-        {
-            if (Wrapped is ConsList cl)
-            {
-                cons = cl;
-                return true;
-            }
-
-            cons = null;
-            return false;
-        }
-
-        public bool TryExposeList<T1, T2>(
-            [NotNullWhen(true)] out ConsList? cons,
-            [NotNullWhen(true)] out T1? car,
-            [NotNullWhen(true)] out T2? cdr)
-            where T1 : Term
-            where T2 : Term
-        {
-            if (TryExposeList(out cons)
-                && cons.Car is T1 listCar
-                && cons.Cdr is T2 listCdr)
-            {
-                car = listCar;
-                cdr = listCdr;
-                return true;
-            }
-
-            car = null;
-            cdr = null;
-            return false;
-        }
-
-        public bool TryExposeList<T1, T2>(
-            [NotNullWhen(true)] out T1? car,
-            [NotNullWhen(true)] out T2? cdr)
-            where T1 : Term
-            where T2 : Term
-        {
-            return TryExposeList(out ConsList? _, out car, out cdr);
-        }
-
-        // ---
-
-        public bool TryExposeIdentifier(
-            [NotNullWhen(true)] out Symbol? sym,
-            [NotNullWhen(true)] out string? name)
-        {
-            if (Wrapped is Symbol s)
-            {
-                sym = s;
-                name = s.Name;
-                return true;
-            }
-
-            sym = null;
-            name = null;
-            return false;
-        }
-
-        public bool TryExposeIdentifier(
-            [NotNullWhen(true)] out Symbol? sym)
-        {
-            return TryExposeIdentifier(out sym, out string? _);
-        }
-
-        public bool TryExposeIdentifier(
-            [NotNullWhen(true)] out string? name)
-        {
-            return TryExposeIdentifier(out Symbol? _, out name);
-        }
-
-        //public bool TryExposeVector<T>(
-        //    [NotNullWhen(true)] out Vector? vec,
-        //    [NotNullWhen(true)] out T[]? values)
-        //    where T : Term
+        //public bool TryExposeList(
+        //    [NotNullWhen(true)] out ConsList? cons)
         //{
-        //    if (Exposee is Vector v)
+        //    if (Wrapped is ConsList cl)
         //    {
-        //        vec = v;
-        //        values = v.Values;
+        //        cons = cl;
         //        return true;
         //    }
 
-        //    vec = null;
-        //    values = null;
+        //    cons = null;
         //    return false;
         //}
 
-        #endregion
+        //public bool TryExposeList<T1, T2>(
+        //    [NotNullWhen(true)] out ConsList? cons,
+        //    [NotNullWhen(true)] out T1? car,
+        //    [NotNullWhen(true)] out T2? cdr)
+        //    where T1 : Term
+        //    where T2 : Term
+        //{
+        //    if (TryExposeList(out cons)
+        //        && cons.Car is T1 listCar
+        //        && cons.Cdr is T2 listCdr)
+        //    {
+        //        car = listCar;
+        //        cdr = listCdr;
+        //        return true;
+        //    }
+
+        //    car = null;
+        //    cdr = null;
+        //    return false;
+        //}
+
+        //public bool TryExposeList<T1, T2>(
+        //    [NotNullWhen(true)] out T1? car,
+        //    [NotNullWhen(true)] out T2? cdr)
+        //    where T1 : Term
+        //    where T2 : Term
+        //{
+        //    return TryExposeList(out ConsList? _, out car, out cdr);
+        //}
+
+        //// ---
+
+        //public bool TryExposeIdentifier(
+        //    [NotNullWhen(true)] out Symbol? sym,
+        //    [NotNullWhen(true)] out string? name)
+        //{
+        //    if (Wrapped is Symbol s)
+        //    {
+        //        sym = s;
+        //        name = s.Name;
+        //        return true;
+        //    }
+
+        //    sym = null;
+        //    name = null;
+        //    return false;
+        //}
+
+        //public bool TryExposeIdentifier(
+        //    [NotNullWhen(true)] out Symbol? sym)
+        //{
+        //    return TryExposeIdentifier(out sym, out string? _);
+        //}
+
+        //public bool TryExposeIdentifier(
+        //    [NotNullWhen(true)] out string? name)
+        //{
+        //    return TryExposeIdentifier(out Symbol? _, out name);
+        //}
+
+        ////public bool TryExposeVector<T>(
+        ////    [NotNullWhen(true)] out Vector? vec,
+        ////    [NotNullWhen(true)] out T[]? values)
+        ////    where T : Term
+        ////{
+        ////    if (Exposee is Vector v)
+        ////    {
+        ////        vec = v;
+        ////        values = v.Values;
+        ////        return true;
+        ////    }
+
+        ////    vec = null;
+        ////    values = null;
+        ////    return false;
+        ////}
+
+        //#endregion
     }
 }

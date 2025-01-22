@@ -10,6 +10,7 @@ namespace Clasp.Binding
 {
     internal class MultiScope : IDictionary<uint, Scope>
     {
+        private readonly int _phaseShift = 0;
         private readonly Dictionary<uint, Scope> _phasedScopes;
 
         public MultiScope()
