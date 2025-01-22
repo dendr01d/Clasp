@@ -47,7 +47,7 @@ namespace Clasp.Process
             //{
             //    return ExpandVector(stx, exState);
             //}
-            else if (stx.Wrapped is ConsList or Nil)
+            else if (stx._wrapped is ConsList or Nil)
             {
                 return ExpandImplicit(Symbol.ImplicitApp, stx, exState);
             }
@@ -149,7 +149,7 @@ namespace Clasp.Process
         {
             Syntax formId = Syntax.Wrap(formSym, stx);
 
-            if (stx.Wrapped is Nil)
+            if (stx._wrapped is Nil)
             {
                 return Syntax.Wrap(formId, stx);
             }
@@ -211,7 +211,7 @@ namespace Clasp.Process
 
         private static Syntax ExpandParameterList(Syntax stx, ExpansionContext exState)
         {
-            if (stx.Wrapped is Nil)
+            if (stx._wrapped is Nil)
             {
                 return stx;
             }
@@ -266,7 +266,7 @@ namespace Clasp.Process
 
         private static void ExpandLetBindingList(Syntax stx, ExpansionContext exState)
         {
-            if (stx.Wrapped is Nil)
+            if (stx._wrapped is Nil)
             {
                 return;
             }

@@ -235,7 +235,7 @@ namespace Clasp.Process
                 current = rest;
             }
 
-            if (current.Wrapped is not Nil)
+            if (current._wrapped is not Nil)
             {
                 throw new ParserException.InvalidSyntax(argList);
             }
@@ -293,7 +293,7 @@ namespace Clasp.Process
             [NotNullWhen(true)] out Syntax? arg1)
         {
             return stx.TryExposeList(out arg1, out Syntax? terminator)
-                && terminator.Wrapped is Nil;
+                && terminator._wrapped is Nil;
         }
 
         private static bool TryExposeTwoArgs(Syntax stx,

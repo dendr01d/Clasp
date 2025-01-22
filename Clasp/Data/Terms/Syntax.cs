@@ -15,12 +15,12 @@ namespace Clasp.Data.Terms
     {
         public SourceLocation Location { get; private set; }
 
-        public readonly Scope InvariantScope;
-        public readonly MultiScope PhasedScopes;
-        public readonly HashSet<string> Properties;
+        private readonly Dictionary<int, HashSet<uint>> _phasedScopeSets;
+        private readonly HashSet<string> _properties;
 
         private Lazy<Term> _lazyWrapped;
-        public Term Wrapped => _lazyWrapped.Value;
+        //private Term _wrapped => _lazyWrapped.Value;
+        public Term Expose() => _lazyWrapped.Value;
 
         //TODO: Review the semantics of wrapping. DO scopes get merged, or replaced?
         //what happens if you try to wrap syntax itself?
@@ -30,9 +30,8 @@ namespace Clasp.Data.Terms
             _lazyWrapped = new Lazy<Term>(term);
             Location = loc;
 
-            InvariantScope = copy?.InvariantScope ?? new Scope();
-            PhasedScopes = copy?.PhasedScopes ?? new MultiScope();
-            Properties = copy?.Properties ?? new HashSet<string>();
+            _phasedScopeSets = new Dictionary<int, HashSet<uint>>(copy?._phasedScopeSets ?? []);
+            _properties = new HashSet<string>(copy?._properties ?? []);
         }
 
         // Too complicated to deal with lazy initialization rn
@@ -87,50 +86,38 @@ namespace Clasp.Data.Terms
 
         // ---
 
-        public bool HasProperty(string propName) => Properties.Contains(propName);
-        public bool AddProperty(string propName) => Properties.Add(propName);
+        public bool HasProperty(string propName) => _properties.Contains(propName);
+        public bool AddProperty(string propName) => _properties.Add(propName);
 
         // ---
 
-        private static Term EagerlyAdjustScope(Term term, int phase, uint[] scopeIds, Action<HashSet<uint>, uint[]> adjustment)
+        /// <summary>
+        /// Retrieve a live reference to the scope set at the given phase
+        /// </summary>
+        public HashSet<uint> GetScopeSet(int phase)
         {
-            if (term is Syntax stx)
+            if (!_phasedScopeSets.ContainsKey(phase))
             {
-
-
-                stx.GetContext(phase);
-                adjustment(stx._phasedScopeSets[phase], scopeIds);
-                return stx;
+                _phasedScopeSets[phase] = new HashSet<uint>();
             }
-            else if (term is ConsList cl)
-            {
-                Term car = PaintScope(cl, phase, scopeIds);
-                Term cdr = PaintScope(cl, phase, scopeIds);
-                return ConsList.Cons(car, cdr);
-            }
-            else
-            {
-                return term;
-            }
+            return _phasedScopeSets[phase];
         }
 
-        public static Term PaintScope(Term term, int phase, params uint[] scopeIds)
-            => EagerlyAdjustScope(term, phase, scopeIds, (scopeSet, ids) => scopeSet.UnionWith(ids));
+        /// <summary>
+        /// Retrieve all the phases for which this syntax contains scope set information.
+        /// </summary>
+        public IEnumerable<int> GetLivePhases() => _phasedScopeSets.Keys;
 
-        public static Term FlipScope(Term term, int phase, params uint[] scopeIds)
-            => EagerlyAdjustScope(term, phase, scopeIds, (scopeSet, ids) => scopeSet.SymmetricExceptWith(ids));
-
-        public static Term RemoveScope(Term term, int phase, params uint[] scopeIds)
-            => EagerlyAdjustScope(term, phase, scopeIds, (scopeSet, ids) => scopeSet.RemoveWhere(x => ids.Contains(x)));
-
-        // ---
-
-        public Term ToDatum() => ToDatum(Wrapped);
+        /// <summary>
+        /// Strip all the syntactic info from this syntax's wrapped value. Recurs upon nested terms.
+        /// </summary>
+        /// <returns></returns>
+        public Term ToDatum() => ToDatum(Expose());
         private static Term ToDatum(Term term)
         {
             if (term is Syntax stx)
             {
-                return ToDatum(stx.Wrapped);
+                return ToDatum(stx.Expose());
             }
             if (term is ConsList cl)
             {
@@ -148,125 +135,111 @@ namespace Clasp.Data.Terms
 
         #region Term Overrides
 
-        public override string ToString() => string.Format("#'{0}", Wrapped is ConsList
-            ? string.Format("({0})", string.Join(", ", EnumerateAndPrint(this)))
-            : Wrapped.ToString());
+        public override string ToString()
+        {
+            return TryExposeList(out ConsList? list)
+                ? string.Format("#'({0})", string.Join(", ", EnumerateAndPrint(this)))
+                : string.Format("#'{0}", Expose());
+        }
 
         private static IEnumerable<string> EnumerateAndPrint(Syntax stx)
         {
             Term current = stx;
 
-            while (current is Syntax stxCurrent && stxCurrent.Wrapped is ConsList cl)
+            while (current is Syntax stxCurrent
+                && stxCurrent.TryExposeList(out Term? car, out Term? cdr))
             {
-                yield return cl.Car.ToString();
-                current = cl.Cdr;
+                yield return car.ToString();
+                current = cdr;
             }
 
             if (current is not Syntax terminatorStx
-                || terminatorStx.Wrapped is not Nil)
+                || terminatorStx.Expose() is not Nil)
             {
                 yield return ".";
                 yield return current.ToString();
             }
         }
 
-        protected override string FormatType() => string.Format("Syntax<{0}>", Wrapped.TypeName);
+        protected override string FormatType() => string.Format("Syntax<{0}>", Expose().TypeName);
 
         #endregion
 
 
-        //#region Exposition
+        #region Exposition
 
-        //public bool TryExposeList(
-        //    [NotNullWhen(true)] out ConsList? cons)
+        public bool TryExposeList<T1, T2>(
+            [NotNullWhen(true)] out ConsList? cons,
+            [NotNullWhen(true)] out T1? car,
+            [NotNullWhen(true)] out T2? cdr)
+            where T1 : Term
+            where T2 : Term
+        {
+            if (Expose() is ConsList list
+                && list.Car is T1 listCar
+                && list.Cdr is T2 listCdr)
+            {
+                cons = list;
+                car = listCar;
+                cdr = listCdr;
+                return true;
+            }
+
+            cons = null;
+            car = null;
+            cdr = null;
+            return false;
+        }
+
+        public bool TryExposeList([NotNullWhen(true)] out ConsList? cons)
+            => TryExposeList(out cons, out Syntax? _, out Syntax? _);
+
+        public bool TryExposeList<T1, T2>([NotNullWhen(true)] out T1? car, [NotNullWhen(true)] out T2? cdr)
+            where T1 : Term
+            where T2 : Term
+            => TryExposeList(out ConsList? _, out car, out cdr);
+
+        // ---
+
+        public bool TryExposeIdentifier(
+            [NotNullWhen(true)] out Symbol? sym,
+            [NotNullWhen(true)] out string? name)
+        {
+            if (Expose() is Symbol s)
+            {
+                sym = s;
+                name = s.Name;
+                return true;
+            }
+
+            sym = null;
+            name = null;
+            return false;
+        }
+
+        public bool TryExposeIdentifier([NotNullWhen(true)] out Symbol? sym)
+            => TryExposeIdentifier(out sym, out string? _);
+
+        public bool TryExposeIdentifier([NotNullWhen(true)] out string? name)
+            => TryExposeIdentifier(out Symbol? _, out name);
+
+        //public bool TryExposeVector<T>(
+        //    [NotNullWhen(true)] out Vector? vec,
+        //    [NotNullWhen(true)] out T[]? values)
+        //    where T : Term
         //{
-        //    if (Wrapped is ConsList cl)
+        //    if (Exposee is Vector v)
         //    {
-        //        cons = cl;
+        //        vec = v;
+        //        values = v.Values;
         //        return true;
         //    }
 
-        //    cons = null;
+        //    vec = null;
+        //    values = null;
         //    return false;
         //}
 
-        //public bool TryExposeList<T1, T2>(
-        //    [NotNullWhen(true)] out ConsList? cons,
-        //    [NotNullWhen(true)] out T1? car,
-        //    [NotNullWhen(true)] out T2? cdr)
-        //    where T1 : Term
-        //    where T2 : Term
-        //{
-        //    if (TryExposeList(out cons)
-        //        && cons.Car is T1 listCar
-        //        && cons.Cdr is T2 listCdr)
-        //    {
-        //        car = listCar;
-        //        cdr = listCdr;
-        //        return true;
-        //    }
-
-        //    car = null;
-        //    cdr = null;
-        //    return false;
-        //}
-
-        //public bool TryExposeList<T1, T2>(
-        //    [NotNullWhen(true)] out T1? car,
-        //    [NotNullWhen(true)] out T2? cdr)
-        //    where T1 : Term
-        //    where T2 : Term
-        //{
-        //    return TryExposeList(out ConsList? _, out car, out cdr);
-        //}
-
-        //// ---
-
-        //public bool TryExposeIdentifier(
-        //    [NotNullWhen(true)] out Symbol? sym,
-        //    [NotNullWhen(true)] out string? name)
-        //{
-        //    if (Wrapped is Symbol s)
-        //    {
-        //        sym = s;
-        //        name = s.Name;
-        //        return true;
-        //    }
-
-        //    sym = null;
-        //    name = null;
-        //    return false;
-        //}
-
-        //public bool TryExposeIdentifier(
-        //    [NotNullWhen(true)] out Symbol? sym)
-        //{
-        //    return TryExposeIdentifier(out sym, out string? _);
-        //}
-
-        //public bool TryExposeIdentifier(
-        //    [NotNullWhen(true)] out string? name)
-        //{
-        //    return TryExposeIdentifier(out Symbol? _, out name);
-        //}
-
-        ////public bool TryExposeVector<T>(
-        ////    [NotNullWhen(true)] out Vector? vec,
-        ////    [NotNullWhen(true)] out T[]? values)
-        ////    where T : Term
-        ////{
-        ////    if (Exposee is Vector v)
-        ////    {
-        ////        vec = v;
-        ////        values = v.Values;
-        ////        return true;
-        ////    }
-
-        ////    vec = null;
-        ////    values = null;
-        ////    return false;
-        ////}
-
-        //#endregion
+        #endregion
     }
 }

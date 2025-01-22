@@ -59,7 +59,7 @@ namespace Clasp.Binding
         {
             if (_renamesByScope.TryGetValue(symbolicName, out ScopeMap? map))
             {
-                string[] candidates = IndexBySubset(map, stx.GetContext(phase));
+                string[] candidates = IndexBySubset(map, stx.GetScopeSet(phase));
 
                 if (candidates.Length == 0)
                 {
@@ -93,7 +93,7 @@ namespace Clasp.Binding
         /// <exception cref="ClaspGeneralException"></exception>
         public void RenameInScope(Syntax stx, string symbolicName, int phase, string bindingName)
         {
-            if (stx.GetContext(phase) is HashSet<uint> symScope && symScope.Count > 1)
+            if (stx.GetScopeSet(phase) is HashSet<uint> symScope && symScope.Count > 1)
             {
                 if (!_renamesByScope.ContainsKey(symbolicName))
                 {
@@ -115,11 +115,11 @@ namespace Clasp.Binding
         #region IDictionary Implementation
 
         public bool TryResolveBindingName(Syntax stx, string symbolicName, int phase,
-            [NotNullWhen(true)] string? bindingName)
+            [NotNullWhen(true)] out string? bindingName)
         {
             if (_renamesByScope.TryGetValue(symbolicName, out ScopeMap? map))
             {
-                string[] candidates = IndexBySubset(map, stx.GetContext(phase));
+                string[] candidates = IndexBySubset(map, stx.GetScopeSet(phase));
 
                 if (candidates.Length > 1)
                 {
@@ -139,7 +139,7 @@ namespace Clasp.Binding
         public bool ContainsKey(Syntax stx, string symbolicName, int phase)
         {
             return _renamesByScope.TryGetValue(symbolicName, out ScopeMap? map)
-                && map.Any(x => x.Key.Intersect(stx.GetContext(phase)).Any());
+                && map.Any(x => x.Key.Intersect(stx.GetScopeSet(phase)).Any());
         }
 
         //public string this[Syntax key, int phase]

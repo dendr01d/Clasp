@@ -1,45 +1,91 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
+using Clasp.Data.Terms;
+
 namespace Clasp.Binding
 {
-    using ScopeSet = HashSet<uint>;
-    using BoundName = KeyValuePair<HashSet<uint>, string>;
-    using BindingMap = List<KeyValuePair<HashSet<uint>, string>>;
-    using SymbolicMap = Dictionary<string, List<KeyValuePair<HashSet<uint>, string>>>;
-
     /// <summary>
-    /// Essentially just an extremely convoluted way of mapping names to other names, depending
-    /// on which nested syntactic structure they live in.
+    /// NOT an instanced scope object. Simply some static methods for manipulating scope in syntax objects.
     /// </summary>
-    internal class Scope : IComparable<Scope>
+    internal static class Scope
     {
-        private static uint _globalCounter = 0;
+        private static void SetUnion(HashSet<uint> a, uint[] b) => a.UnionWith(b);
+        private static void SetFlip(HashSet<uint> a, uint[] b) => a.SymmetricExceptWith(b);
+        private static void SetSubtract(HashSet<uint> a, uint[] b) => a.ExceptWith(b);
 
-        public readonly uint Id;
-        private readonly SymbolicMap _bindings;
-
-        public Scope()
+        // Maybe someday I'll make a proper lazy version
+        private static Term EagerlyAdjust(Term term, int phase, uint[] scopeIds, Action<HashSet<uint>, uint[]> adjustment)
         {
-            Id = _globalCounter++;
-            _bindings = new SymbolicMap();
+            if (term is Syntax stx)
+            {
+                // recur on the wrapped value
+                // then create a NEW syntax with the result of the recurrence and copies of the original's scope sets
+                // then modify the NEW syntax's scope sets instead of the old
+
+                Term inner = EagerlyAdjust(stx.Expose(), phase, scopeIds, adjustment);
+                Syntax adjustedStx = Syntax.Wrap(inner, stx);
+                adjustment(stx.GetScopeSet(phase), scopeIds);
+                return adjustedStx;
+            }
+            else if (term is ConsList cl)
+            {
+                Term car = EagerlyAdjust(cl.Car, phase, scopeIds, adjustment);
+                Term cdr = EagerlyAdjust(cl.Cdr, phase, scopeIds, adjustment);
+                return ConsList.Cons(car, cdr);
+            }
+            else
+            {
+                return term;
+            }
         }
 
-        public int CompareTo(Scope? other) => Id.CompareTo(other?.Id);
-    }
+        public static Term Paint(Term term, int phase, params uint[] scopeIds)
+            => EagerlyAdjust(term, phase, scopeIds, SetUnion);
 
-    internal class RepresentativeScope : Scope
-    {
-        public readonly MultiScope Owner;
-        public readonly uint Phase;
+        public static Term Flip(Term term, int phase, params uint[] scopeIds)
+            => EagerlyAdjust(term, phase, scopeIds, SetFlip);
 
-        public RepresentativeScope(MultiScope owner, uint phase)
+        public static Term Remove(Term term, int phase, params uint[] scopeIds)
+            => EagerlyAdjust(term, phase, scopeIds, SetSubtract);
+
+        private static Term EagerlyAdjustAll(Term term, uint[] scopeIds, Action<HashSet<uint>, uint[]> adjustment)
         {
-            Owner = owner;
-            Phase = phase;
+            if (term is Syntax stx)
+            {
+                Term inner = EagerlyAdjustAll(stx.Expose(), scopeIds, adjustment);
+                Syntax adjustedStx = Syntax.Wrap(inner, stx);
+
+                foreach(int phase in stx.GetLivePhases())
+                {
+                    adjustment(adjustedStx.GetScopeSet(phase), scopeIds);
+                }
+
+                return adjustedStx;
+            }
+            else if (term is ConsList cl)
+            {
+                Term car = EagerlyAdjustAll(cl.Car, scopeIds, adjustment);
+                Term cdr = EagerlyAdjustAll(cl.Cdr, scopeIds, adjustment);
+                return ConsList.Cons(car, cdr);
+            }
+            else
+            {
+                return term;
+            }
         }
+
+        public static Term PaintAll(Term term, params uint[] scopeIds)
+            => EagerlyAdjustAll(term, scopeIds, SetUnion);
+
+        public static Term FlipInAll(Term term, params uint[] scopeIds)
+            => EagerlyAdjustAll(term, scopeIds, SetFlip);
+
+        public static Term RemoveFromAll(Term term, params uint[] scopeIds)
+            => EagerlyAdjustAll(term, scopeIds, SetSubtract);
     }
 }

@@ -92,11 +92,13 @@ namespace Clasp.Data.Metadata
 
         #region Context Mutation
 
-        public void PaintScope(Syntax stx, params uint[] scopes)
-        {
-            Syntax.PaintScope(stx, Phase, scopes);
-            NewScopes.UnionWith(scopes);
-        }
+        public void PaintScopeInCurrentPhase(Syntax stx, params uint[] scopes) => Scope.Paint(stx, Phase, scopes);
+        public void FlipScopeInCurrentPhase(Syntax stx, params uint[] scopes) => Scope.Flip(stx, Phase, scopes);
+        public void RemoveScopeInCurrentPhase(Syntax stx, params uint[] scopes) => Scope.Remove(stx, Phase, scopes);
+
+        public void PaintScopeInAllPhases(Syntax stx, params uint[] scopes) => Scope.PaintAll(stx, scopes);
+        public void FlipScopeInAllPhases(Syntax stx, params uint[] scopes) => Scope.FlipInAll(stx, scopes);
+        public void RemoveScopeInAllPhases(Syntax stx, params uint[] scopes) => Scope.RemoveFromAll(stx, scopes);
 
         #endregion
 
@@ -119,8 +121,6 @@ namespace Clasp.Data.Metadata
         //    }
         //    return null;
         //}
-
-        public void FlipScope(Syntax stx, params uint[] scopes) => Syntax.FlipScope(stx, Phase, scopes);
 
         #region Env Helpers
 
