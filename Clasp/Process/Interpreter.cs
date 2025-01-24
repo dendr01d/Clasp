@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.Metrics;
 using System.Linq;
 
-using Clasp.Binding;
+using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;

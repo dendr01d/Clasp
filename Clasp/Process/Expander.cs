@@ -3,6 +3,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using Clasp.Binding;
+using Clasp.Binding.Environments;
+using Clasp.Binding.Scopes;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
@@ -59,7 +61,7 @@ namespace Clasp.Process
 
         public static Syntax ExpandSyntax(Syntax input, Environment env, BindingStore bs, ScopeTokenGenerator gen)
         {
-            ExpansionContext exState = new ExpansionContext(new EnvFrame(env), bs, 0, gen);
+            ExpansionContext exState = new ExpansionContext(new SubEnvironment(env), bs, 0, gen);
             return Expand(input, exState);
         }
 
@@ -124,7 +126,7 @@ namespace Clasp.Process
         {
             if (exState.TryResolveBindingName(stx, idName, out string? bindingName))
             {
-                Term deref = exState.Env.LookUp(bindingName);
+                Term deref = exState.CurrentEnv.LookUp(bindingName);
 
                 if (deref is Syntax stxVar
                     && stxVar.TryExposeIdentifier(out string? name)
@@ -145,7 +147,7 @@ namespace Clasp.Process
 
         private static Syntax ExpandBoundIdentifier(Syntax stx, string bindingName, ExpansionContext exState)
         {
-            Term deref = exState.Env.LookUp(bindingName);
+            Term deref = exState.CurrentEnv.LookUp(bindingName);
 
             if (_specialForms.Contains(deref))
             {
@@ -332,7 +334,7 @@ namespace Clasp.Process
             ExpansionContext nextPhaseState = exState.WithNextPhase();
 
             Syntax expandedInput = Expand(input, nextPhaseState);
-            CoreForm SyntaxdInput = Parser.ParseSyntax(expandedInput, nextPhaseState.Store, nextPhaseState.Phase);
+            CoreForm SyntaxdInput = Parser.ParseSyntax(expandedInput, nextPhaseState.CurrentScope, nextPhaseState.Phase);
             Term output = Interpreter.InterpretProgram(SyntaxdInput, StandardEnv.CreateNew());
 
             if (output is MacroProcedure macro)

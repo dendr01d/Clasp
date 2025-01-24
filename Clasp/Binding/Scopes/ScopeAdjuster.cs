@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 
 using Clasp.Data.Terms;
 
-namespace Clasp.Binding
+namespace Clasp.Binding.Scopes
 {
-    internal static class ScopeHelper
+    internal static class ScopeAdjuster
     {
         private static void SetUnion(HashSet<uint> a, uint[] b) => a.UnionWith(b);
         private static void SetFlip(HashSet<uint> a, uint[] b) => a.SymmetricExceptWith(b);
@@ -50,6 +50,11 @@ namespace Clasp.Binding
         public static Term Remove(Term term, int phase, params uint[] scopeIds)
             => EagerlyAdjust(term, phase, scopeIds, SetSubtract);
 
+        /// <summary>
+        /// Recursively adjust the scopeset of the <paramref name="term"/> (assuming it's a <see cref="Syntax"/>
+        /// or a <see cref="ConsList"/> containing <see cref="Syntax"/> objects), making the same
+        /// <paramref name="adjustment"/> in ALL PHASES.
+        /// </summary>
         private static Term EagerlyAdjustAll(Term term, uint[] scopeIds, Action<HashSet<uint>, uint[]> adjustment)
         {
             if (term is Syntax stx)
@@ -57,7 +62,7 @@ namespace Clasp.Binding
                 Term inner = EagerlyAdjustAll(stx.Expose(), scopeIds, adjustment);
                 Syntax adjustedStx = Syntax.Wrap(inner, stx);
 
-                foreach(int phase in stx.GetLivePhases())
+                foreach (int phase in stx.GetLivePhases())
                 {
                     adjustment(adjustedStx.GetScopeSet(phase), scopeIds);
                 }

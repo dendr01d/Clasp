@@ -6,35 +6,31 @@ using System.Threading.Tasks;
 
 using Clasp.Data.Terms;
 
-namespace Clasp.Binding
+namespace Clasp.Binding.Scopes
 {
     /// <summary>
-    /// Represents a lexical scope as represented by syntax,
-    /// along with a map of renamed identifiers
+    /// Represents a specific lexical scope as represented by syntax, along with a map of renamed identifiers in that scope.
     /// </summary>
-    /// <remarks>
-    /// Isn't this just a subtly different environment structure???
-    /// Is that... okay??
-    /// </remarks>
     internal class Scope
     {
-        private readonly ScopeToken _id;
-        private Dictionary<string, List<ScopedBindingName>> _renamings;
+        private readonly uint _id;
+        private readonly Dictionary<string, List<KeyValuePair<HashSet<uint>, string>>> _renamings;
 
-        private Scope? _parent;
-        private Lazy<ScopeTokenSet> _scopeSet;
+        private readonly Scope? _parent;
+        private readonly Lazy<HashSet<uint>> _scopeSet;
 
-        public IEnumerable<ScopeToken> ScopeSet => _scopeSet.Value;
+        public uint Id => _id;
+        public IEnumerable<uint> ScopeSet => _scopeSet.Value;
 
-        public Scope(ScopeToken id)
+        public Scope(uint id)
         {
             _id = id;
-            _renamings = new Dictionary<string, List<ScopedBindingName>>();
+            _renamings = new Dictionary<string, List<KeyValuePair<HashSet<uint>, string>>>();
             _parent = null;
-            _scopeSet = new Lazy<ScopeTokenSet>(AccumulateScopeSet);
+            _scopeSet = new Lazy<HashSet<uint>>(AccumulateScopeSet);
         }
 
-        public Scope(ScopeToken id, Scope parent) : this(id)
+        public Scope(uint id, Scope parent) : this(id)
         {
             _parent = parent;
         }
@@ -49,7 +45,7 @@ namespace Clasp.Binding
         public IEnumerable<string> ResolveBindingNames(string symbolicName, HashSet<uint> scopeSet)
         {
             return EnumerateRenamings(symbolicName) // Get all renames
-                .Where(x => x.Key.Count <= scopeSet.Count) // Limit to subsets of the given scope set
+                .Where(x => x.Key.Count() <= scopeSet.Count) // Limit to subsets of the given scope set
                 .GroupBy(x => x.Key.Intersect(scopeSet).Count()) // Group them by subset size
                 .MaxBy(x => x.Key) // Pick the group containing the largest subsets
                 ?.Select(x => x.Value) // Collect the binding names
@@ -69,16 +65,16 @@ namespace Clasp.Binding
             yield break;
         }
 
-        private ScopeTokenSet AccumulateScopeSet()
-            => new ScopeTokenSet(EnumerateNestedScopes(this).Select(x => x._id));
+        private HashSet<uint> AccumulateScopeSet()
+            => new HashSet<uint>(EnumerateNestedScopes(this).Select(x => x._id));
 
-        private IEnumerable<ScopedBindingName> EnumerateRenamings(string symName)
+        private IEnumerable<KeyValuePair<HashSet<uint>, string>> EnumerateRenamings(string symName)
         {
-            foreach(Scope s in EnumerateNestedScopes(this))
+            foreach (Scope s in EnumerateNestedScopes(this))
             {
-                if (s._renamings.TryGetValue(symName, out List<ScopedBindingName>? sbns))
+                if (s._renamings.TryGetValue(symName, out List<KeyValuePair<HashSet<uint>, string>>? scopedBinding))
                 {
-                    foreach(var scopedName in sbns)
+                    foreach (var scopedName in scopedBinding)
                     {
                         yield return scopedName;
                     }

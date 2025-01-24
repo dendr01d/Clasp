@@ -14,14 +14,14 @@ namespace Clasp.Data.Terms
         public string Name { get; protected init; }
         protected Symbol(string name) => Name = name;
 
-        private static readonly Dictionary<string, Symbol> _internment = new Dictionary<string, Symbol>();
+        protected static readonly Dictionary<string, Symbol> Interned = new Dictionary<string, Symbol>();
         public static Symbol Intern(string name)
         {
-            if (!_internment.ContainsKey(name))
+            if (!Interned.ContainsKey(name))
             {
-                _internment[name] = new Symbol(name);
+                Interned[name] = new Symbol(name);
             }
-            return _internment[name];
+            return Interned[name];
         }
 
         public override string ToString() => Name;
@@ -63,12 +63,25 @@ namespace Clasp.Data.Terms
 
     internal class GenSym : Symbol, IBindable
     {
-        private static uint _globalCounter = 0;
-        private const string _SEP = "⌠";
+        // Gamma (G) for GenSym
+        // I also considered using ⌠ instead because it interpolates more cleanly
+        private const string _SEP = "Γ";
 
-        private static string GenerateUniqueName(string partial) => string.Format("{0}{1}{2}", partial, _SEP, _globalCounter++);
-        public GenSym() : base(GenerateUniqueName("GenSym")) { }
+        private static string GenerateUniqueName(string partial)
+        {
+            string output = partial;
+            uint counter = 1;
+
+            while (Interned.ContainsKey(output))
+            {
+                output = string.Format("{0}{1}{2}", partial, _SEP, counter);
+            }
+            return output;
+        }
+
         public GenSym(string fromName) : base(GenerateUniqueName(fromName)) { }
+        public GenSym() : this("GenSym") { }
+
         protected override string FormatType() => "gensym";
     }
 }

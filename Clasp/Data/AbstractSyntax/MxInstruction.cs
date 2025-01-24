@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
-using Clasp.Binding;
+using Clasp.Binding.Environments;
 using Clasp.Data.Terms;
 
 namespace Clasp.Data.AbstractSyntax

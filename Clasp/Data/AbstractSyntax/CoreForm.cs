@@ -30,7 +30,7 @@ namespace Clasp.Data.AbstractSyntax
             VarName = key;
             BoundValue = value;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new BindFresh(VarName));
             continuation.Push(BoundValue);
@@ -50,7 +50,7 @@ namespace Clasp.Data.AbstractSyntax
             VarName = name;
             BoundValue = bound;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new RebindExisting(VarName));
             continuation.Push(BoundValue);
@@ -71,7 +71,7 @@ namespace Clasp.Data.AbstractSyntax
         {
             VarName = key;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             if (currentEnv.TryGetValue(VarName, out Term? boundValue))
             {
@@ -95,7 +95,7 @@ namespace Clasp.Data.AbstractSyntax
         {
             Value = value;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             currentValue = Value;
         }
@@ -121,7 +121,7 @@ namespace Clasp.Data.AbstractSyntax
             Consequent = consequent;
             Alternate = alternate;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new DispatchOnCondition(Consequent, Alternate));
             continuation.Push(new ChangeCurrentEnvironment(currentEnv));
@@ -141,7 +141,7 @@ namespace Clasp.Data.AbstractSyntax
         {
             Sequence = series;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             foreach (CoreForm node in Sequence.Reverse())
             {
@@ -163,7 +163,7 @@ namespace Clasp.Data.AbstractSyntax
         {
             Sequence = series;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             if (Sequence.Length > 1)
             {
@@ -198,7 +198,7 @@ namespace Clasp.Data.AbstractSyntax
             Operator = op;
             Arguments = args;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new FunctionVerification(Arguments));
             //continuation.Push(new RollUpArguments(Arguments));
@@ -232,7 +232,7 @@ namespace Clasp.Data.AbstractSyntax
             Informals = internalKeys;
             Body = body;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             currentValue = new CompoundProcedure(Formals, DottedFormal, currentEnv, Body);
         }
@@ -266,7 +266,7 @@ namespace Clasp.Data.AbstractSyntax
             Argument = arg;
         }
 
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environment currentEnv, ref Term currentValue)
+        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new FunctionDispatch(Macro, Argument));
         }

@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 
 using Clasp.Binding;
+using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 
 namespace Clasp.Data.Terms

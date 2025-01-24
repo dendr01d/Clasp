@@ -1,12 +1,13 @@
-﻿using Clasp.Data.Terms;
+﻿using Clasp.Binding.Environments;
+using Clasp.Data.Terms;
 
 namespace Clasp.Binding
 {
     internal static class StandardEnv
     {
-        public static GlobalEnvironment CreateNew()
+        public static SuperEnvironment CreateNew()
         {
-            GlobalEnvironment output = new GlobalEnvironment();
+            SuperEnvironment output = new SuperEnvironment();
 
             output.DefineInitial(Symbol.Define.Name, Symbol.Define); //remove at some point?
             output.DefineInitial(Symbol.Set.Name, Symbol.Set);

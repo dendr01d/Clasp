@@ -4,6 +4,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Clasp.Binding;
+using Clasp.Binding.Environments;
+using Clasp.Binding.Scopes;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
@@ -13,7 +15,7 @@ namespace Clasp.Process
 {
     internal class Processor
     {
-        public GlobalEnvironment TopLevelEnv { get; private set; }
+        public SuperEnvironment TopLevelEnv { get; private set; }
         public BindingStore Bindings { get; private set; }
 
         private readonly ScopeTokenGenerator _tokenGen;
