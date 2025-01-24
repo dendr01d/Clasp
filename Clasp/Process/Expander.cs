@@ -9,6 +9,37 @@ using Clasp.Data.Terms;
 
 namespace Clasp.Process
 {
+    /*
+     
+     I've been treating this as a single thing, when really it's doing a lot of things in tandem
+    To wit:
+    - identify each lexical scope described by the syntax and assign it a unique ID
+    - associate each syntax term in the program with the set of scopes it's located within
+    - rename all identifiers in the program such that there are no shadowed bindings
+        (record the renamings by mapping (symbolic name, scope set) pairs to binding names)
+    - perform rudimentary type analysis on identifiers to see if they're being used as
+        variable names, macro invocations, or shadowings of core forms
+    - tag implicit forms (function application, datum, top?, var?) with core operators
+    - accelerate and bind as a compile-time value any macros defined
+    - identify and invoke any macro application forms
+
+    - macro invocations get wrapped in new scopes before and after executing
+        in order to distinguish the varying stages at which new bindings are conceptually performed
+
+    - internal definition contexts must keep track of the special scopes from that last point
+        and remove them from identifiers that end up in binding positions --
+        i.e. they need to have the same scope as if they HADN'T resulted from a macro
+
+    - for the sake of efficiency, renamings should be discarded once they're no longer accessible
+        (effected by treating the bindingstore essentially as a secondary environment?)
+
+    - syntax objects need to support adding, flipping, and removal of scopes
+        and these operations ideally need to be lazily recursive on their substructures
+     
+     */
+
+
+
     internal static class Expander
     {
         // certain core forms are represented implicitly
@@ -118,7 +149,7 @@ namespace Clasp.Process
 
             if (_specialForms.Contains(deref))
             {
-                if (exState.ExpandingOnlyImmediateContext)
+                if (exState.RestrictedToImmediate)
                 {
                     return stx;
                 }

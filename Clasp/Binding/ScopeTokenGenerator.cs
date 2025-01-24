@@ -8,16 +8,16 @@ namespace Clasp.Binding
 {
     internal class ScopeTokenGenerator
     {
-        public const uint NullToken = 0;
-        private const uint FirstToken = NullToken + 1;
+        public const ScopeToken NullToken = 0;
+        private const ScopeToken FirstToken = NullToken + 1;
 
-        private uint _tokenCounter;
+        private ScopeToken _tokenCounter;
 
         public ScopeTokenGenerator()
         {
             _tokenCounter = FirstToken;
         }
 
-        public uint FreshToken() => _tokenCounter++;
+        public ScopeToken FreshToken() => _tokenCounter++;
     }
 }

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,82 +9,84 @@ using Clasp.Data.Terms;
 namespace Clasp.Binding
 {
     /// <summary>
-    /// NOT an instanced scope object. Simply some static methods for manipulating scope in syntax objects.
+    /// Represents a lexical scope as represented by syntax,
+    /// along with a map of renamed identifiers
     /// </summary>
-    internal static class Scope
+    /// <remarks>
+    /// Isn't this just a subtly different environment structure???
+    /// Is that... okay??
+    /// </remarks>
+    internal class Scope
     {
-        private static void SetUnion(HashSet<uint> a, uint[] b) => a.UnionWith(b);
-        private static void SetFlip(HashSet<uint> a, uint[] b) => a.SymmetricExceptWith(b);
-        private static void SetSubtract(HashSet<uint> a, uint[] b) => a.ExceptWith(b);
+        private readonly ScopeToken _id;
+        private Dictionary<string, List<ScopedBindingName>> _renamings;
 
-        // Maybe someday I'll make a proper lazy version
-        private static Term EagerlyAdjust(Term term, int phase, uint[] scopeIds, Action<HashSet<uint>, uint[]> adjustment)
+        private Scope? _parent;
+        private Lazy<ScopeTokenSet> _scopeSet;
+
+        public IEnumerable<ScopeToken> ScopeSet => _scopeSet.Value;
+
+        public Scope(ScopeToken id)
         {
-            if (term is Syntax stx)
-            {
-                // recur on the wrapped value
-                // then create a NEW syntax with the result of the recurrence and copies of the original's scope sets
-                // then modify the NEW syntax's scope sets instead of the old
-
-                Term inner = EagerlyAdjust(stx.Expose(), phase, scopeIds, adjustment);
-                Syntax adjustedStx = Syntax.Wrap(inner, stx);
-                adjustment(stx.GetScopeSet(phase), scopeIds);
-                return adjustedStx;
-            }
-            else if (term is ConsList cl)
-            {
-                Term car = EagerlyAdjust(cl.Car, phase, scopeIds, adjustment);
-                Term cdr = EagerlyAdjust(cl.Cdr, phase, scopeIds, adjustment);
-                return ConsList.Cons(car, cdr);
-            }
-            else
-            {
-                return term;
-            }
+            _id = id;
+            _renamings = new Dictionary<string, List<ScopedBindingName>>();
+            _parent = null;
+            _scopeSet = new Lazy<ScopeTokenSet>(AccumulateScopeSet);
         }
 
-        public static Term Paint(Term term, int phase, params uint[] scopeIds)
-            => EagerlyAdjust(term, phase, scopeIds, SetUnion);
-
-        public static Term Flip(Term term, int phase, params uint[] scopeIds)
-            => EagerlyAdjust(term, phase, scopeIds, SetFlip);
-
-        public static Term Remove(Term term, int phase, params uint[] scopeIds)
-            => EagerlyAdjust(term, phase, scopeIds, SetSubtract);
-
-        private static Term EagerlyAdjustAll(Term term, uint[] scopeIds, Action<HashSet<uint>, uint[]> adjustment)
+        public Scope(ScopeToken id, Scope parent) : this(id)
         {
-            if (term is Syntax stx)
-            {
-                Term inner = EagerlyAdjustAll(stx.Expose(), scopeIds, adjustment);
-                Syntax adjustedStx = Syntax.Wrap(inner, stx);
+            _parent = parent;
+        }
 
-                foreach(int phase in stx.GetLivePhases())
+        /// <summary>
+        /// Return all binding names to which the <paramref name="symbolicName"/>
+        /// could be bound to in the context of the given <paramref name="scopeSet"/>.
+        /// </summary>
+        /// <remarks>
+        /// May validly return zero, one, or more names.
+        /// </remarks>
+        public IEnumerable<string> ResolveBindingNames(string symbolicName, HashSet<uint> scopeSet)
+        {
+            return EnumerateRenamings(symbolicName) // Get all renames
+                .Where(x => x.Key.Count <= scopeSet.Count) // Limit to subsets of the given scope set
+                .GroupBy(x => x.Key.Intersect(scopeSet).Count()) // Group them by subset size
+                .MaxBy(x => x.Key) // Pick the group containing the largest subsets
+                ?.Select(x => x.Value) // Collect the binding names
+                ?? []; // Return none if there are no valid subsets
+        }
+
+        #region Inter-Scope Operations
+
+        private static IEnumerable<Scope> EnumerateNestedScopes(Scope s)
+        {
+            Scope? current = s;
+            while (current is Scope next)
+            {
+                yield return next;
+                current = next;
+            }
+            yield break;
+        }
+
+        private ScopeTokenSet AccumulateScopeSet()
+            => new ScopeTokenSet(EnumerateNestedScopes(this).Select(x => x._id));
+
+        private IEnumerable<ScopedBindingName> EnumerateRenamings(string symName)
+        {
+            foreach(Scope s in EnumerateNestedScopes(this))
+            {
+                if (s._renamings.TryGetValue(symName, out List<ScopedBindingName>? sbns))
                 {
-                    adjustment(adjustedStx.GetScopeSet(phase), scopeIds);
+                    foreach(var scopedName in sbns)
+                    {
+                        yield return scopedName;
+                    }
                 }
-
-                return adjustedStx;
             }
-            else if (term is ConsList cl)
-            {
-                Term car = EagerlyAdjustAll(cl.Car, scopeIds, adjustment);
-                Term cdr = EagerlyAdjustAll(cl.Cdr, scopeIds, adjustment);
-                return ConsList.Cons(car, cdr);
-            }
-            else
-            {
-                return term;
-            }
+            yield break;
         }
 
-        public static Term PaintAll(Term term, params uint[] scopeIds)
-            => EagerlyAdjustAll(term, scopeIds, SetUnion);
-
-        public static Term FlipInAll(Term term, params uint[] scopeIds)
-            => EagerlyAdjustAll(term, scopeIds, SetFlip);
-
-        public static Term RemoveFromAll(Term term, params uint[] scopeIds)
-            => EagerlyAdjustAll(term, scopeIds, SetSubtract);
+        #endregion
     }
 }

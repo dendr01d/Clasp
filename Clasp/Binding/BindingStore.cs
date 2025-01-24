@@ -17,7 +17,7 @@ namespace Clasp.Binding
 {
     internal class BindingStore
     {
-        private Dictionary<string, ScopeMap> _renamesByScope;
+        private Dictionary<string, ScopedBindingName> _renamesByScope;
         private int _count;
 
         public BindingStore()
@@ -30,7 +30,7 @@ namespace Clasp.Binding
         /// Given a collection of sets-of-scopes mapped to binding names, find the subset of binding names
         /// whose keys form the largest subset of <paramref name="keys"/>
         /// </summary>
-        private static string[] IndexBySubset(ScopeMap map, IEnumerable<uint> keys)
+        private static string[] IndexBySubset(ScopedBindingName map, IEnumerable<uint> keys)
         {
             // group all entries in the map according to subset size
             // then pick the group with the biggest key
@@ -57,7 +57,7 @@ namespace Clasp.Binding
         /// <exception cref="ClaspGeneralException"></exception>
         public string ResolveBindingName(Syntax stx, string symbolicName, int phase)
         {
-            if (_renamesByScope.TryGetValue(symbolicName, out ScopeMap? map))
+            if (_renamesByScope.TryGetValue(symbolicName, out ScopedBindingName? map))
             {
                 string[] candidates = IndexBySubset(map, stx.GetScopeSet(phase));
 
@@ -97,7 +97,7 @@ namespace Clasp.Binding
             {
                 if (!_renamesByScope.ContainsKey(symbolicName))
                 {
-                    _renamesByScope[symbolicName] = new ScopeMap();
+                    _renamesByScope[symbolicName] = new ScopedBindingName();
                 }
 
                 var binding = new KeyValuePair<HashSet<uint>, string>(symScope, bindingName);
@@ -117,7 +117,7 @@ namespace Clasp.Binding
         public bool TryResolveBindingName(Syntax stx, string symbolicName, int phase,
             [NotNullWhen(true)] out string? bindingName)
         {
-            if (_renamesByScope.TryGetValue(symbolicName, out ScopeMap? map))
+            if (_renamesByScope.TryGetValue(symbolicName, out ScopedBindingName? map))
             {
                 string[] candidates = IndexBySubset(map, stx.GetScopeSet(phase));
 
@@ -138,7 +138,7 @@ namespace Clasp.Binding
 
         public bool ContainsKey(Syntax stx, string symbolicName, int phase)
         {
-            return _renamesByScope.TryGetValue(symbolicName, out ScopeMap? map)
+            return _renamesByScope.TryGetValue(symbolicName, out ScopedBindingName? map)
                 && map.Any(x => x.Key.Intersect(stx.GetScopeSet(phase)).Any());
         }
 

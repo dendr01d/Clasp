@@ -15,8 +15,8 @@ namespace Clasp.Data.Terms
     {
         public SourceLocation Location { get; private set; }
 
-        private readonly Dictionary<int, HashSet<uint>> _phasedScopeSets;
-        private readonly HashSet<string> _properties;
+        private readonly Dictionary<int, ScopeTokenSet> _phasedScopeSets;
+        //private readonly HashSet<string> _properties;
 
         private Lazy<Term> _lazyWrapped;
         //private Term _wrapped => _lazyWrapped.Value;
@@ -30,8 +30,8 @@ namespace Clasp.Data.Terms
             _lazyWrapped = new Lazy<Term>(term);
             Location = loc;
 
-            _phasedScopeSets = new Dictionary<int, HashSet<uint>>(copy?._phasedScopeSets ?? []);
-            _properties = new HashSet<string>(copy?._properties ?? []);
+            _phasedScopeSets = new Dictionary<int, ScopeTokenSet>(copy?._phasedScopeSets ?? []);
+            //_properties = new HashSet<string>(copy?._properties ?? []);
         }
 
         // Too complicated to deal with lazy initialization rn
@@ -86,19 +86,19 @@ namespace Clasp.Data.Terms
 
         // ---
 
-        public bool HasProperty(string propName) => _properties.Contains(propName);
-        public bool AddProperty(string propName) => _properties.Add(propName);
+        //public bool HasProperty(string propName) => _properties.Contains(propName);
+        //public bool AddProperty(string propName) => _properties.Add(propName);
 
         // ---
 
         /// <summary>
         /// Retrieve a live reference to the scope set at the given phase
         /// </summary>
-        public HashSet<uint> GetScopeSet(int phase)
+        public ScopeTokenSet GetScopeSet(int phase)
         {
             if (!_phasedScopeSets.ContainsKey(phase))
             {
-                _phasedScopeSets[phase] = new HashSet<uint>();
+                _phasedScopeSets[phase] = new ScopeTokenSet();
             }
             return _phasedScopeSets[phase];
         }
