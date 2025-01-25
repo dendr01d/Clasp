@@ -5,6 +5,7 @@ using System.Linq;
 using Clasp.Binding.Environments;
 using Clasp.Binding.Scopes;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Syntax;
 
 namespace Clasp.Data.Metadata
 {

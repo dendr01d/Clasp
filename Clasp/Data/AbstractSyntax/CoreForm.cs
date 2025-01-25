@@ -4,6 +4,8 @@ using System.Linq;
 
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Product;
+using Clasp.Data.Terms.Syntax;
 using Clasp.Data.Text;
 
 namespace Clasp.Data.AbstractSyntax

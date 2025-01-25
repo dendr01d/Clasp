@@ -4,10 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.Interfaces
+namespace Clasp.Binding
 {
-    internal interface IBindable
+    internal class Binding
     {
-        public string Name { get; }
     }
 }

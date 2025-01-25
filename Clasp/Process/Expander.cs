@@ -8,6 +8,8 @@ using Clasp.Binding.Scopes;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Product;
+using Clasp.Data.Terms.Syntax;
 
 namespace Clasp.Process
 {

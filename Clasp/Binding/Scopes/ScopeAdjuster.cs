@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Product;
+using Clasp.Data.Terms.Syntax;
 
 namespace Clasp.Binding.Scopes
 {

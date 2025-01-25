@@ -3,6 +3,7 @@ using System.Linq;
 
 using Clasp.Binding.Environments;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Product;
 
 namespace Clasp.Data.AbstractSyntax
 {

@@ -7,6 +7,7 @@ using Clasp.Binding;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Syntax;
 using Clasp.Data.Text;
 
 [assembly: InternalsVisibleTo("Tests")]

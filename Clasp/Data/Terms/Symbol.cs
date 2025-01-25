@@ -9,7 +9,7 @@ using Clasp.Interfaces;
 
 namespace Clasp.Data.Terms
 {
-    internal class Symbol : Atom, IBindable
+    internal class Symbol : Atom
     {
         public string Name { get; protected init; }
         protected Symbol(string name) => Name = name;
@@ -58,10 +58,10 @@ namespace Clasp.Data.Terms
         #endregion
 
 
-        protected override string FormatType() => "symbol";
+        protected override string FormatType() => "Symbol";
     }
 
-    internal class GenSym : Symbol, IBindable
+    internal class GenSym : Symbol
     {
         // Gamma (G) for GenSym
         // I also considered using ⌠ instead because it interpolates more cleanly

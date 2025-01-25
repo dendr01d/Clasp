@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using Clasp.Data.Metadata;
+using Clasp.Data.Terms.Syntax;
+using Clasp.Data.Terms.Product;
 
 namespace Clasp.Process
 {
