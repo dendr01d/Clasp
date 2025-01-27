@@ -48,6 +48,11 @@ namespace Clasp.Data.Terms.Syntax
             : this(cl.Car, cl.Cdr, loc, copy)
         { }
 
+        protected override SyntaxPair DeepCopy()
+        {
+            return new SyntaxPair(Syntax.FromSyntax(Car), Syntax.FromSyntax(Cdr), Location, this);
+        }
+
         public void SetCar(Syntax newCar)
         {
             Car = newCar;

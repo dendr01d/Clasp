@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Clasp.Data.Metadata
 {
-    internal enum ExpandingType
+    internal enum SyntacticContext
     {
         Expression,
         Module,

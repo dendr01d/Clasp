@@ -38,6 +38,12 @@ namespace Clasp.Data.Terms.Syntax
         //    Properties = copy?.Properties ?? new HashSet<string>();
         //}
 
+        /// <summary>
+        /// Perform a deep copy of this syntax and any of its syntactic sub-structure.
+        /// Doesn't create copies of the normal data objects wrapped within.
+        /// </summary>
+        protected abstract Syntax DeepCopy();
+
         #region Static Constructors
 
         private static Syntax FromDatum(Term term, SourceLocation loc, Syntax? copy)
@@ -69,7 +75,22 @@ namespace Clasp.Data.Terms.Syntax
             return FromDatum(term, existingSyntax.Location.Derivation(), existingSyntax);
         }
 
+        public static Syntax FromSyntax(Syntax original) => original.DeepCopy();
+
         #endregion
+
+        public Syntax StripFromPhase(int phase)
+        {
+            Syntax output = FromSyntax(this);
+
+            IEnumerable<int> phasesToStrip = output._phasedScopeSets.Keys.Where(x => x >= phase);
+            foreach(var pair in output._phasedScopeSets)
+            {
+                output._phasedScopeSets.Remove(pair.Key);
+            }
+
+            return output;
+        }
 
         /// <summary>
         /// Retrieve a live reference to the scope set at the given phase
@@ -112,6 +133,7 @@ namespace Clasp.Data.Terms.Syntax
                 return term;
             }
         }
+
 
         #region Exposition
 

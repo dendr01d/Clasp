@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
+using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Binding.Scopes;
 using Clasp.Data.Terms;
@@ -13,100 +14,84 @@ namespace Clasp.Data.Metadata
     {
         #region Object Members
 
+        public Scope CurrentScope { get; private set; }
         public Environment CurrentEnv { get; private set; }
-
-
-        //public Scope CurrentScope { get; private set; }
-        // this can't really be tracked this way (like an extending tree structure)
-        // because scopes can be freely created and added/flipped/removed in the case of e.g. macro invocation
-        // so there's not a 1-1 correspondence between lexical scopes and expansion contexts(!)
 
         public int Phase { get; private set; }
 
         /// <summary>IDs of scopes that were introduced for the purpose of binding identifiers</summary>
-        private readonly HashSet<uint> _bindingScopes;
+        private readonly HashSet<uint> _localDefinitionScopes;
 
         /// <summary>IDs of scopes that were introduced during macro use/introduction.</summary>
-        private readonly HashSet<uint> _macroScopes;
+        private readonly HashSet<uint> _localMacroScopes;
 
-        public ExpandingType CurrentContext { get; private set; }
+        public SyntacticContext CurrentContext { get; private set; }
 
         /// <summary>True iff the current expansion should stop at core forms.</summary>
-        public bool RestrictedToImmediate { get; private set; }
+        //public bool RestrictedToImmediate { get; private set; }
 
         private readonly ScopeFactory _factory;
 
         #endregion
-
-        #region Constructors
-
-        // Full Constructor
         private ExpansionContext(
-            Environment env,
             Scope scp,
+            Environment env,
             int phase,
             ScopeFactory factory,
             IEnumerable<uint> bindingScopes,
             IEnumerable<uint> macroScopes,
-            ExpandingType currentCtx,
-            bool restrictToImmediate)
+            SyntacticContext currentCtx
+            //bool restrictToImmediate
+            )
         {
-            CurrentEnv = env;
             CurrentScope = scp;
+            CurrentEnv = env;
             Phase = phase;
 
-            _bindingScopes = new(bindingScopes);
-            _macroScopes = new(macroScopes);
+            _localDefinitionScopes = new(bindingScopes);
+            _localMacroScopes = new(macroScopes);
 
-            CurrentContext = currentCtx;
-            RestrictedToImmediate = restrictToImmediate;
+            //CurrentContext = currentCtx;
+            //RestrictedToImmediate = restrictToImmediate;
 
             _factory = factory;
         }
 
-        // Private Copy Constructor
+        private ExpansionContext(ExpansionContext original)
+            : this(original.CurrentScope, original.CurrentEnv, original.Phase, original._factory, original._localDefinitionScopes, original._localMacroScopes, original.CurrentContext)
+        { }
 
-        // Public Restricted Constructor
-
-        #endregion
-
-        #region Context Extension
-
-        //public ExpansionContext GetFresh() => new ExpansionContext(Binding.StandardEnv.CreateNew(), _factory.NewScope(),
-        //    1, _factory,
-        //    )
-
-        public ExpansionContext GetNextPhaseContext()
+        public static ExpansionContext MakeFresh(ScopeTokenGenerator gen)
         {
-            return new ExpansionContext(
-                Binding.StandardEnv.CreateNew(),
-                _factory.NewScope(),
-                Phase + 1,
-                _factory,
-                CurrentScope.ScopeSet,
-                [],
-                ExpandingType.TopLevel,
-                false);
+            ScopeFactory factory = new ScopeFactory(gen);
+
+            return new ExpansionContext(factory.NewScope(), StandardEnv.CreateNew(), 1, factory, [], [], SyntacticContext.TopLevel);
         }
 
-        //public ExpansionContext GetSubBindingContext(ExpandingType expandingNext)
-        //{
-        //    Scope sub = _factory.NewScopeInside(CurrentScope);
+        public ExpansionContext CrossToNextPhase()
+        {
+            return new ExpansionContext(_factory.NewScope(), StandardEnv.CreateNew(), Phase + 1, _factory, [], [], SyntacticContext.TopLevel);
+        }
 
-        //    return new ExpansionContext(
-        //        Binding.StandardEnv.CreateNew(),
-        //        sub,
-        //        Phase,
-        //        _factory,
-        //        _bindingScopes.Append(sub.Id),
-        //        [],
-        //        expandingNext,
-        //        false);
-        //}
+        public ExpansionContext EnterNewLocalDefinitionScope()
+        {
+            return new ExpansionContext(
+                _factory.NewScopeInside(CurrentScope), CurrentEnv.Enclose(), Phase, _factory,)
+        }
 
-        public void RecordMacroUse(Scope scp) 
+        public Scope NewLocalDefScope(Scope definitionContext)
+        {
+            Scope output = _factory.NewScopeInside(definitionContext);
+            _localDefinitionScopes.Add(output.Id);
+            return output;
+        }
 
-        #endregion
+        public Scope NewLocalMacroScope(Scope definitionContext)
+        {
+            Scope output = _factory.NewScopeInside(definitionContext);
+            _localMacroScopes.Add(output.Id);
+            return output;
+        }
 
         #region Context Mutation
 
@@ -114,88 +99,58 @@ namespace Clasp.Data.Metadata
         public void FlipScopeInCurrentPhase(Syntax stx, params uint[] scopes) => ScopeAdjuster.Flip(stx, Phase, scopes);
         public void RemoveScopeInCurrentPhase(Syntax stx, params uint[] scopes) => ScopeAdjuster.Remove(stx, Phase, scopes);
 
-        public void PaintScopeInAllPhases(Syntax stx, params uint[] scopes) => ScopeAdjuster.PaintAll(stx, scopes);
-        public void FlipScopeInAllPhases(Syntax stx, params uint[] scopes) => ScopeAdjuster.FlipInAll(stx, scopes);
-        public void RemoveScopeInAllPhases(Syntax stx, params uint[] scopes) => ScopeAdjuster.RemoveFromAll(stx, scopes);
+        //public void PaintScopeInAllPhases(Syntax stx, params uint[] scopes) => ScopeAdjuster.PaintAll(stx, scopes);
+        //public void FlipScopeInAllPhases(Syntax stx, params uint[] scopes) => ScopeAdjuster.FlipInAll(stx, scopes);
+        //public void RemoveScopeInAllPhases(Syntax stx, params uint[] scopes) => ScopeAdjuster.RemoveFromAll(stx, scopes);
 
-        public Syntax StripBindingIdentifier(Syntax stx)
+        public Syntax StripMacroScopes(Identifier bindingId)
         {
-            // eugh, don't like this
-            Syntax output = Syntax.Wrap(stx.Expose(), stx);
-            PaintScopeInCurrentPhase(output, _bindingScopes.ToArray());
+            Syntax output = Syntax.FromSyntax(bindingId);
+            RemoveScopeInCurrentPhase(output, _localMacroScopes.ToArray());
             return output;
         }
 
-        public Syntax StripQuotedSyntax(Syntax stx)
+        public Syntax StripQuotedSyntax(Syntax quotedSyntax)
         {
-            // or this
-            Syntax output = Syntax.Wrap(stx.Expose(), stx); //this ought to be a deep copy instead
-            RemoveScopeInCurrentPhase(output, _bindingScopes.Union(_macroScopes).ToArray());
-            return output;
+            return quotedSyntax.StripFromPhase(Phase);
         }
 
         #endregion
 
-        public string ResolveBindingName(Syntax stx, string symbolicName)
+        #region BindingResolution
+
+        public ExpansionBinding ResolveBinding(Identifier id, Scope scp)
         {
-            IEnumerable<string> matchedNames = CurrentScope.ResolveBindingNames(symbolicName, stx.GetScopeSet(Phase));
+            ExpansionBinding[] matches = scp.ResolveBindings(id.SymbolicName, id.GetScopeSet(Phase)).ToArray();
+
+            if (matches.Length == 0)
+            {
+                throw new ExpanderException.UnboundIdentifier(id);
+            }
+            else if (matches.Length > 1)
+            {
+                throw new ExpanderException.AmbiguousIdentifier(id, matches);
+            }
+            else
+            {
+                return matches.Single();
+            }
         }
 
 
-        public string ResolveBindingName(Syntax stx, string symbolicName) => CurrentScope.ResolveBindingName(stx, symbolicName, Phase);
-        public void RenameInCurrentScope(Syntax stx, string symbolicName, string bindingName) => CurrentScope.RenameInScope(stx, symbolicName, Phase, bindingName);
-
-        public bool TryResolveBindingName(Syntax stx, string symbolicName,
-            [NotNullWhen(true)] out string? bindingName)
-        {
-            return CurrentScope.TryResolveBindingName(stx, symbolicName, Phase, out bindingName);
-        }
-
-        //public string? MaybeDereferenceBinding(string bindingName)
-        //{
-        //    if (Env.TryGetValue(bindingName, out Term? deref)
-        //        && deref is Syntax<Symbol> derefId)
-        //    {
-        //        return derefId.Expose.Name;
-        //    }
-        //    return null;
-        //}
+        #endregion
 
         #region Env Helpers
 
-        private static readonly Symbol _variableMarker = new GenSym("variable");
-
-        public bool IsVariable(string bindingName)
+        public void BindMacro(Identifier bindingId, MacroProcedure macro)
         {
-            if (CurrentEnv.TryGetValue(bindingName, out Term? value))
-            {
-                return value == _variableMarker;
-            }
-            return false;
+            CurrentEnv[bindingId.SymbolicName] = macro;
         }
 
-        public void MarkVariable(string bindingName)
-        {
-            CurrentEnv[bindingName] = _variableMarker;
-        }
-
-        public void BindMacro(string bindingName, MacroProcedure macro)
-        {
-            CurrentEnv[bindingName] = macro;
-        }
-
-        public bool TryGetMacro(string bindingName,
+        public bool TryGetMacro(Identifier bindingId,
             [NotNullWhen(true)] out MacroProcedure? macro)
         {
-            if (CurrentEnv.TryGetValue(bindingName, out Term? value)
-                && value is MacroProcedure result)
-            {
-                macro = result;
-                return true;
-            }
-
-            macro = null;
-            return false;
+            return CurrentEnv.TryGetValue(bindingId.SymbolicName, out macro);
         }
 
         #endregion

@@ -14,7 +14,7 @@ namespace Clasp.Binding.Scopes
     internal class Scope
     {
         private readonly uint _id;
-        private readonly Dictionary<string, List<KeyValuePair<HashSet<uint>, string>>> _renamings;
+        private readonly Dictionary<string, List<KeyValuePair<HashSet<uint>, ExpansionBinding>>> _renamings;
 
         private readonly Scope? _parent;
         private readonly Lazy<HashSet<uint>> _scopeSet;
@@ -25,7 +25,7 @@ namespace Clasp.Binding.Scopes
         public Scope(uint id)
         {
             _id = id;
-            _renamings = new Dictionary<string, List<KeyValuePair<HashSet<uint>, string>>>();
+            _renamings = new();
             _parent = null;
             _scopeSet = new Lazy<HashSet<uint>>(AccumulateScopeSet);
         }
@@ -42,13 +42,13 @@ namespace Clasp.Binding.Scopes
         /// <remarks>
         /// May validly return zero, one, or more names.
         /// </remarks>
-        public IEnumerable<string> ResolveBindingNames(string symbolicName, HashSet<uint> scopeSet)
+        public IEnumerable<ExpansionBinding> ResolveBindings(string symbolicName, HashSet<uint> scopeSet)
         {
             return EnumerateRenamings(symbolicName) // Get all renames
-                .Where(x => x.Key.Count() <= scopeSet.Count) // Limit to subsets of the given scope set
+                .Where(x => x.Key.Count() <= scopeSet.Count) // Limit to *subsets* of the given scope set
                 .GroupBy(x => x.Key.Intersect(scopeSet).Count()) // Group them by subset size
                 .MaxBy(x => x.Key) // Pick the group containing the largest subsets
-                ?.Select(x => x.Value) // Collect the binding names
+                ?.Select(x => x.Value) // Collect the bindings
                 ?? []; // Return none if there are no valid subsets
         }
 
@@ -60,7 +60,7 @@ namespace Clasp.Binding.Scopes
             while (current is Scope next)
             {
                 yield return next;
-                current = next;
+                current = next._parent;
             }
             yield break;
         }
@@ -68,13 +68,13 @@ namespace Clasp.Binding.Scopes
         private HashSet<uint> AccumulateScopeSet()
             => new HashSet<uint>(EnumerateNestedScopes(this).Select(x => x._id));
 
-        private IEnumerable<KeyValuePair<HashSet<uint>, string>> EnumerateRenamings(string symName)
+        private IEnumerable<KeyValuePair<HashSet<uint>, ExpansionBinding>> EnumerateRenamings(string symName)
         {
             foreach (Scope s in EnumerateNestedScopes(this))
             {
-                if (s._renamings.TryGetValue(symName, out List<KeyValuePair<HashSet<uint>, string>>? scopedBinding))
+                if (s._renamings.TryGetValue(symName, out List<KeyValuePair<HashSet<uint>, ExpansionBinding>>? scopedBindings))
                 {
-                    foreach (var scopedName in scopedBinding)
+                    foreach (var scopedName in scopedBindings)
                     {
                         yield return scopedName;
                     }
