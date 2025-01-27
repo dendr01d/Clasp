@@ -4,10 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.Interfaces
+namespace Clasp.Data.Metadata
 {
-    internal interface IBindable
+    internal enum SyntacticContext
     {
-        public string Name { get; }
+        Expression,
+        Module,
+        TopLevel
     }
 }

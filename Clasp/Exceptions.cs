@@ -7,6 +7,7 @@ using Clasp.Binding;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Syntax;
 using Clasp.Data.Text;
 
 [assembly: InternalsVisibleTo("Tests")]
@@ -154,19 +155,20 @@ namespace Clasp
 
         public class UnboundIdentifier : ExpanderException
         {
-            internal UnboundIdentifier(string name, Syntax unboundIdentifier) : base(
-                unboundIdentifier.Location,
+            internal UnboundIdentifier(Identifier id) : base(
+                id.Location,
                 "The variable name '{0}' is free (unbound) within the given context.",
-                name)
+                id.SymbolicName)
             { }
         }
 
         public class AmbiguousIdentifier : ExpanderException
         {
-            internal AmbiguousIdentifier(string name, Syntax ambiguousIdentifier) : base(
-                ambiguousIdentifier.Location,
-                "The variable name '{0}' ambiguously refers to multiple bindings within the given context.",
-                name)
+            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<ExpansionBinding> matches) : base(
+                ambId.Location,
+                "The variable name '{0}' ambiguously refers to multiple bindings within the given context: {1}",
+                ambId.SymbolicName,
+                string.Join(", ", matches.Select(x => string.Format("'{0}' @ {1}", x.BindingIdentifier.SymbolicName, x.BindingIdentifier.Location))))
             { }
         }
 

@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using Clasp.Data.Metadata;
+using Clasp.Data.Terms.Syntax;
+using Clasp.Data.Terms.Product;
 
 namespace Clasp.Process
 {
@@ -146,7 +148,7 @@ namespace Clasp.Process
                 current.Location.SourceText,
                 true);
 
-            Syntax wrappedValue = Syntax.Wrap(nextValue, current);
+            Syntax wrappedValue = Syntax.FromDatum(nextValue, current);
 
             return wrappedValue;
         }
@@ -156,13 +158,11 @@ namespace Clasp.Process
             Token subListToken = tokens.Peek();
             Syntax arg = ReadSyntax(tokens);
 
-            Syntax terminator = Syntax.Wrap(Nil.Value, arg);
+            Syntax terminator = Syntax.FromDatum(Nil.Value, arg);
 
             return ConsList.Cons(
-                Syntax.Wrap(opSym,
-                    opToken),
-                Syntax.Wrap(ConsList.Cons(arg, terminator),
-                    subListToken));
+                Syntax.FromDatum(opSym, opToken),
+                Syntax.FromDatum(ConsList.Cons(arg, terminator), subListToken));
         }
 
         private static Term ReadVector(Stack<Token> tokens)
@@ -209,7 +209,7 @@ namespace Clasp.Process
             {
                 Token subListBeginning = tokens.Peek();
                 Term subList = ReadList(tokens);
-                Syntax cdr = Syntax.Wrap(subList, subListBeginning);
+                Syntax cdr = Syntax.FromDatum(subList, subListBeginning);
 
                 return ConsList.Cons(car, cdr);
             }

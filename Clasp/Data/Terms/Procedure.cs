@@ -31,8 +31,7 @@ namespace Clasp.Data.Terms
             IsVariadic = variadic;
         }
         public override string ToString() => string.Format("#<{0}>", OpCode.ToString());
-
-        protected override string FormatType() => string.Format("primitive({0})", base.FormatType());
+        protected override string FormatType() => string.Format("Prim({0})", base.FormatType());
     }
 
     internal class CompoundProcedure : Procedure
@@ -63,11 +62,11 @@ namespace Clasp.Data.Terms
             IsVariadic = VariadicParameter is not null;
         }
 
-        public override string ToString() => string.Format("#<lambda({0}{1})>",
-                string.Join(", ", Parameters),
-                VariadicParameter is null ? string.Empty : string.Format("; {0}", VariadicParameter));
-
-        protected override string FormatType() => string.Format("compound({0})", base.FormatType());
+        public override string ToString() => string.Format(
+            "#<lambda({0}{1})>",
+            string.Join(' ', Parameters),
+            VariadicParameter is null ? string.Empty : string.Format(" . {0}", VariadicParameter));
+        protected override string FormatType() => string.Format("Lambda({0})", base.FormatType());
     }
 
     internal sealed class MacroProcedure : CompoundProcedure
@@ -76,11 +75,11 @@ namespace Clasp.Data.Terms
         public override bool IsVariadic => false;
 
         public MacroProcedure(string parameter, SequentialForm body)
-            : base(new string[] { parameter }, StandardEnv.CreateNew(), body)
+            : base([parameter], StandardEnv.CreateNew(), body)
         { }
 
-        public override string ToString() => "#<macro>";
+        public override string ToString() => string.Format("#<macro({0})>", Parameters[0]);
 
-        protected override string FormatType() => string.Format("macro({0})", base.FormatType());
+        protected override string FormatType() => string.Format("Macro({0})", base.FormatType());
     }
 }

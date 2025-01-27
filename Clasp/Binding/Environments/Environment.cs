@@ -65,6 +65,19 @@ namespace Clasp.Binding.Environments
 
         public abstract bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value);
 
+        public bool TryGetValue<T>(string key, [MaybeNullWhen(false)] out T? value)
+            where T : Term
+        {
+            if (TryGetValue(key, out Term? bound) && bound is T output)
+            {
+                value = output;
+                return true;
+            }
+
+            value = null;
+            return false;
+        }
+
         #endregion
     }
 }
