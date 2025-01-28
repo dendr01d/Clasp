@@ -162,13 +162,22 @@ namespace Clasp
             { }
         }
 
+        public class UnboundMacro : ExpanderException
+        {
+            internal UnboundMacro(ExpansionBinding binding) : base(
+                binding.BoundId.Location,
+                "The variable name '{0}' wasn't bound to a macro procedure as expected.",
+                binding.BindingName)
+            { }
+        }
+
         public class AmbiguousIdentifier : ExpanderException
         {
             internal AmbiguousIdentifier(Identifier ambId, IEnumerable<ExpansionBinding> matches) : base(
                 ambId.Location,
                 "The variable name '{0}' ambiguously refers to multiple bindings within the given context: {1}",
                 ambId.SymbolicName,
-                string.Join(", ", matches.Select(x => string.Format("'{0}' @ {1}", x.BindingIdentifier.SymbolicName, x.BindingIdentifier.Location))))
+                string.Join(", ", matches.Select(x => string.Format("'{0}' @ {1}", x.BoundId.SymbolicName, x.BoundId.Location))))
             { }
         }
 

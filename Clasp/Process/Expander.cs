@@ -76,7 +76,7 @@ namespace Clasp.Process
             else if (stx is SyntaxPair stp
                 && stp.Car is Identifier idOp)
             {
-                return ExpandIdApplication(idOp, stp.Cdr, exState);
+                return ExpandIdApplication(stp, idOp, stp.Cdr, exState);
             }
             //else if (stx.Exposee is Vector)
             //{
@@ -124,94 +124,77 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax ExpandIdApplication(Identifier op, Syntax args, ExpansionContext exState)
+        private static Syntax ExpandIdApplication(SyntaxPair idApp, Identifier op, Syntax args, ExpansionContext exState)
         {
             if (exState.TryResolveBinding(op, out ExpansionBinding? binding))
             {
                 if (binding.BoundType == BindingType.Variable)
                 {
-                    return ExpandImplicit(Symbol.ImplicitApp, binding.BindingIdentifier, args, exState);
+                    return ExpandImplicit(Symbol.ImplicitApp, idApp, exState);
                 }
                 else
                 {
-                    
-                }
-            }
-
-
-            if (exState.TryResolveBindingName(stx, idName, out string? bindingName))
-            {
-                Term deref = exState.CurrentEnv.LookUp(bindingName);
-
-                if (deref is Syntax stxVar
-                    && stxVar.TryExposeIdentifier(out string? name)
-                    && exState.IsVariable(name))
-                {
-                    return ExpandImplicit(Symbol.ImplicitApp, stx, exState);
-                }
-                else
-                {
-                    return ExpandBoundIdentifier(stx, bindingName, exState);
+                    return ExpandBoundIdentifier(binding, args, exState);
                 }
             }
             else
             {
-                return ExpandImplicit(Symbol.ImplicitApp, stx, exState);
+                return ExpandImplicit(Symbol.ImplicitApp, idApp, exState);
             }
         }
 
-        private static Syntax ExpandBoundIdentifier(Syntax stx, string bindingName, ExpansionContext exState)
+        private static Syntax ExpandBoundIdentifier(ExpansionBinding binding, Syntax args, ExpansionContext exState)
         {
-            Term deref = exState.CurrentEnv.LookUp(bindingName);
-
-            if (_specialForms.Contains(deref))
+            if (binding.BoundType == BindingType.Special)
             {
                 if (exState.RestrictedToImmediate)
                 {
-                    return stx;
+                    return binding.BoundId;
                 }
                 else
                 {
-                    // ?
-                    // https://github.com/mflatt/expander/blob/demi/expand.rkt#L102
+                    ExpandCoreForm(binding.BoundId, args, exState);
                 }
             }
-            else if (deref is MacroProcedure macro)
+            else if (binding.BoundType == BindingType.Transformer)
             {
-                return ApplySyntaxTransformer(macro, stx, exState);
+                if (exState.TryGetMacro(binding.BindingName, out MacroProcedure? macro))
+                {
+                    return ApplySyntaxTransformer(macro, binding.BoundId, exState);
+                }
+                else
+                {
+                    throw new ExpanderException.UnboundIdentifier(binding.BoundId);
+                }
             }
-            else if (deref is Syntax stxVar
-                && stxVar.TryExposeIdentifier(out string? name)
-                && exState.IsVariable(name))
+            else if (binding.BoundType == BindingType.Variable)
             {
-                return stxVar;
+                return binding.BoundId;
             }
             else
             {
-                throw new ExpanderException.InvalidSyntax(stx);
+                throw new ExpanderException.InvalidSyntax(binding.BoundId);
             }
         }
 
         // https://github.com/mflatt/expander/blob/demi/expand.rkt#L75
-        private static Syntax ExpandImplicit(Symbol formSym, Syntax stx, ExpansionContext exState)
+        private static Syntax ExpandImplicit(Symbol formName, Syntax args, ExpansionContext exState)
         {
-            Syntax formId = Syntax.Wrap(formSym, stx);
+            Syntax formId = Syntax.FromDatum(formName, args);
 
-            if (stx._wrapped is Nil)
+            if (args.Expose() is Nil)
             {
-                return Syntax.Wrap(formId, stx);
+                return Syntax.Wrap(formId, args);
             }
-            else if (stx.TryExposeList(out Syntax? car, out Syntax? cdr))
+            else if (args is SyntaxPair stp)
             {
-                Syntax expandedCar = Expand(car, exState);
-                Syntax expandedCdr = Expand(cdr, exState);
-                Syntax expandedList = Syntax.Wrap(expandedCar, expandedCdr, stx);
-
-                return Syntax.Wrap(formId, stx, stx);
+                Syntax expandedCar = Expand(stp.Car, exState);
+                Syntax expandedCdr = Expand(stp.Cdr, exState);
+                return new SyntaxPair(expandedCar, expandedCdr, args.Location, args);
             }
             else
             {
-                throw new ExpanderException.ExpectedProperList(stx);
+                throw new ExpanderException.ExpectedProperList(args);
             }
         }
 
@@ -234,6 +217,36 @@ namespace Clasp.Process
 
             exState.FlipScope(stxOutput, introScope);
             return stxOutput;
+        }
+
+        private static Syntax ExpandCoreForm(Identifier op, Syntax args, ExpansionContext exState)
+        {
+            Symbol keyword = op.Expose();
+
+            if (keyword == Symbol.Quote)
+            {
+
+            }
+            else if (keyword == Symbol.QuoteSyntax)
+            {
+
+            }
+            else if (keyword == Symbol.Define)
+            {
+
+            }
+            else if (keyword == Symbol.Set)
+            {
+
+            }
+            if (keyword == Symbol.Lambda)
+            {
+
+            }
+            else
+            {
+                return ExpandImplicit
+            }
         }
 
         private static Syntax ExpandLambda(Syntax stx, Syntax stxOp, Syntax stxArgs, ExpansionContext exState)

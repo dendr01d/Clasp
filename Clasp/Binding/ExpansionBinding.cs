@@ -13,17 +13,19 @@ namespace Clasp.Binding
     {
         Variable,
         Transformer,
-        TopLevel
+        Special
     }
 
     internal class ExpansionBinding
     {
-        public readonly Identifier BindingIdentifier;
+        public readonly Identifier BoundId;
         public readonly BindingType BoundType;
+
+        public string BindingName => BoundId.SymbolicName;
 
         public ExpansionBinding(Identifier id, BindingType type)
         {
-            BindingIdentifier = id;
+            BoundId = id;
             BoundType = type;
         }
     }

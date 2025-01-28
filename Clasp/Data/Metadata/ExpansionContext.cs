@@ -15,8 +15,6 @@ namespace Clasp.Data.Metadata
     /// </summary>
     internal sealed class ExpansionContext
     {
-        #region Object Members
-
         public Environment CurrentEnv { get; private set; }
         public BlockScope CurrentBlock { get; private set; }
 
@@ -33,7 +31,7 @@ namespace Clasp.Data.Metadata
 
         private readonly ScopeTokenGenerator _gen;
 
-        #endregion
+
         private ExpansionContext(
             Environment env,
             BlockScope scp,
@@ -89,7 +87,12 @@ namespace Clasp.Data.Metadata
                 _gen);
         }
 
-        public uint TokenizeMacroScope() => _gen.FreshToken();
+        public uint TokenizeMacroScope()
+        {
+            uint output = _gen.FreshToken();
+            _macroScopes.Add(output);
+            return output;
+        }
 
         public ExpansionBinding ResolveBinding(Identifier id)
         {
@@ -126,7 +129,7 @@ namespace Clasp.Data.Metadata
         #region Env Helpers
 
         public Term Dereference(Identifier id) => CurrentEnv.LookUp(id.SymbolicName);
-        public Term Dereference(ExpansionBinding binding) => Dereference(binding.BindingIdentifier);
+        public Term Dereference(ExpansionBinding binding) => Dereference(binding.BoundId);
 
         public void RenameVariable(Identifier symId, IEnumerable<uint> scopeSet, Identifier bindingId)
         {
