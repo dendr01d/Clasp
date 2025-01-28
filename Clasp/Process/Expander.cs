@@ -61,28 +61,28 @@ namespace Clasp.Process
 
         // credit to https://github.com/mflatt/expander/blob/pico/main.rkt
 
-        public static Syntax ExpandSyntax(Syntax input, Environment env, BindingStore bs, ScopeTokenGenerator gen)
+        public static Syntax ExpandSyntax(Syntax input, Environment env, ScopeTokenGenerator gen)
         {
-            ExpansionContext exState = new ExpansionContext(new SubEnvironment(env), bs, 0, gen);
+            ExpansionContext exState = ExpansionContext.FreshExpansion(env, gen);
             return Expand(input, exState);
         }
 
         private static Syntax Expand(Syntax stx, ExpansionContext exState)
         {
-            if (stx.TryExposeIdentifier(out string? idName))
+            if (stx is Identifier id)
             {
-                return ExpandIdentifier(stx, idName, exState);
+                return ExpandIdentifier(id, exState);
             }
-            else if (stx.TryExposeList(out Syntax? stxOp, out Syntax? stxArgs)
-                && stxOp.TryExposeIdentifier(out string? opName))
+            else if (stx is SyntaxPair stp
+                && stp.Car is Identifier idOp)
             {
-                return ExpandIdApplication(stx, stxOp, opName, stxArgs, exState);
+                return ExpandIdApplication(idOp, stp.Cdr, exState);
             }
             //else if (stx.Exposee is Vector)
             //{
             //    return ExpandVector(stx, exState);
             //}
-            else if (stx._wrapped is ConsList or Nil)
+            else if (stx.Expose() is ConsList or Nil)
             {
                 return ExpandImplicit(Symbol.ImplicitApp, stx, exState);
             }
@@ -112,20 +112,33 @@ namespace Clasp.Process
         //    "map"
         //};
 
-        private static Syntax ExpandIdentifier(Syntax stx, string idName, ExpansionContext exState)
+        private static Syntax ExpandIdentifier(Identifier id, ExpansionContext exState)
         {
-            if (exState.TryResolveBindingName(stx, idName, out string? bindingName))
+            if (exState.TryResolveBinding(id, out ExpansionBinding? binding))
             {
-                return ExpandBoundIdentifier(stx, bindingName, exState);
+                return ExpandBoundIdentifier(binding, exState);
             }
             else
             {
-                return ExpandImplicit(Symbol.ImplicitTop, stx, exState);
+                return ExpandImplicit(Symbol.ImplicitTop, id, exState);
             }
         }
 
-        private static Syntax ExpandIdApplication(Syntax stx, Syntax stxOp, string idName, Syntax stxArgs, ExpansionContext exState)
+        private static Syntax ExpandIdApplication(Identifier op, Syntax args, ExpansionContext exState)
         {
+            if (exState.TryResolveBinding(op, out ExpansionBinding? binding))
+            {
+                if (binding.BoundType == BindingType.Variable)
+                {
+                    return ExpandImplicit(Symbol.ImplicitApp, binding.BindingIdentifier, args, exState);
+                }
+                else
+                {
+                    
+                }
+            }
+
+
             if (exState.TryResolveBindingName(stx, idName, out string? bindingName))
             {
                 Term deref = exState.CurrentEnv.LookUp(bindingName);
@@ -336,7 +349,7 @@ namespace Clasp.Process
             ExpansionContext nextPhaseState = exState.WithNextPhase();
 
             Syntax expandedInput = Expand(input, nextPhaseState);
-            CoreForm SyntaxdInput = Parser.ParseSyntax(expandedInput, nextPhaseState.CurrentScope, nextPhaseState.Phase);
+            CoreForm SyntaxdInput = Parser.ParseSyntax(expandedInput, nextPhaseState.CurrentBlock, nextPhaseState.Phase);
             Term output = Interpreter.InterpretProgram(SyntaxdInput, StandardEnv.CreateNew());
 
             if (output is MacroProcedure macro)
