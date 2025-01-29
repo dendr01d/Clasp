@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -18,11 +17,7 @@ namespace Clasp.Data.Metadata
     {
         public Environment CurrentEnv { get; private set; }
         public BlockScope CurrentBlock { get; private set; }
-
         public int Phase { get; private set; }
-
-        /// <summary>IDs of scopes that were introduced for the purpose of binding identifiers</summary>
-        private readonly HashSet<uint> _bindingScopes;
 
         /// <summary>IDs of scopes that were introduced during macro use/introduction.</summary>
         private readonly HashSet<uint> _macroScopes;
@@ -30,24 +25,17 @@ namespace Clasp.Data.Metadata
         /// <summary>True iff the current expansion should stop at core forms.</summary>
         public bool RestrictedToImmediate { get; private set; }
 
-
-        public readonly ExpansionMode Mode;
-
-
+        //public readonly ExpansionMode Mode;
         private readonly ScopeTokenGenerator _gen;
 
 
-        public bool UseSiteScopeRequired => true; //I don't get the logic in the source code?
-
-
-
+        //public bool UseSiteScopeRequired => true; //I don't get the logic in the source code?
 
 
         private ExpansionContext(
             Environment env,
             BlockScope scp,
             int phase,
-            IEnumerable<uint> bindingScopes,
             IEnumerable<uint> macroScopes,
             bool restrictToImmediate,
             ScopeTokenGenerator gen)
@@ -56,7 +44,6 @@ namespace Clasp.Data.Metadata
             CurrentBlock = scp;
             Phase = phase;
 
-            _bindingScopes = new(bindingScopes);
             _macroScopes = new(macroScopes);
 
             RestrictedToImmediate = restrictToImmediate;
@@ -69,7 +56,6 @@ namespace Clasp.Data.Metadata
             return new ExpansionContext(env, BlockScope.MakeTopLevel(gen),
                 1,
                 [],
-                [],
                 false,
                 gen);
         }
@@ -80,7 +66,6 @@ namespace Clasp.Data.Metadata
                 Binding.StandardEnv.CreateNew(),
                 BlockScope.MakeTopLevel(_gen),
                 Phase + 1,
-                [],
                 _macroScopes,
                 false,
                 _gen);
@@ -92,7 +77,6 @@ namespace Clasp.Data.Metadata
                 CurrentEnv.Enclose(),
                 BlockScope.MakeBody(_gen, CurrentBlock),
                 Phase,
-                [],
                 _macroScopes,
                 RestrictedToImmediate,
                 _gen);
@@ -100,12 +84,11 @@ namespace Clasp.Data.Metadata
 
         public ExpansionContext WithMode(ExpansionMode context)
         {
-            throw new NotImplementedException();
+            throw new System.NotImplementedException();
             return new ExpansionContext(
                 CurrentEnv,
                 CurrentBlock,
                 Phase,
-                [],
                 _macroScopes,
                 RestrictedToImmediate,
                 _gen);

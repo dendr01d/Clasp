@@ -83,7 +83,6 @@ namespace Clasp.Process
             {
                 return ExpandImplicit(Symbol.ImplicitApp, stx, exState);
             }
-            // else if already expanded?
             else
             {
                 return ExpandImplicit(Symbol.ImplicitDatum, stx, exState);
@@ -133,6 +132,11 @@ namespace Clasp.Process
             {
                 return ExpandImplicit(Symbol.ImplicitApp, idApp, exState);
             }
+        }
+
+        private static Syntax ExpandImplicitApp(Syntax stx, ExpansionContext exState)
+        {
+
         }
 
         private static Syntax DispatchOnBinding(ExpansionBinding binding, Syntax stx, ExpansionContext exState)
@@ -216,21 +220,14 @@ namespace Clasp.Process
             //}
         }
 
-
-
         private static Syntax ApplySyntaxTransformer(MacroProcedure macro, Syntax input, ExpansionContext exState)
         {
             uint introScope = exState.TokenizeMacroScope();
-            exState.Paint(input, introScope);
+            uint useSiteScope = exState.TokenizeMacroScope();
+            exState.Paint(input, introScope, useSiteScope);
 
-            if (exState.UseSiteScopeRequired)
-            {
-                uint useSiteScope = exState.TokenizeMacroScope();
-                exState.Paint(input, useSiteScope);
-            }
-
-            CoreForm acceleratedProgram = new MacroApplication(macro, input);
-            Term output = Interpreter.InterpretProgram(acceleratedProgram, macro.CapturedEnv);
+            MacroApplication acceleratedProgram = new MacroApplication(macro, input);
+            Term output = Interpreter.InterpretProgram(acceleratedProgram);
 
             if (output is not Syntax outputStx)
             {
@@ -420,7 +417,7 @@ namespace Clasp.Process
                 && stxLhs.TryExposeIdentifier(out string? idName)
                 && stxRhs.TryExposeList(out Syntax? stxValue, out Syntax? _))
             {
-                MacroProcedure macro = SyntaxAndEvalMacro(stxValue, exState);
+                MacroProcedure macro = ExpandAndEvalMacro(stxValue, exState);
                 BindLocalMacro(stxLhs, idName, macro, exState);
             }
             else
@@ -429,7 +426,7 @@ namespace Clasp.Process
             }
         }
 
-        private static MacroProcedure SyntaxAndEvalMacro(Syntax input, ExpansionContext exState)
+        private static MacroProcedure ExpandAndEvalMacro(Syntax input, ExpansionContext exState)
         {
             ExpansionContext nextPhaseState = exState.WithNextPhase();
 
