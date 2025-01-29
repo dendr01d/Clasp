@@ -28,6 +28,10 @@ namespace Clasp.Data.Terms.Syntax
             _sym = Symbol.Intern(symbolicName);
         }
 
+        public Identifier(Symbol sym, Syntax copy)
+            : this(sym, copy.Location, copy)
+        { }
+
         protected override Identifier DeepCopy() => new Identifier(_sym, Location, this);
 
         public override bool TryExposeIdentifier(

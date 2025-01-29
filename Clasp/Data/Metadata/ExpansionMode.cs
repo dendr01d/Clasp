@@ -6,9 +6,10 @@ using System.Threading.Tasks;
 
 namespace Clasp.Data.Metadata
 {
-    internal enum SyntacticContext
+    internal enum ExpansionMode
     {
         Expression,
+        Body,
         Module,
         TopLevel
     }

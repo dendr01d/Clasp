@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -29,7 +30,17 @@ namespace Clasp.Data.Metadata
         /// <summary>True iff the current expansion should stop at core forms.</summary>
         public bool RestrictedToImmediate { get; private set; }
 
+
+        public readonly ExpansionMode Mode;
+
+
         private readonly ScopeTokenGenerator _gen;
+
+
+        public bool UseSiteScopeRequired => true; //I don't get the logic in the source code?
+
+
+
 
 
         private ExpansionContext(
@@ -87,6 +98,19 @@ namespace Clasp.Data.Metadata
                 _gen);
         }
 
+        public ExpansionContext WithMode(ExpansionMode context)
+        {
+            throw new NotImplementedException();
+            return new ExpansionContext(
+                CurrentEnv,
+                CurrentBlock,
+                Phase,
+                [],
+                _macroScopes,
+                RestrictedToImmediate,
+                _gen);
+        }
+
         public uint TokenizeMacroScope()
         {
             uint output = _gen.FreshToken();
@@ -125,6 +149,15 @@ namespace Clasp.Data.Metadata
             binding = null;
             return false;
         }
+
+        #region Scope Manipulation
+
+        public void Paint(Syntax stx, params uint[] scopes) => ScopeAdjuster.Paint(stx, Phase, scopes);
+        public void Flip(Syntax stx, params uint[] scopes) => ScopeAdjuster.Flip(stx, Phase, scopes);
+        public void Remove(Syntax stx, params uint[] scopes) => ScopeAdjuster.Flip(stx, Phase, scopes);
+
+        #endregion
+
 
         #region Env Helpers
 

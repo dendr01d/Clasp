@@ -10,6 +10,7 @@ using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Product;
 using Clasp.Data.Terms.Syntax;
+using Clasp.ExtensionMethods;
 
 namespace Clasp.Process
 {
@@ -76,16 +77,13 @@ namespace Clasp.Process
             else if (stx is SyntaxPair stp
                 && stp.Car is Identifier idOp)
             {
-                return ExpandIdApplication(stp, idOp, stp.Cdr, exState);
+                return ExpandIdApplication(stp, idOp, exState);
             }
-            //else if (stx.Exposee is Vector)
-            //{
-            //    return ExpandVector(stx, exState);
-            //}
             else if (stx.Expose() is ConsList or Nil)
             {
                 return ExpandImplicit(Symbol.ImplicitApp, stx, exState);
             }
+            // else if already expanded?
             else
             {
                 return ExpandImplicit(Symbol.ImplicitDatum, stx, exState);
@@ -116,7 +114,7 @@ namespace Clasp.Process
         {
             if (exState.TryResolveBinding(id, out ExpansionBinding? binding))
             {
-                return ExpandBoundIdentifier(binding, exState);
+                return DispatchOnBinding(binding, id, exState);
             }
             else
             {
@@ -124,18 +122,12 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax ExpandIdApplication(SyntaxPair idApp, Identifier op, Syntax args, ExpansionContext exState)
+        private static Syntax ExpandIdApplication(SyntaxPair idApp, Identifier op, ExpansionContext exState)
         {
-            if (exState.TryResolveBinding(op, out ExpansionBinding? binding))
+            if (exState.TryResolveBinding(op, out ExpansionBinding? binding)
+                && binding.BoundType != BindingType.Variable)
             {
-                if (binding.BoundType == BindingType.Variable)
-                {
-                    return ExpandImplicit(Symbol.ImplicitApp, idApp, exState);
-                }
-                else
-                {
-                    return ExpandBoundIdentifier(binding, args, exState);
-                }
+                return DispatchOnBinding(binding, idApp, exState);
             }
             else
             {
@@ -143,24 +135,26 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax ExpandBoundIdentifier(ExpansionBinding binding, Syntax args, ExpansionContext exState)
+        private static Syntax DispatchOnBinding(ExpansionBinding binding, Syntax stx, ExpansionContext exState)
         {
-            if (binding.BoundType == BindingType.Special)
+            if (binding.BoundType == BindingType.Special
+                && stx is SyntaxPair app) // all special forms require at least one arg
             {
                 if (exState.RestrictedToImmediate)
                 {
-                    return binding.BoundId;
+                    return stx;
                 }
                 else
                 {
-                    ExpandCoreForm(binding.BoundId, args, exState);
+                    return ExpandCoreForm(binding.BoundId, app, exState);
                 }
             }
             else if (binding.BoundType == BindingType.Transformer)
             {
                 if (exState.TryGetMacro(binding.BindingName, out MacroProcedure? macro))
                 {
-                    return ApplySyntaxTransformer(macro, binding.BoundId, exState);
+                    Syntax transformedStx = ApplySyntaxTransformer(macro, stx, exState);
+                    return Expand(transformedStx, exState);
                 }
                 else
                 {
@@ -169,7 +163,7 @@ namespace Clasp.Process
             }
             else if (binding.BoundType == BindingType.Variable)
             {
-                return binding.BoundId;
+                return stx;
             }
             else
             {
@@ -177,59 +171,101 @@ namespace Clasp.Process
             }
         }
 
-        // https://github.com/mflatt/expander/blob/demi/expand.rkt#L75
-        private static Syntax ExpandImplicit(Symbol formName, Syntax args, ExpansionContext exState)
-        {
-            Syntax formId = Syntax.FromDatum(formName, args);
 
-            if (args.Expose() is Nil)
+        private static Syntax ExpandImplicit(Symbol formName, Syntax stx, ExpansionContext exState)
+        {
+            if (exState.RestrictedToImmediate)
             {
-                return Syntax.Wrap(formId, args);
+                return stx;
             }
-            else if (args is SyntaxPair stp)
-            {
-                Syntax expandedCar = Expand(stp.Car, exState);
-                Syntax expandedCdr = Expand(stp.Cdr, exState);
-                return new SyntaxPair(expandedCar, expandedCdr, args.Location, args);
-            }
-            else
-            {
-                throw new ExpanderException.ExpectedProperList(args);
-            }
+
+            Identifier op = new Identifier(formName, stx);
+            Syntax implicitArgs = ExpandOperands(stx, exState);
+
+            return new SyntaxPair(op, stx, stx);
+
+            //if (exState.TryResolveBinding(op, out ExpansionBinding? binding))
+            //{
+            //    if (binding.BoundType == BindingType.Transformer)
+            //    {
+            //        Syntax newStx = new SyntaxPair(op, stx, stx);
+            //        return DispatchOnBinding(binding, newStx, exState);
+            //    }
+            //    else if (binding.BoundType == BindingType.Special)
+            //    {
+            //        if (formName == Symbol.ImplicitTop
+            //            && binding.BindingSymbol == Symbol.ImplicitTop
+            //            && ExpandContextInLocalExpand(exState))
+            //        {
+            //            return DispatchImplicitTopCoreForm(binding.BoundId, stx, exState);
+            //        }
+            //        else
+            //        {
+            //            Syntax newStx = new SyntaxPair(op, stx, stx);
+            //            return DispatchOnBinding(binding, newStx, exState);
+            //        }
+            //    }
+            //    else
+            //    {
+            //        throw new ExpanderException.UnboundMacro(binding);
+            //    }
+            //}
+            //else
+            //{
+            //    throw new ExpanderException.UnboundIdentifier(op);
+            //}
         }
 
 
 
         private static Syntax ApplySyntaxTransformer(MacroProcedure macro, Syntax input, ExpansionContext exState)
         {
-            uint introScope = exState.TokenGen.FreshToken();
-            exState.PaintScope(input, introScope);
+            uint introScope = exState.TokenizeMacroScope();
+            exState.Paint(input, introScope);
+
+            if (exState.UseSiteScopeRequired)
+            {
+                uint useSiteScope = exState.TokenizeMacroScope();
+                exState.Paint(input, useSiteScope);
+            }
 
             CoreForm acceleratedProgram = new MacroApplication(macro, input);
             Term output = Interpreter.InterpretProgram(acceleratedProgram, macro.CapturedEnv);
 
-            if (output is not Syntax stxOutput)
+            if (output is not Syntax outputStx)
             {
-                throw new ExpanderException.ExpectedEvaluation(typeof(Syntax).Name.ToString(), output, input);
+                throw new ExpanderException.ExpectedEvaluation(nameof(MacroProcedure), output, input);
             }
 
-            //TODO: do I need a use-site scope as well? I can't remember
+            exState.Flip(outputStx, introScope);
 
-            exState.FlipScope(stxOutput, introScope);
-            return stxOutput;
+            return outputStx;
         }
 
-        private static Syntax ExpandCoreForm(Identifier op, Syntax args, ExpansionContext exState)
+
+
+        private static Syntax ExpandCoreForm(Identifier op, SyntaxPair stx, ExpansionContext exState)
         {
+            if (exState.RestrictedToImmediate)
+            {
+                return stx;
+            }
+
             Symbol keyword = op.Expose();
+            Syntax args = stx.Cdr;
 
             if (keyword == Symbol.Quote)
             {
-
+                return ExpandQuote(stx, exState);
             }
             else if (keyword == Symbol.QuoteSyntax)
             {
-
+                return ExpandQuote(stx, exState); // same as quoting in expansion
+            }
+            else if (keyword == Symbol.If)
+            {
+                Syntax operands = ExpandOperands(stx.Cdr, exState, 3);
+                return new SyntaxPair(stx.Car, operands, stx);
             }
             else if (keyword == Symbol.Define)
             {
@@ -239,13 +275,49 @@ namespace Clasp.Process
             {
 
             }
-            if (keyword == Symbol.Lambda)
+            else if (keyword == Symbol.Lambda)
             {
 
             }
             else
             {
                 return ExpandImplicit
+            }
+        }
+
+        private static Syntax ExpandQuote(SyntaxPair stx, ExpansionContext exState)
+        {
+            return stx; //it'll get stripped later during parsing
+        }
+
+        //private static Syntax ExpandIf(SyntaxPair stx, ExpansionContext exState)
+        //{
+        //    return ExpandOperands(3, stx, exState);
+        //}
+
+        private static Syntax ExpandOperands(Syntax stx, ExpansionContext exState, int remaining = -1)
+        {
+            if (remaining == 0)
+            {
+                if (stx.Expose() is Nil)
+                {
+                    return stx;
+                }
+                else
+                {
+                    throw new ExpanderException.InvalidFormInput("Arg List", stx);
+                }
+            }
+            else if (stx is SyntaxPair stp)
+            {
+                Syntax nextArg = Expand(stp.Car, exState.WithMode(ExpansionMode.Expression));
+                Syntax remainingArgs = ExpandOperands(stp.Cdr, exState, int.Min(remaining - 1, -1));
+
+                return new SyntaxPair(nextArg, remainingArgs, stx);
+            }
+            else
+            {
+                throw new ExpanderException.ExpectedProperList(stx);
             }
         }
 

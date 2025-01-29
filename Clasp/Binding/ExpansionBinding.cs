@@ -21,6 +21,7 @@ namespace Clasp.Binding
         public readonly Identifier BoundId;
         public readonly BindingType BoundType;
 
+        public Symbol BindingSymbol => BoundId.Expose();
         public string BindingName => BoundId.SymbolicName;
 
         public ExpansionBinding(Identifier id, BindingType type)

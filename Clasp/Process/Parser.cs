@@ -290,37 +290,6 @@ namespace Clasp.Process
             return false;
         }
 
-        private static bool TryExposeOneArg(Syntax stx,
-            [NotNullWhen(true)] out Syntax? arg1)
-        {
-            return stx.TryExposeList(out arg1, out Syntax? terminator)
-                && terminator._wrapped is Nil;
-        }
-
-        private static bool TryExposeTwoArgs(Syntax stx,
-            [NotNullWhen(true)] out Syntax? arg1,
-            [NotNullWhen(true)] out Syntax? arg2)
-        {
-            arg2 = null;
-
-            return stx.TryExposeList(out arg1, out Syntax? rest)
-                && TryExposeOneArg(rest, out arg2);
-        }
-
-        private static bool TryExposeThreeArgs(Syntax stx,
-            [NotNullWhen(true)] out Syntax? arg1,
-            [NotNullWhen(true)] out Syntax? arg2,
-            [NotNullWhen(true)] out Syntax? arg3)
-        {
-            arg2 = null;
-            arg3 = null;
-
-            return stx.TryExposeList(out arg1, out Syntax? rest)
-                && TryExposeTwoArgs(stx, out arg2, out arg3);
-        }
-
-
-
         #endregion
     }
 }
