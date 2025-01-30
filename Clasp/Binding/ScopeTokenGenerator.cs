@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.Binding.Scopes
+namespace Clasp.Binding
 {
     internal class ScopeTokenGenerator
     {

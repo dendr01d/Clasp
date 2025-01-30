@@ -4,7 +4,6 @@ using System.Linq;
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
-using Clasp.Binding.Scopes;
 using Clasp.Data;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
@@ -75,26 +74,6 @@ namespace Clasp.Process
             }
         }
 
-        private static readonly Term[] _specialForms = new Term[]
-        {
-            Symbol.Lambda,
-            Symbol.LetSyntax, // has to be a core form because how else would we define it? macros? lol
-            Symbol.Quote,
-            Symbol.QuoteSyntax
-        };
-
-        //private static readonly string[] _corePrimitives = new string[]
-        //{
-        //    "datum->syntax",
-        //    "syntax->datum",
-        //    "syntax-e",
-        //    "list",
-        //    "cons",
-        //    "car",
-        //    "cdr",
-        //    "map"
-        //};
-
         /// <summary>
         /// Expand an identifier as a standalone expression.
         /// </summary>
@@ -131,7 +110,7 @@ namespace Clasp.Process
         {
             if (binding.BoundType == BindingType.Special)
             {
-                return ExpandCoreForm(binding.BindingSymbol, stx, exState);
+                return ExpandCoreForm(binding.BindingName, stx, exState);
             }
             else if (binding.BoundType == BindingType.Transformer)
             {
@@ -199,33 +178,49 @@ namespace Clasp.Process
         {
             uint introScope = exState.TokenizeMacroScope();
             uint useSiteScope = exState.TokenizeMacroScope();
-            exState.Paint(input, introScope, useSiteScope);
+            exState.AddScope(input, introScope, useSiteScope);
 
             MacroApplication acceleratedProgram = new MacroApplication(macro, input);
             Term output = Interpreter.InterpretProgram(acceleratedProgram);
 
             if (output is not Syntax outputStx)
             {
-                throw new ExpanderException.ExpectedSyntax(output, input);
+                throw new ExpanderException.ExpectedEvaluation(nameof(Syntax), output, input);
             }
 
-            exState.Flip(outputStx, introScope);
+            exState.FlipScope(outputStx, introScope);
+
+            //TODO remove macro scopes from keys of newly-inserted definitions(?)
+            //TODO also do something with outside/inside edge scope(??)
 
             return outputStx;
         }
 
+        private static readonly string[] _specialImperativeForms = new string[]
+        {
+            Keyword.DEFINE,
+            Keyword.DEFINE_SYNTAX,
+            Keyword.SET
+        };
+
+        private static readonly string[] _specialDefinitionForms = new string[]
+        {
+            Keyword.DEFINE,
+            Keyword.DEFINE_SYNTAX
+        };
+
         /// <summary>
         /// Expand the invocation of a core syntactic form.
         /// </summary>
-        /// <param name="specialFormSym">The symbol corresponding to the form's default keyword.</param>
+        /// <param name="formName">The symbol corresponding to the form's default keyword.</param>
         /// <param name="stx">The entirety of the form's application expression.</param>
-        private static Syntax ExpandCoreForm(Symbol specialFormSym, Syntax stx, ExpansionContext exState)
+        private static Syntax ExpandCoreForm(string formName, Syntax stx, ExpansionContext exState)
         {
             if (stx is not SyntaxPair fullForm
-                || fullForm.Car is not Identifier keywordId)
+                || fullForm.Car is not Identifier formId)
             {
                 // all core forms require arguments
-                throw new ExpanderException.InvalidFormInput(specialFormSym.Name, stx);
+                throw new ExpanderException.InvalidFormInput(formName, stx);
             }
             
             if (fullForm.Cdr is not SyntaxPair args)
@@ -234,16 +229,30 @@ namespace Clasp.Process
                 throw new ExpanderException.ExpectedProperList(fullForm);
             }
 
+            // imperative commands are unallowed in expression contexts
+            if (_specialImperativeForms.Contains(formName) && exState.Mode == ExpMode.Expression)
+            {
+                throw new ExpanderException.InvalidContext(formName, exState.Mode, stx);
+            }
+
             // for each core form, expansion involves doing something with the arguments
             // dispatch to the handler depending on the keyword, then reassemble the final form
 
-            Syntax tail = specialFormSym.Name switch
+            Syntax tail = formName switch
             {
                 Keyword.QUOTE => ExpandQuote(args, exState),
+                Keyword.QUOTE_SYNTAX => ExpandQuote(args, exState),
+
+                Keyword.LAMBDA => ExpandLambda(args, exState),
+                Keyword.LET_SYNTAX => ExpandLetSyntax(args, exState),
+
+                Keyword.DEFINE => ExpandDefine(args, exState),
+                Keyword.DEFINE_SYNTAX => ExpandDefineSyntax(args, exState),
+
                 _ => throw new ExpanderException.InvalidSyntax(stx)
             };
 
-            return new SyntaxPair(keywordId, tail, stx);
+            return new SyntaxPair(formId, tail, stx);
         }
 
         private static Syntax ExpandQuote(SyntaxPair stx, ExpansionContext exState)
@@ -251,183 +260,236 @@ namespace Clasp.Process
             return stx; //it'll get stripped later during parsing
         }
 
-        private static Syntax ExpandOperands(Syntax stx, ExpansionContext exState, int remaining = -1)
+        private static Syntax ExpandLambda(Syntax stx, ExpansionContext exState)
         {
-            if (remaining == 0)
+            if (stx is not SyntaxPair stp)
             {
-                if (stx.Expose() is Nil)
+                throw new ExpanderException.InvalidFormInput(Keyword.LAMBDA, stx);
+            }
+            else
+            {
+                uint newScope = exState.TokenizeScope();
+
+                exState.AddScope(stp.Car, newScope);
+                exState.AddScope(stp.Cdr, newScope);
+
+                ExpansionContext subState = exState.ExpandInSubBlock(ExpMode.Body);
+
+                foreach (Identifier parameter in EnumerateParameterList(stp.Car))
                 {
-                    return stx;
+                    RenameAndBindVariable(parameter, subState);
+                }
+
+                Syntax expandedBody = ExpandBody(stp.Cdr, subState);
+
+                return new SyntaxPair(stp.Car, expandedBody, stx);
+            }
+        }
+
+        private static Syntax ExpandBody(Syntax stx, ExpansionContext exState)
+        {
+            //TODO this needs to do a first-pass to check for definitions
+            //TODO inside/outside edge scopes? idk
+
+            if (stx is not SyntaxPair stp)
+            {
+                throw new ExpanderException.ExpectedProperList(stx);
+            }
+            else if (stp.Cdr.Expose() is Nil)
+            {
+                Syntax expandedCar = Expand(stp.Car, exState.ExpandInMode(ExpMode.Expression));
+                return new SyntaxPair(expandedCar, stp.Cdr, stx);
+            }
+            else
+            {
+                Syntax expandedCar = Expand(stp.Car, exState);
+                Syntax expandedCdr = ExpandBody(stp.Cdr, exState);
+                return new SyntaxPair(expandedCar, expandedCdr, stx);
+            }
+        }
+        private static Syntax ExpandOperands(Syntax stx, ExpansionContext exState)
+        {
+            if (stx is SyntaxPair stp)
+            {
+                Syntax nextArg = Expand(stp.Car, exState.ExpandInMode(ExpMode.Expression));
+
+                if (stp.Cdr.Expose() is Nil)
+                {
+                    return new SyntaxPair(nextArg, stp.Cdr, stx);
                 }
                 else
                 {
-                    throw new ExpanderException.InvalidFormInput("Arg List", stx);
+                    Syntax remainingArgs = ExpandOperands(stp.Cdr, exState);
+                    return new SyntaxPair(nextArg, remainingArgs, stx);
                 }
             }
-            else if (stx is SyntaxPair stp)
-            {
-                Syntax nextArg = Expand(stp.Car, exState.ExpandInNewMode(ExpansionMode.Expression));
-                Syntax remainingArgs = ExpandOperands(stp.Cdr, exState, int.Min(remaining - 1, -1));
 
-                return new SyntaxPair(nextArg, remainingArgs, stx);
+            throw new ExpanderException.ExpectedProperList(stx);
+        }
+
+        private static Syntax ExpandLetSyntax(Syntax stx, ExpansionContext exState)
+        {
+            if (stx is not SyntaxPair stp)
+            {
+                throw new ExpanderException.InvalidFormInput(Symbol.LetSyntax.Name, stx);
             }
             else
             {
-                throw new ExpanderException.ExpectedProperList(stx);
-            }
-        }
+                uint newScope = exState.TokenizeScope();
 
-        private static Syntax ExpandLambda(Syntax stx, Syntax stxOp, Syntax stxArgs, ExpansionContext exState)
-        {
-            if (stxArgs.TryExposeList(out Syntax? stxParams, out Syntax? stxBody))
-            {
-                uint newScope = exState.TokenGen.FreshToken();
-                Syntax.PaintScope(stxParams, exState.Phase, newScope);
-                Syntax.PaintScope(stxBody, exState.Phase, newScope);
+                exState.AddScope(stp.Car, newScope);
+                exState.AddScope(stp.Cdr, newScope);
 
-                ExpansionContext subState = exState.WithSubEnv();
+                ExpansionContext subState = exState.ExpandInSubBlock(ExpMode.Body);
 
-                Syntax expandedParams = ExpandParameterList(stxParams, subState);
-                Syntax expandedBody = ExpandImplicit(stxBody, subState);
+                foreach (SyntaxPair letBinding in EnumerateLetBindingList(stp.Car))
+                {
+                    ExpandDefineSyntax(letBinding, subState);
+                }
 
-                Syntax expandedArgs = Syntax.Wrap(ConsList.Cons(expandedParams, expandedBody), stxArgs);
-                Syntax expandedStx = Syntax.Wrap(ConsList.Cons(stxOp, expandedArgs), stx);
-                return expandedStx;
-            }
-
-            throw new ExpanderException.InvalidFormInput(Symbol.Lambda.Name, stx);
-        }
-
-        private static Syntax ExpandParameterList(Syntax stx, ExpansionContext exState)
-        {
-            if (stx._wrapped is Nil)
-            {
-                return stx;
-            }
-            else if (stx.TryExposeIdentifier(out string? idName))
-            {
-                return RenameLocalVariable(stx, idName, exState);
-            }
-            else if (stx.TryExposeList(out Syntax? stxCar, out Syntax? stxCdr)
-                && stxCar.TryExposeIdentifier(out string? firstIdName))
-            {
-                Syntax newIdentifier = RenameLocalVariable(stxCar, firstIdName, exState);
-                Syntax expandedTail = ExpandParameterList(stxCdr, exState);
-
-                return Syntax.Wrap(ConsList.Cons(newIdentifier, expandedTail), stx);
-            }
-            else
-            {
-                throw new ExpanderException.InvalidFormInput(Symbol.Lambda.Name, "parameter list", stx);
-            }
-        }
-
-        private static Syntax RenameLocalVariable(Syntax stx, string idName, ExpansionContext exState)
-        {
-            Symbol newSym = new GenSym(idName);
-            exState.MarkVariable(newSym.Name);
-
-            Syntax newIdentifier = Syntax.Wrap(newSym, stx);
-            exState.RenameInCurrentScope(newIdentifier, idName, newSym.Name);
-
-            return newIdentifier;
-        }
-
-        private static Syntax ExpandLetSyntax(Syntax stx, Syntax stxArgs, ExpansionContext exState)
-        {
-            if (stxArgs.TryExposeList(out Syntax? stxLetBindings, out Syntax? stxBody))
-            {
-                uint newScope = exState.TokenGen.FreshToken();
-                exState.PaintScope(stxLetBindings, newScope);
-                exState.FlipScope(stxBody, newScope);
-
-                ExpansionContext subState = exState.WithSubEnv();
-
-                ExpandLetBindingList(stxLetBindings, subState);
+                Syntax expandedBody = ExpandBody(stp.Cdr, subState);
 
                 // the point of this form is to install temporary macros over the body
                 // we only care about returning the expanded body itself, however
-                return Expand(stxBody, subState);
-            }
-
-            throw new ExpanderException.InvalidFormInput(Symbol.LetSyntax.Name, stx);
-        }
-
-        private static void ExpandLetBindingList(Syntax stx, ExpansionContext exState)
-        {
-            if (stx._wrapped is Nil)
-            {
-                return;
-            }
-            else if (stx.TryExposeList(out Syntax? stxCar, out Syntax? stxCdr))
-            {
-                ExpandLetBinding(stxCar, exState);
-                ExpandLetBindingList(stxCdr, exState);
-            }
-            else
-            {
-                throw new ExpanderException.ExpectedProperList(stx);
+                return expandedBody;
             }
         }
 
-        private static void ExpandLetBinding(Syntax stx, ExpansionContext exState)
+        private static Syntax ExpandDefine(Syntax stx, ExpansionContext exState)
         {
-            if (stx.TryExposeList(out Syntax? stxLhs, out Syntax? stxRhs)
-                && stxLhs.TryExposeIdentifier(out string? idName)
-                && stxRhs.TryExposeList(out Syntax? stxValue, out Syntax? _))
-            {
-                MacroProcedure macro = ExpandAndEvalMacro(stxValue, exState);
-                BindLocalMacro(stxLhs, idName, macro, exState);
-            }
-            else
-            {
-                throw new ExpanderException.InvalidFormInput(Symbol.LetSyntax.Name, "binding pair", stx);
-            }
+            UnpackDefinition(Keyword.DEFINE, stx, out Identifier key, out SyntaxPair rest);
+
+            RenameAndBindVariable(key, exState);
+            Syntax expandedRest = ExpandBody(rest, exState);
+
+            return new SyntaxPair(key, expandedRest, stx);
+        }
+
+        private static Syntax ExpandDefineSyntax(Syntax stx, ExpansionContext exState)
+        {
+            UnpackDefinition(Keyword.DEFINE_SYNTAX, stx, out Identifier key, out SyntaxPair rest);
+
+            Identifier renamedKey = RenameAndBindVariable(key, exState);
+            MacroProcedure macro = ExpandAndEvalMacro(rest.Car, exState);
+
+            exState.BindMacro(key, renamedKey, macro);
+
+            return new Datum(VoidTerm.Value, stx.Location, stx);
         }
 
         private static MacroProcedure ExpandAndEvalMacro(Syntax input, ExpansionContext exState)
         {
-            ExpansionContext nextPhaseState = exState.WithNextPhase();
+            ExpansionContext subState = exState.ExpandInNewPhase();
 
-            Syntax expandedInput = Expand(input, nextPhaseState);
-            CoreForm SyntaxdInput = Parser.ParseSyntax(expandedInput, nextPhaseState.GlobalBindingStore, nextPhaseState.Phase);
-            Term output = Interpreter.InterpretProgram(SyntaxdInput, StandardEnv.CreateNew());
+            Syntax expandedInput = Expand(input, subState);
+            CoreForm parsedInput = Parser.ParseSyntax(expandedInput, subState.GlobalBindingStore, subState.Phase);
+            Term output = Interpreter.InterpretProgram(parsedInput, StandardEnv.CreateNew());
 
             if (output is MacroProcedure macro)
             {
                 return macro;
             }
 
-            throw new ExpanderException.ExpectedSyntax(typeof(MacroProcedure).ToString(), output, input);
+            throw new ExpanderException.ExpectedEvaluation(nameof(MacroProcedure), output, input);
         }
 
-        private static void BindLocalMacro(Syntax identifier, string idName, MacroProcedure value, ExpansionContext exState)
+        #region Helpers
+
+        private static Identifier RenameAndBindVariable(Identifier symId, ExpansionContext exState)
         {
-            Symbol newSym = new GenSym(idName);
-            exState.BindMacro(newSym.Name, value);
+            GenSym newSym = new GenSym(symId.SymbolicName);
+            Identifier bindingId = new Identifier(newSym, symId);
+            exState.BindVariable(symId, bindingId);
 
-            Syntax newIdentifier = Syntax.Wrap(newSym, identifier);
-            exState.RenameInCurrentScope(newIdentifier, idName, newSym.Name);
+            return bindingId;
         }
 
-        //private static Syntax ExpandVector(Syntax stx, ExpansionState exState)
-        //{
-        //    if (stx.TryExposeVector(out Vector? _, out Term[]? values))
-        //    {
-                
-        //    }
-        //    else
-        //    {
-        //        throw new ExpanderException.InvalidFormInput(typeof(Vector).Name.ToString(), stx);
-        //    }
+        private static void UnpackDefinition(string formName, Syntax stx, out Identifier key, out SyntaxPair rest)
+        {
+            if (stx is SyntaxPair args)
+            {
+                if (args.Car is Identifier bindingKey1
+                    && args.Cdr is SyntaxPair tail
+                    && tail.Cdr.Expose() is Nil)
+                {
+                    key = bindingKey1;
+                    rest = tail;
+                    return;
+                }
+                else if (args.Car is SyntaxPair nameWithParams
+                    && nameWithParams.Car is Identifier bindingKey2)
+                {
+                    key = bindingKey2;
+                    rest = new SyntaxPair(
+                        new Identifier(Symbol.ImplicitLambda, args),
+                        new SyntaxPair(nameWithParams.Cdr, args.Cdr, args),
+                        args);
+                    return;
+                }
+            }
 
-        //    if (stx.TryExposeVector(out Vector? _, out IEnumerable<Syntax>? stxValues))
-        //    {
-        //        Syntax[] expandedValues = stxValues.Select(x => Expand(x, exState)).ToArray();
-        //        return Syntax.Wrap(new Vector(expandedValues), stx);
-        //    }
+            throw new ExpanderException.InvalidFormInput(formName, stx);
+        }
 
-        //}
+        private static IEnumerable<Identifier> EnumerateParameterList(Syntax stx)
+        {
+            Syntax current = stx;
+
+            while (current is SyntaxPair nextPair)
+            {
+                if (nextPair.Car is Identifier nextParam)
+                {
+                    yield return nextParam;
+                    current = nextPair.Cdr;
+                }
+                else
+                {
+                    throw new ExpanderException.InvalidFormInput("Parameter list", stx);
+                }
+            }
+
+            if (current is Identifier dottedParam)
+            {
+                yield return dottedParam;
+            }
+            else if (current.Expose() is Nil)
+            {
+                yield break;
+            }
+            else
+            {
+                throw new ExpanderException.ExpectedProperList(stx);
+            }
+        }
+
+        private static IEnumerable<SyntaxPair> EnumerateLetBindingList(Syntax stx)
+        {
+            Syntax current = stx;
+
+            while (current is SyntaxPair nextPair)
+            {
+                if (nextPair.Car is SyntaxPair nextLetBinding)
+                {
+                    yield return nextLetBinding;
+                    current = nextPair.Cdr;
+                }
+                else
+                {
+                    throw new ExpanderException.InvalidFormInput("Let-binding list", nextPair);
+                }
+            }
+
+            if (current.Expose() is Nil)
+            {
+                yield break;
+            }
+            else
+            {
+                throw new ExpanderException.ExpectedProperList(stx);
+            }
+        }
+
+        #endregion
 
     }
 }

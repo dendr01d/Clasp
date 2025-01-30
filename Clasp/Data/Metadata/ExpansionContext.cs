@@ -4,7 +4,6 @@ using System.Linq;
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
-using Clasp.Binding.Scopes;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Syntax;
 
@@ -32,7 +31,7 @@ namespace Clasp.Data.Metadata
         private readonly HashSet<uint> _macroScopes;
 
         /// <summary>Encodes what kind of terms are permitted in the current context.</summary>
-        public readonly ExpansionMode Mode;
+        public readonly ExpMode Mode;
 
         private readonly ScopeTokenGenerator _gen;
 
@@ -41,7 +40,7 @@ namespace Clasp.Data.Metadata
             BindingStore scp,
             int phase,
             IEnumerable<uint> macroScopes,
-            ExpansionMode mode,
+            ExpMode mode,
             ScopeTokenGenerator gen)
         {
             CompileTimeEnv = env;
@@ -62,7 +61,7 @@ namespace Clasp.Data.Metadata
                 new BindingStore(),
                 1,
                 [],
-                ExpansionMode.TopLevel,
+                ExpMode.TopLevel,
                 gen);
         }
         
@@ -73,11 +72,11 @@ namespace Clasp.Data.Metadata
                 new BindingStore(),
                 Phase + 1,
                 [],
-                ExpansionMode.TopLevel,
+                ExpMode.TopLevel,
                 _gen);
         }
 
-        public ExpansionContext ExpandInMode(ExpansionMode context)
+        public ExpansionContext ExpandInMode(ExpMode context)
         {
             return new ExpansionContext(
                 CompileTimeEnv,
@@ -99,8 +98,13 @@ namespace Clasp.Data.Metadata
                 _gen);
         }
 
-        public ExpansionContext ExpandInSubBlock(ExpansionMode context)
+        public ExpansionContext ExpandInSubBlock(ExpMode context)
             => ExpandInSubBlock().ExpandInMode(context);
+
+        public uint TokenizeScope()
+        {
+            return _gen.FreshToken();
+        }
 
         public uint TokenizeMacroScope()
         {
@@ -143,9 +147,9 @@ namespace Clasp.Data.Metadata
 
         #region Scope Manipulation
 
-        public void Paint(Syntax stx, params uint[] scopes) => ScopeAdjuster.Paint(stx, Phase, scopes);
-        public void Flip(Syntax stx, params uint[] scopes) => ScopeAdjuster.Flip(stx, Phase, scopes);
-        public void Remove(Syntax stx, params uint[] scopes) => ScopeAdjuster.Flip(stx, Phase, scopes);
+        public void AddScope(Syntax stx, params uint[] scopeTokens) => stx.AddScope(Phase, scopeTokens);
+        public void FlipScope(Syntax stx, params uint[] scopeTokens) => stx.FlipScope(Phase, scopeTokens);
+        public void RemoveScope(Syntax stx, params uint[] scopeTokens) => stx.RemoveScope(Phase, scopeTokens);
 
         #endregion
 

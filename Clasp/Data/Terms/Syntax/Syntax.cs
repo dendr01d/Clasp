@@ -79,6 +79,10 @@ namespace Clasp.Data.Terms.Syntax
 
         #endregion
 
+        public virtual void AddScope(int phase, params uint[] scopeTokens) => GetScopeSet(phase).UnionWith(scopeTokens);
+        public virtual void FlipScope(int phase, params uint[] scopeTokens) => GetScopeSet(phase).SymmetricExceptWith(scopeTokens);
+        public virtual void RemoveScope(int phase, params uint[] scopeTokens) => GetScopeSet(phase).ExceptWith(scopeTokens);
+
         public Syntax StripFromPhase(int phase)
         {
             Syntax output = FromSyntax(this);

@@ -55,6 +55,7 @@ namespace Clasp.Data.Terms
         public static readonly Symbol ImplicitDatum = Intern(Keyword.IMP_DATUM);
         public static readonly Symbol ImplicitTop = Intern(Keyword.IMP_TOP);
         public static readonly Symbol ImplicitExpression = Intern(Keyword.IMP_EXPRESSION);
+        public static readonly Symbol ImplicitLambda = Intern(Keyword.IMP_LAMBDA);
 
         #endregion
 

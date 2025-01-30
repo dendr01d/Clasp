@@ -181,12 +181,12 @@ namespace Clasp
             { }
         }
 
-        public class ExpectedSyntax : ExpanderException
+        public class ExpectedEvaluation : ExpanderException
         {
-            internal ExpectedSyntax(Term received, Syntax source) : base(
+            internal ExpectedEvaluation(string expectedType, Term received, Syntax source) : base(
                 source.Location,
-                "Expected evaluation to yield Term of type '{0}', but instead: {1} --> {2}",
-                nameof(Syntax),
+                "Expected evaluation to yield term of type '{0}', but instead: {1} --> {2}",
+                expectedType,
                 source,
                 received
                 )
@@ -226,6 +226,17 @@ namespace Clasp
                 inputDescription,
                 formName,
                 invalidForm)
+            { }
+        }
+
+        public class InvalidContext : ExpanderException
+        {
+            internal InvalidContext(string formName, ExpMode mode, Syntax wrongSyntax) : base(
+                wrongSyntax.Location,
+                "Input of type '{0}' is invalid in '{1}' expansion context: {2}",
+                formName,
+                mode.ToString(),
+                wrongSyntax)
             { }
         }
     }

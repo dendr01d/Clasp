@@ -38,6 +38,7 @@ namespace Clasp.Data
         public const string IMP_DATUM = "#%datum";
         public const string IMP_TOP = "#%top";
         public const string IMP_EXPRESSION = "#%expression";
+        public const string IMP_LAMBDA = "#%lambda";
 
 
 

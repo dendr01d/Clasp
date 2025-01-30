@@ -37,10 +37,10 @@ namespace Clasp.Data.Terms
         protected override string FormatType() => "Undefined";
     }
 
-    internal sealed class Void : Atom
+    internal sealed class VoidTerm : Atom
     {
-        public static readonly Void Value = new Void();
-        private Void() { }
+        public static readonly VoidTerm Value = new VoidTerm();
+        private VoidTerm() { }
         public override string ToString() => "#<void>";
         protected override string FormatType() => "void";
     }

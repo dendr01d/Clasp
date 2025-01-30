@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
-using Clasp.Binding.Scopes;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;

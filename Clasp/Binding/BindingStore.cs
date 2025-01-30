@@ -9,7 +9,7 @@ using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Syntax;
 
-namespace Clasp.Binding.Scopes
+namespace Clasp.Binding
 {
     internal class BindingStore
     {

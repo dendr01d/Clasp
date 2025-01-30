@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Clasp.Data.Metadata
 {
-    internal enum ExpansionMode
+    internal enum ExpMode
     {
         Expression,
         Body,
