@@ -18,8 +18,8 @@ namespace Clasp.Binding
 
     internal class ExpansionBinding
     {
-        public readonly Identifier BoundId;
-        public readonly BindingType BoundType;
+        public Identifier BoundId { get; private set; }
+        public BindingType BoundType { get; private set; }
 
         public Symbol BindingSymbol => BoundId.Expose();
         public string BindingName => BoundId.SymbolicName;

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Clasp.Data;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Syntax;
@@ -17,6 +18,11 @@ namespace Clasp.Binding.Scopes
         public BindingStore()
         {
             _renamings = new();
+
+            BindCoreForm(Keyword.DEFINE);
+            BindCoreForm(Keyword.DEFINE_SYNTAX);
+            BindCoreForm(Keyword.LET_SYNTAX);
+            BindCoreForm(Keyword.LAMBDA);
         }
 
         public void AddBinding(string symName, IEnumerable<uint> scopeSet, ExpansionBinding binding)
@@ -33,6 +39,13 @@ namespace Clasp.Binding.Scopes
 
         public void AddBinding(Identifier id, int phase, ExpansionBinding binding)
             => AddBinding(id.SymbolicName, id.GetScopeSet(phase), binding);
+
+        private void BindCoreForm(string name)
+        {
+            Identifier coreId = new Identifier(name, SourceLocation.InherentSource);
+            ExpansionBinding binding = new ExpansionBinding(coreId, BindingType.Special);
+            AddBinding(name, [], binding);
+        }
 
 
         /// <summary>

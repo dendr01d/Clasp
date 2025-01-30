@@ -25,8 +25,10 @@ namespace Clasp.Binding.Environments
         #region Utilities
 
         public SubEnvironment Enclose() => new SubEnvironment(this);
-
         public abstract Term LookUp(string name);
+
+        public bool Binds(string name) => ContainsKey(name);
+        public abstract bool StaticallyBinds(string name);
 
         protected abstract IEnumerable<Environment> EnumerateScope();
 

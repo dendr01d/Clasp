@@ -50,6 +50,8 @@ namespace Clasp.Binding.Environments
             }
         }
 
+        public override bool StaticallyBinds(string name) => _staticBindings.ContainsKey(name);
+
         public override bool ContainsKey(string key) => _mutableBindings.ContainsKey(key) || _staticBindings.ContainsKey(key);
         public override bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value)
         {

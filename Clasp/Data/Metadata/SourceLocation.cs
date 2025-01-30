@@ -52,6 +52,12 @@ namespace Clasp.Data.Metadata
         public readonly Blob SourceText;
 
         /// <summary>
+        /// Indicates that the object associated with this <see cref="SourceLocation"/> is inherent
+        /// to the language and thus has no proper source location.
+        /// </summary>
+        public bool Inherent { get; init; }
+
+        /// <summary>
         /// The <see cref="LineNumber"/> normalized to a 0-indexed system.
         /// </summary>
         public int NormalizedLineNumber => LineNumber - 1;
@@ -60,7 +66,6 @@ namespace Clasp.Data.Metadata
         /// The <see cref="StartingPosition"/> normalized to a 0-indexed system.
         /// </summary>
         public int NormalizedStartingPosition => StartingPosition - 1;
-
 
         public SourceLocation(string source,
             int lineNumber, int column, int startingPosition, int length,
@@ -74,8 +79,16 @@ namespace Clasp.Data.Metadata
 
             SourceText = text;
             Original = original;
+
+            Inherent = false;
         }
 
         public SourceLocation Derivation() => new SourceLocation(Source, LineNumber, Column, StartingPosition, 0, SourceText, false);
+
+        public static readonly SourceLocation InherentSource =
+            new SourceLocation("CLASP", -1, -1, -1, -1, new Blob("CLASP", []), true)
+            {
+                Inherent = true;
+            };
     }
 }

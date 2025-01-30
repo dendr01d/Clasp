@@ -181,12 +181,12 @@ namespace Clasp
             { }
         }
 
-        public class ExpectedEvaluation : ExpanderException
+        public class ExpectedSyntax : ExpanderException
         {
-            internal ExpectedEvaluation(string expectedTypeName, Term received, Syntax source) : base(
+            internal ExpectedSyntax(Term received, Syntax source) : base(
                 source.Location,
                 "Expected evaluation to yield Term of type '{0}', but instead: {1} --> {2}",
-                expectedTypeName,
+                nameof(Syntax),
                 source,
                 received
                 )

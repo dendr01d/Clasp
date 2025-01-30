@@ -33,7 +33,15 @@ namespace Clasp.Data.Terms
     {
         public static readonly Undefined Value = new Undefined();
         private Undefined() { }
-        public override string ToString() => "#undefined";
+        public override string ToString() => "#<undefined>";
         protected override string FormatType() => "Undefined";
+    }
+
+    internal sealed class Void : Atom
+    {
+        public static readonly Void Value = new Void();
+        private Void() { }
+        public override string ToString() => "#<void>";
+        protected override string FormatType() => "void";
     }
 }

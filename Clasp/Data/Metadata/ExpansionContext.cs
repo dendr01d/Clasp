@@ -19,7 +19,7 @@ namespace Clasp.Data.Metadata
         /// Records compile-time bindings of identifiers in the current lexical scope. Closures
         /// are used to ensure the locality of bound values.
         /// </summary>
-        public readonly Environment ExpTimeEnv;
+        public readonly Environment CompileTimeEnv;
 
         /// <summary>
         /// Globally records renamings of identifiers for the current expansion.
@@ -44,7 +44,7 @@ namespace Clasp.Data.Metadata
             ExpansionMode mode,
             ScopeTokenGenerator gen)
         {
-            ExpTimeEnv = env;
+            CompileTimeEnv = env;
             GlobalBindingStore = scp;
             Phase = phase;
 
@@ -58,7 +58,7 @@ namespace Clasp.Data.Metadata
         public static ExpansionContext FreshExpansion(Environment env, ScopeTokenGenerator gen)
         {
             return new ExpansionContext(
-                env,
+                StandardEnv.CreateNew(),
                 new BindingStore(),
                 1,
                 [],
@@ -69,7 +69,7 @@ namespace Clasp.Data.Metadata
         public ExpansionContext ExpandInNewPhase()
         {
             return new ExpansionContext(
-                ExpTimeEnv.TopLevel,
+                CompileTimeEnv.TopLevel.Enclose(),
                 new BindingStore(),
                 Phase + 1,
                 [],
@@ -77,16 +77,30 @@ namespace Clasp.Data.Metadata
                 _gen);
         }
 
-        public ExpansionContext ExpandInNewMode(ExpansionMode context)
+        public ExpansionContext ExpandInMode(ExpansionMode context)
         {
             return new ExpansionContext(
-                ExpTimeEnv.Enclose(),
+                CompileTimeEnv,
                 GlobalBindingStore,
                 Phase,
                 _macroScopes,
                 context,
                 _gen);
         }
+
+        public ExpansionContext ExpandInSubBlock()
+        {
+            return new ExpansionContext(
+                CompileTimeEnv.Enclose(),
+                GlobalBindingStore,
+                Phase,
+                _macroScopes,
+                Mode,
+                _gen);
+        }
+
+        public ExpansionContext ExpandInSubBlock(ExpansionMode context)
+            => ExpandInSubBlock().ExpandInMode(context);
 
         public uint TokenizeMacroScope()
         {
@@ -138,7 +152,7 @@ namespace Clasp.Data.Metadata
 
         #region Env Helpers
 
-        public Term Dereference(Identifier id) => ExpTimeEnv.LookUp(id.SymbolicName);
+        public Term Dereference(Identifier id) => CompileTimeEnv.LookUp(id.SymbolicName);
         public Term Dereference(ExpansionBinding binding) => Dereference(binding.BoundId);
 
         public void BindVariable(Identifier symId, Identifier bindingId)
@@ -151,20 +165,20 @@ namespace Clasp.Data.Metadata
         {
             ExpansionBinding binding = new ExpansionBinding(bindingId, BindingType.Transformer);
             GlobalBindingStore.AddBinding(symId, Phase, binding);
-            ExpTimeEnv[bindingId.SymbolicName] = macro;
+            CompileTimeEnv[bindingId.SymbolicName] = macro;
         }
 
         public void BindSpecial(Identifier symId, Identifier bindingId, Symbol keyword)
         {
             ExpansionBinding binding = new ExpansionBinding(bindingId, BindingType.Special);
             GlobalBindingStore.AddBinding(symId, Phase, binding);
-            ExpTimeEnv[bindingId.SymbolicName] = keyword;
+            CompileTimeEnv[bindingId.SymbolicName] = keyword;
         }
 
         public bool TryGetMacro(string bindingName,
             [NotNullWhen(true)] out MacroProcedure? macro)
         {
-            if (ExpTimeEnv.TryGetValue(bindingName, out Term? value)
+            if (CompileTimeEnv.TryGetValue(bindingName, out Term? value)
                 && value is MacroProcedure result)
             {
                 macro = result;

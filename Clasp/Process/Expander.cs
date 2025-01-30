@@ -5,6 +5,7 @@ using System.Linq;
 using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Binding.Scopes;
+using Clasp.Data;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
@@ -47,21 +48,6 @@ namespace Clasp.Process
 
     internal static class Expander
     {
-        // certain core forms are represented implicitly
-        // e.g. how a list is assumed to be a function application
-        // tagging each core form makes parsing a lot easier
-
-        public const string IMPLICIT_APP = "#%app";
-        public const string IMPLICIT_DATUM = "#%datum";
-        public const string IMPLICIT_TOP = "#%top";
-        //public const string MARK_PARAMS = "#%params";
-        //public const string MARK_DEREF = "#var";
-
-        // or maybe that's too much. lol
-
-
-        // credit to https://github.com/mflatt/expander/blob/pico/main.rkt
-
         public static Syntax ExpandSyntax(Syntax input, Environment env, ScopeTokenGenerator gen)
         {
             ExpansionContext exState = ExpansionContext.FreshExpansion(env, gen);
@@ -109,6 +95,9 @@ namespace Clasp.Process
         //    "map"
         //};
 
+        /// <summary>
+        /// Expand an identifier as a standalone expression.
+        /// </summary>
         private static Syntax ExpandIdentifier(Identifier id, ExpansionContext exState)
         {
             if (exState.TryResolveBinding(id, out ExpansionBinding? binding))
@@ -117,10 +106,14 @@ namespace Clasp.Process
             }
             else
             {
+                // indicate that it must be a top-level binding that doesn't exist yet
                 return ExpandImplicit(Symbol.ImplicitTop, id, exState);
             }
         }
 
+        /// <summary>
+        /// Expand a function application form with an identifier in the operator position.
+        /// </summary>
         private static Syntax ExpandIdApplication(SyntaxPair idApp, Identifier op, ExpansionContext exState)
         {
             if (exState.TryResolveBinding(op, out ExpansionBinding? binding)
@@ -134,24 +127,11 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax ExpandImplicitApp(Syntax stx, ExpansionContext exState)
-        {
-
-        }
-
         private static Syntax DispatchOnBinding(ExpansionBinding binding, Syntax stx, ExpansionContext exState)
         {
-            if (binding.BoundType == BindingType.Special
-                && stx is SyntaxPair app) // all special forms require at least one arg
+            if (binding.BoundType == BindingType.Special)
             {
-                if (exState.RestrictedToImmediate)
-                {
-                    return stx;
-                }
-                else
-                {
-                    return ExpandCoreForm(binding.BoundId, app, exState);
-                }
+                return ExpandCoreForm(binding.BindingSymbol, stx, exState);
             }
             else if (binding.BoundType == BindingType.Transformer)
             {
@@ -162,7 +142,7 @@ namespace Clasp.Process
                 }
                 else
                 {
-                    throw new ExpanderException.UnboundIdentifier(binding.BoundId);
+                    throw new ExpanderException.UnboundMacro(binding);
                 }
             }
             else if (binding.BoundType == BindingType.Variable)
@@ -178,11 +158,6 @@ namespace Clasp.Process
 
         private static Syntax ExpandImplicit(Symbol formName, Syntax stx, ExpansionContext exState)
         {
-            if (exState.RestrictedToImmediate)
-            {
-                return stx;
-            }
-
             Identifier op = new Identifier(formName, stx);
             Syntax implicitArgs = ExpandOperands(stx, exState);
 
@@ -231,7 +206,7 @@ namespace Clasp.Process
 
             if (output is not Syntax outputStx)
             {
-                throw new ExpanderException.ExpectedEvaluation(nameof(MacroProcedure), output, input);
+                throw new ExpanderException.ExpectedSyntax(output, input);
             }
 
             exState.Flip(outputStx, introScope);
@@ -239,58 +214,42 @@ namespace Clasp.Process
             return outputStx;
         }
 
-
-
-        private static Syntax ExpandCoreForm(Identifier op, SyntaxPair stx, ExpansionContext exState)
+        /// <summary>
+        /// Expand the invocation of a core syntactic form.
+        /// </summary>
+        /// <param name="specialFormSym">The symbol corresponding to the form's default keyword.</param>
+        /// <param name="stx">The entirety of the form's application expression.</param>
+        private static Syntax ExpandCoreForm(Symbol specialFormSym, Syntax stx, ExpansionContext exState)
         {
-            if (exState.RestrictedToImmediate)
+            if (stx is not SyntaxPair fullForm
+                || fullForm.Car is not Identifier keywordId)
             {
-                return stx;
+                // all core forms require arguments
+                throw new ExpanderException.InvalidFormInput(specialFormSym.Name, stx);
+            }
+            
+            if (fullForm.Cdr is not SyntaxPair args)
+            {
+                // those arguments are required to be a proper list of at least one element
+                throw new ExpanderException.ExpectedProperList(fullForm);
             }
 
-            Symbol keyword = op.Expose();
-            Syntax args = stx.Cdr;
+            // for each core form, expansion involves doing something with the arguments
+            // dispatch to the handler depending on the keyword, then reassemble the final form
 
-            if (keyword == Symbol.Quote)
+            Syntax tail = specialFormSym.Name switch
             {
-                return ExpandQuote(stx, exState);
-            }
-            else if (keyword == Symbol.QuoteSyntax)
-            {
-                return ExpandQuote(stx, exState); // same as quoting in expansion
-            }
-            else if (keyword == Symbol.If)
-            {
-                Syntax operands = ExpandOperands(stx.Cdr, exState, 3);
-                return new SyntaxPair(stx.Car, operands, stx);
-            }
-            else if (keyword == Symbol.Define)
-            {
+                Keyword.QUOTE => ExpandQuote(args, exState),
+                _ => throw new ExpanderException.InvalidSyntax(stx)
+            };
 
-            }
-            else if (keyword == Symbol.Set)
-            {
-
-            }
-            else if (keyword == Symbol.Lambda)
-            {
-
-            }
-            else
-            {
-                return ExpandImplicit
-            }
+            return new SyntaxPair(keywordId, tail, stx);
         }
 
         private static Syntax ExpandQuote(SyntaxPair stx, ExpansionContext exState)
         {
             return stx; //it'll get stripped later during parsing
         }
-
-        //private static Syntax ExpandIf(SyntaxPair stx, ExpansionContext exState)
-        //{
-        //    return ExpandOperands(3, stx, exState);
-        //}
 
         private static Syntax ExpandOperands(Syntax stx, ExpansionContext exState, int remaining = -1)
         {
@@ -439,7 +398,7 @@ namespace Clasp.Process
                 return macro;
             }
 
-            throw new ExpanderException.ExpectedEvaluation(typeof(MacroProcedure).ToString(), output, input);
+            throw new ExpanderException.ExpectedSyntax(typeof(MacroProcedure).ToString(), output, input);
         }
 
         private static void BindLocalMacro(Syntax identifier, string idName, MacroProcedure value, ExpansionContext exState)
