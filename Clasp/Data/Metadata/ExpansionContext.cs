@@ -15,82 +15,76 @@ namespace Clasp.Data.Metadata
     /// </summary>
     internal sealed class ExpansionContext
     {
-        public Environment CurrentEnv { get; private set; }
-        public BlockScope CurrentBlock { get; private set; }
-        public int Phase { get; private set; }
+        /// <summary>
+        /// Records compile-time bindings of identifiers in the current lexical scope. Closures
+        /// are used to ensure the locality of bound values.
+        /// </summary>
+        public readonly Environment ExpTimeEnv;
+
+        /// <summary>
+        /// Globally records renamings of identifiers for the current expansion.
+        /// </summary>
+        public readonly BindingStore GlobalBindingStore;
+
+        public readonly int Phase;
 
         /// <summary>IDs of scopes that were introduced during macro use/introduction.</summary>
         private readonly HashSet<uint> _macroScopes;
 
-        /// <summary>True iff the current expansion should stop at core forms.</summary>
-        public bool RestrictedToImmediate { get; private set; }
+        /// <summary>Encodes what kind of terms are permitted in the current context.</summary>
+        public readonly ExpansionMode Mode;
 
-        //public readonly ExpansionMode Mode;
         private readonly ScopeTokenGenerator _gen;
-
-
-        //public bool UseSiteScopeRequired => true; //I don't get the logic in the source code?
-
 
         private ExpansionContext(
             Environment env,
-            BlockScope scp,
+            BindingStore scp,
             int phase,
             IEnumerable<uint> macroScopes,
-            bool restrictToImmediate,
+            ExpansionMode mode,
             ScopeTokenGenerator gen)
         {
-            CurrentEnv = env;
-            CurrentBlock = scp;
+            ExpTimeEnv = env;
+            GlobalBindingStore = scp;
             Phase = phase;
 
             _macroScopes = new(macroScopes);
 
-            RestrictedToImmediate = restrictToImmediate;
+            Mode = mode;
 
             _gen = gen;
         }
 
         public static ExpansionContext FreshExpansion(Environment env, ScopeTokenGenerator gen)
         {
-            return new ExpansionContext(env, BlockScope.MakeTopLevel(gen),
+            return new ExpansionContext(
+                env,
+                new BindingStore(),
                 1,
                 [],
-                false,
+                ExpansionMode.TopLevel,
                 gen);
         }
         
         public ExpansionContext ExpandInNewPhase()
         {
             return new ExpansionContext(
-                Binding.StandardEnv.CreateNew(),
-                BlockScope.MakeTopLevel(_gen),
+                ExpTimeEnv.TopLevel,
+                new BindingStore(),
                 Phase + 1,
-                _macroScopes,
-                false,
+                [],
+                ExpansionMode.TopLevel,
                 _gen);
         }
 
-        public ExpansionContext ExpandInNestedBlock()
+        public ExpansionContext ExpandInNewMode(ExpansionMode context)
         {
             return new ExpansionContext(
-                CurrentEnv.Enclose(),
-                BlockScope.MakeBody(_gen, CurrentBlock),
+                ExpTimeEnv.Enclose(),
+                GlobalBindingStore,
                 Phase,
                 _macroScopes,
-                RestrictedToImmediate,
-                _gen);
-        }
-
-        public ExpansionContext WithMode(ExpansionMode context)
-        {
-            throw new System.NotImplementedException();
-            return new ExpansionContext(
-                CurrentEnv,
-                CurrentBlock,
-                Phase,
-                _macroScopes,
-                RestrictedToImmediate,
+                context,
                 _gen);
         }
 
@@ -103,7 +97,7 @@ namespace Clasp.Data.Metadata
 
         public ExpansionBinding ResolveBinding(Identifier id)
         {
-            ExpansionBinding[] candidates = CurrentBlock.ResolveBindings(id.SymbolicName, id.GetScopeSet(Phase)).ToArray();
+            ExpansionBinding[] candidates = GlobalBindingStore.ResolveBindings(id.SymbolicName, id.GetScopeSet(Phase)).ToArray();
 
             if (candidates.Length == 0)
             {
@@ -121,7 +115,7 @@ namespace Clasp.Data.Metadata
 
         public bool TryResolveBinding(Identifier id, [NotNullWhen(true)] out ExpansionBinding? binding)
         {
-            ExpansionBinding[] candidates = CurrentBlock.ResolveBindings(id.SymbolicName, id.GetScopeSet(Phase)).ToArray();
+            ExpansionBinding[] candidates = GlobalBindingStore.ResolveBindings(id.SymbolicName, id.GetScopeSet(Phase)).ToArray();
 
             if (candidates.Length == 1)
             {
@@ -144,24 +138,33 @@ namespace Clasp.Data.Metadata
 
         #region Env Helpers
 
-        public Term Dereference(Identifier id) => CurrentEnv.LookUp(id.SymbolicName);
+        public Term Dereference(Identifier id) => ExpTimeEnv.LookUp(id.SymbolicName);
         public Term Dereference(ExpansionBinding binding) => Dereference(binding.BoundId);
 
-        public void RenameVariable(Identifier symId, IEnumerable<uint> scopeSet, Identifier bindingId)
+        public void BindVariable(Identifier symId, Identifier bindingId)
         {
-            ExpansionBinding newBinding = new ExpansionBinding(bindingId, BindingType.Variable);
-            CurrentBlock.AddBinding(symId.SymbolicName, scopeSet, newBinding);
+            ExpansionBinding binding = new ExpansionBinding(bindingId, BindingType.Variable);
+            GlobalBindingStore.AddBinding(symId, Phase, binding);
         }
 
-        public void BindMacro(string bindingName, MacroProcedure macro)
+        public void BindMacro(Identifier symId, Identifier bindingId, MacroProcedure macro)
         {
-            CurrentEnv[bindingName] = macro;
+            ExpansionBinding binding = new ExpansionBinding(bindingId, BindingType.Transformer);
+            GlobalBindingStore.AddBinding(symId, Phase, binding);
+            ExpTimeEnv[bindingId.SymbolicName] = macro;
+        }
+
+        public void BindSpecial(Identifier symId, Identifier bindingId, Symbol keyword)
+        {
+            ExpansionBinding binding = new ExpansionBinding(bindingId, BindingType.Special);
+            GlobalBindingStore.AddBinding(symId, Phase, binding);
+            ExpTimeEnv[bindingId.SymbolicName] = keyword;
         }
 
         public bool TryGetMacro(string bindingName,
             [NotNullWhen(true)] out MacroProcedure? macro)
         {
-            if (CurrentEnv.TryGetValue(bindingName, out Term? value)
+            if (ExpTimeEnv.TryGetValue(bindingName, out Term? value)
                 && value is MacroProcedure result)
             {
                 macro = result;

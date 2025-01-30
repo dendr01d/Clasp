@@ -307,7 +307,7 @@ namespace Clasp.Process
             }
             else if (stx is SyntaxPair stp)
             {
-                Syntax nextArg = Expand(stp.Car, exState.WithMode(ExpansionMode.Expression));
+                Syntax nextArg = Expand(stp.Car, exState.ExpandInNewMode(ExpansionMode.Expression));
                 Syntax remainingArgs = ExpandOperands(stp.Cdr, exState, int.Min(remaining - 1, -1));
 
                 return new SyntaxPair(nextArg, remainingArgs, stx);
@@ -431,7 +431,7 @@ namespace Clasp.Process
             ExpansionContext nextPhaseState = exState.WithNextPhase();
 
             Syntax expandedInput = Expand(input, nextPhaseState);
-            CoreForm SyntaxdInput = Parser.ParseSyntax(expandedInput, nextPhaseState.CurrentBlock, nextPhaseState.Phase);
+            CoreForm SyntaxdInput = Parser.ParseSyntax(expandedInput, nextPhaseState.GlobalBindingStore, nextPhaseState.Phase);
             Term output = Interpreter.InterpretProgram(SyntaxdInput, StandardEnv.CreateNew());
 
             if (output is MacroProcedure macro)
