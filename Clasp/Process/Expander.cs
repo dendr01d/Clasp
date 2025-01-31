@@ -307,6 +307,72 @@ namespace Clasp.Process
                 return new SyntaxPair(expandedCar, expandedCdr, stx);
             }
         }
+
+        #region Body Partial Expansion
+
+        /// <summary>
+        /// Recur through the list of terms forming the body, handling specially any
+        /// <see cref=" Keyword.DEFINE"/>, <see cref="Keyword.DEFINE_SYNTAX"/>,
+        /// or <see cref="Keyword.BEGIN"/> forms.
+        /// </summary>
+        private static Syntax PartiallyExpandBody(Syntax stx, ExpansionContext exState, Syntax? spliceInto = null)
+        {
+            if (stx is SyntaxPair stp)
+            {
+                Syntax? partiallyExpandedTerm = PartiallyExpandBodyTerm(stp.Car, exState);
+
+                if (partiallyExpandedTerm is null)
+                {
+                    // if the partial expansion returns nothing, then a syntax definition was expanded and discarded
+                    // so we just omit it from the expanded list
+                    return PartiallyExpandBody(stp.Cdr, exState, spliceInto);
+                }
+                else
+                {
+                    Syntax partiallyExpandedTail = PartiallyExpandBody(stx, exState, spliceInto);
+                    return new SyntaxPair(partiallyExpandedTerm, partiallyExpandedTail, stx);
+                }
+            }
+            else if (stx.Expose() is Nil)
+            {
+                return spliceInto is null
+                    ? stx
+                    : PartiallyExpandBody(stx, exState);
+            }
+            else
+            {
+                throw new ExpanderException.ExpectedProperList(stx);
+            }
+        }
+
+        private static Syntax? PartiallyExpandBodyTerm(Syntax stx, ExpansionContext exState)
+        {
+            // replicate ExpandIdApplication in miniature
+            if (stx is SyntaxPair stp
+                && stp.Car is Identifier appId
+                && exState.TryResolveBinding(appId, out ExpansionBinding? binding)
+                && binding.BoundType == BindingType.Special)
+            {
+                if (binding.BindingName == Keyword.DEFINE)
+                {
+
+                }
+                else if (binding.BindingName == Keyword.DEFINE_SYNTAX)
+                {
+
+                }
+                else if (binding.BindingName == Keyword.BEGIN)
+                {
+
+                }
+            }
+
+            return stx;
+        }
+
+
+        #endregion
+
         private static Syntax ExpandOperands(Syntax stx, ExpansionContext exState)
         {
             if (stx is SyntaxPair stp)
