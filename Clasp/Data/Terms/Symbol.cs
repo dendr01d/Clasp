@@ -14,7 +14,9 @@ namespace Clasp.Data.Terms
         public string Name { get; protected init; }
         protected Symbol(string name) => Name = name;
 
-        protected static readonly Dictionary<string, Symbol> Interned = new Dictionary<string, Symbol>();
+        private static readonly Dictionary<string, Symbol> Interned = new Dictionary<string, Symbol>();
+        protected static bool IsInterned(string name) => Interned.ContainsKey(name);
+
         public static Symbol Intern(string name)
         {
             if (!Interned.ContainsKey(name))
@@ -51,11 +53,11 @@ namespace Clasp.Data.Terms
 
         public static readonly Symbol Ellipsis = Intern(Keyword.ELLIPSIS);
 
-        public static readonly Symbol ImplicitApp = Intern(Keyword.IMP_APP);
-        public static readonly Symbol ImplicitDatum = Intern(Keyword.IMP_DATUM);
-        public static readonly Symbol ImplicitTop = Intern(Keyword.IMP_TOP);
-        public static readonly Symbol ImplicitExpression = Intern(Keyword.IMP_EXPRESSION);
-        public static readonly Symbol ImplicitLambda = Intern(Keyword.IMP_LAMBDA);
+        //public static readonly Symbol ImplicitApp = Intern(Keyword.IMP_APP);
+        //public static readonly Symbol ImplicitDatum = Intern(Keyword.IMP_DATUM);
+        //public static readonly Symbol ImplicitTop = Intern(Keyword.IMP_TOP);
+        //public static readonly Symbol ImplicitExpression = Intern(Keyword.IMP_EXPRESSION);
+        //public static readonly Symbol ImplicitLambda = Intern(Keyword.IMP_LAMBDA);
 
         #endregion
 
@@ -74,7 +76,7 @@ namespace Clasp.Data.Terms
             string output = partial;
             uint counter = 1;
 
-            while (Interned.ContainsKey(output))
+            while (IsInterned(output))
             {
                 output = string.Format("{0}{1}{2}", partial, _SEP, counter);
             }
@@ -84,6 +86,30 @@ namespace Clasp.Data.Terms
         public GenSym(string fromName) : base(GenerateUniqueName(fromName)) { }
         public GenSym() : this("GenSym") { }
 
-        protected override string FormatType() => "gensym";
+        protected override string FormatType() => "GenSym";
+    }
+
+    /// <summary>
+    /// Special symbols that cannot be linguistically represented.
+    /// They act as "unshadowable" representations of implicit core forms.
+    /// </summary>
+    /// <remarks>
+    /// By separating them into a unique type, they can never be equal to ordinary symbols,
+    /// even if they technically have matching names.
+    /// </remarks>
+    internal sealed class Implicand : Symbol
+    {
+        private Implicand(string name) : base(name) { }
+
+        public static readonly Implicand SpApply = new Implicand(Keyword.IMP_APP);
+        public static readonly Implicand SpDatum = new Implicand(Keyword.IMP_DATUM);
+        public static readonly Implicand SpTop = new Implicand(Keyword.IMP_TOP);
+        public static readonly Implicand SpLambda = new Implicand(Keyword.LAMBDA);
+        public static readonly Implicand SpSequence = new Implicand(Keyword.IMP_SEQ);
+        public static readonly Implicand SpVar = new Implicand(Keyword.IMP_VAR);
+
+        public static readonly Implicand SpParDef = new Implicand(Keyword.IMP_PARDEF);
+
+        protected override string FormatType() => "Keyword";
     }
 }

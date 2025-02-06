@@ -52,6 +52,11 @@ namespace Clasp.Data.Terms.Syntax
             : this(car, cdr, copy.Location, copy)
         { }
 
+        public static SyntaxPair ConsVia(Syntax copy, Term car, Term cdr)
+        {
+            return new SyntaxPair(car, cdr, copy);
+        }
+
         protected override SyntaxPair DeepCopy()
         {
             return new SyntaxPair(Syntax.FromSyntax(Car), Syntax.FromSyntax(Cdr), Location, this);
@@ -83,6 +88,16 @@ namespace Clasp.Data.Terms.Syntax
             return true;
         }
 
+        public override bool TryExposeIdList([NotNullWhen(true)] out Identifier? id, [NotNullWhen(true)] out SyntaxPair? pair)
+        {
+            if (Car is Identifier car)
+            {
+                id = car;
+                pair = this;
+                return true;
+            }
+            return base.TryExposeIdList(out id, out pair);
+        }
 
         public override string ToString()
         {

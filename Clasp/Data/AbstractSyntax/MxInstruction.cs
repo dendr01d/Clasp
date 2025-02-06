@@ -10,6 +10,7 @@ namespace Clasp.Data.AbstractSyntax
     /// <summary>
     /// Represents instructional forms that act upon a <see cref="Metadata.MachineState"/>
     /// -- and in turn can be "interpreted" by the <see cref="Process.Interpreter"/>.
+    /// These consist of <see cref="CoreForm"/> objects and tertiary supporting instructions.
     /// </summary>
     internal abstract class MxInstruction
     {

@@ -14,7 +14,7 @@ namespace Clasp.Data.Terms.Syntax
         private Symbol _sym;
         public override Symbol Expose() => _sym;
 
-        public string SymbolicName => _sym.Name;
+        public string Name => _sym.Name;
 
         public Identifier(Symbol sym, SourceLocation loc, Syntax? copy = null)
             : base(loc, copy)
@@ -39,7 +39,7 @@ namespace Clasp.Data.Terms.Syntax
             [NotNullWhen(true)] out string? name)
         {
             sym = _sym;
-            name = SymbolicName;
+            name = Name;
             return true;
         }
 

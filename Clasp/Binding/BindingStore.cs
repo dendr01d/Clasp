@@ -13,7 +13,7 @@ namespace Clasp.Binding
 {
     internal class BindingStore
     {
-        private readonly Dictionary<string, List<KeyValuePair<HashSet<uint>, ExpansionBinding>>> _renamings;
+        private readonly Dictionary<string, List<KeyValuePair<HashSet<uint>, CompileTimeBinding>>> _renamings;
 
         public BindingStore()
         {
@@ -25,25 +25,25 @@ namespace Clasp.Binding
             BindCoreForm(Keyword.LAMBDA);
         }
 
-        public void AddBinding(string symName, IEnumerable<uint> scopeSet, ExpansionBinding binding)
+        public void AddBinding(string symName, IEnumerable<uint> scopeSet, CompileTimeBinding binding)
         {
             if (!_renamings.ContainsKey(symName))
             {
-                _renamings[symName] = new List<KeyValuePair<HashSet<uint>, ExpansionBinding>>();
+                _renamings[symName] = new List<KeyValuePair<HashSet<uint>, CompileTimeBinding>>();
             }
 
-            _renamings[symName].Add(new KeyValuePair<HashSet<uint>, ExpansionBinding>(
+            _renamings[symName].Add(new KeyValuePair<HashSet<uint>, CompileTimeBinding>(
                 new HashSet<uint>(scopeSet),
                 binding));
         }
 
-        public void AddBinding(Identifier id, int phase, ExpansionBinding binding)
-            => AddBinding(id.SymbolicName, id.GetScopeSet(phase), binding);
+        public void AddBinding(Identifier id, int phase, CompileTimeBinding binding)
+            => AddBinding(id.Name, id.GetScopeSet(phase), binding);
 
         private void BindCoreForm(string name)
         {
             Identifier coreId = new Identifier(name, SourceLocation.InherentSource);
-            ExpansionBinding binding = new ExpansionBinding(coreId, BindingType.Special);
+            CompileTimeBinding binding = new CompileTimeBinding(coreId, BindingType.Special);
             AddBinding(name, [], binding);
         }
 
@@ -55,7 +55,7 @@ namespace Clasp.Binding
         /// <remarks>
         /// May validly return zero, one, or more bindings.
         /// </remarks>
-        public IEnumerable<ExpansionBinding> ResolveBindings(string symbolicName, HashSet<uint> scopeSet)
+        public IEnumerable<CompileTimeBinding> ResolveBindings(string symbolicName, HashSet<uint> scopeSet)
         {
             return _renamings
                 .GetValueOrDefault(symbolicName)// Get all renames

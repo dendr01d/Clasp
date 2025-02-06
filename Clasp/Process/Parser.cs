@@ -1,118 +1,123 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
 
 using Clasp.Binding;
+using Clasp.Binding.Environments;
+using Clasp.Data;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.ConcreteSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Syntax;
+using Clasp.ExtensionMethods;
 
 namespace Clasp.Process
 {
     internal static class Parser
     {
         // the MOST IMPORTANT thing to remember here is that every syntactic form must break down
-        // into ONLY the forms representable by AstNodes
+        // into ONLY core forms
 
-        public static CoreForm ParseSyntax(Syntax stx, BindingStore bs, int phase)
+        public static CoreForm ParseSyntax(Syntax stx, ExpansionContext exResult)
         {
-            return Parse(stx, bs, phase, true);
+            return Parse(stx, exResult);
         }
 
-        private static CoreForm Parse(Syntax stx, BindingStore bs, int phase, bool topLevel = false)
+        private static CoreForm Parse(Syntax stx, ExpansionContext exResult)
         {
-            if (stx.TryExposeIdentifier(out string? idName))
+            if (stx is Identifier id)
             {
-                string bindingName = bs.ResolveBindingName(stx, idName, phase);
-                return new VariableLookup(bindingName);
+                CompileTimeBinding binding = exResult.ResolveBinding(id);
+                return new VariableLookup(binding.BindingName);
             }
-            else if (stx.TryExposeList(out Syntax? stxOp, out Syntax? stxArgs))
+            else if (stx is SyntaxPair stp)
             {
-                return ParseApplication(stx, stxOp, stxArgs, bs, phase, topLevel);
+                return ParseApplication(stp, exResult);
             }
             else
             {
-                //is that right...?
-                // -> it has to be an id, a list, or constant data...
-                return new ConstValue(Syntax.ToDatum(stx));
+                return new ConstValue(stx.ToDatum());
             }
         }
 
-        private static CoreForm ParseTerm(Term maybeSyntax, SourceLocation loc, BindingStore bs, int phase)
+        private static CoreForm ParseApplication(SyntaxPair stp, ExpansionContext exResult)
         {
-            if (maybeSyntax is Syntax stx)
+            if (stp.Car is Identifier idOp
+                && exResult.TryResolveBinding(idOp, out CompileTimeBinding? binding))
             {
-                return Parse(stx, bs, phase);
+                if (binding.BoundType == BindingType.Transformer
+                    && exResult.TryGetMacro(binding.BindingName, out MacroProcedure? macro))
+                {
+                    return new ConstValue(macro);
+                }
+                else if (binding.BoundType == BindingType.Special)
+                {
+                    return ParseSpecial(idOp, stp, exResult);
+                }
             }
 
-            throw new ParserException.NotSyntax(maybeSyntax, loc);
+            CoreForm parsedOp = Parse(stp.Car, exResult);
+
+            // check to make sure it's not an imperative form
+            if (parsedOp.IsImperative)
+            {
+                throw new ParserException.InvalidOperator(parsedOp, stp);
+            }
+
+            // otherwise we just have to trust that it'll make sense in the final program
+            IEnumerable<CoreForm> argTerms = ParseList(stp.Cdr, exResult);
+            return new FunctionApplication(parsedOp, argTerms.ToArray());
         }
 
-        private static CoreForm ParseApplication(Syntax stx, Syntax stxOp, Syntax stxArgs,
-            BindingStore bs, int phase, bool topLevel)
+        private static CoreForm ParseSpecial(Identifier idOp, SyntaxPair form, ExpansionContext exResult)
         {
-            // Parse the op-term first, then decide what to do
-            CoreForm opTerm = Parse(stxOp, bs, phase);
-
-            // Check to see if it's a special form
-            if (opTerm is VariableLookup vl)
+            // all special forms have at least one argument
+            if (form.Cdr is not SyntaxPair args)
             {
-                string keyword = vl.VarName;
-
-                if (keyword == Symbol.Quote.Name)
-                {
-                    return ParseQuote(stx, stxArgs);
-                }
-                else if (keyword == Symbol.QuoteSyntax.Name)
-                {
-                    return ParseQuoteSyntax(stx, stxArgs);
-                }
-                else if (keyword == Symbol.Define.Name)
-                {
-                    return ParseDefinition(stx, stxArgs, bs, phase, topLevel);
-                }
-                else if (keyword == Symbol.Set.Name)
-                {
-                    return ParseSet(stx, stxArgs, bs, phase);
-                }
-                else if (keyword == Symbol.Lambda.Name)
-                {
-                    return ParseLambda(stx, stxArgs, bs, phase);
-                }
-                else if (keyword == Symbol.If.Name)
-                {
-                    return ParseConditional(stx, stxArgs, bs, phase);
-                }
-                else if (keyword == Symbol.Begin.Name)
-                {
-                    return ParseSequence(stx, stxArgs, bs, phase);
-                }
+                throw new ParserException.InvalidFormInput(idOp.Name, "arguments", form);
             }
 
-            // Check to make sure it's not an imperative command
-            if (opTerm is BindingDefinition || opTerm is BindingMutation)
+            CoreForm result = idOp.Name switch
             {
-                throw new ParserException.InvalidOperator(opTerm.GetType().Name.ToString(), stx);
-            }
+                Keyword.IMP_TOP => ParseIdentifier(args, exResult),
+                Keyword.IMP_VAR => ParseIdentifier(args, exResult),
 
-            // Otherwise we just have to trust that it'll make sense in the final program
-            IEnumerable<CoreForm> argTerms = ParseList(stxArgs, bs, phase);
-            return new FunctionApplication(opTerm, argTerms.ToArray());
+                Keyword.QUOTE => ParseQuote(args, exResult),
+                Keyword.IMP_DATUM => ParseQuote(args, exResult),
+                
+                Keyword.QUOTE_SYNTAX => ParseQuoteSyntax(args, exResult),
+
+                Keyword.IMP_APP => ParseApplication(args, exResult),
+
+                Keyword.DEFINE => ParseDefinition(args, exResult),
+                Keyword.DEFINE_SYNTAX => ParseDefinition(args, exResult),
+                Keyword.IMP_PARDEF => ParseDefinition(args, exResult),
+                Keyword.SET => ParseSet(args, exResult),
+
+                Keyword.LAMBDA => ParseLambda(args, exResult),
+                Keyword.IMP_LAMBDA => ParseLambda(args, exResult),
+
+                Keyword.IF => ParseConditional(args, exResult),
+
+                Keyword.BEGIN => ParseSequence(args, exResult),
+                Keyword.IMP_SEQ => ParseSequence(args, exResult),
+
+                _ => throw new ParserException.InvalidSyntax(form)
+            };
+
+            return result;
         }
 
         #region Special Forms
 
         private static ConstValue ParseQuote(Syntax stx, Syntax stxArgs)
         {
-            if (TryExposeOneArg(stxArgs, out Syntax? quotedValue))
+            if (stx.TryExposeOneArg(out Syntax? arg))
             {
-                Term strippedExpr = Syntax.ToDatum(quotedValue);
-                return new ConstValue(strippedExpr);
+                return new ConstValue(arg.ToDatum());
             }
 
             throw new ParserException.WrongArity(Symbol.Quote.Name, "exactly one", stx);
@@ -120,15 +125,15 @@ namespace Clasp.Process
 
         private static ConstValue ParseQuoteSyntax(Syntax stx, Syntax stxArgs)
         {
-            if (TryExposeOneArg(stxArgs, out Syntax? syntacticValue))
+            if (stx.TryExposeOneArg(out Syntax? arg))
             {
-                return new ConstValue(syntacticValue);
+                return new ConstValue(arg);
             }
 
             throw new ParserException.WrongArity(Symbol.QuoteSyntax.Name, "exactly one", stx);
         }
 
-        private static BindingDefinition ParseDefinition(Syntax stx, Syntax stxArgs,
+        private static TopLevelDefine ParseDefinition(Syntax stx, Syntax stxArgs,
             BindingStore bs, int phase, bool topLevel)
         {
             throw new NotImplementedException(); //TODO: top level definitions?
@@ -147,17 +152,21 @@ namespace Clasp.Process
             //throw new ParserException.WrongArity(Symbol.Define.Name, "exactly two", full);
         }
 
-        private static BindingMutation ParseSet(Syntax stx, Syntax stxArgs, BindingStore bs, int phase)
+        private static BindingMutation ParseSet(Syntax stx, ExpansionContext exResult)
         {
-            if (TryExposeTwoArgs(stxArgs, out Syntax? arg1, out Syntax? arg2))
+            if (stx.TryExposeTwoArgs(out Syntax? key, out Syntax? value))
             {
-                if (TryExposeBindingId(arg1, bs, phase, out string? key))
+                if (key is Identifier id
+                    && exResult.TryResolveBinding(id, out CompileTimeBinding? binding))
                 {
-                    CoreForm boundValueExpr = Parse(arg2, bs, phase);
-                    return new BindingMutation(key, boundValueExpr);
+                    CoreForm boundValue = Parse(value, exResult);
+
+                    if (boundValue.IsImperative) throw new ParserException.ExpectedExpression(Keyword.SET, boundValue, stx);
+
+                    return new BindingMutation(binding.BindingName, boundValue);
                 }
 
-                throw new ParserException.WrongType(Symbol.Define.Name, "identifier", stx);
+                throw new ParserException.WrongType(Keyword.SET, nameof(Identifier), stx);
             }
 
             throw new ParserException.WrongArity(Symbol.Define.Name, "exactly two", stx);
@@ -169,7 +178,7 @@ namespace Clasp.Process
 
             foreach(CoreForm node in seq.Sequence)
             {
-                if (node is BindingDefinition bd)
+                if (node is TopLevelDefine bd)
                 {
                     internalKeys.Add(bd.VarName);
                 }

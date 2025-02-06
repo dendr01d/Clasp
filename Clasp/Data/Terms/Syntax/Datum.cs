@@ -19,6 +19,8 @@ namespace Clasp.Data.Terms.Syntax
             _datum = t;
         }
 
+        public Datum(Term t, Syntax copy) : this(t, copy.Location, copy) { }
+
         protected override Datum DeepCopy() => new Datum(_datum, Location, this);
 
         public override string ToString() => string.Format("#'{0}", _datum);

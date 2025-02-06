@@ -30,8 +30,8 @@ namespace Clasp.Data.Metadata
         /// <summary>IDs of scopes that were introduced during macro use/introduction.</summary>
         private readonly HashSet<uint> _macroScopes;
 
-        /// <summary>Encodes what kind of terms are permitted in the current context.</summary>
-        public readonly ExpMode Mode;
+        /// <summary>Inform how certain terms should be expanded.</summary>
+        public readonly SyntaxMode Mode;
 
         private readonly ScopeTokenGenerator _gen;
 
@@ -40,7 +40,7 @@ namespace Clasp.Data.Metadata
             BindingStore scp,
             int phase,
             IEnumerable<uint> macroScopes,
-            ExpMode mode,
+            SyntaxMode mode,
             ScopeTokenGenerator gen)
         {
             CompileTimeEnv = env;
@@ -61,7 +61,7 @@ namespace Clasp.Data.Metadata
                 new BindingStore(),
                 1,
                 [],
-                ExpMode.TopLevel,
+                SyntaxMode.TopLevel,
                 gen);
         }
         
@@ -72,11 +72,11 @@ namespace Clasp.Data.Metadata
                 new BindingStore(),
                 Phase + 1,
                 [],
-                ExpMode.TopLevel,
+                SyntaxMode.TopLevel,
                 _gen);
         }
 
-        public ExpansionContext ExpandInMode(ExpMode context)
+        public ExpansionContext ExpandInMode(SyntaxMode context)
         {
             return new ExpansionContext(
                 CompileTimeEnv,
@@ -98,9 +98,6 @@ namespace Clasp.Data.Metadata
                 _gen);
         }
 
-        public ExpansionContext ExpandInSubBlock(ExpMode context)
-            => ExpandInSubBlock().ExpandInMode(context);
-
         public uint TokenizeScope()
         {
             return _gen.FreshToken();
@@ -113,9 +110,9 @@ namespace Clasp.Data.Metadata
             return output;
         }
 
-        public ExpansionBinding ResolveBinding(Identifier id)
+        public CompileTimeBinding ResolveBinding(Identifier id)
         {
-            ExpansionBinding[] candidates = GlobalBindingStore.ResolveBindings(id.SymbolicName, id.GetScopeSet(Phase)).ToArray();
+            CompileTimeBinding[] candidates = GlobalBindingStore.ResolveBindings(id.Name, id.GetScopeSet(Phase)).ToArray();
 
             if (candidates.Length == 0)
             {
@@ -131,9 +128,9 @@ namespace Clasp.Data.Metadata
             }
         }
 
-        public bool TryResolveBinding(Identifier id, [NotNullWhen(true)] out ExpansionBinding? binding)
+        public bool TryResolveBinding(Identifier id, [NotNullWhen(true)] out CompileTimeBinding? binding)
         {
-            ExpansionBinding[] candidates = GlobalBindingStore.ResolveBindings(id.SymbolicName, id.GetScopeSet(Phase)).ToArray();
+            CompileTimeBinding[] candidates = GlobalBindingStore.ResolveBindings(id.Name, id.GetScopeSet(Phase)).ToArray();
 
             if (candidates.Length == 1)
             {
@@ -156,27 +153,27 @@ namespace Clasp.Data.Metadata
 
         #region Env Helpers
 
-        public Term Dereference(Identifier id) => CompileTimeEnv.LookUp(id.SymbolicName);
-        public Term Dereference(ExpansionBinding binding) => Dereference(binding.BoundId);
+        public Term Dereference(Identifier id) => CompileTimeEnv.LookUp(id.Name);
+        public Term Dereference(CompileTimeBinding binding) => Dereference(binding.BoundId);
 
         public void BindVariable(Identifier symId, Identifier bindingId)
         {
-            ExpansionBinding binding = new ExpansionBinding(bindingId, BindingType.Variable);
+            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Variable);
             GlobalBindingStore.AddBinding(symId, Phase, binding);
         }
 
         public void BindMacro(Identifier symId, Identifier bindingId, MacroProcedure macro)
         {
-            ExpansionBinding binding = new ExpansionBinding(bindingId, BindingType.Transformer);
+            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Transformer);
             GlobalBindingStore.AddBinding(symId, Phase, binding);
-            CompileTimeEnv[bindingId.SymbolicName] = macro;
+            CompileTimeEnv[bindingId.Name] = macro;
         }
 
         public void BindSpecial(Identifier symId, Identifier bindingId, Symbol keyword)
         {
-            ExpansionBinding binding = new ExpansionBinding(bindingId, BindingType.Special);
+            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Special);
             GlobalBindingStore.AddBinding(symId, Phase, binding);
-            CompileTimeEnv[bindingId.SymbolicName] = keyword;
+            CompileTimeEnv[bindingId.Name] = keyword;
         }
 
         public bool TryGetMacro(string bindingName,

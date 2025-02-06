@@ -158,6 +158,13 @@ namespace Clasp.Data.Terms.Syntax
         public bool TryExposeList([NotNullWhen(true)] out Syntax? car, [NotNullWhen(true)] out Syntax? cdr)
             => TryExposeList(out ConsList? _, out car, out cdr);
 
+        public virtual bool TryExposeIdList([NotNullWhen(true)] out Identifier? id, [NotNullWhen(true)] out SyntaxPair? pair)
+        {
+            id = null;
+            pair = null;
+            return false;
+        }
+
         // ---
 
         public virtual bool TryExposeIdentifier(

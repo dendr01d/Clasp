@@ -158,26 +158,26 @@ namespace Clasp
             internal UnboundIdentifier(Identifier id) : base(
                 id.Location,
                 "The variable name '{0}' is free (unbound) within the given context.",
-                id.SymbolicName)
+                id.Name)
             { }
         }
 
         public class UnboundMacro : ExpanderException
         {
-            internal UnboundMacro(ExpansionBinding binding) : base(
-                binding.BoundId.Location,
+            internal UnboundMacro(Identifier macroBindingId) : base(
+                macroBindingId.Location,
                 "The variable name '{0}' wasn't bound to a macro procedure as expected.",
-                binding.BindingName)
+                macroBindingId.Name)
             { }
         }
 
         public class AmbiguousIdentifier : ExpanderException
         {
-            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<ExpansionBinding> matches) : base(
+            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<CompileTimeBinding> matches) : base(
                 ambId.Location,
                 "The variable name '{0}' ambiguously refers to multiple bindings within the given context: {1}",
-                ambId.SymbolicName,
-                string.Join(", ", matches.Select(x => string.Format("'{0}' @ {1}", x.BoundId.SymbolicName, x.BoundId.Location))))
+                ambId.Name,
+                string.Join(", ", matches.Select(x => string.Format("'{0}' @ {1}", x.BoundId.Name, x.BoundId.Location))))
             { }
         }
 
@@ -215,14 +215,14 @@ namespace Clasp
         {
             internal InvalidFormInput(string formName, Syntax invalidForm) : base(
                 invalidForm.Location,
-                "Invalid input in expansion of '{0}' form: {1}",
+                "Invalid use of '{0}' form: {1}",
                 formName,
                 invalidForm)
             { }
 
             internal InvalidFormInput(string formName, string inputDescription, Syntax invalidForm) : base(
                 invalidForm.Location,
-                "Invalid input in expansion of {0} within '{1}' form: {2}",
+                "Invalid {1} within '{0}': {2}",
                 inputDescription,
                 formName,
                 invalidForm)
@@ -231,7 +231,7 @@ namespace Clasp
 
         public class InvalidContext : ExpanderException
         {
-            internal InvalidContext(string formName, ExpMode mode, Syntax wrongSyntax) : base(
+            internal InvalidContext(string formName, SyntaxMode mode, Syntax wrongSyntax) : base(
                 wrongSyntax.Location,
                 "Input of type '{0}' is invalid in '{1}' expansion context: {2}",
                 formName,
@@ -270,10 +270,10 @@ namespace Clasp
 
         public class InvalidOperator : ParserException
         {
-            internal InvalidOperator(string receivedType, Syntax badApplication) : base(
+            internal InvalidOperator(CoreForm badOperator, Syntax badApplication) : base(
                 badApplication.Location,
                 "Form of type '{0}' can't be used as the operator term of a function application: {1}",
-                receivedType,
+                badOperator.FormName,
                 badApplication)
             { }
         }
@@ -293,7 +293,7 @@ namespace Clasp
         {
             internal WrongType(string formName, string expectedType, Syntax badApplication) : base(
                 badApplication.Location,
-                "An argument of type '{0}' is required for a '{1}' form: {2}",
+                "An argument of type '{0}' is required in '{1}' form: {2}",
                 expectedType,
                 formName,
                 badApplication)
@@ -304,10 +304,21 @@ namespace Clasp
         {
             internal InvalidFormInput(string formName, string inputDescription, Syntax invalidForm) : base(
                 invalidForm.Location,
-                "Invalid syntax in expansion of {0} within '{1}' form: {2}",
+                "Invalid syntax while parsing {0} within '{1}' form: {2}",
                 inputDescription,
                 formName,
                 invalidForm)
+            { }
+        }
+
+        public class ExpectedExpression : ParserException
+        {
+            internal ExpectedExpression(string formName, CoreForm wrongInput, Syntax wrongSyntax) : base(
+                wrongSyntax.Location,
+                "Expected expression in '{0}' form, but received imperative '{1}' instead: {2}",
+                formName,
+                wrongInput.FormName,
+                wrongSyntax)
             { }
         }
 

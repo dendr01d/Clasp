@@ -18,6 +18,9 @@ namespace Clasp.Data.AbstractSyntax
     {
         protected CoreForm() : base() { }
 
+        public virtual bool IsImperative { get; } = false;
+
+        public abstract string FormName { get; }
         public abstract Term ToTerm();
     }
 
@@ -27,6 +30,8 @@ namespace Clasp.Data.AbstractSyntax
     {
         public string VarName { get; private init; }
         public CoreForm BoundValue { get; private init; }
+        public override bool IsImperative => true;
+        public override string FormName => nameof(BindingDefinition);
         public BindingDefinition(string key, CoreForm value) : base()
         {
             VarName = key;
@@ -46,7 +51,8 @@ namespace Clasp.Data.AbstractSyntax
     {
         public string VarName { get; private init; }
         public CoreForm BoundValue { get; private init; }
-
+        public override bool IsImperative => true;
+        public override string FormName => nameof(BindingMutation);
         public BindingMutation(string name, CoreForm bound) : base()
         {
             VarName = name;
@@ -69,6 +75,7 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class VariableLookup : CoreForm
     {
         public string VarName { get; private init; }
+        public override string FormName => nameof(VariableLookup);
         public VariableLookup(string key) : base()
         {
             VarName = key;
@@ -92,6 +99,7 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class ConstValue : CoreForm
     {
         public Term Value { get; private init; }
+        public override string FormName => nameof(ConstValue);
 
         public ConstValue(Term value) : base()
         {
@@ -117,6 +125,7 @@ namespace Clasp.Data.AbstractSyntax
         public readonly CoreForm Test;
         public readonly CoreForm Consequent;
         public readonly CoreForm Alternate;
+        public override string FormName => nameof(ConditionalForm);
         public ConditionalForm(CoreForm test, CoreForm consequent, CoreForm alternate)
         {
             Test = test;
@@ -139,6 +148,7 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class SequentialForm : CoreForm
     {
         public readonly CoreForm[] Sequence;
+        public override string FormName => nameof(Sequence);
         public SequentialForm(CoreForm[] series)
         {
             Sequence = series;
@@ -161,6 +171,7 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class TopLevelSequentialForm : CoreForm
     {
         public readonly CoreForm[] Sequence;
+        public override string FormName => nameof(TopLevelSequentialForm);
         public TopLevelSequentialForm(CoreForm[] series)
         {
             Sequence = series;
@@ -195,6 +206,8 @@ namespace Clasp.Data.AbstractSyntax
         public readonly CoreForm Operator;
         public readonly CoreForm[] Arguments;
 
+        public override string FormName => nameof(FunctionApplication);
+
         public FunctionApplication(CoreForm op, CoreForm[] args) : base()
         {
             Operator = op;
@@ -226,6 +239,7 @@ namespace Clasp.Data.AbstractSyntax
         public readonly string? DottedFormal;
         public readonly string[] Informals;
         public readonly SequentialForm Body;
+        public override string FormName => nameof(FunctionCreation);
 
         public FunctionCreation(string[] parameters, string? dottedParameter, string[] internalKeys, SequentialForm body)
         {
@@ -261,6 +275,7 @@ namespace Clasp.Data.AbstractSyntax
     {
         public readonly MacroProcedure Macro;
         public readonly Syntax Argument;
+        public override string FormName => nameof(MacroApplication);
 
         public MacroApplication(MacroProcedure macro, Syntax arg)
         {

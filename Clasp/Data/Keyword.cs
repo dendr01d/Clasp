@@ -37,10 +37,10 @@ namespace Clasp.Data
         public const string IMP_APP = "#%app";
         public const string IMP_DATUM = "#%datum";
         public const string IMP_TOP = "#%top";
-        public const string IMP_EXPRESSION = "#%expression";
         public const string IMP_LAMBDA = "#%lambda";
-
-
+        public const string IMP_SEQ = "#%seq";
+        public const string IMP_VAR = "#%var";
+        public const string IMP_PARDEF = "#%partial-define";
 
     }
 }

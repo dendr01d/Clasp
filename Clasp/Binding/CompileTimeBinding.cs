@@ -16,15 +16,15 @@ namespace Clasp.Binding
         Special
     }
 
-    internal class ExpansionBinding
+    internal class CompileTimeBinding
     {
         public Identifier BoundId { get; private set; }
         public BindingType BoundType { get; private set; }
 
         public Symbol BindingSymbol => BoundId.Expose();
-        public string BindingName => BoundId.SymbolicName;
+        public string BindingName => BoundId.Name;
 
-        public ExpansionBinding(Identifier id, BindingType type)
+        public CompileTimeBinding(Identifier id, BindingType type)
         {
             BoundId = id;
             BoundType = type;

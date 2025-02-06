@@ -6,11 +6,12 @@ using System.Threading.Tasks;
 
 namespace Clasp.Data.Metadata
 {
-    internal enum ExpMode
+    internal enum SyntaxMode
     {
         Expression,
         Body,
         Module,
-        TopLevel
+        TopLevel,
+        Partial
     }
 }
