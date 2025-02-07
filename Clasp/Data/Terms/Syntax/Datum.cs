@@ -13,15 +13,14 @@ namespace Clasp.Data.Terms.Syntax
         private Term _datum;
         public override Term Expose() => _datum;
 
-        public Datum(Term t, SourceLocation loc, Syntax? copy = null)
-            : base(loc, copy)
+        public Datum(Term t, StxContext ctx) : base(ctx)
         {
             _datum = t;
         }
 
-        public Datum(Term t, Syntax copy) : this(t, copy.Location, copy) { }
+        public Datum(Term t, Syntax copy) : this(t, copy.Context) { }
 
-        protected override Datum DeepCopy() => new Datum(_datum, Location, this);
+        protected override Datum DeepCopy() => new Datum(_datum, this);
 
         public override string ToString() => string.Format("#'{0}", _datum);
         protected override string FormatType() => "stx";

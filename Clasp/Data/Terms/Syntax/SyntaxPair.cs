@@ -10,6 +10,7 @@ using Clasp.Data.Metadata;
 using Clasp.Data.Terms.Product;
 using Clasp.Interfaces;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ConstrainedExecution;
 
 namespace Clasp.Data.Terms.Syntax
 {
@@ -29,37 +30,22 @@ namespace Clasp.Data.Terms.Syntax
         public Syntax Cdr { get; private set; }
         public bool IsDotted => Cdr is not SyntaxPair;
 
-        public SyntaxPair(Syntax car, Syntax cdr, SourceLocation loc, Syntax? copy = null)
-            : base(loc, copy)
+        public SyntaxPair(Syntax car, Syntax cdr, StxContext ctx) : base(ctx)
         {
             Car = car;
             Cdr = cdr;
             _lazyCons = null;
         }
 
-        public SyntaxPair(Term car, Term cdr, SourceLocation loc, Syntax? copy = null)
-            : this(
-                  FromDatum(car, loc.Derivation()),
-                  FromDatum(cdr, loc.Derivation()),
-                  loc, copy)
-        { }
-
-        public SyntaxPair(ConsList cl, SourceLocation loc, Syntax? copy = null)
-            : this(cl.Car, cl.Cdr, loc, copy)
-        { }
-
         public SyntaxPair(Term car, Term cdr, Syntax copy)
-            : this(car, cdr, copy.Location, copy)
+            : this(FromDatum(car, copy),
+                  FromDatum(cdr, copy),
+                  copy.Context)
         { }
-
-        public static SyntaxPair ConsVia(Syntax copy, Term car, Term cdr)
-        {
-            return new SyntaxPair(car, cdr, copy);
-        }
 
         protected override SyntaxPair DeepCopy()
         {
-            return new SyntaxPair(Syntax.FromSyntax(Car), Syntax.FromSyntax(Cdr), Location, this);
+            return new SyntaxPair(FromSyntax(Car), FromSyntax(Cdr), Context);
         }
 
         public void SetCar(Syntax newCar)
@@ -76,28 +62,6 @@ namespace Clasp.Data.Terms.Syntax
 
         public IEnumerator<Syntax?> GetEnumerator() => this.EnumerateElements().GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => this.EnumerateElements().GetEnumerator();
-
-        public override bool TryExposeList(
-            [NotNullWhen(true)] out ConsList? cons,
-            [NotNullWhen(true)] out Syntax? car,
-            [NotNullWhen(true)] out Syntax? cdr)
-        {
-            cons = Expose();
-            car = Car;
-            cdr = Cdr;
-            return true;
-        }
-
-        public override bool TryExposeIdList([NotNullWhen(true)] out Identifier? id, [NotNullWhen(true)] out SyntaxPair? pair)
-        {
-            if (Car is Identifier car)
-            {
-                id = car;
-                pair = this;
-                return true;
-            }
-            return base.TryExposeIdList(out id, out pair);
-        }
 
         public override string ToString()
         {
