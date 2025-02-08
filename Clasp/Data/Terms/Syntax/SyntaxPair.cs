@@ -30,7 +30,7 @@ namespace Clasp.Data.Terms.Syntax
         public Syntax Cdr { get; private set; }
         public bool IsDotted => Cdr is not SyntaxPair;
 
-        public SyntaxPair(Syntax car, Syntax cdr, StxContext ctx) : base(ctx)
+        public SyntaxPair(Syntax car, Syntax cdr, LexInfo ctx) : base(ctx)
         {
             Car = car;
             Cdr = cdr;
@@ -40,12 +40,12 @@ namespace Clasp.Data.Terms.Syntax
         public SyntaxPair(Term car, Term cdr, Syntax copy)
             : this(FromDatum(car, copy),
                   FromDatum(cdr, copy),
-                  copy.Context)
+                  copy.LexContext)
         { }
 
         protected override SyntaxPair DeepCopy()
         {
-            return new SyntaxPair(FromSyntax(Car), FromSyntax(Cdr), Context);
+            return new SyntaxPair(FromSyntax(Car), FromSyntax(Cdr), LexContext);
         }
 
         public void SetCar(Syntax newCar)

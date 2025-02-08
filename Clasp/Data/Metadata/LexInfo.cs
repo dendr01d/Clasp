@@ -12,21 +12,21 @@ namespace Clasp.Data.Metadata
     /// Represents the lexical context of a <see cref="Syntax"/>, including
     /// its source location and effective scope within the program.
     /// </summary>
-    internal class StxContext : ISourceTraceable
+    internal class LexInfo : ISourceTraceable
     {
         public SourceLocation Location { get; private set; }
 
         private readonly Dictionary<int, ImmutableHashSet<uint>> _phasedScopeSets;
 
-        private StxContext(SourceLocation loc, IEnumerable<KeyValuePair<int, ImmutableHashSet<uint>>> dict)
+        private LexInfo(SourceLocation loc, IEnumerable<KeyValuePair<int, ImmutableHashSet<uint>>> dict)
         {
             Location = loc;
             _phasedScopeSets = new Dictionary<int, ImmutableHashSet<uint>>(dict);
         }
 
-        public StxContext(SourceLocation loc) : this(loc, []) { }
+        public LexInfo(SourceLocation loc) : this(loc, []) { }
 
-        public StxContext(StxContext original)
+        public LexInfo(LexInfo original)
             : this(original.Location,
                   original._phasedScopeSets.ToDictionary(x => x.Key, x => x.Value.ToImmutableHashSet()))
         { }
@@ -77,9 +77,9 @@ namespace Clasp.Data.Metadata
             }
         }
 
-        public StxContext RestrictPhaseUpTo(int phase)
+        public LexInfo RestrictPhaseUpTo(int phase)
         {
-            return new StxContext(Location, _phasedScopeSets.Where(x => x.Key <= phase));
+            return new LexInfo(Location, _phasedScopeSets.Where(x => x.Key <= phase));
         }
     }
 }

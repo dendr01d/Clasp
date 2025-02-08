@@ -13,7 +13,8 @@ namespace Clasp.Binding
     {
         Variable,
         Transformer,
-        Special
+        Special,
+        Primitive
     }
 
     internal class CompileTimeBinding

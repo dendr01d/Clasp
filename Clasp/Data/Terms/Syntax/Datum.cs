@@ -13,12 +13,14 @@ namespace Clasp.Data.Terms.Syntax
         private Term _datum;
         public override Term Expose() => _datum;
 
-        public Datum(Term t, StxContext ctx) : base(ctx)
+        public Datum(Term t, LexInfo ctx) : base(ctx)
         {
             _datum = t;
         }
 
-        public Datum(Term t, Syntax copy) : this(t, copy.Context) { }
+        public Datum(Term t, Syntax copy) : this(t, copy.LexContext) { }
+
+        public static Datum Implicit(Term t) => new Datum(t, SourceLocation.InherentSource);
 
         public static Datum Implicit(Term t) => new Datum(t, new StxContext(SourceLocation.InherentSource));
 
