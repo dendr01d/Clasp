@@ -16,17 +16,17 @@ namespace Clasp.Data.Terms.Syntax
 
         public string Name => _sym.Name;
 
-        public Identifier(Symbol sym, StxContext ctx) : base(ctx)
+        public Identifier(Symbol sym, LexInfo ctx) : base(ctx)
         {
             _sym = sym;
         }
 
-        public Identifier(string symbolicName, StxContext ctx) : base(ctx)
+        public Identifier(string symbolicName, LexInfo ctx) : base(ctx)
         {
             _sym = Symbol.Intern(symbolicName);
         }
 
-        public Identifier(Symbol sym, Syntax copy) : this(sym, copy.Context) { }
+        public Identifier(Symbol sym, Syntax copy) : this(sym, copy.LexContext) { }
 
         protected override Identifier DeepCopy() => new Identifier(_sym, this);
 

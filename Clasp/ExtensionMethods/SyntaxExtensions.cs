@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Clasp.Data.Terms.Syntax;
 
 using Clasp.Data.Terms;
+using Clasp.Data.Metadata;
 
 namespace Clasp.ExtensionMethods
 {
@@ -22,92 +23,46 @@ namespace Clasp.ExtensionMethods
         /// <param name="pair"><paramref name="input"/> as a <see cref="SyntaxPair"/>, if it truly is one.</param>
         /// <param name="value">The presumed <see cref="SyntaxPair.Car"/> value of <paramref name="input"/>.</param>
         /// <returns>The <see cref="SyntaxPair.Cdr"/> of <paramref name="input"/>, to be further destructed.</returns>
-        public static Syntax? Destruct<T>(this Syntax? input,
-            [NotNullWhen(true)] out SyntaxPair? pair,
-            [NotNullWhen(true)] out T? value)
-            where T : Syntax
+        public static bool TryDestruct<TCar, TCdr>(this Syntax? input,
+            [NotNullWhen(true)] out TCar? car,
+            [NotNullWhen(true)] out TCdr? cdr,
+            [NotNullWhen(true)] out LexInfo? info)
+            where TCar : Syntax
+            where TCdr : Syntax
         {
-            if (input is SyntaxPair outPair
-                && outPair.Car is T outValue)
+            if (input is SyntaxPair stp
+                && stp.Car is TCar outCar
+                && stp.Cdr is TCdr outCdr)
             {
-                pair = outPair;
-                value = outValue;
-                return outPair.Cdr;
+                car = outCar;
+                cdr = outCdr;
+                info = stp.LexContext;
+                return true;
             }
-            pair = null;
-            value = null;
-            return null;
+            car = null;
+            cdr = null;
+            info = null;
+            return false;
         }
 
         /// <summary>
-        /// Assert that <paramref name="input"/> wraps Nil.
+        /// Assert that <paramref name="input"/> wraps Nil (the list-terminator)
         /// </summary>
-        public static bool Conclude(this Syntax? input,
-            [NotNullWhen(true)] out Syntax? terminator)
+        public static bool IsTerminator(this Syntax input)
         {
-            terminator = input?.Expose() is Nil
-                ? input
-                : null;
-            return terminator is not null;
+            return input.Expose() is Nil;
         }
 
         /// <summary>
         /// Construct a new <see cref="SyntaxPair"/> from the provided <paramref name="car"/>
         /// and <paramref name="cdr"/> copying the lexical context of <paramref name="ctx"/>.
         /// </summary>
-        public static SyntaxPair Construct(this Syntax cdr, SyntaxPair ctx, Syntax car)
+        /// <remarks>
+        /// Cons lists work like stacks, so we're actually PREPENDING <paramref name="car"/> onto <paramref name="cdr"/>.
+        /// </remarks>
+        public static SyntaxPair Cons(this Syntax cdr, Syntax car, LexInfo ctx)
         {
-            return new SyntaxPair(ctx, car, cdr);
+            return new SyntaxPair(car, cdr, ctx);
         }
-
-
-
-        public static bool TryExposeOneArg(this Syntax stx,
-            [NotNullWhen(true)] out Syntax? arg1)
-        {
-            if (stx is SyntaxPair stp)
-            {
-                arg1 = stp.Car;
-                return stp.Cdr.Expose() is Nil;
-            }
-
-            arg1 = null;
-            return false;
-        }
-
-        public static bool TryExposeTwoArgs(this Syntax stx,
-            [NotNullWhen(true)] out Syntax? arg1,
-            [NotNullWhen(true)] out Syntax? arg2)
-        {
-            if (stx is SyntaxPair stp)
-            {
-                arg1 = stp.Car;
-                return stp.Cdr.TryExposeOneArg(out arg2);
-            }
-
-            arg1 = null;
-            arg2 = null;
-            return false;
-        }
-
-        public static bool TryExposeThreeArgs(this Syntax stx,
-            [NotNullWhen(true)] out Syntax? arg1,
-            [NotNullWhen(true)] out Syntax? arg2,
-            [NotNullWhen(true)] out Syntax? arg3)
-        {
-            if (stx is SyntaxPair stp)
-            {
-                arg1 = stp.Car;
-                return stp.Cdr.TryExposeTwoArgs(out arg2, out arg3);
-            }
-
-            arg1 = null;
-            arg2 = null;
-            arg3 = null;
-            return false;
-        }
-
-
-
     }
 }

@@ -15,19 +15,18 @@ namespace Clasp
 {
     public abstract class ClaspException : Exception
     {
-        protected ClaspException(string format, params object?[] args) : base(string.Format(format, args)) { }
+        protected ClaspException(string format, params object?[] args)
+            : base(string.Format(format, args))
+        { }
+
+        protected ClaspException(ClaspException innerException, string format, params object?[] args)
+            : base(string.Format(format, args), innerException)
+        { }
 
         //public class Uncategorized : ClaspException
         //{
         //    public Uncategorized(string format, params object?[] args) : base(format, args) { }
         //}
-
-        public class FailedDispatch : ClaspException
-        {
-            internal FailedDispatch() : base(
-                "Unexpectedly fell out of case expression.")
-            { }
-        }
     }
 
     public sealed class ClaspGeneralException : ClaspException
@@ -143,12 +142,17 @@ namespace Clasp
             Location = loc;
         }
 
+        private ExpanderException(SourceLocation loc, ClaspException innerException, string format, params object?[] args)
+            : base(innerException, format, args)
+        {
+            Location = loc;
+        }
+
         public class InvalidSyntax : ExpanderException
         {
             internal InvalidSyntax(Syntax unknownForm) : base(
                 unknownForm.Location,
-                "The given syntax (of type '{0}') is invalid for expansion: {1}",
-                unknownForm.TypeName,
+                "The given syntax is invalid for expansion: {1}",
                 unknownForm)
             { }
         }
@@ -181,15 +185,34 @@ namespace Clasp
             { }
         }
 
-        public class ExpectedEvaluation : ExpanderException
+        public class WrongEvaluatedType : ExpanderException
         {
-            internal ExpectedEvaluation(string expectedType, Term received, Syntax source) : base(
+            internal WrongEvaluatedType(string expectedType, Term received, Syntax source) : base(
                 source.Location,
-                "Expected evaluation to yield term of type '{0}', but instead: {1} --> {2}",
+                "Expected evaluation to yield term of type '{0}', but received '{1}' instead: {2} --> {3}",
                 expectedType,
+                received.TypeName,
                 source,
-                received
-                )
+                received)
+            { }
+        }
+
+        public class EvaluationError : ExpanderException
+        {
+            internal EvaluationError(string inputType, Syntax source, ClaspException ce) : base(
+                source.Location,
+                ce,
+                "An error occurred while accelerating & evaluating the '{0}' form: {1}",
+                inputType,
+                source)
+            { }
+
+            internal EvaluationError(string inputType, Syntax source, string msg) : base(
+                source.Location,
+                "A system-level exception occurred while accelerating & evaluating the '{0}' form: {1}: {2}",
+                inputType,
+                source,
+                msg)
             { }
         }
 
@@ -200,32 +223,33 @@ namespace Clasp
                 "Expected proper list: {0}",
                 notAProperList)
             { }
+
+            internal ExpectedProperList(string expectedType, Syntax wrong) : base(
+                wrong.Location,
+                "Expected proper list with '{0}' elements: {1}",
+                expectedType,
+                wrong)
+            { }
         }
 
-        //public class InvalidContext : ExpanderException
-        //{
-        //    internal InvalidContext(Symbol op, ExpansionContext ctx) : base(
-        //        "Form with operator '{0}' is invalid to be expanded in '{1}' context.",
-        //        op,
-        //        ctx.ToString())
-        //    { }
-        //}
-
-        public class InvalidFormInput : ExpanderException
+        public class InvalidForm : ExpanderException
         {
-            internal InvalidFormInput(string formName, Syntax invalidForm) : base(
+            internal InvalidForm(string formName, Syntax invalidForm, ExpanderException innerException) : base(
                 invalidForm.Location,
-                "Invalid use of '{0}' form: {1}",
-                formName,
-                invalidForm)
+                innerException,
+                "Error expanding '{0}' form.",
+                formName
+                )
             { }
+        }
 
-            internal InvalidFormInput(string formName, string inputDescription, Syntax invalidForm) : base(
-                invalidForm.Location,
-                "Invalid {1} within '{0}': {2}",
-                inputDescription,
-                formName,
-                invalidForm)
+        public class InvalidSubForm : ExpanderException
+        {
+            internal InvalidSubForm(string subFormName, Syntax invalid) : base(
+                invalid.Location,
+                "Wrong shape for '{0}' sub-form: {1}",
+                subFormName,
+                invalid)
             { }
         }
 
@@ -315,7 +339,7 @@ namespace Clasp
         {
             internal ExpectedExpression(string formName, CoreForm wrongInput, Syntax wrongSyntax) : base(
                 wrongSyntax.Location,
-                "Expected expression in '{0}' form, but received imperative '{1}' instead: {2}",
+                "Expected expression in '{0}' form, but received imperative '{1}' form instead: {2}",
                 formName,
                 wrongInput.FormName,
                 wrongSyntax)

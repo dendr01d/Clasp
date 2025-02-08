@@ -13,17 +13,17 @@ namespace Clasp.Data.Terms.Syntax
 {
     internal abstract class Syntax : Term, ISourceTraceable
     {
-        public readonly StxContext Context;
-        public SourceLocation Location => Context.Location;
+        public readonly LexInfo LexContext;
+        public SourceLocation Location => LexContext.Location;
 
         public abstract Term Expose();
 
         //TODO: Review the semantics of wrapping. DO scopes get merged, or replaced?
         //what happens if you try to wrap syntax itself?
 
-        protected Syntax(StxContext ctx)
+        protected Syntax(LexInfo ctx)
         {
-            Context = new StxContext(ctx);
+            LexContext = new LexInfo(ctx);
         }
 
         /// <summary>
@@ -36,11 +36,11 @@ namespace Clasp.Data.Terms.Syntax
 
         private static Syntax Wrap(Term term, SourceLocation loc)
         {
-            StxContext ctx = new StxContext(loc);
+            LexInfo ctx = new LexInfo(loc);
             return Wrap(term, ctx);
         }
 
-        private static Syntax Wrap(Term term, StxContext ctx)
+        private static Syntax Wrap(Term term, LexInfo ctx)
         {
             return term switch
             {
@@ -64,20 +64,20 @@ namespace Clasp.Data.Terms.Syntax
         /// <summary>
         /// Create a syntax with the same scope and location as an existing syntax.
         /// </summary>
-        public static Syntax FromDatum(Term term, Syntax stx) => Wrap(term, stx.Context);
+        public static Syntax FromDatum(Term term, Syntax stx) => Wrap(term, stx.LexContext);
 
         public static Syntax FromSyntax(Syntax original) => original.DeepCopy();
 
         #endregion
 
-        public virtual void AddScope(int phase, params uint[] scopeTokens) => Context.AddScope(phase, scopeTokens);
-        public virtual void FlipScope(int phase, params uint[] scopeTokens) => Context.FlipScope(phase, scopeTokens);
-        public virtual void RemoveScope(int phase, params uint[] scopeTokens) => Context.RemoveScope(phase, scopeTokens);
+        public virtual void AddScope(int phase, params uint[] scopeTokens) => LexContext.AddScope(phase, scopeTokens);
+        public virtual void FlipScope(int phase, params uint[] scopeTokens) => LexContext.FlipScope(phase, scopeTokens);
+        public virtual void RemoveScope(int phase, params uint[] scopeTokens) => LexContext.RemoveScope(phase, scopeTokens);
 
         /// <summary>
         /// Retrieve a live reference to the scope set at the given phase
         /// </summary>
-        public IEnumerable<uint> GetScopeSet(int phase) => Context[phase];
+        public IEnumerable<uint> GetScopeSet(int phase) => LexContext[phase];
 
         /// <summary>
         /// Strip all the syntactic info from this syntax's wrapped value. Recurs upon nested terms.

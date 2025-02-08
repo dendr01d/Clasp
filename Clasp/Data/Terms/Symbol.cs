@@ -97,18 +97,18 @@ namespace Clasp.Data.Terms
     /// By separating them into a unique type, they can never be equal to ordinary symbols,
     /// even if they technically have matching names.
     /// </remarks>
-    internal sealed class Implicand : Symbol
+    internal sealed class ImplicitSym : Symbol
     {
-        private Implicand(string name) : base(name) { }
+        private ImplicitSym(string name) : base(name) { }
 
-        public static readonly Implicand SpApply = new Implicand(Keyword.IMP_APP);
-        public static readonly Implicand SpDatum = new Implicand(Keyword.IMP_DATUM);
-        public static readonly Implicand SpTop = new Implicand(Keyword.IMP_TOP);
-        public static readonly Implicand SpLambda = new Implicand(Keyword.LAMBDA);
-        public static readonly Implicand SpSequence = new Implicand(Keyword.IMP_SEQ);
-        public static readonly Implicand SpVar = new Implicand(Keyword.IMP_VAR);
+        public static readonly ImplicitSym SpApply = new ImplicitSym(Keyword.IMP_APP);
+        public static readonly ImplicitSym SpDatum = new ImplicitSym(Keyword.IMP_DATUM);
+        public static readonly ImplicitSym SpTop = new ImplicitSym(Keyword.IMP_TOP);
+        public static readonly ImplicitSym SpLambda = new ImplicitSym(Keyword.IMP_LAMBDA);
 
-        public static readonly Implicand SpParDef = new Implicand(Keyword.IMP_PARDEF);
+        public static readonly ImplicitSym SpVar = new ImplicitSym(Keyword.IMP_VAR);
+
+        public static readonly ImplicitSym SpParDef = new ImplicitSym(Keyword.IMP_PARDEF);
 
         protected override string FormatType() => "Keyword";
     }
