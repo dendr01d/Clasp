@@ -8,11 +8,14 @@ using System.Threading.Tasks;
 using Clasp.Data.Terms.Syntax;
 
 using Clasp.Data.Terms;
+using Clasp.Data.Metadata;
 
 namespace Clasp.ExtensionMethods
 {
     internal static class SyntaxExtensions
     {
+        #region Destruction/Reconstruction
+
         /// <summary>
         /// If <paramref name="input"/> is a not-<see langword="null"/> <see cref="SyntaxPair"/>,
         /// pull it apart into its constituent pieces.
@@ -22,19 +25,19 @@ namespace Clasp.ExtensionMethods
         /// <param name="pair"><paramref name="input"/> as a <see cref="SyntaxPair"/>, if it truly is one.</param>
         /// <param name="value">The presumed <see cref="SyntaxPair.Car"/> value of <paramref name="input"/>.</param>
         /// <returns>The <see cref="SyntaxPair.Cdr"/> of <paramref name="input"/>, to be further destructed.</returns>
-        public static Syntax? Destruct<T>(this Syntax? input,
-            [NotNullWhen(true)] out SyntaxPair? pair,
-            [NotNullWhen(true)] out T? value)
+        [return: NotNullIfNotNull(nameof(ctx))]
+        [return: NotNullIfNotNull(nameof(value))]
+        public static Syntax? Destruct<T>(this Syntax? input, out StxContext? ctx, out T? value)
             where T : Syntax
         {
             if (input is SyntaxPair outPair
                 && outPair.Car is T outValue)
             {
-                pair = outPair;
+                ctx = outPair.Context;
                 value = outValue;
                 return outPair.Cdr;
             }
-            pair = null;
+            ctx = null;
             value = null;
             return null;
         }
@@ -42,7 +45,7 @@ namespace Clasp.ExtensionMethods
         /// <summary>
         /// Assert that <paramref name="input"/> wraps Nil.
         /// </summary>
-        public static bool Conclude(this Syntax? input,
+        public static bool AssertNil(this Syntax? input,
             [NotNullWhen(true)] out Syntax? terminator)
         {
             terminator = input?.Expose() is Nil
@@ -51,16 +54,37 @@ namespace Clasp.ExtensionMethods
             return terminator is not null;
         }
 
+        public static bool TryDestruct<TCar, TCdr>(this Syntax? input,
+            [NotNullWhen(true)] out StxContext? ctx,
+            [NotNullWhen(true)] out TCar? car,
+            [NotNullWhen(true)] out TCdr? cdr)
+            where TCar : Syntax
+            where TCdr : Syntax
+        {
+            if (input is SyntaxPair stp
+                && stp.Car is TCar outCar
+                && stp.Cdr is TCdr outCdr)
+            {
+                ctx = stp.Context;
+                car = outCar;
+                cdr = outCdr;
+            }
+            ctx = null;
+            car = null;
+            cdr = null;
+            return false;
+        }
+
         /// <summary>
         /// Construct a new <see cref="SyntaxPair"/> from the provided <paramref name="car"/>
         /// and <paramref name="cdr"/> copying the lexical context of <paramref name="ctx"/>.
         /// </summary>
-        public static SyntaxPair Construct(this Syntax cdr, SyntaxPair ctx, Syntax car)
+        public static SyntaxPair Construct(this Syntax cdr, StxContext ctx, Syntax car)
         {
-            return new SyntaxPair(ctx, car, cdr);
+            return new SyntaxPair(car, cdr, ctx);
         }
 
-
+        #endregion
 
         public static bool TryExposeOneArg(this Syntax stx,
             [NotNullWhen(true)] out Syntax? arg1)

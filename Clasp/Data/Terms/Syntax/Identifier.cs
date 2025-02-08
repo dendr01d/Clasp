@@ -28,6 +28,8 @@ namespace Clasp.Data.Terms.Syntax
 
         public Identifier(Symbol sym, Syntax copy) : this(sym, copy.Context) { }
 
+        public static Identifier Implicit(Symbol sym) => new Identifier(sym, new StxContext(SourceLocation.InherentSource));
+
         protected override Identifier DeepCopy() => new Identifier(_sym, this);
 
         public override string ToString() => string.Format("#'{0}", _sym);

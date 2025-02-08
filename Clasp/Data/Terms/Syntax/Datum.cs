@@ -20,6 +20,8 @@ namespace Clasp.Data.Terms.Syntax
 
         public Datum(Term t, Syntax copy) : this(t, copy.Context) { }
 
+        public static Datum Implicit(Term t) => new Datum(t, new StxContext(SourceLocation.InherentSource));
+
         protected override Datum DeepCopy() => new Datum(_datum, this);
 
         public override string ToString() => string.Format("#'{0}", _datum);

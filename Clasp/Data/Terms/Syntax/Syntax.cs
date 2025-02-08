@@ -66,6 +66,9 @@ namespace Clasp.Data.Terms.Syntax
         /// </summary>
         public static Syntax FromDatum(Term term, Syntax stx) => Wrap(term, stx.Context);
 
+        public static Syntax FromDatum(Term term, StxContext ctx) => Wrap(term, ctx);
+
+
         public static Syntax FromSyntax(Syntax original) => original.DeepCopy();
 
         #endregion

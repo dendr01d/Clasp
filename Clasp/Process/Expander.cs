@@ -68,9 +68,10 @@ namespace Clasp.Process
             {
                 return ExpandIdentifier(id, exState);
             }
-            else if (stx.TryExposeIdList(out Identifier? idOp, out SyntaxPair? stp1))
+            else if (stx is SyntaxPair stp1
+                && stp1.Car is Identifier)
             {
-                return ExpandIdApplication(stp1, idOp, exState);
+                return ExpandIdApplication(stp1, exState);
             }
             else if (stx is SyntaxPair stp2)
             {
@@ -104,7 +105,6 @@ namespace Clasp.Process
             }
             else
             {
-                RenameAndBindVariable(id, exState);
                 // indicate that it must be a top-level binding that doesn't exist yet
                 return ExpandImplicit(Implicand.SpTop, id, exState);
             }
@@ -135,15 +135,16 @@ namespace Clasp.Process
         /// </summary>
         private static Syntax ExpandApplication(SyntaxPair stx, ExpansionContext exState)
         {
-            Syntax op = ExpandAsTop(stx.Car, exState);
+            Syntax op = ExpandAsExpression(stx.Car, exState);
             Syntax args = ExpandOperands(stx.Cdr, exState);
 
             SyntaxPair expandedApp = new SyntaxPair(op, args, stx);
             return ExpandImplicit(Implicand.SpApply, expandedApp, exState);
         }
+
         private static Syntax ExpandImplicit(Symbol formName, Syntax stx, ExpansionContext exState)
         {
-            Identifier op = new Identifier(formName, stx);
+            Identifier op = Identifier.Implicit(formName);
             return new SyntaxPair(op, stx, stx);
         }
 
@@ -185,6 +186,7 @@ namespace Clasp.Process
 
             return outputStx;
         }
+
         private static MacroProcedure ExpandAndEvalMacro(Syntax input, ExpansionContext exState)
         {
             ExpansionContext subState = exState.ExpandInNewPhase();
@@ -203,6 +205,14 @@ namespace Clasp.Process
 
         #endregion
 
+        private static Datum ExpandListEnd(Syntax stx, ExpansionContext exState)
+        {
+            if (stx is Datum dat && dat.Expose() is Nil)
+            {
+                return dat;
+            }
+            throw new ExpanderException.ExpectedProperList(stx);
+        }
 
         /// <summary>
         /// Expand the invocation of a special syntactic form.
@@ -257,39 +267,43 @@ namespace Clasp.Process
 
         private static Syntax ExpandIf(SyntaxPair stx, ExpansionContext exState)
         {
-            if (stx is SyntaxPair conditionPair
-                && conditionPair.Cdr is SyntaxPair consequencePair)
+            StxContext condCtx, thenCtx, altCtx;
+            Syntax condValue, thenValue, altValue, terminator;
+            Syntax condOut, thenOut, altOut;
+
+            if (!stx.TryDestruct(out condCtx, out condValue, out Syntax? then))
             {
-                Syntax condition = ExpandAsExpression(conditionPair.Car, exState);
-                Syntax consequence = ExpandAsExpression(consequencePair.Car, exState);
-
-                Syntax alternative;
-
-                if (consequencePair.Cdr is SyntaxPair altPair
-                    && altPair.Cdr.Expose() is Nil)
-                {
-                    alternative = ExpandAsExpression(altPair.Car, exState);
-                }
-                else if (consequencePair.Cdr.Expose() is Nil)
-                {
-                    alternative = ExpandImplicit(Implicand.SpDatum, new Datum(Boolean.False, consequencePair), exState);
-                }
-                else
-                {
-                    throw new ExpanderException.InvalidFormInput(Keyword.IF, "arguments", stx);
-                }
-
-                return
-                    new SyntaxPair(condition,
-                        new SyntaxPair(consequence,
-                            new SyntaxPair(alternative,
-                                ImplicitNil,
-                                consequencePair),
-                            conditionPair),
-                        stx);
+                throw new ExpanderException.InvalidFormInput(Keyword.IF, "condition", stx);
             }
 
-            throw new ExpanderException.InvalidFormInput(Keyword.IF, "arguments", stx);
+            condOut = ExpandAsExpression(condValue, exState);
+
+            if (!then.TryDestruct(out thenCtx, out thenValue, out Syntax? alt))
+            {
+                throw new ExpanderException.InvalidFormInput(Keyword.IF, "consequent", stx);
+            }
+            
+            thenOut = ExpandAsExpression(thenValue, exState);
+
+            if (alt.TryDestruct(out altCtx, out altValue, out Syntax? rest))
+            {
+                altOut = ExpandAsExpression(altValue, exState);
+            }
+            else
+            {
+                altCtx = thenCtx;
+                altOut = Datum.Implicit(Boolean.False);
+            }
+                    
+            if (!stx.AssertNil(out terminator))
+            {
+                throw new ExpanderException.InvalidFormInput(Keyword.IF, "arguments", stx);
+            }
+
+            return terminator
+                .Construct(altCtx, altOut)
+                .Construct(thenCtx, thenOut)
+                .Construct(condCtx, condOut);
         }
 
         #endregion
@@ -643,6 +657,34 @@ namespace Clasp.Process
 
         #region Destructors
 
+        private static Syntax? DestructOrDefault(this Syntax? input,
+            out StxContext? ctx, out Syntax? value,
+            StxContext defaultCtx, Syntax defaultValue)
+        {
+            if (input.AssertNil(out Syntax? _))
+            {
+                ctx = defaultCtx;
+                value = defaultValue;
+                return input;
+            }
+            else
+            {
+                return input.Destruct(out ctx, out value);
+            }
+        }
+
+        private static bool TryDestructIfArgs(Syntax input,
+            [NotNullWhen(true)] out StxContext? condStx, [NotNullWhen(true)] out Syntax? cond,
+            [NotNullWhen(true)] out StxContext? thenStx, [NotNullWhen(true)] out Syntax? then,
+            [NotNullWhen(true)] out StxContext? altStx, [NotNullWhen(true)] out Syntax? alt,
+            [NotNullWhen(true)] out Syntax? terminator)
+        {
+            return input
+                .Destruct(out condStx, out cond)
+                .Destruct(out thenStx, out then)
+                .DestructOrDefault(out altStx, out alt, input.Context, Datum.Implicit(Boolean.False))
+                .AssertNil(out terminator);
+        }
 
         #endregion
 
