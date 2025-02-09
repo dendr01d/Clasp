@@ -21,13 +21,13 @@ namespace Clasp.Process
         #region Dispatching
 
         private static Syntax ExpandAsTop(Syntax stx, ExpansionContext exState)
-            => Expand(stx, exState.ExpandingInMode(SyntaxMode.TopLevel));
+            => Expand(stx, exState.InSyntaxMode(SyntaxMode.TopLevel));
 
         private static Syntax ExpandAsExpression(Syntax stx, ExpansionContext exState)
-            => Expand(stx, exState.ExpandingInMode(SyntaxMode.Expression));
+            => Expand(stx, exState.InSyntaxMode(SyntaxMode.Expression));
 
         private static Syntax ExpandAsBodyTerm(Syntax stx, ExpansionContext exState)
-            => Expand(stx, exState.ExpandingInMode(SyntaxMode.InternalDefinition));
+            => Expand(stx, exState.InSyntaxMode(SyntaxMode.InternalDefinition));
 
         private static Syntax Expand(Syntax stx, ExpansionContext exState)
         {
@@ -234,7 +234,7 @@ namespace Clasp.Process
 
                 Syntax output = ApplySyntaxTransformer(macro, input);
 
-                ExpansionContext exMacro = exState.ExpandingMacroResult(useSiteScope);
+                ExpansionContext exMacro = exState.AsMacroResult(useSiteScope);
 
                 exMacro.FlipScope(output, useSiteScope);
                 exMacro.AddPendingInsideEdgeScope(output);
@@ -275,7 +275,7 @@ namespace Clasp.Process
 
         private static MacroProcedure ExpandAndEvalMacro(Syntax input, ExpansionContext exState)
         {
-            ExpansionContext subState = exState.ExpandingNewPhase();
+            ExpansionContext subState = exState.InNewPhase();
 
             Term output;
 
@@ -631,7 +631,6 @@ namespace Clasp.Process
         }
         #endregion
 
-
         #region Special Form Expansion
 
         private static Syntax ExpandDefineArgs(Syntax stx, ExpansionContext exState)
@@ -751,7 +750,7 @@ namespace Clasp.Process
 
                 exState.AddScope(stx, outsideEdge, insideEdge);
 
-                ExpansionContext exBody = exState.ExpandingInBody(insideEdge);
+                ExpansionContext exBody = exState.InBody(insideEdge);
 
                 ExpandParameterList(formals, exBody);
                 SyntaxPair expandedBody = ExpandBody(body, exBody);

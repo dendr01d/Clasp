@@ -64,7 +64,7 @@ namespace Clasp.Data.Metadata
                 macroUseSite: null);
         }
         
-        public ExpansionContext ExpandingNewPhase()
+        public ExpansionContext InNewPhase()
         {
             return new ExpansionContext(
                 env: CompileTimeEnv.TopLevel.Enclose(),
@@ -76,7 +76,7 @@ namespace Clasp.Data.Metadata
                 macroUseSite: null);
         }
 
-        public ExpansionContext ExpandingInMode(SyntaxMode context)
+        public ExpansionContext InSyntaxMode(SyntaxMode context)
         {
             return new ExpansionContext(
                 env: CompileTimeEnv,
@@ -88,7 +88,7 @@ namespace Clasp.Data.Metadata
                 macroUseSite: _macroUseSite);
         }
 
-        public ExpansionContext ExpandingInBody(uint insideEdge)
+        public ExpansionContext InBody(uint insideEdge)
         {
             return new ExpansionContext(
                 env: CompileTimeEnv.Enclose(),
@@ -100,7 +100,7 @@ namespace Clasp.Data.Metadata
                 macroUseSite: null);
         }
 
-        public ExpansionContext ExpandingMacroResult(uint useSiteScope)
+        public ExpansionContext AsMacroResult(uint useSiteScope)
         {
             return new ExpansionContext(
                 env: CompileTimeEnv.Enclose(),

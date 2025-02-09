@@ -300,6 +300,15 @@ namespace Clasp
             { }
         }
 
+        public class UnboundIdentifier : ParserException
+        {
+            internal UnboundIdentifier(Identifier badId) : base(
+                badId.Location,
+                "The identifier is unbound within the expansion context: {0}",
+                badId)
+            { }
+        }
+
         public class InvalidOperator : ParserException
         {
             internal InvalidOperator(CoreForm badOperator, Syntax badApplication) : base(
@@ -345,12 +354,20 @@ namespace Clasp
 
         public class ExpectedExpression : ParserException
         {
-            internal ExpectedExpression(string formName, CoreForm wrongInput, Syntax wrongSyntax) : base(
+            internal ExpectedExpression(CoreForm wrongInput, Syntax wrongSyntax) : base(
                 wrongSyntax.Location,
-                "Expected expression in '{0}' form, but received imperative '{1}' form instead: {2}",
-                formName,
+                "Expected expression form, but received imperative '{0}' form instead: {1}",
                 wrongInput.FormName,
                 wrongSyntax)
+            { }
+        }
+
+        public class ExpectedProperList : ParserException
+        {
+            internal ExpectedProperList(Syntax notAProperList) : base(
+                notAProperList.Location,
+                "Expected to parse proper list: {0}",
+                notAProperList)
             { }
         }
 
