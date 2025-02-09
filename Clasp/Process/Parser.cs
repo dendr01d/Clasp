@@ -65,44 +65,54 @@ namespace Clasp.Process
                 throw new ParserException.InvalidOperator(parsedOp, stp);
             }
 
-            IEnumerable<CoreForm> argTerms = ParseArguments(stp.Cdr, exResult);
+            CoreForm[] argTerms = ParseArguments(stp.Cdr, exResult).ToArray();
 
             return new FunctionApplication(parsedOp, argTerms.ToArray());
         }
 
-        private static CoreForm ParseSpecial(string formName, SyntaxPair form, ExpansionContext exResult)
+        private static CoreForm ParseSpecial(string formName, SyntaxPair stx, ExpansionContext exResult)
         {
             // all special forms have at least one argument
-            if (form.Cdr is not SyntaxPair args)
+            if (stx.Cdr is not SyntaxPair args)
             {
-                throw new ParserException.InvalidFormInput(formName, "arguments", form);
+                throw new ParserException.WrongArity(formName, "at least one", stx);
             }
 
-            CoreForm result = formName switch
+            CoreForm result;
+            
+            try
             {
-                Keyword.IMP_TOP =>  ParseVariableLookup(args, exResult),
-                Keyword.IMP_VAR => ParseVariableLookup(args, exResult),
+                result = formName switch
+                {
+                    Keyword.IMP_TOP => ParseVariableLookup(args, exResult),
+                    Keyword.IMP_VAR => ParseVariableLookup(args, exResult),
 
-                Keyword.QUOTE => ParseQuote(args),
-                Keyword.IMP_DATUM => ParseQuote(args),
-                
-                Keyword.QUOTE_SYNTAX => ParseQuoteSyntax(args),
+                    Keyword.QUOTE => ParseQuote(args),
+                    Keyword.IMP_DATUM => ParseQuote(args),
 
-                Keyword.IMP_APP => ParseApplication(args, exResult),
+                    Keyword.QUOTE_SYNTAX => ParseQuoteSyntax(args),
 
-                Keyword.DEFINE => ParseDefinition(args, exResult),
-                Keyword.DEFINE_SYNTAX => ParseDefinition(args, exResult),
-                Keyword.SET => ParseSet(args, exResult),
+                    Keyword.APPLY => ParseApplication(args, exResult),
+                    Keyword.IMP_APP => ParseApplication(args, exResult),
 
-                Keyword.LAMBDA => ParseLambda(args, exResult),
-                Keyword.IMP_LAMBDA => ParseLambda(args, exResult),
+                    Keyword.DEFINE => ParseDefinition(args, exResult),
+                    Keyword.DEFINE_SYNTAX => ParseDefinition(args, exResult),
+                    Keyword.SET => ParseSet(args, exResult),
 
-                Keyword.IF => ParseIf(args, exResult),
+                    Keyword.LAMBDA => ParseLambda(args, exResult),
+                    Keyword.IMP_LAMBDA => ParseLambda(args, exResult),
 
-                Keyword.BEGIN => ParseBegin(args, exResult),
+                    Keyword.IF => ParseIf(args, exResult),
 
-                _ => throw new ParserException.InvalidSyntax(form)
-            };
+                    Keyword.BEGIN => ParseBegin(args, exResult),
+
+                    _ => throw new ParserException.InvalidSyntax(stx)
+                };
+            }
+            catch (ParserException pe)
+            {
+                throw new ParserException.InvalidForm(formName, stx, pe);
+            }
 
             return result;
         }
@@ -177,7 +187,7 @@ namespace Clasp.Process
         {
             if (stx.TryDestruct(out Syntax? formals, out SyntaxPair? body, out _))
             {
-                System.Tuple<string[], string?> parameters = ParseParameters(formals);
+                System.Tuple<string[], string?> parameters = ParseParameters(formals, exResult);
 
                 IEnumerable<CoreForm> bodyTerms = ParseSequence(body, exResult);
                 AggregateKeyTerms(bodyTerms, out string[] informals, out CoreForm[] moddedBodyTerms);
@@ -248,21 +258,41 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the identifiers in a list of parameter values.
         /// </summary>
-        private static System.Tuple<string[], string?> ParseParameters(Syntax stx)
+        private static System.Tuple<string[], string?> ParseParameters(Syntax stx, ExpansionContext exResult)
         {
             List<string> ids = new List<string>();
+            string? dotted = null;
 
             Syntax current = stx;
 
             while (current.TryDestruct(out Identifier? nextParam, out Syntax? rest, out _))
             {
-                ids.Add(nextParam.Name);
-                current = rest;
+                if (exResult.TryResolveBinding(nextParam, out CompileTimeBinding? binding)
+                    && binding.BoundType == BindingType.Variable)
+                {
+                    ids.Add(binding.Name);
+                    current = rest;
+                }
+                else
+                {
+                    throw new ParserException.UnboundIdentifier(nextParam);
+                }
             }
 
-            string? dottedParam = (current as Identifier)?.Name;
+            if (current is Identifier lastParam)
+            {
+                if (exResult.TryResolveBinding(lastParam, out CompileTimeBinding? binding)
+                    && binding.BoundType == BindingType.Variable)
+                {
+                    dotted = binding.Name;
+                }
+                else
+                {
+                    throw new ParserException.UnboundIdentifier(lastParam);
+                }
+            }
 
-            return new System.Tuple<string[], string?>(ids.ToArray(), dottedParam);
+            return new System.Tuple<string[], string?>(ids.ToArray(), dotted);
         }
 
         /// <summary>

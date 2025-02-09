@@ -62,17 +62,44 @@ namespace Clasp.Data.Terms.Syntax
             _lazyCons = null;
         }
 
+        public override void AddScope(int phase, params uint[] scopeTokens)
+        {
+            base.AddScope(phase, scopeTokens);
+            Car.AddScope(phase, scopeTokens);
+            Cdr.AddScope(phase, scopeTokens);
+        }
+        public override void FlipScope(int phase, params uint[] scopeTokens)
+        {
+            base.FlipScope(phase, scopeTokens);
+            Car.FlipScope(phase, scopeTokens);
+            Cdr.FlipScope(phase, scopeTokens);
+        }
+        public override void RemoveScope(int phase, params uint[] scopeTokens)
+        {
+            base.RemoveScope(phase, scopeTokens);
+            Car.RemoveScope(phase, scopeTokens);
+            Cdr.RemoveScope(phase, scopeTokens);
+        }
+
         public IEnumerator<Syntax?> GetEnumerator() => this.EnumerateElements().GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => this.EnumerateElements().GetEnumerator();
 
-        public override string ToString()
-        {
-            Syntax?[] terms = this.EnumerateElements().ToArray();
+        public override string ToString() => string.Format("#'({0}{1})", Car, PrintAsTail(Cdr));
 
-            return string.Format(
-                "#'({0}{1})",
-                string.Join(" ", terms[^2]),
-                terms[^1]?.Expose() is null ? string.Empty : terms[^1]);
+        private static string PrintAsTail(Syntax stx)
+        {
+            if (stx.IsTerminator())
+            {
+                return string.Empty;
+            }
+            else if (stx is SyntaxPair stp)
+            {
+                return string.Format(" {0}{1}", stp.Car, PrintAsTail(stp.Cdr));
+            }
+            else
+            {
+                return string.Format(" . {0}", stx);
+            }
         }
         protected override string FormatType() => string.Format("StxCons<{0}, {1}>", Car.TypeName, Cdr.TypeName);
     }

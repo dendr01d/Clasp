@@ -45,7 +45,7 @@ namespace Clasp.Process
             }
             else
             {
-                return ExpandImplicit(ImplicitSym.SpDatum, stx, exState);
+                return ExpandImplicit(Implicit.SpDatum, AsArg(stx), exState);
             }
         }
 
@@ -66,7 +66,7 @@ namespace Clasp.Process
                 }
                 else if (binding.BoundType == BindingType.Variable)
                 {
-                    return ExpandImplicit(ImplicitSym.SpVar, id, exState);
+                    return ExpandImplicit(Implicit.SpVar, AsArg(id), exState);
                 }
                 else
                 {
@@ -76,7 +76,7 @@ namespace Clasp.Process
             else
             {
                 // indicate that it must be a top-level binding that doesn't exist yet
-                return ExpandImplicit(ImplicitSym.SpTop, id, exState);
+                return ExpandImplicit(Implicit.SpTop, AsArg(id), exState);
             }
         }
 
@@ -119,14 +119,19 @@ namespace Clasp.Process
             }
 
             SyntaxPair expandedApp = new SyntaxPair(op, args, stx);
-            return ExpandImplicit(ImplicitSym.SpApply, expandedApp, exState);
+            return ExpandImplicit(Implicit.SpApply, expandedApp, exState);
+        }
+
+        private static SyntaxPair AsArg(Syntax stx)
+        {
+            return new SyntaxPair(stx, Datum.Implicit(Nil.Value), stx);
         }
 
         /// <summary>
         /// Prepend <paramref name="stx"/> with a special <see cref="Identifier"/> that shares its
         /// <see cref="LexInfo"/>, indicating how it should be handled by the <see cref="Parser"/>.
         /// </summary>
-        private static Syntax ExpandImplicit(ImplicitSym formName, Syntax stx, ExpansionContext exState)
+        private static Syntax ExpandImplicit(Implicit formName, SyntaxPair stx, ExpansionContext exState)
         {
             Identifier op = Identifier.Implicit(formName);
             return new SyntaxPair(op, stx, stx);
@@ -151,6 +156,7 @@ namespace Clasp.Process
             {
                 expandedTail = formName switch
                 {
+                    Keyword.IMP_PARDEF => ExpandDefineArgs(tail, exState),
                     Keyword.DEFINE => ExpandDefineArgs(tail, exState),
                     Keyword.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(tail, exState),
                     Keyword.SET => ExpandSetArgs(tail, exState),
@@ -158,10 +164,10 @@ namespace Clasp.Process
                     Keyword.QUOTE => ExpandQuoteArgs(tail, exState),
                     Keyword.QUOTE_SYNTAX => ExpandQuoteArgs(tail, exState),
 
+                    Keyword.LAMBDA => ExpandLambdaArgs(tail, exState),
+
                     Keyword.IF => ExpandIfArgs(tail, exState),
                     Keyword.BEGIN => ExpandSequence(tail, exState),
-
-                    Keyword.LAMBDA => ExpandLambdaArgs(tail, exState),
 
                     _ => throw new ExpanderException.InvalidSyntax(stx)
                 };
@@ -207,7 +213,7 @@ namespace Clasp.Process
                         return terminator
                             .Cons(value, valueContext)
                             .Cons(key, keyContext)
-                            .Cons(new Identifier(ImplicitSym.SpMidDef, op), stx.LexContext);
+                            .Cons(new Identifier(Implicit.ParDef, op), stx.LexContext);
                     }
                     else
                     {
@@ -477,7 +483,7 @@ namespace Clasp.Process
                 valueContext = body.LexContext;
                 value = body
                     .Cons(formals, body.LexContext)
-                    .Cons(Identifier.Implicit(ImplicitSym.SpLambda), body.LexContext);
+                    .Cons(Identifier.Implicit(Implicit.SpLambda), body.LexContext);
 
                 terminator = Datum.Implicit(Nil.Value);
 
@@ -520,7 +526,7 @@ namespace Clasp.Process
                 value = Datum.Implicit(Nil.Value)
                     .Cons(returnValue, valueContext)
                     .Cons(Datum.FromDatum(Nil.Value, valueContext), valueContext)
-                    .Cons(Identifier.Implicit(ImplicitSym.SpLambda), valueContext);
+                    .Cons(Identifier.Implicit(Implicit.SpLambda), valueContext);
                 return true;
             }
             else if (TryDestructImplicitLambda(stx,
@@ -531,7 +537,7 @@ namespace Clasp.Process
                 valueContext = body.LexContext;
                 value = body
                     .Cons(formals, body.LexContext)
-                    .Cons(Identifier.Implicit(ImplicitSym.SpLambda), body.LexContext);
+                    .Cons(Identifier.Implicit(Implicit.SpLambda), body.LexContext);
 
                 terminator = Datum.Implicit(Nil.Value);
 
@@ -675,7 +681,7 @@ namespace Clasp.Process
                 MacroProcedure macro = ExpandAndEvalMacro(value, exState);
                 exState.BindMacro(key, macro);
 
-                Syntax evaluatedMacro = ExpandImplicit(ImplicitSym.SpDatum, Datum.FromDatum(macro, valueContext), exState);
+                Syntax evaluatedMacro = ExpandImplicit(Implicit.SpDatum, AsArg(Datum.FromDatum(macro, valueContext)), exState);
 
                 return terminator
                     .Cons(evaluatedMacro, valueContext)
@@ -748,7 +754,8 @@ namespace Clasp.Process
                 uint outsideEdge = exState.FreshScopeToken();
                 uint insideEdge = exState.FreshScopeToken();
 
-                exState.AddScope(stx, outsideEdge, insideEdge);
+                exState.AddScope(formals, outsideEdge, insideEdge);
+                exState.AddScope(body, outsideEdge, insideEdge);
 
                 ExpansionContext exBody = exState.InBody(insideEdge);
 

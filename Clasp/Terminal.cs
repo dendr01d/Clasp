@@ -221,6 +221,14 @@ namespace Clasp
 
         private static void PrintExceptionInfo(Exception ex)
         {
+
+            if (ex.InnerException is not null)
+            {
+                Console.WriteLine();
+                PrintExceptionInfo(ex.InnerException);
+                Console.WriteLine("└─>");
+            }
+
             Console.Write(ex switch
             {
                 LexerException => "Lexing error: ",
@@ -251,18 +259,8 @@ namespace Clasp
                 Console.WriteLine(Printer.PrintLineErrorHelper(ist));
             }
 
-            //if (ex is not ClaspException) 
-            //{
-            Console.WriteLine();
             Console.WriteLine("From CLASP source:");
-                Console.WriteLine(ex.GetSimpleStackTrace());
-
-                if (ex.InnerException is not null)
-                {
-                    Console.WriteLine("└─>");
-                    PrintExceptionInfo(ex.InnerException);
-                }
-            //}
+            Console.WriteLine(ex.GetSimpleStackTrace());
 
             Console.WriteLine();
         }

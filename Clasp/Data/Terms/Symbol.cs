@@ -53,6 +53,8 @@ namespace Clasp.Data.Terms
 
         public static readonly Symbol Ellipsis = Intern(Keyword.ELLIPSIS);
 
+        public static readonly Symbol Apply = Intern(Keyword.APPLY);
+
         //public static readonly Symbol ImplicitApp = Intern(Keyword.IMP_APP);
         //public static readonly Symbol ImplicitDatum = Intern(Keyword.IMP_DATUM);
         //public static readonly Symbol ImplicitTop = Intern(Keyword.IMP_TOP);
@@ -78,7 +80,7 @@ namespace Clasp.Data.Terms
 
             while (IsInterned(output))
             {
-                output = string.Format("{0}{1}{2}", partial, _SEP, counter);
+                output = string.Format("{0}{1}{2}", partial, _SEP, counter++);
             }
             return output;
         }
@@ -97,19 +99,18 @@ namespace Clasp.Data.Terms
     /// By separating them into a unique type, they can never be equal to ordinary symbols,
     /// even if they technically have matching names.
     /// </remarks>
-    internal sealed class ImplicitSym : Symbol
+    internal sealed class Implicit : Symbol
     {
-        private ImplicitSym(string name) : base(name) { }
+        private Implicit(string name) : base(name) { }
 
-        public static readonly ImplicitSym SpApply = new ImplicitSym(Keyword.IMP_APP);
-        public static readonly ImplicitSym SpDatum = new ImplicitSym(Keyword.IMP_DATUM);
-        public static readonly ImplicitSym SpTop = new ImplicitSym(Keyword.IMP_TOP);
-        public static readonly ImplicitSym SpLambda = new ImplicitSym(Keyword.IMP_LAMBDA);
+        public static readonly Implicit SpApply = new Implicit(Keyword.IMP_APP);
+        public static readonly Implicit SpDatum = new Implicit(Keyword.IMP_DATUM);
+        public static readonly Implicit SpTop = new Implicit(Keyword.IMP_TOP);
+        public static readonly Implicit SpLambda = new Implicit(Keyword.IMP_LAMBDA);
 
-        public static readonly ImplicitSym SpVar = new ImplicitSym(Keyword.IMP_VAR);
+        public static readonly Implicit SpVar = new Implicit(Keyword.IMP_VAR);
 
-        public static readonly ImplicitSym SpTopDef = new ImplicitSym(Keyword.IMP_TOPDEF);
-        public static readonly ImplicitSym SpMidDef = new ImplicitSym(Keyword.IMP_MIDDEF);
+        public static readonly Implicit ParDef = new Implicit(Keyword.IMP_PARDEF);
 
         protected override string FormatType() => "ImpSymbol";
     }

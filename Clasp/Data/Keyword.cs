@@ -34,21 +34,14 @@ namespace Clasp.Data
 
         public const string ELLIPSIS = "...";
 
+        public const string APPLY = "apply";
+
         public const string IMP_APP = "#%app";
         public const string IMP_DATUM = "#%datum";
         public const string IMP_TOP = "#%top";
         public const string IMP_LAMBDA = "#%lambda";
         public const string IMP_VAR = "#%var";
 
-        public const string IMP_TOPDEF = "#%define-top";
-        public const string IMP_MIDDEF = "#%define-mid";
-
-        public static readonly string[] Definitionals = new string[]
-        {
-            DEFINE,
-            DEFINE_SYNTAX,
-            IMP_TOP,
-            IMP_TOPDEF
-        };
+        public const string IMP_PARDEF = "#%part-define";
     }
 }

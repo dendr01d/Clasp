@@ -281,14 +281,10 @@ namespace Clasp
             Location = loc;
         }
 
-        public class NotSyntax : ParserException
+        private ParserException(SourceLocation loc, ClaspException innerException, string format, params object?[] args)
+            : base(innerException, format, args)
         {
-            internal NotSyntax(Term notSyntax, SourceLocation loc) : base(
-                loc,
-                "Tried to parse non-syntax: {0}",
-                notSyntax
-                )
-            { }
+            Location = loc;
         }
 
         public class InvalidSyntax : ParserException
@@ -313,7 +309,7 @@ namespace Clasp
         {
             internal InvalidOperator(CoreForm badOperator, Syntax badApplication) : base(
                 badApplication.Location,
-                "Form of type '{0}' can't be used as the operator term of a function application: {1}",
+                "Form of type '{0}' can't be used as the operator of a function application: {1}",
                 badOperator.FormName,
                 badApplication)
             { }
@@ -330,23 +326,19 @@ namespace Clasp
             { }
         }
 
-        public class WrongType : ParserException
+        public class InvalidForm : ParserException
         {
-            internal WrongType(string formName, string expectedType, Syntax badApplication) : base(
-                badApplication.Location,
-                "An argument of type '{0}' is required in '{1}' form: {2}",
-                expectedType,
-                formName,
-                badApplication)
-            { }
-        }
-
-        public class InvalidFormInput : ParserException
-        {
-            internal InvalidFormInput(string formName, string inputDescription, Syntax invalidForm) : base(
+            internal InvalidForm(string formName, Syntax invalidForm) : base(
                 invalidForm.Location,
-                "Invalid syntax while parsing {0} within '{1}' form: {2}",
-                inputDescription,
+                "Error parsing '{0}' form: {1}",
+                formName,
+                invalidForm)
+            { }
+
+            internal InvalidForm(string formName, Syntax invalidForm, ParserException innerException) : base(
+                invalidForm.Location,
+                innerException,
+                "Error parsing '{0}' form: {1}",
                 formName,
                 invalidForm)
             { }

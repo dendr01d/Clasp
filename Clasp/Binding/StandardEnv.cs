@@ -1,4 +1,5 @@
 ﻿using Clasp.Binding.Environments;
+using Clasp.Data;
 using Clasp.Data.Terms;
 
 namespace Clasp.Binding
@@ -9,15 +10,26 @@ namespace Clasp.Binding
         {
             SuperEnvironment output = new SuperEnvironment();
 
-            output.DefineInitial(Symbol.Define.Name, Symbol.Define); //remove at some point?
-            output.DefineInitial(Symbol.Set.Name, Symbol.Set);
+            output.DefineCoreForm(Implicit.SpTop);
+            output.DefineCoreForm(Implicit.SpVar);
 
-            output.DefineInitial(Symbol.Quote.Name, Symbol.Quote);
-            output.DefineInitial(Symbol.Syntax.Name, Symbol.Syntax);
+            output.DefineCoreForm(Symbol.Quote);
+            output.DefineCoreForm(Implicit.SpDatum);
 
-            output.DefineInitial(Symbol.Begin.Name, Symbol.Begin);
-            output.DefineInitial(Symbol.If.Name, Symbol.If);
-            output.DefineInitial(Symbol.Lambda.Name, Symbol.Lambda);
+            output.DefineCoreForm(Symbol.QuoteSyntax);
+
+            output.DefineCoreForm(Symbol.Apply);
+            output.DefineCoreForm(Implicit.SpApply);
+
+            output.DefineCoreForm(Symbol.Define);
+            output.DefineCoreForm(Symbol.DefineSyntax);
+            output.DefineCoreForm(Symbol.Set);
+
+            output.DefineCoreForm(Symbol.Lambda);
+            output.DefineCoreForm(Implicit.SpLambda);
+
+            output.DefineCoreForm(Symbol.If);
+            output.DefineCoreForm(Symbol.Begin);
 
             return output;
         }

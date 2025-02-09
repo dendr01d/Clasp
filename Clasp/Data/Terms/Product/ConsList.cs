@@ -74,14 +74,16 @@ namespace Clasp.Data.Terms.Product
 
         #endregion
 
-        public override string ToString()
-        {
-            Term?[] terms = this.EnumerateElements().ToArray();
+        public override string ToString() => string.Format("({0}{1})", Car, PrintAsTail(Cdr));
 
-            return string.Format(
-                "({0}{1})",
-                string.Join(" ", terms[^2]),
-                terms[^1] is Term t ? t.ToString() : string.Empty);
+        private static string PrintAsTail(Term t)
+        {
+            return t switch
+            {
+                ConsList cl => string.Format(" {0}{1}", cl.Car, PrintAsTail(cl.Cdr)),
+                Nil => string.Empty,
+                _ => string.Format(" . {0}", t)
+            };
         }
 
         protected override string FormatType() => string.Format("Cons<{0}, {1}>", Car.TypeName, Cdr.TypeName);

@@ -25,7 +25,7 @@ namespace Clasp.Process
             TopLevelEnv = null!;
             ReloadEnv();
 
-            Bindings = new BindingStore();
+            Bindings = new BindingStore(TopLevelEnv);
 
             _tokenGen = new ScopeTokenGenerator();
         }

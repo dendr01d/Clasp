@@ -1,9 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Clasp.Binding.Environments;
 using Clasp.Data;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
@@ -15,14 +15,14 @@ namespace Clasp.Binding
     {
         private readonly Dictionary<string, List<KeyValuePair<HashSet<uint>, CompileTimeBinding>>> _renamings;
 
-        public BindingStore()
+        public BindingStore(Environment env)
         {
             _renamings = new();
 
-            BindCoreForm(Keyword.DEFINE);
-            BindCoreForm(Keyword.DEFINE_SYNTAX);
-            BindCoreForm(Keyword.LET_SYNTAX);
-            BindCoreForm(Keyword.LAMBDA);
+            foreach(var staticallyBound in env.TopLevel.StaticBindings)
+            {
+                BindStaticForm(staticallyBound.Key);
+            }
         }
 
         public void AddBinding(string symName, IEnumerable<uint> scopeSet, CompileTimeBinding binding)
@@ -40,7 +40,7 @@ namespace Clasp.Binding
         public void AddBinding(Identifier id, int phase, CompileTimeBinding binding)
             => AddBinding(id.Name, id.GetScopeSet(phase), binding);
 
-        private void BindCoreForm(string name)
+        private void BindStaticForm(string name)
         {
             Identifier coreId = new Identifier(name, LexInfo.Innate);
             CompileTimeBinding binding = new CompileTimeBinding(coreId, BindingType.Special);

@@ -13,6 +13,8 @@ namespace Clasp.Binding.Environments
     {
         private readonly Dictionary<string, Term> _staticBindings;
 
+        public IEnumerable<KeyValuePair<string, Term>> StaticBindings => _staticBindings.ToList();
+
         public override SuperEnvironment TopLevel => this;
         public override bool IsTopLevel => true;
 

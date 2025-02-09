@@ -164,8 +164,8 @@ namespace Clasp.Data.AbstractSyntax
         public override MxInstruction CopyContinuation() => new SequentialForm(Sequence);
         public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToArray<object>()));
 
-        public override Term ToTerm() => ConsList.Cons(Symbol.Begin,
-            ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
+        public override Term ToTerm() => ConsList.Cons(Symbol.Begin, ToImplicitTerm());
+        public Term ToImplicitTerm() => ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray());
     }
 
     internal sealed class TopLevelSequentialForm : CoreForm
@@ -259,12 +259,13 @@ namespace Clasp.Data.AbstractSyntax
             DottedFormal is null ? string.Empty : string.Format("; {0}", DottedFormal),
             string.Join(", ", Body.Sequence.ToArray<object>()));
 
-        public override Term ToTerm() => ConsList.ProperList(Symbol.Lambda,
+        public override Term ToTerm() => ConsList.ImproperList(
+            Symbol.Lambda,
             ConsList.ConstructDirect(Formals
                 .Select(x => Symbol.Intern(x))
                 .ToList<Term>()
                 .Append(DottedFormal is null ? Nil.Value : Symbol.Intern(DottedFormal))),
-            Body.ToTerm());
+            Body.ToImplicitTerm());
     }
 
     #endregion

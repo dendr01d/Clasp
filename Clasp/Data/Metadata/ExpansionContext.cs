@@ -68,7 +68,7 @@ namespace Clasp.Data.Metadata
         {
             return new ExpansionContext(
                 env: CompileTimeEnv.TopLevel.Enclose(),
-                store: new BindingStore(),
+                store: new BindingStore(CompileTimeEnv.TopLevel.Enclose()),
                 phase: Phase + 1,
                 mode: SyntaxMode.TopLevel,
                 gen: _gen,
@@ -181,17 +181,6 @@ namespace Clasp.Data.Metadata
             CompileTimeEnv[bindingId.Name] = macro;
 
             return bindingId;
-        }
-
-        /// <summary>
-        /// Explicitly record <paramref name="bindingId"/> as a <see cref="BindingType.Special"/>
-        /// corresponding to the scope of <paramref name="symbolicId"/> and the current <see cref="Phase"/>.
-        /// </summary>
-        public void BindSpecial(Identifier symbolicId, Identifier bindingId)
-        {
-            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Special);
-            GlobalBindingStore.AddBinding(symbolicId, Phase, binding);
-            //CompileTimeEnv[bindingId.Name] = bindingId.Expose();
         }
 
         /// <summary>
