@@ -85,7 +85,7 @@ namespace Clasp.Data.Metadata
 
         public SourceLocation Derivation() => new SourceLocation(Source, LineNumber, Column, StartingPosition, 0, SourceText, false);
 
-        public static readonly SourceLocation InherentSource =
+        public static readonly SourceLocation Innate =
             new SourceLocation("CLASP", -1, -1, -1, -1, new Blob("CLASP", []), true)
             {
                 Inherent = true

@@ -181,7 +181,7 @@ namespace Clasp
                 ambId.Location,
                 "The variable name '{0}' ambiguously refers to multiple bindings within the given context: {1}",
                 ambId.Name,
-                string.Join(", ", matches.Select(x => string.Format("'{0}' @ {1}", x.BoundId.Name, x.BoundId.Location))))
+                string.Join(", ", matches.Select(x => string.Format("'{0}' @ {1}", x.Id.Name, x.Id.Location))))
             { }
         }
 
@@ -232,10 +232,17 @@ namespace Clasp
             { }
         }
 
+        /// <summary>For when you know the entirety of the form.</summary>
         public class InvalidForm : ExpanderException
         {
-            internal InvalidForm(string formName, Syntax invalidForm, ExpanderException innerException) : base(
-                invalidForm.Location,
+            internal InvalidForm(string formName, Syntax form) : base(
+                form.Location,
+                "Error expanding '{0}' form.",
+                formName)
+            { }
+
+            internal InvalidForm(string formName, Syntax form, ExpanderException innerException) : base(
+                form.Location,
                 innerException,
                 "Error expanding '{0}' form.",
                 formName
@@ -243,6 +250,7 @@ namespace Clasp
             { }
         }
 
+        /// <summary>For when you only know the subform, and you're relying on an <see cref="InvalidForm"/> to catch this.</summary>
         public class InvalidSubForm : ExpanderException
         {
             internal InvalidSubForm(string subFormName, Syntax invalid) : base(

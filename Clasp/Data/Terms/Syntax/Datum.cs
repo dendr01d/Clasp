@@ -20,9 +20,7 @@ namespace Clasp.Data.Terms.Syntax
 
         public Datum(Term t, Syntax copy) : this(t, copy.LexContext) { }
 
-        public static Datum Implicit(Term t) => new Datum(t, SourceLocation.InherentSource);
-
-        public static Datum Implicit(Term t) => new Datum(t, new StxContext(SourceLocation.InherentSource));
+        public static Datum Implicit(Term t) => new Datum(t, new LexInfo(SourceLocation.Innate));
 
         protected override Datum DeepCopy() => new Datum(_datum, this);
 

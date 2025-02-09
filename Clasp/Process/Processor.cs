@@ -37,8 +37,8 @@ namespace Clasp.Process
 
         public IEnumerable<Token> Lex(string source, string input) => Lexer.LexText(source, input);
         public Syntax Read(IEnumerable<Token> tokens) => Reader.ReadTokens(tokens);
-        public Syntax Expand(Syntax stx) => Expander.ExpandSyntax(stx, TopLevelEnv, Bindings, _tokenGen);
-        public CoreForm Parse(Syntax stx) => Parser.ParseSyntax(stx, Bindings, 0);
+        public Syntax Expand(Syntax stx) => Expander.ExpandSyntax(stx, ExpansionContext.FreshExpansion(TopLevelEnv, Bindings, _tokenGen));
+        public CoreForm Parse(Syntax stx) => Parser.ParseSyntax(stx, ExpansionContext.FreshExpansion(TopLevelEnv, Bindings, _tokenGen));
 
         public Term Interpret(CoreForm prog) => Interpreter.InterpretProgram(prog, TopLevelEnv);
         public Term Interpret(CoreForm prog, System.Action<int, MachineState> postStepHook)

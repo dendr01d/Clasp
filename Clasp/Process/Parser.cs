@@ -31,7 +31,7 @@ namespace Clasp.Process
             if (stx is Identifier id)
             {
                 CompileTimeBinding binding = exResult.ResolveBinding(id);
-                return new VariableLookup(binding.BindingName);
+                return new VariableLookup(binding.Name);
             }
             else if (stx is SyntaxPair stp)
             {
@@ -49,7 +49,7 @@ namespace Clasp.Process
                 && exResult.TryResolveBinding(idOp, out CompileTimeBinding? binding))
             {
                 if (binding.BoundType == BindingType.Transformer
-                    && exResult.TryGetMacro(binding.BindingName, out MacroProcedure? macro))
+                    && exResult.TryGetMacro(binding.Name, out MacroProcedure? macro))
                 {
                     return new ConstValue(macro);
                 }
@@ -163,7 +163,7 @@ namespace Clasp.Process
 
                     if (boundValue.IsImperative) throw new ParserException.ExpectedExpression(Keyword.SET, boundValue, stx);
 
-                    return new BindingMutation(binding.BindingName, boundValue);
+                    return new BindingMutation(binding.Name, boundValue);
                 }
 
                 throw new ParserException.WrongType(Keyword.SET, nameof(Identifier), stx);

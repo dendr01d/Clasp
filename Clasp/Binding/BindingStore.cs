@@ -42,7 +42,7 @@ namespace Clasp.Binding
 
         private void BindCoreForm(string name)
         {
-            Identifier coreId = new Identifier(name, SourceLocation.InherentSource);
+            Identifier coreId = new Identifier(name, LexInfo.Innate);
             CompileTimeBinding binding = new CompileTimeBinding(coreId, BindingType.Special);
             AddBinding(name, [], binding);
         }
@@ -55,11 +55,11 @@ namespace Clasp.Binding
         /// <remarks>
         /// May validly return zero, one, or more bindings.
         /// </remarks>
-        public IEnumerable<CompileTimeBinding> ResolveBindings(string symbolicName, HashSet<uint> scopeSet)
+        public IEnumerable<CompileTimeBinding> ResolveBindings(string symbolicName, IEnumerable<uint> scopeSet)
         {
             return _renamings
                 .GetValueOrDefault(symbolicName)// Get all renames
-                ?.Where(x => x.Key.Count() <= scopeSet.Count) // Limit to *subsets* of the given scope set
+                ?.Where(x => x.Key.Count() <= scopeSet.Count()) // Limit to *subsets* of the given scope set
                 ?.GroupBy(x => x.Key.Intersect(scopeSet).Count()) // Group them by subset size
                 ?.MaxBy(x => x.Key) // Pick the group containing the largest subsets
                 ?.Select(x => x.Value) // Collect the bindings

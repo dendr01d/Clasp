@@ -27,110 +27,180 @@ namespace Clasp.Data.Metadata
 
         public readonly int Phase;
 
-        /// <summary>IDs of scopes that were introduced during macro use/introduction.</summary>
-        private readonly HashSet<uint> _macroScopes;
+
+        private uint? _insideEdge;
+        private uint? _macroUseSite;
+
 
         /// <summary>Inform how certain terms should be expanded.</summary>
         public readonly SyntaxMode Mode;
 
         private readonly ScopeTokenGenerator _gen;
 
-        private ExpansionContext(
-            Environment env,
-            BindingStore scp,
-            int phase,
-            IEnumerable<uint> macroScopes,
-            SyntaxMode mode,
-            ScopeTokenGenerator gen)
+        private ExpansionContext(Environment env, BindingStore store, int phase,
+            SyntaxMode mode, ScopeTokenGenerator gen,
+            uint? insideEdge, uint? macroUseSite)
         {
             CompileTimeEnv = env;
-            GlobalBindingStore = scp;
+            GlobalBindingStore = store;
             Phase = phase;
 
-            _macroScopes = new(macroScopes);
-
             Mode = mode;
-
             _gen = gen;
+
+            _insideEdge = insideEdge;
+            _macroUseSite = macroUseSite;
         }
 
-        public static ExpansionContext FreshExpansion(Environment env, ScopeTokenGenerator gen)
+        public static ExpansionContext FreshExpansion(Environment env, BindingStore bs, ScopeTokenGenerator gen)
         {
             return new ExpansionContext(
-                StandardEnv.CreateNew(),
-                new BindingStore(),
-                1,
-                [],
-                SyntaxMode.TopLevel,
-                gen);
+                env: env,
+                store: bs,
+                phase: 1,
+                mode: SyntaxMode.TopLevel,
+                gen: gen,
+                insideEdge: null,
+                macroUseSite: null);
         }
         
-        public ExpansionContext ExpandInNewPhase()
+        public ExpansionContext ExpandingNewPhase()
         {
             return new ExpansionContext(
-                CompileTimeEnv.TopLevel.Enclose(),
-                new BindingStore(),
-                Phase + 1,
-                [],
-                SyntaxMode.TopLevel,
-                _gen);
+                env: CompileTimeEnv.TopLevel.Enclose(),
+                store: new BindingStore(),
+                phase: Phase + 1,
+                mode: SyntaxMode.TopLevel,
+                gen: _gen,
+                insideEdge: null,
+                macroUseSite: null);
         }
 
-        public ExpansionContext ExpandInMode(SyntaxMode context)
+        public ExpansionContext ExpandingInMode(SyntaxMode context)
         {
             return new ExpansionContext(
-                CompileTimeEnv,
-                GlobalBindingStore,
-                Phase,
-                _macroScopes,
-                context,
-                _gen);
+                env: CompileTimeEnv,
+                store: GlobalBindingStore,
+                phase: Phase ,
+                mode: context,
+                gen: _gen,
+                insideEdge: _insideEdge,
+                macroUseSite: _macroUseSite);
         }
 
-        public ExpansionContext ExpandInSubBlock()
+        public ExpansionContext ExpandingInBody(uint insideEdge)
         {
             return new ExpansionContext(
-                CompileTimeEnv.Enclose(),
-                GlobalBindingStore,
-                Phase,
-                _macroScopes,
-                Mode,
-                _gen);
+                env: CompileTimeEnv.Enclose(),
+                store: GlobalBindingStore,
+                phase: Phase,
+                mode: Mode,
+                gen: _gen,
+                insideEdge: insideEdge,
+                macroUseSite: null);
         }
 
-        public uint TokenizeScope()
+        public ExpansionContext ExpandingMacroResult(uint useSiteScope)
+        {
+            return new ExpansionContext(
+                env: CompileTimeEnv.Enclose(),
+                store: GlobalBindingStore,
+                phase: Phase,
+                mode: Mode,
+                gen: _gen,
+                insideEdge: _insideEdge,
+                macroUseSite: useSiteScope);
+        }
+
+        #region Scope Manipulation
+
+        public uint FreshScopeToken()
         {
             return _gen.FreshToken();
         }
 
-        public uint TokenizeMacroScope()
-        {
-            uint output = _gen.FreshToken();
-            _macroScopes.Add(output);
-            return output;
-        }
+        public void AddScope(Syntax stx, params uint[] scopeTokens) => stx.AddScope(Phase, scopeTokens);
+        public void FlipScope(Syntax stx, params uint[] scopeTokens) => stx.FlipScope(Phase, scopeTokens);
+        public void RemoveScope(Syntax stx, params uint[] scopeTokens) => stx.RemoveScope(Phase, scopeTokens);
 
-        public CompileTimeBinding ResolveBinding(Identifier id)
+        public void AddPendingInsideEdgeScope(Syntax stx)
         {
-            CompileTimeBinding[] candidates = GlobalBindingStore.ResolveBindings(id.Name, id.GetScopeSet(Phase)).ToArray();
-
-            if (candidates.Length == 0)
+            if (_insideEdge is uint insideEdge)
             {
-                throw new ExpanderException.UnboundIdentifier(id);
-            }
-            else if (candidates.Length > 1)
-            {
-                throw new ExpanderException.AmbiguousIdentifier(id, candidates);
-            }
-            else
-            {
-                return candidates.Single();
+                stx.AddScope(Phase, insideEdge);
             }
         }
 
+        public void SanitizeIdentifier(Identifier key)
+        {
+            if (_insideEdge is uint insideEdge)
+            {
+                key.AddScope(Phase, insideEdge);
+            }
+
+            if (_macroUseSite is uint macroUseSite)
+            {
+                key.RemoveScope(Phase, macroUseSite);
+            }
+        }
+
+        #endregion
+
+
+        #region Binding and Lookup
+
+        /// <summary>
+        /// Create a unique <see cref="Identifier"/> corresponding to the scope of
+        /// <paramref name="symbolicId"/> and the current <see cref="Phase"/>, then record
+        /// it as a <see cref="BindingType.Variable"/>.
+        /// </summary>
+        /// <returns>The renamed <see cref="Identifier"/>.</returns>
+        public Identifier BindVariable(Identifier symbolicId)
+        {
+            Identifier bindingId = new Identifier(new GenSym(symbolicId.Name), symbolicId.LexContext);
+
+            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Variable);
+            GlobalBindingStore.AddBinding(symbolicId, Phase, binding);
+
+            return bindingId;
+        }
+
+        /// <summary>
+        /// Create a unique <see cref="Identifier"/> corresponding to the scope of
+        /// <paramref name="symbolicId"/> and the current <see cref="Phase"/>, then record
+        /// it as a <see cref="BindingType.Transformer"/>, while binding it to <paramref name="macro"/>
+        /// within the <see cref="CompileTimeEnv"/>.
+        /// </summary>
+        /// <returns>The renamed <see cref="Identifier"/>.</returns>
+        public Identifier BindMacro(Identifier symbolicId, MacroProcedure macro)
+        {
+            Identifier bindingId = new Identifier(new GenSym(symbolicId.Name), symbolicId.LexContext);
+
+            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Transformer);
+            GlobalBindingStore.AddBinding(symbolicId, Phase, binding);
+            CompileTimeEnv[bindingId.Name] = macro;
+
+            return bindingId;
+        }
+
+        /// <summary>
+        /// Explicitly record <paramref name="bindingId"/> as a <see cref="BindingType.Special"/>
+        /// corresponding to the scope of <paramref name="symbolicId"/> and the current <see cref="Phase"/>.
+        /// </summary>
+        public void BindSpecial(Identifier symbolicId, Identifier bindingId)
+        {
+            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Special);
+            GlobalBindingStore.AddBinding(symbolicId, Phase, binding);
+            //CompileTimeEnv[bindingId.Name] = bindingId.Expose();
+        }
+
+        /// <summary>
+        /// Attempt to look up the binding information corresponding to <paramref name="id"/>
+        /// within its given scope and the current <see cref="Phase"/>.
+        /// </summary>
         public bool TryResolveBinding(Identifier id, [NotNullWhen(true)] out CompileTimeBinding? binding)
         {
-            CompileTimeBinding[] candidates = GlobalBindingStore.ResolveBindings(id.Name, id.GetScopeSet(Phase)).ToArray();
+            CompileTimeBinding[] candidates = GlobalBindingStore.ResolveBindings(id.Name, id.LexContext[Phase]).ToArray();
 
             if (candidates.Length == 1)
             {
@@ -142,53 +212,38 @@ namespace Clasp.Data.Metadata
             return false;
         }
 
-        #region Scope Manipulation
-
-        public void AddScope(Syntax stx, params uint[] scopeTokens) => stx.AddScope(Phase, scopeTokens);
-        public void FlipScope(Syntax stx, params uint[] scopeTokens) => stx.FlipScope(Phase, scopeTokens);
-        public void RemoveScope(Syntax stx, params uint[] scopeTokens) => stx.RemoveScope(Phase, scopeTokens);
-
-        #endregion
-
-
-        #region Env Helpers
-
-        public Term Dereference(Identifier id) => CompileTimeEnv.LookUp(id.Name);
-        public Term Dereference(CompileTimeBinding binding) => Dereference(binding.BoundId);
-
-        public void BindVariable(Identifier symId, Identifier bindingId)
+        public bool TryDereferenceBinding(CompileTimeBinding binding, [NotNullWhen(true)] out Term? boundValue)
         {
-            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Variable);
-            GlobalBindingStore.AddBinding(symId, Phase, binding);
+            return CompileTimeEnv.TryGetValue(binding.Name, out boundValue);
         }
 
-        public void BindMacro(Identifier symId, Identifier bindingId, MacroProcedure macro)
+        public bool TryDereferenceMacro(CompileTimeBinding binding, [NotNullWhen(true)] out MacroProcedure? boundMacro)
         {
-            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Transformer);
-            GlobalBindingStore.AddBinding(symId, Phase, binding);
-            CompileTimeEnv[bindingId.Name] = macro;
-        }
-
-        public void BindSpecial(Identifier symId, Identifier bindingId, Symbol keyword)
-        {
-            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Special);
-            GlobalBindingStore.AddBinding(symId, Phase, binding);
-            CompileTimeEnv[bindingId.Name] = keyword;
-        }
-
-        public bool TryGetMacro(string bindingName,
-            [NotNullWhen(true)] out MacroProcedure? macro)
-        {
-            if (CompileTimeEnv.TryGetValue(bindingName, out Term? value)
-                && value is MacroProcedure result)
+            if (binding.BoundType == BindingType.Transformer
+                && TryDereferenceBinding(binding, out Term? maybeMacro)
+                && maybeMacro is MacroProcedure mp)
             {
-                macro = result;
+                boundMacro = mp;
                 return true;
             }
 
-            macro = null;
+            boundMacro = null;
             return false;
         }
+
+        //public bool TryDereferenceSpecial(CompileTimeBinding binding, [NotNullWhen(true)] out Symbol? boundSymbol)
+        //{
+        //    if (binding.BoundType == BindingType.Special
+        //        && TryDereferenceBinding(binding, out Term? maybeSpecial)
+        //        && maybeSpecial is Symbol sym)
+        //    {
+        //        boundSymbol = sym;
+        //        return true;
+        //    }
+
+        //    boundSymbol = null;
+        //    return false;
+        //}
 
         #endregion
     }

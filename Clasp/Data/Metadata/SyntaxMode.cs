@@ -9,7 +9,7 @@ namespace Clasp.Data.Metadata
     internal enum SyntaxMode
     {
         Expression,
-        Body,
+        InternalDefinition,
         Module,
         TopLevel,
         Partial

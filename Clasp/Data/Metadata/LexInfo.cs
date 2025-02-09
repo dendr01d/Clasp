@@ -14,6 +14,8 @@ namespace Clasp.Data.Metadata
     /// </summary>
     internal class LexInfo : ISourceTraceable
     {
+        public static readonly LexInfo Innate = new LexInfo(SourceLocation.Innate);
+
         public SourceLocation Location { get; private set; }
 
         private readonly Dictionary<int, ImmutableHashSet<uint>> _phasedScopeSets;

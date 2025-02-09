@@ -14,8 +14,6 @@ namespace Clasp.ExtensionMethods
 {
     internal static class SyntaxExtensions
     {
-        #region Destruction/Reconstruction
-
         /// <summary>
         /// If <paramref name="input"/> is a not-<see langword="null"/> <see cref="SyntaxPair"/>,
         /// pull it apart into its constituent pieces.
@@ -53,27 +51,6 @@ namespace Clasp.ExtensionMethods
         public static bool IsTerminator(this Syntax input)
         {
             return input.Expose() is Nil;
-        }
-
-        public static bool TryDestruct<TCar, TCdr>(this Syntax? input,
-            [NotNullWhen(true)] out StxContext? ctx,
-            [NotNullWhen(true)] out TCar? car,
-            [NotNullWhen(true)] out TCdr? cdr)
-            where TCar : Syntax
-            where TCdr : Syntax
-        {
-            if (input is SyntaxPair stp
-                && stp.Car is TCar outCar
-                && stp.Cdr is TCdr outCdr)
-            {
-                ctx = stp.Context;
-                car = outCar;
-                cdr = outCdr;
-            }
-            ctx = null;
-            car = null;
-            cdr = null;
-            return false;
         }
 
         /// <summary>

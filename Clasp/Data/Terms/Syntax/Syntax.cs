@@ -45,7 +45,7 @@ namespace Clasp.Data.Terms.Syntax
             return term switch
             {
                 Syntax s => s,
-                ConsList cl => new SyntaxPair(cl, ctx),
+                ConsList cl => new SyntaxPair(cl.Car, cl.Cdr, ctx),
                 Symbol sym => new Identifier(sym, ctx),
                 _ => new Datum(term, ctx)
             };
@@ -66,7 +66,7 @@ namespace Clasp.Data.Terms.Syntax
         /// </summary>
         public static Syntax FromDatum(Term term, Syntax stx) => Wrap(term, stx.LexContext);
 
-        public static Syntax FromDatum(Term term, StxContext ctx) => Wrap(term, ctx);
+        public static Syntax FromDatum(Term term, LexInfo ctx) => Wrap(term, ctx);
 
 
         public static Syntax FromSyntax(Syntax original) => original.DeepCopy();

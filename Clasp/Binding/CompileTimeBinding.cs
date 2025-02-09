@@ -19,15 +19,15 @@ namespace Clasp.Binding
 
     internal class CompileTimeBinding
     {
-        public Identifier BoundId { get; private set; }
+        public Identifier Id { get; private set; }
         public BindingType BoundType { get; private set; }
 
-        public Symbol BindingSymbol => BoundId.Expose();
-        public string BindingName => BoundId.Name;
+        public Symbol BindingSymbol => Id.Expose();
+        public string Name => Id.Name;
 
         public CompileTimeBinding(Identifier id, BindingType type)
         {
-            BoundId = id;
+            Id = id;
             BoundType = type;
         }
     }

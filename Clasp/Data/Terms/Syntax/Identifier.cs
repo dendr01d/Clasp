@@ -28,7 +28,7 @@ namespace Clasp.Data.Terms.Syntax
 
         public Identifier(Symbol sym, Syntax copy) : this(sym, copy.LexContext) { }
 
-        public static Identifier Implicit(Symbol sym) => new Identifier(sym, new StxContext(SourceLocation.InherentSource));
+        public static Identifier Implicit(Symbol sym) => new Identifier(sym, LexInfo.Innate);
 
         protected override Identifier DeepCopy() => new Identifier(_sym, this);
 

@@ -37,10 +37,12 @@ namespace Clasp.Data.Terms.Syntax
             _lazyCons = null;
         }
 
-        public SyntaxPair(Term car, Term cdr, Syntax copy)
-            : this(FromDatum(car, copy),
-                  FromDatum(cdr, copy),
-                  copy.LexContext)
+        public SyntaxPair(Syntax car, Syntax cdr, Syntax copy)
+            : this(car, cdr, copy.LexContext)
+        { }
+
+        public SyntaxPair(Term car, Term cdr, LexInfo ctx)
+            : this(FromDatum(car, ctx), FromDatum(cdr, ctx), ctx)
         { }
 
         protected override SyntaxPair DeepCopy()

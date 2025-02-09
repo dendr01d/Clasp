@@ -108,8 +108,9 @@ namespace Clasp.Data.Terms
 
         public static readonly ImplicitSym SpVar = new ImplicitSym(Keyword.IMP_VAR);
 
-        public static readonly ImplicitSym SpParDef = new ImplicitSym(Keyword.IMP_PARDEF);
+        public static readonly ImplicitSym SpTopDef = new ImplicitSym(Keyword.IMP_TOPDEF);
+        public static readonly ImplicitSym SpMidDef = new ImplicitSym(Keyword.IMP_MIDDEF);
 
-        protected override string FormatType() => "Keyword";
+        protected override string FormatType() => "ImpSymbol";
     }
 }

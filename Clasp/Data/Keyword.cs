@@ -40,7 +40,16 @@ namespace Clasp.Data
         public const string IMP_LAMBDA = "#%lambda";
         public const string IMP_SEQ = "#%seq";
         public const string IMP_VAR = "#%var";
-        public const string IMP_PARDEF = "#%partial-define";
 
+        public const string IMP_TOPDEF = "#%define-top";
+        public const string IMP_MIDDEF = "#%define-mid";
+
+        public static readonly string[] Definitionals = new string[]
+        {
+            DEFINE,
+            DEFINE_SYNTAX,
+            IMP_TOP,
+            IMP_TOPDEF
+        };
     }
 }
