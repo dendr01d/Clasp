@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Clasp.Data.Metadata;
+using Clasp.Data.Text;
 
 namespace Clasp.Data.Terms.Syntax
 {
@@ -25,6 +26,8 @@ namespace Clasp.Data.Terms.Syntax
         {
             _sym = Symbol.Intern(symbolicName);
         }
+
+        public Identifier(Token token) : this(token.Text, new LexInfo(token.Location)) { }
 
         public Identifier(Symbol sym, Syntax copy) : this(sym, copy.LexContext) { }
 

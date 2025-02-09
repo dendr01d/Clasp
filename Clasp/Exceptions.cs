@@ -19,7 +19,7 @@ namespace Clasp
             : base(string.Format(format, args))
         { }
 
-        protected ClaspException(ClaspException innerException, string format, params object?[] args)
+        protected ClaspException(Exception innerException, string format, params object?[] args)
             : base(string.Format(format, args), innerException)
         { }
 
@@ -117,6 +117,21 @@ namespace Clasp
             }
         }
 
+        public class ExpectedListEnd : ReaderException, ISourceTraceable
+        {
+            public SourceLocation Location { get; private set; }
+
+            internal ExpectedListEnd(Token receivedToken, Token dotOp) : base(
+                "Expected {0} token to complete list structure following {1} on line {2}, column {3}.",
+                TokenType.ClosingParen,
+                dotOp,
+                dotOp.Location.LineNumber,
+                dotOp.Location.Column)
+            {
+                Location = receivedToken.Location;
+            }
+        }
+
         public class UnhandledToken : ReaderException, ISourceTraceable
         {
             public SourceLocation Location { get; private set; }
@@ -142,7 +157,7 @@ namespace Clasp
             Location = loc;
         }
 
-        private ExpanderException(SourceLocation loc, ClaspException innerException, string format, params object?[] args)
+        private ExpanderException(SourceLocation loc, Exception innerException, string format, params object?[] args)
             : base(innerException, format, args)
         {
             Location = loc;
@@ -152,7 +167,7 @@ namespace Clasp
         {
             internal InvalidSyntax(Syntax unknownForm) : base(
                 unknownForm.Location,
-                "The given syntax is invalid for expansion: {1}",
+                "The given syntax is invalid for expansion: {0}",
                 unknownForm)
             { }
         }
@@ -199,7 +214,7 @@ namespace Clasp
 
         public class EvaluationError : ExpanderException
         {
-            internal EvaluationError(string inputType, Syntax source, ClaspException ce) : base(
+            internal EvaluationError(string inputType, Syntax source, Exception ce) : base(
                 source.Location,
                 ce,
                 "An error occurred while accelerating & evaluating the '{0}' form: {1}",
@@ -241,7 +256,7 @@ namespace Clasp
                 formName)
             { }
 
-            internal InvalidForm(string formName, Syntax form, ExpanderException innerException) : base(
+            internal InvalidForm(string formName, Syntax form, Exception innerException) : base(
                 form.Location,
                 innerException,
                 "Error expanding '{0}' form.",
@@ -281,7 +296,7 @@ namespace Clasp
             Location = loc;
         }
 
-        private ParserException(SourceLocation loc, ClaspException innerException, string format, params object?[] args)
+        private ParserException(SourceLocation loc, Exception innerException, string format, params object?[] args)
             : base(innerException, format, args)
         {
             Location = loc;
@@ -335,7 +350,7 @@ namespace Clasp
                 invalidForm)
             { }
 
-            internal InvalidForm(string formName, Syntax invalidForm, ParserException innerException) : base(
+            internal InvalidForm(string formName, Syntax invalidForm, Exception innerException) : base(
                 invalidForm.Location,
                 innerException,
                 "Error parsing '{0}' form: {1}",

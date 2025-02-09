@@ -7,6 +7,9 @@ using System;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms.Syntax;
 using Clasp.Data.Terms.Product;
+using Clasp.ExtensionMethods;
+using System.Runtime.ConstrainedExecution;
+using System.Runtime.InteropServices;
 
 namespace Clasp.Process
 {
@@ -105,13 +108,13 @@ namespace Clasp.Process
             // As a syntax object may only encapsulate a list, a symbol, or some other atom...
             // Then all valid syntax must itself belong to one of these categories
 
-            Term nextValue = current.TType switch
+            return current.TType switch
             {
                 TokenType.ClosingParen => throw new ReaderException.UnexpectedToken(current),
                 TokenType.DotOperator => throw new ReaderException.UnexpectedToken(current),
 
-                TokenType.OpenListParen => ReadList(tokens),
-                TokenType.OpenVecParen => ReadVector(tokens),
+                TokenType.OpenListParen => ReadList(current, tokens),
+                TokenType.OpenVecParen => ReadVector(current, tokens),
 
                 TokenType.Quote => NativelyExpandSyntax(current, Symbol.Quote, tokens),
                 TokenType.Quasiquote => NativelyExpandSyntax(current, Symbol.Quasiquote, tokens),
@@ -123,49 +126,41 @@ namespace Clasp.Process
                 TokenType.Unsyntax => NativelyExpandSyntax(current, Symbol.Unsyntax, tokens),
                 TokenType.UnsyntaxSplice => NativelyExpandSyntax(current, Symbol.UnsyntaxSplicing, tokens),
 
-                TokenType.Symbol => Symbol.Intern(current.Text),
-                TokenType.Character => Character.Intern(current),
-                TokenType.String => new CharString(current.Text),
-                TokenType.Boolean => current.Text == Data.Terms.Boolean.True.ToString()
-                    ? Data.Terms.Boolean.True
-                    : Data.Terms.Boolean.False,
-                TokenType.DecInteger => new Integer(long.Parse(current.Text)),
-                TokenType.DecReal => new Real(double.Parse(current.Text)),
+                TokenType.Symbol => new Identifier(current),
+                TokenType.Character => new Datum(Character.Intern(current), current),
+                TokenType.String => new Datum(new CharString(current.Text), current),
+                TokenType.Boolean => ReadBoolean(current),
+                TokenType.DecInteger => new Datum(new Integer(long.Parse(current.Text)), current),
+                TokenType.DecReal => new Datum(new Real(double.Parse(current.Text)), current),
 
                 TokenType.Malformed => throw new ReaderException.UnexpectedToken(current),
 
                 _ => throw new ReaderException.UnhandledToken(current)
             };
-
-            SourceLocation loc = new SourceLocation(
-                current.Location.Source,
-                current.Location.LineNumber,
-                current.Location.Column,
-                current.Location.StartingPosition,
-                tokens.Count > 0
-                    ? tokens.Peek().Location.StartingPosition - current.Location.StartingPosition - 1
-                    : current.Location.SourceText.Sum(x => x.Length) - current.Location.StartingPosition - 1,
-                current.Location.SourceText,
-                true);
-
-            Syntax wrappedValue = Syntax.FromDatum(nextValue, current);
-
-            return wrappedValue;
         }
 
-        private static Term NativelyExpandSyntax(Token opToken, Symbol opSym, Stack<Token> tokens)
+        private static Datum ReadBoolean(Token current)
+        {
+            Data.Terms.Boolean value = current.Text == Data.Terms.Boolean.True.ToString()
+                ? Data.Terms.Boolean.True
+                : Data.Terms.Boolean.False;
+
+            return new Datum(value, current);
+        }
+
+        private static Syntax NativelyExpandSyntax(Token opToken, Symbol opSym, Stack<Token> tokens)
         {
             Token subListToken = tokens.Peek();
             Syntax arg = ReadSyntax(tokens);
 
-            Syntax terminator = Syntax.FromDatum(Nil.Value, arg);
+            SourceLocation loc = SynthesizeSourceStructure(opToken, arg);
 
-            return ConsList.Cons(
-                Syntax.FromDatum(opSym, opToken),
-                Syntax.FromDatum(ConsList.Cons(arg, terminator), subListToken));
+            return Datum.Implicit(Nil.Value)
+                .Cons(arg, new LexInfo(subListToken.Location))
+                .Cons(Syntax.FromDatum(opSym, opToken), new LexInfo(loc));
         }
 
-        private static Term ReadVector(Stack<Token> tokens)
+        private static Syntax ReadVector(Token lead, Stack<Token> tokens)
         {
             List<Syntax> contents = new List<Syntax>();
 
@@ -175,16 +170,18 @@ namespace Clasp.Process
                 contents.Add(nextTerm);
             }
 
-            tokens.Pop(); // remove closing paren
+            Token close = tokens.Pop(); // remove closing paren
 
-            return new Vector(contents.ToArray());
+            SourceLocation loc = SynthesizeSourceStructure(lead, close);
+
+            return new Datum(new Vector(contents.ToArray()), new LexInfo(loc));
         }
 
         // See here https://docs.racket-lang.org/reference/reader.html#%28part._parse-pair%29
         // For a peculiarity in how lists are read in the case of dotted terminators
         // Not sure that I care to implement that here?
 
-        private static Term ReadList(Stack<Token> tokens)
+        private static Syntax ReadList(Token lead, Stack<Token> tokens)
         {
             if (tokens.Peek().TType == TokenType.DotOperator)
             {
@@ -192,91 +189,52 @@ namespace Clasp.Process
             }
             else if (tokens.Peek().TType == TokenType.ClosingParen)
             {
-                tokens.Pop(); // remove closing paren
-                return Nil.Value;
+                Token close = tokens.Pop(); // remove closing paren
+                SourceLocation loc = SynthesizeSourceStructure(lead, close);
+                return new Datum(Nil.Value, new LexInfo(loc));
             }
 
             Syntax car = ReadSyntax(tokens);
 
-            if (tokens.Peek().TType == TokenType.DotOperator)
+            if (tokens.Peek().TType == TokenType.ClosingParen)
             {
-                tokens.Pop(); // remove dot operator
+                Token close = tokens.Pop(); // remove closing paren
+                SourceLocation loc = SynthesizeSourceStructure(lead, close);
+                return new SyntaxPair(car, Datum.Implicit(Nil.Value), new LexInfo(loc));
+            }
+            else if (tokens.Peek().TType == TokenType.DotOperator)
+            {
+                Token dotOp = tokens.Pop(); // remove dot operator
                 Syntax cdr = ReadSyntax(tokens);
 
-                return ConsList.Cons(car, cdr);
+                if (tokens.Peek().TType != TokenType.ClosingParen)
+                {
+                    throw new ReaderException.ExpectedListEnd(tokens.Peek(), dotOp);
+                }
+
+                Token close = tokens.Pop(); // remove closing paren
+                SourceLocation loc = SynthesizeSourceStructure(lead, close);
+                return new SyntaxPair(car, cdr, new LexInfo(loc));
             }
             else
             {
-                Token subListBeginning = tokens.Peek();
-                Term subList = ReadList(tokens);
-                Syntax cdr = Syntax.FromDatum(subList, subListBeginning);
-
-                return ConsList.Cons(car, cdr);
+                Syntax cdr = ReadList(tokens.Peek(), tokens);
+                SourceLocation loc = SynthesizeSourceStructure(lead, cdr);
+                return new SyntaxPair(car, cdr, new LexInfo(loc));
             }
         }
 
-        //private static Term ReadList(Stack<Token> tokens)
-        //{
-        //    if (tokens.Peek().TType == TokenType.DotOperator)
-        //    {
-        //        throw new ReaderException.UnexpectedToken(tokens.Peek());
-        //    }
-
-        //    Stack<Syntax> output = new Stack<Syntax>();
-        //    Token previous = tokens.Peek();
-        //    bool dotted = false;
-
-        //    while (tokens.Peek().TType != TokenType.ClosingParen
-        //        && tokens.Peek().TType != TokenType.DotOperator)
-        //    {
-        //        previous = tokens.Peek();
-        //        output.Push(ReadSyntax(tokens));
-        //    }
-
-        //    if (tokens.Peek().TType == TokenType.DotOperator)
-        //    {
-        //        previous = tokens.Peek();
-        //        dotted = true;
-        //        tokens.Pop(); //remove dot
-        //        output.Push(ReadSyntax(tokens)); //add the rest
-        //    }
-
-        //    if (tokens.Peek().TType != TokenType.ClosingParen)
-        //    {
-        //        throw new ReaderException.ExpectedToken(TokenType.ClosingParen, tokens.Peek(), previous);
-        //    }
-
-        //    tokens.Pop(); //remove closing paren
-
-        //    if (output.Count == 0)
-        //    {
-        //        return Nil.Value;
-        //    }
-        //    else if (!dotted)
-        //    {
-        //        output.Push(Syntax.Wrap(Nil.Value, tokens.Peek()));
-        //    }
-
-        //    return ConstructSyntacticList(output);
-        //}
-
-        //private static Term ConstructSyntacticList(Stack<Syntax> stk)
-        //{
-        //    Term output = stk.Pop();
-
-        //    while(stk.Count > 0)
-        //    {
-        //        Syntax car = stk.Pop();
-        //        output = ConsList.Cons(car, output);
-
-        //        if (stk.Count > 0)
-        //        {
-        //            output = Syntax.Wrap(output, car);
-        //        }
-        //    }
-
-        //    return output;
-        //}
+        private static SourceLocation SynthesizeSourceStructure(ISourceTraceable first, ISourceTraceable rest)
+        {
+            return new SourceLocation(
+                first.Location.Source,
+                first.Location.LineNumber,
+                first.Location.Column,
+                first.Location.StartingPosition,
+                rest.Location.StartingPosition + rest.Location.Length - first.Location.StartingPosition,
+                first.Location.SourceText,
+                true);
+        }
 
     }
 }

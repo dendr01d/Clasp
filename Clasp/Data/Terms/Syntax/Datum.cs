@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Clasp.Data.Metadata;
+using Clasp.Data.Text;
 
 namespace Clasp.Data.Terms.Syntax
 {
@@ -19,6 +20,8 @@ namespace Clasp.Data.Terms.Syntax
         }
 
         public Datum(Term t, Syntax copy) : this(t, copy.LexContext) { }
+
+        public Datum(Term t, Token source) : this(t, new LexInfo(source.Location)) { }
 
         public static Datum Implicit(Term t) => new Datum(t, new LexInfo(SourceLocation.Innate));
 

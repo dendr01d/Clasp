@@ -105,6 +105,7 @@ namespace Clasp
                     }
 
                     writer.WriteLine();
+                    PrintSeparator();
                     writer.Write("> ");
                     input = reader.ReadLine() ?? string.Empty;
                     output = string.Empty;
@@ -205,11 +206,13 @@ namespace Clasp
                 {
                     foreach (Exception ex in aggEx.InnerExceptions)
                     {
+                        writer.WriteLine();
                         PrintExceptionInfo(ex);
                     }
                 }
                 catch (Exception ex)
                 {
+                    writer.WriteLine();
                     PrintExceptionInfo(ex);
                 }
             }
@@ -224,7 +227,6 @@ namespace Clasp
 
             if (ex.InnerException is not null)
             {
-                Console.WriteLine();
                 PrintExceptionInfo(ex.InnerException);
                 Console.WriteLine("└─>");
             }
@@ -235,7 +237,7 @@ namespace Clasp
                 ReaderException => "Reading error: ",
                 ExpanderException => "Expansion error: ",
                 ParserException => "Parsing error: ",
-                InterpreterException => "Runtime error:",
+                InterpreterException => "Runtime error: ",
                 _ => "Unknown error: "
             });
 
@@ -263,6 +265,11 @@ namespace Clasp
             Console.WriteLine(ex.GetSimpleStackTrace());
 
             Console.WriteLine();
+        }
+
+        private static void PrintSeparator()
+        {
+            Console.WriteLine(new string('-', Console.WindowWidth - 1));
         }
     }
 }
