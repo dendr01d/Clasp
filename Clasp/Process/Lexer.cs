@@ -28,7 +28,7 @@ namespace Clasp.Process
             BuildRgx(TokenType.HexInteger     , @"(?>(?:#[Xx])(?:\+)?(\-?[0-9a-fA-F]+))"),
             BuildRgx(TokenType.DecInteger     , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+))"), //radix flag is optional for decimals
 
-            BuildRgx(TokenType.Character      , @"(?>#\\(?:space|newline|tab|return|.))"),
+            BuildRgx(TokenType.Character      , @"(?>#\\(?:(?:[^\s\(\)\-]+)|.))"),
             BuildRgx(TokenType.String         , @"(?>\""((?:[^\""|^\\]|\\""|\\\\)*)\"")"),
 
             BuildRgx(TokenType.OpenListParen  , @"\("),

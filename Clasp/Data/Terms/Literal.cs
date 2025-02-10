@@ -40,27 +40,21 @@ namespace Clasp.Data.Terms
             }
             else
             {
-                return token.Text[2..] switch
+                if (CharacterMap.NameToChar.TryGetValue(token.Text[2..], out char value))
                 {
-                    "space" => Intern(' '),
-                    "tab" => Intern('\t'),
-                    "newline" => Intern('\n'),
-                    "return" => Intern('\r'),
-                    _ => throw new ClaspGeneralException(string.Format("Unknown character: '{0}'", token.Text))
-                };
+                    return Intern(value);
+                }
+                throw new ClaspGeneralException(string.Format("Unknown character: '{0}'", token.Text));
             }
         }
 
         public override string ToString()
         {
-            return Value switch
-            {
-                ' ' => @"#\space",
-                '\t' => @"#\tab",
-                '\n' => @"#\newline",
-                '\r' => @"#\return",
-                _ => string.Format("#\\{0}", Value)
-            };
+            //if (CharacterMap.CharToName.TryGetValue(Value, out string? name))
+            //{
+            //    return string.Format("#\\{0}", name);
+            //}
+            return string.Format("#\\{0}", Value);
         }
 
         protected override string FormatType() => "Char";
