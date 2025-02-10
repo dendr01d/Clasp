@@ -51,6 +51,12 @@ namespace Clasp.Binding
 
         private static readonly PrimitiveProcedure[] PrimProcs = new PrimitiveProcedure[]
         {
+            new("cons", Ops.Pairs.Cons, false, 2),
+            new("car", Ops.Pairs.Car, false, 1),
+            new("cdr", Ops.Pairs.Cdr, false, 1),
+            new("set-car", Ops.Pairs.SetCar, false, 2),
+            new("set-cdr", Ops.Pairs.SetCdr, false, 2),
+
             new("+", Ops.Math.Add, true, 0, 1, 2),
             new("-", Ops.Math.Subtract, false, 0, 1, 2),
             new("*", Ops.Math.Multiply, true, 0, 1, 2),
@@ -80,6 +86,8 @@ namespace Clasp.Binding
 
             new("char->integer", Ops.Characters.CharacterToInteger, false, 1),
             new("integer->char", Ops.Characters.IntegerToCharacter, false, 1)
+
+
 
         };
 

@@ -448,12 +448,14 @@ namespace Clasp
     {
         internal MxInstruction[] ContinuationTrace;
 
-        internal InterpreterException(Stack<MxInstruction> cont, string format, params object?[] args) : base(format, args)
+        internal InterpreterException(Stack<MxInstruction> cont, string format, params object?[] args)
+            : base(format, args)
         {
             ContinuationTrace = cont.ToArray();
         }
 
-        internal InterpreterException(Stack<MxInstruction> cont, Exception innerException, string format, params object?[] args) : base(format, args)
+        internal InterpreterException(Stack<MxInstruction> cont, Exception innerException, string format, params object?[] args)
+            : base(innerException, format, args)
         {
             ContinuationTrace = cont.ToArray();
         }

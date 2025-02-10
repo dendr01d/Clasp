@@ -207,13 +207,13 @@ namespace Clasp
                     foreach (Exception ex in aggEx.InnerExceptions)
                     {
                         writer.WriteLine();
-                        PrintExceptionInfo(ex);
+                        PrintExceptionInfo(writer, ex);
                     }
                 }
                 catch (Exception ex)
                 {
                     writer.WriteLine();
-                    PrintExceptionInfo(ex);
+                    PrintExceptionInfo(writer, ex);
                 }
             }
 
@@ -222,49 +222,52 @@ namespace Clasp
 
         private static string ToggledMsg(bool state) => "Toggled " + (state ? "ON" : "OFF");
 
-        private static void PrintExceptionInfo(Exception ex)
+        private static void PrintExceptionInfo(StreamWriter sw, Exception ex)
         {
 
             if (ex.InnerException is not null)
             {
-                PrintExceptionInfo(ex.InnerException);
-                Console.WriteLine("└─>");
+                PrintExceptionInfo(sw, ex.InnerException);
+                sw.WriteLine("└─>");
             }
 
-            Console.Write(ex switch
+            sw.Write(ex switch
             {
                 LexerException => "Lexing error: ",
                 ReaderException => "Reading error: ",
                 ExpanderException => "Expansion error: ",
                 ParserException => "Parsing error: ",
-                InterpreterException => "Runtime error: ",
-                _ => "Unknown error: "
+                InterpreterException => "Interpreter Runtime error: ",
+                ProcessingException => "Processing error: ",
+                ClaspException => "CLASP error: ",
+                _ => string.Format("System-Level error ({0}): ", ex.GetType().Name)
             });
 
-            Console.WriteLine(ex.Message);
+            sw.WriteLine(ex.Message);
 
-            if (ex is InterpreterException ie)
+            if (ex is InterpreterException ie && ie.ContinuationTrace.Length > 0)
             {
-                Console.WriteLine();
-                Console.WriteLine("Stack trace:");
+                sw.WriteLine();
+                sw.WriteLine("Stack trace:");
                 foreach(MxInstruction frame in ie.ContinuationTrace)
                 {
-                    Console.Write("   ");
-                    Console.WriteLine(frame.ToString());
+                    sw.Write("   ");
+                    sw.WriteLine(frame.ToString());
                 }
+                sw.WriteLine();
             }
             
             if(ex is ISourceTraceable ist)
             {
-                Console.WriteLine();
-                Console.WriteLine("At input source:");
-                Console.WriteLine(Printer.PrintLineErrorHelper(ist));
+                sw.WriteLine();
+                sw.WriteLine("At input source:");
+                sw.WriteLine(Printer.PrintLineErrorHelper(ist));
             }
 
-            Console.WriteLine("From CLASP source:");
-            Console.WriteLine(ex.GetSimpleStackTrace());
+            sw.WriteLine("From CLASP source:");
+            sw.WriteLine(ex.GetSimpleStackTrace());
 
-            Console.WriteLine();
+            sw.WriteLine();
         }
 
         private static void PrintSeparator()
