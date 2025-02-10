@@ -18,6 +18,7 @@ namespace Clasp.Data.Terms
     internal sealed class Character : Literal<char>
     {
         private Character(char c) : base(c) { }
+        public long AsInteger => Value.GetHashCode();
 
         private static readonly Dictionary<char, Character> _internment = new Dictionary<char, Character>();
 
@@ -77,15 +78,29 @@ namespace Clasp.Data.Terms
         protected override string FormatType() => "Bool";
     }
 
-    internal sealed class Integer : Literal<long>
+    internal interface INumber
     {
+        public long AsInteger { get; }
+        public double AsDouble { get; }
+    }
+
+    internal sealed class Integer : Literal<long>, INumber
+    {
+        public static readonly Integer Zero = new Integer(0);
+        public static readonly Integer One = new Integer(1);
+        public static readonly Integer NegativeOne = new Integer(-1);
+
         public Integer(long l) : base(l) { }
+        public long AsInteger => Value;
+        public double AsDouble => Value;
         protected override string FormatType() => "Integer";
     }
 
-    internal sealed class Real : Literal<double>
+    internal sealed class Real : Literal<double>, INumber
     {
         public Real(double d) : base(d) { }
+        public long AsInteger => throw new ClaspGeneralException("Can't cast {0} value to integer.", nameof(Real));
+        public double AsDouble => Value;
         protected override string FormatType() => "Real";
     }
 }

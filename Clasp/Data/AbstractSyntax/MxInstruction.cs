@@ -2,6 +2,7 @@
 using System.Linq;
 
 using Clasp.Binding.Environments;
+using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Product;
 
@@ -147,13 +148,13 @@ namespace Clasp.Data.AbstractSyntax
             {
                 throw new InterpreterException(continuation, "Tried to invoke macro at runtime: {0}", macro);
             }
-            else if (Arguments.Length < proc.Arity)
-            {
-                throw new InterpreterException(continuation, "Tried to invoke procedure with too few arguments: {0}", proc);
-            }
-            else if (Arguments.Length > proc.Arity && !proc.IsVariadic)
+            else if (Arguments.Length > proc.Arities.Max() && !proc.IsVariadic)
             {
                 throw new InterpreterException(continuation, "Tried to invoke non-variadic procedure with too many arguments: {0}", proc);
+            }
+            else if (!proc.Arities.Contains(Arguments.Length))
+            {
+                throw new InterpreterException(continuation, "Tried to invoke procedure with invalid number ({0}) of argument/s: {1}", Arguments.Length, proc);
             }
             else if (Arguments.Length == 0)
             {
@@ -278,7 +279,16 @@ namespace Clasp.Data.AbstractSyntax
         {
             if (Op is PrimitiveProcedure pp)
             {
-                throw new System.NotImplementedException();
+                try
+                {
+                    MachineState temp = MachineState.AsPackage(ref continuation, ref currentEnv, ref currentValue);
+                    Term result = pp.Operation(temp, Arguments);
+                    currentValue = result;
+                }
+                catch (System.Exception ex)
+                {
+                    throw new InterpreterException.InvalidOperationException(this, continuation, ex);
+                }
             }
             else if (Op is CompoundProcedure cp)
             {

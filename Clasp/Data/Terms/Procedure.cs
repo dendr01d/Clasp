@@ -1,37 +1,43 @@
-﻿using System.Linq;
-
-using Clasp.Binding;
+﻿using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
-using Clasp.Data.Primitives;
+using Clasp.Data.Metadata;
 
 namespace Clasp.Data.Terms
 {
+    internal delegate Term PrimitiveOperation(MachineState mx, params Term[] terms);
+
     internal abstract class Procedure : Atom
     {
-        public abstract int Arity { get; }
+        public abstract int[] Arities { get; }
         public abstract bool IsVariadic { get; }
 
-        protected override string FormatType() => string.Format("{0}{1}", Arity, IsVariadic ? "+" : string.Empty);
+        protected override string FormatType() => string.Format("({0}){1}", string.Join(", ", Arities), IsVariadic ? "+" : string.Empty);
     }
 
     internal sealed class PrimitiveProcedure : Procedure
     {
-        public readonly Primitive OpCode;
-        public readonly System.Func<Term, Term> Operation;
+        public readonly Symbol OpSymbol;
+        public readonly PrimitiveOperation Operation;
 
-        public override int Arity { get; }
+        public readonly bool Pure;
+        public override int[] Arities { get; }
         public override bool IsVariadic { get; }
 
-        public PrimitiveProcedure(Primitive op, System.Func<Term, Term> fun, int arity, bool variadic)
+        public PrimitiveProcedure(Symbol opSym, PrimitiveOperation fun, bool variadic, params int[] arities)
         {
-            OpCode = op;
+            OpSymbol = opSym;
             Operation = fun;
 
-            Arity = arity;
+            Arities = arities;
             IsVariadic = variadic;
         }
-        public override string ToString() => string.Format("#<{0}>", OpCode.ToString());
+
+        public PrimitiveProcedure(string name, PrimitiveOperation fun, bool variadic, params int[] arities)
+            : this(Symbol.Intern(name), fun, variadic, arities)
+        { }
+
+        public override string ToString() => string.Format("#<{0}>", OpSymbol);
         protected override string FormatType() => string.Format("Prim({0})", base.FormatType());
     }
 
@@ -43,7 +49,7 @@ namespace Clasp.Data.Terms
         public readonly Environment CapturedEnv;
         public readonly SequentialForm Body;
 
-        public override int Arity { get; }
+        public override int[] Arities { get; }
         public override bool IsVariadic { get; }
 
         public CompoundProcedure(string[] parameters, string[] informals, Environment enclosing, SequentialForm body)
@@ -55,7 +61,7 @@ namespace Clasp.Data.Terms
             CapturedEnv = enclosing;
             Body = body;
 
-            Arity = parameters.Length;
+            Arities = new int[] { parameters.Length };
             IsVariadic = false;
         }
 
@@ -75,7 +81,9 @@ namespace Clasp.Data.Terms
 
     internal sealed class MacroProcedure : CompoundProcedure
     {
-        public override int Arity => 1;
+        private static readonly int[] _arities = new int[] { 1 };
+
+        public override int[] Arities => _arities;
         public override bool IsVariadic => false;
 
         public MacroProcedure(string parameter, SequentialForm body)

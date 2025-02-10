@@ -66,7 +66,8 @@ namespace Clasp.Process
                 {
                     return ExpandSyntaxTransformation(binding, id, exState);
                 }
-                else if (binding.BoundType == BindingType.Variable)
+                else if (binding.BoundType == BindingType.Variable
+                    || binding.BoundType == BindingType.Primitive)
                 {
                     return ExpandImplicit(Implicit.SpVar, AsArg(id), exState);
                 }
@@ -301,7 +302,7 @@ namespace Clasp.Process
             }
 
             if (output is CompoundProcedure cp
-                && cp.Arity == 1
+                && cp.Arities.Length == 1 && cp.Arities[0] == 1
                 && !cp.IsVariadic)
             {
                 return new MacroProcedure(cp.Parameters[0], cp.Body);

@@ -48,7 +48,7 @@ namespace Clasp.Binding.Environments
             }
             else
             {
-                throw new MissingBindingException(name);
+                throw new ClaspGeneralException("Tried to access top-level binding of '{0}' that doesn't exist.", name);
             }
         }
 

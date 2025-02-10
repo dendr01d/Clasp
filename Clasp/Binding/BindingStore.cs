@@ -21,8 +21,18 @@ namespace Clasp.Binding
 
             foreach(var staticallyBound in env.TopLevel.StaticBindings)
             {
-
-                BindSpecialForm(staticallyBound.Key);
+                if (staticallyBound.Value is Symbol)
+                {
+                    BindSpecialForm(staticallyBound.Key);
+                }
+                else if (staticallyBound.Value is PrimitiveProcedure)
+                {
+                    BindPrimitiveOperator(staticallyBound.Key);
+                }
+                else
+                {
+                    throw new System.NotImplementedException();
+                }
             }
         }
 

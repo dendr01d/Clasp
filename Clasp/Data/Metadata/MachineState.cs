@@ -27,9 +27,16 @@ namespace Clasp.Data.Metadata
             return new Stack<MxInstruction>(copiedInstructions);
         }
 
+        private MachineState(ref Stack<MxInstruction> cont, ref Environment env, ref Term value)
+        {
+            ReturningValue = value;
+            CurrentEnv = env;
+            Continuation = cont;
+        }
+
         public MachineState(CoreForm program, Environment env)
         {
-            ReturningValue = Undefined.Value;
+            ReturningValue = VoidTerm.Value;
             CurrentEnv = env;
             Continuation = new Stack<MxInstruction>();
 
@@ -41,6 +48,11 @@ namespace Clasp.Data.Metadata
             ReturningValue = machine.ReturningValue;
             CurrentEnv = machine.CurrentEnv; // TODO: is this how call/cc works? do the threads share environment?
             Continuation = machine.CopyContinuation();
+        }
+
+        public static MachineState AsPackage(ref Stack<MxInstruction> cont, ref Environment env, ref Term value)
+        {
+            return new MachineState(ref cont, ref env, ref value);
         }
     }
 }

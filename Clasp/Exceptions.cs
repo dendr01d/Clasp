@@ -453,6 +453,11 @@ namespace Clasp
             ContinuationTrace = cont.ToArray();
         }
 
+        internal InterpreterException(Stack<MxInstruction> cont, Exception innerException, string format, params object?[] args) : base(format, args)
+        {
+            ContinuationTrace = cont.ToArray();
+        }
+
         public class InvalidBinding : InterpreterException
         {
             internal InvalidBinding(string varName, Stack<MxInstruction> cont) : base(
@@ -461,89 +466,37 @@ namespace Clasp
                 varName)
             { }
         }
+
+        public class InvalidOperationException : InterpreterException
+        {
+            internal InvalidOperationException(MxInstruction operation, Stack<MxInstruction> cont, Exception innerException) : base(
+                cont,
+                innerException,
+                "Error evaluating the operation: {0}",
+                operation)
+            { }
+        }
     }
 
-    //internal class ExpectedTypeException<T> : ClaspException
-    //    where T : Expression
-    //{
-    //    internal ExpectedTypeException(Expression erroneous) : base(FormatMsg(erroneous)) { }
-
-    //    private static string FormatMsg(Expression erroneous)
-    //    {
-    //        return $"Expected Expression of type '{typeof(T).Name}' but received '{erroneous}' of type '{erroneous.GetType().Name}'.";
-    //    }        
-    //}
-
-    //internal class IncompatibleTypeException<T, U> : ClaspException
-    //    where T : Expression
-    //    where U : Expression
-    //{
-    //    internal IncompatibleTypeException(T e1, U e2, string opName) : base(FormatMsg(e1, e2, opName)) { }
-
-    //    private static string FormatMsg(T e1, U e2, string opName)
-    //    {
-    //        return $"{e1} of type '{typeof(T).Name}' and {e2} of type '{typeof(U).Name}' are incompatible arguments to operation '{opName}'.";
-    //    }
-    //}
-
-    //public class ArityConflictException : Exception
-    //{
-    //    internal ArityConflictException(Procedure proc, Expression? argl = null) : 
-    //        base(FormatMsg(proc, argl))
-    //    { }
-
-    //    private static string FormatMsg(Procedure proc, Expression? argl)
-    //    {
-    //        return string.Format("{0} arguments {1} provided to procedure {2}",
-    //            argl is null ? "Insufficient" : "Extraneous",
-    //            argl is null ? string.Empty : argl.ToString(),
-    //            proc.ToString());
-    //    }
-    //}
-
-    //public class MissingArgumentException : Exception
-    //{
-    //    internal MissingArgumentException(string funcName) :
-    //        base($"Expected additional argument(s) for function '{funcName}'.")
-    //    { }
-    //}
-
-    //public class DuplicateBindingException : Exception
-    //{
-    //    internal DuplicateBindingException(Symbol sym) :
-    //        base($"Attempted to re-Define binding of Symbol '{sym}'.")
-    //    { }
-    //}
-
-    public class MissingBindingException : ClaspException
+    public class ProcessingException : ClaspException
     {
-        internal MissingBindingException(string name) :
-            base($"Attempted to access non-existent binding of name '{name}'.")
-        { }
+        private ProcessingException(string format, params object?[] args) : base(format, args) { }
+
+        public class InvalidPrimitiveArgumentsException : ProcessingException
+        {
+            internal InvalidPrimitiveArgumentsException(Term arg) : base(
+                "Could not process the primitive operation with this argument: {0}",
+                string.Format("{0} ({1})", arg, arg.TypeName))
+            { }
+
+            internal InvalidPrimitiveArgumentsException(params Term[] args) : base(
+                "Could not process the primitive operation with these argument/s: {0}",
+                FormatListItems(args.Select(x => string.Format("{0} ({1})", x, x.TypeName))))
+            { }
+
+            internal InvalidPrimitiveArgumentsException() : base(
+                "Could not process the primitive operation without any arguments.")
+            { }
+        }
     }
-
-    //public class UninitializedRegisterException : Exception
-    //{
-    //    internal UninitializedRegisterException(string registerName) :
-    //        base($"Attempted to read value of uninitialized register '{registerName}'.")
-    //    { }
-    //}
-
-    //public class StackUnderflowException<T> : Exception
-    //{
-    //    internal StackUnderflowException(Stack<T> stack) :
-    //        base($"Attempted to pop data from empty {typeof(T).Name} stack in machine.")
-    //    { }
-    //}
-
-    //public class InvalidNumericOperationException : Exception
-    //{
-    //    internal InvalidNumericOperationException(Number num, string op) :
-    //        base(string.Format("Tried to perform illegal operation '{0}' on number {1}", op, num))
-    //    { }
-
-    //    internal InvalidNumericOperationException(Number num, string op, Number numArg) :
-    //        base(string.Format("Tried to perform illegal operation '{0}' on numbers {1} and {2}", op, num, numArg))
-    //    { }
-    //}
 }
