@@ -21,6 +21,7 @@ namespace Clasp.Binding
             output.DefineCoreForm(Symbol.Apply);
             output.DefineCoreForm(Implicit.SpApply);
 
+            output.DefineCoreForm(Implicit.ParDef);
             output.DefineCoreForm(Symbol.Define);
             output.DefineCoreForm(Symbol.DefineSyntax);
             output.DefineCoreForm(Symbol.Set);

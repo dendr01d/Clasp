@@ -27,6 +27,11 @@ namespace Clasp
         //{
         //    public Uncategorized(string format, params object?[] args) : base(format, args) { }
         //}
+
+        protected static string FormatListItems(IEnumerable<string> items)
+        {
+            return string.Concat(items.Select(x => string.Format("\n\t- {0}", x)));
+        }
     }
 
     public sealed class ClaspGeneralException : ClaspException
@@ -180,6 +185,15 @@ namespace Clasp
                 id.Name)
             { }
         }
+        public class AmbiguousIdentifier : ExpanderException
+        {
+            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<CompileTimeBinding> matches) : base(
+                ambId.Location,
+                "The variable name '{0}' ambiguously refers to multiple bindings within the given context: {1}",
+                ambId.Name,
+                FormatListItems(matches.Select(x => string.Format("'{0}' @ {1}", x.Id.Name, x.Id.Location))))
+            { }
+        }
 
         public class UnboundMacro : ExpanderException
         {
@@ -190,15 +204,17 @@ namespace Clasp
             { }
         }
 
-        public class AmbiguousIdentifier : ExpanderException
+        public class InvalidBindingOperation : ExpanderException
         {
-            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<CompileTimeBinding> matches) : base(
-                ambId.Location,
-                "The variable name '{0}' ambiguously refers to multiple bindings within the given context: {1}",
-                ambId.Name,
-                string.Join(", ", matches.Select(x => string.Format("'{0}' @ {1}", x.Id.Name, x.Id.Location))))
+            internal InvalidBindingOperation(Identifier unboundId, ExpansionContext exState) : base(
+                unboundId.Location,
+                "Failed to bind '{0}' in phase {1} in scope ({2}).",
+                unboundId.Name,
+                exState.Phase,
+                string.Join(", ", unboundId.GetScopeSet(exState.Phase)))
             { }
         }
+
 
         public class WrongEvaluatedType : ExpanderException
         {
@@ -313,10 +329,19 @@ namespace Clasp
 
         public class UnboundIdentifier : ParserException
         {
-            internal UnboundIdentifier(Identifier badId) : base(
-                badId.Location,
-                "The identifier is unbound within the expansion context: {0}",
-                badId)
+            internal UnboundIdentifier(Identifier id) : base(
+                id.Location,
+                "The variable name '{0}' is free (unbound) within the given context.",
+                id.Name)
+            { }
+        }
+        public class AmbiguousIdentifier : ParserException
+        {
+            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<CompileTimeBinding> matches) : base(
+                ambId.Location,
+                "The variable name '{0}' ambiguously refers to multiple bindings within the given context: {1}",
+                ambId.Name,
+                FormatListItems(matches.Select(x => string.Format("'{0}' @ {1}", x.Id.Name, x.Id.Location))))
             { }
         }
 

@@ -45,31 +45,16 @@ namespace Clasp.Data.Terms.Product
             return output;
         }
 
-        public static ConsList ImproperList(Term first, Term second, params Term[] rest)
+        public static Term ImproperList(params Term[] terms)
         {
-            if (rest.Length == 0)
-            {
-                return new ConsList(first, second);
-            }
-            else
-            {
-                ConsList cdr = ImproperList(second, rest[0], rest[1..]);
-                return new ConsList(first, cdr);
-            }
-        }
+            Term output = terms[^1];
 
-        public static ConsList ConstructDirect(IEnumerable<Term> terms)
-        {
-            Term[] realized = terms.ToArray();
+            for (int i = terms.Length - 2; i >= 0; --i)
+            {
+                output = Cons(terms[i], output);
+            }
 
-            if (realized.Length < 2)
-            {
-                throw new ClaspGeneralException("At least two terms needed to construct a cons cell.");
-            }
-            else
-            {
-                return ImproperList(realized[0], realized[1], realized[2..]);
-            }
+            return output;
         }
 
         #endregion

@@ -250,7 +250,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
-            currentValue = new CompoundProcedure(Formals, DottedFormal, currentEnv, Body);
+            currentValue = new CompoundProcedure(Formals, DottedFormal, Informals, currentEnv, Body);
         }
         public override MxInstruction CopyContinuation() => new FunctionCreation(Formals, DottedFormal, Informals, Body);
 
@@ -259,13 +259,14 @@ namespace Clasp.Data.AbstractSyntax
             DottedFormal is null ? string.Empty : string.Format("; {0}", DottedFormal),
             string.Join(", ", Body.Sequence.ToArray<object>()));
 
-        public override Term ToTerm() => ConsList.ImproperList(
-            Symbol.Lambda,
-            ConsList.ConstructDirect(Formals
-                .Select(x => Symbol.Intern(x))
-                .ToList<Term>()
-                .Append(DottedFormal is null ? Nil.Value : Symbol.Intern(DottedFormal))),
-            Body.ToImplicitTerm());
+        public override Term ToTerm()
+        {
+            Term[] parameters = Formals.Append(DottedFormal)
+                .Select<string?, Term>(x => x is null ? Nil.Value : Symbol.Intern(x))
+                .ToArray();
+
+            return ConsList.ImproperList(Symbol.Lambda, ConsList.ImproperList(parameters), Body.ToImplicitTerm());
+        }
     }
 
     #endregion

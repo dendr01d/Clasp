@@ -28,9 +28,35 @@ namespace Clasp.Process
 
         private static CoreForm Parse(Syntax stx, ExpansionContext exResult)
         {
-            if (stx is Identifier id && exResult.TryResolveBinding(id, out CompileTimeBinding? binding))
+            if (stx is Identifier id)
             {
-                return new VariableLookup(binding.Name);
+                if (exResult.TryResolveBinding(id, out CompileTimeBinding[] candidates, out CompileTimeBinding? binding))
+                {
+                    if (binding.BoundType == BindingType.Variable)
+                    {
+                        return new VariableLookup(binding.Name);
+                    }
+                    else if (exResult.TryDereferenceMacro(binding, out MacroProcedure? macro))
+                    {
+                        return new ConstValue(macro);
+                    }
+                    else if (binding.BoundType == BindingType.Primitive)
+                    {
+                        throw new System.NotImplementedException();
+                    }
+                    else
+                    {
+                        throw new ParserException.InvalidForm(id.Name, id);
+                    }
+                }
+                else if (candidates.Length > 1)
+                {
+                    throw new ParserException.AmbiguousIdentifier(id, candidates);
+                }
+                else
+                {
+                    throw new ParserException.UnboundIdentifier(id);
+                }
             }
             else if (stx is SyntaxPair stp)
             {
@@ -45,16 +71,10 @@ namespace Clasp.Process
         private static CoreForm ParseApplication(SyntaxPair stp, ExpansionContext exResult)
         {
             if (stp.Car is Identifier idOp
-                && exResult.TryResolveBinding(idOp, out CompileTimeBinding? binding))
+                && exResult.TryResolveBinding(idOp, out _, out CompileTimeBinding? binding)
+                && binding.BoundType == BindingType.Special)
             {
-                if (exResult.TryDereferenceMacro(binding, out MacroProcedure? macro))
-                {
-                    return new ConstValue(macro);
-                }
-                else if (binding.BoundType == BindingType.Special)
-                {
-                    return ParseSpecial(idOp.Name, stp, exResult);
-                }
+                return ParseSpecial(idOp.Name, stp, exResult);
             }
 
             CoreForm parsedOp = Parse(stp.Car, exResult);
@@ -95,6 +115,7 @@ namespace Clasp.Process
                     Keyword.APPLY => ParseApplication(args, exResult),
                     Keyword.IMP_APP => ParseApplication(args, exResult),
 
+                    Keyword.IMP_PARDEF => ParseDefinition(args, exResult),
                     Keyword.DEFINE => ParseDefinition(args, exResult),
                     Keyword.DEFINE_SYNTAX => ParseDefinition(args, exResult),
                     Keyword.SET => ParseSet(args, exResult),
@@ -122,10 +143,20 @@ namespace Clasp.Process
         private static CoreForm ParseVariableLookup(Syntax stx, ExpansionContext exResult)
         {
             if (stx.TryDestruct(out Identifier? idArg, out Syntax? terminator, out _)
-                && terminator.IsTerminator()
-                && exResult.TryResolveBinding(idArg, out CompileTimeBinding? binding))
+                && terminator.IsTerminator())
             {
-                return new VariableLookup(binding.Name);
+                if (exResult.TryResolveBinding(idArg, out CompileTimeBinding[] candidates, out CompileTimeBinding? binding))
+                {
+                    return new VariableLookup(binding.Name);
+                }
+                else if (candidates.Length > 1)
+                {
+                    throw new ParserException.AmbiguousIdentifier(idArg, candidates);
+                }
+                else
+                {
+                    throw new ParserException.UnboundIdentifier(idArg);
+                }
             }
             else
             {
@@ -159,11 +190,21 @@ namespace Clasp.Process
         {
             if (stx.TryDestruct(out Identifier? key, out SyntaxPair? keyTail, out _)
                 && keyTail.TryDestruct(out Syntax? value, out Syntax? terminator, out _)
-                && terminator.IsTerminator()
-                && exResult.TryResolveBinding(key, out CompileTimeBinding? binding))
+                && terminator.IsTerminator())
             {
-                CoreForm parsedValue = Parse(value, exResult);
-                return new BindingDefinition(binding.Name, parsedValue);
+                if (exResult.TryResolveBinding(key, out CompileTimeBinding[] candidates, out CompileTimeBinding? binding))
+                {
+                    CoreForm parsedValue = Parse(value, exResult);
+                    return new BindingDefinition(binding.Name, parsedValue);
+                }
+                else if (candidates.Length > 1)
+                {
+                    throw new ParserException.AmbiguousIdentifier(key, candidates);
+                }
+                else
+                {
+                    throw new ParserException.UnboundIdentifier(key);
+                }
             }
             
             throw new ParserException.WrongArity(Symbol.Define.Name, "exactly two", stx);
@@ -173,11 +214,23 @@ namespace Clasp.Process
         {
             if (stx.TryDestruct(out Identifier? key, out SyntaxPair? keyTail, out _)
                 && keyTail.TryDestruct(out Syntax? value, out Syntax? terminator, out _)
-                && terminator.IsTerminator()
-                && exResult.TryResolveBinding(key, out CompileTimeBinding? binding))
+                && terminator.IsTerminator())
             {
-                CoreForm parsedValue = Parse(value, exResult);
-                return new BindingMutation(binding.Name, parsedValue);
+                if (exResult.TryResolveBinding(key,
+                    out CompileTimeBinding[] candidates,
+                    out CompileTimeBinding? binding))
+                {
+                    CoreForm parsedValue = Parse(value, exResult);
+                    return new BindingMutation(binding.Name, parsedValue);
+                }
+                else if (candidates.Length > 1)
+                {
+                    throw new ParserException.AmbiguousIdentifier(key, candidates);
+                }
+                else
+                {
+                    throw new ParserException.UnboundIdentifier(key);
+                }
             }
 
             throw new ParserException.WrongArity(Symbol.Define.Name, "exactly two", stx);
@@ -267,11 +320,16 @@ namespace Clasp.Process
 
             while (current.TryDestruct(out Identifier? nextParam, out Syntax? rest, out _))
             {
-                if (exResult.TryResolveBinding(nextParam, out CompileTimeBinding? binding)
-                    && binding.BoundType == BindingType.Variable)
+                if (exResult.TryResolveBinding(nextParam, 
+                    out CompileTimeBinding[] candidates,
+                    out CompileTimeBinding? binding))
                 {
                     ids.Add(binding.Name);
                     current = rest;
+                }
+                else if (candidates.Length > 1)
+                {
+                    throw new ParserException.AmbiguousIdentifier(nextParam, candidates);
                 }
                 else
                 {
@@ -281,10 +339,15 @@ namespace Clasp.Process
 
             if (current is Identifier lastParam)
             {
-                if (exResult.TryResolveBinding(lastParam, out CompileTimeBinding? binding)
-                    && binding.BoundType == BindingType.Variable)
+                if (exResult.TryResolveBinding(lastParam,
+                    out CompileTimeBinding[] candidates,
+                    out CompileTimeBinding? binding))
                 {
                     dotted = binding.Name;
+                }
+                else if (candidates.Length > 1)
+                {
+                    throw new ParserException.AmbiguousIdentifier(lastParam, candidates);
                 }
                 else
                 {

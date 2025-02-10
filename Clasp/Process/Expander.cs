@@ -58,7 +58,9 @@ namespace Clasp.Process
         /// </summary>
         private static Syntax ExpandIdentifier(Identifier id, ExpansionContext exState)
         {
-            if (exState.TryResolveBinding(id, out CompileTimeBinding? binding))
+            if (exState.TryResolveBinding(id,
+                out _,
+                out CompileTimeBinding? binding))
             {
                 if (binding.BoundType == BindingType.Transformer)
                 {
@@ -85,7 +87,9 @@ namespace Clasp.Process
         /// </summary>
         private static Syntax ExpandIdApplication(Identifier op, SyntaxPair stx, ExpansionContext exState)
         {
-            if (exState.TryResolveBinding(op, out CompileTimeBinding? binding))
+            if (exState.TryResolveBinding(op,
+                out _,
+                out CompileTimeBinding? binding))
             {
                 if (binding.BoundType == BindingType.Transformer)
                 {
@@ -156,7 +160,8 @@ namespace Clasp.Process
             {
                 expandedTail = formName switch
                 {
-                    Keyword.IMP_PARDEF => ExpandDefineArgs(tail, exState),
+                    Keyword.IMP_PARDEF => ExpandPartialDefineArgs(tail, exState),
+
                     Keyword.DEFINE => ExpandDefineArgs(tail, exState),
                     Keyword.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(tail, exState),
                     Keyword.SET => ExpandSetArgs(tail, exState),
@@ -172,9 +177,9 @@ namespace Clasp.Process
                     _ => throw new ExpanderException.InvalidSyntax(stx)
                 };
             }
-            catch (ExpanderException ce)
+            catch (System.Exception e)
             {
-                throw new ExpanderException.InvalidForm(formName, stx, ce);
+                throw new ExpanderException.InvalidForm(formName, stx, e);
             }
 
             return new SyntaxPair(op, expandedTail, info);
@@ -188,7 +193,7 @@ namespace Clasp.Process
             // essentially just check the path to special forms and disregard otherwise
             if (stx is SyntaxPair idApp
                 && idApp.Car is Identifier op
-                && exState.TryResolveBinding(op, out CompileTimeBinding? binding)
+                && exState.TryResolveBinding(op, out _, out CompileTimeBinding? binding)
                 && binding.BoundType == BindingType.Special)
             {
                 Syntax args = idApp.Cdr;
@@ -208,7 +213,10 @@ namespace Clasp.Process
                         out Syntax? value, out LexInfo? valueContext,
                         out Syntax? terminator))
                     {
-                        exState.BindVariable(key);
+                        if (!exState.TryBindVariable(key, out _))
+                        {
+                            throw new ExpanderException.InvalidBindingOperation(key, exState);
+                        }
 
                         return terminator
                             .Cons(value, valueContext)
@@ -262,13 +270,9 @@ namespace Clasp.Process
                 MacroApplication program = new MacroApplication(macro, input);
                 output = Interpreter.InterpretProgram(program);
             }
-            catch (ClaspException ce)
-            {
-                throw new ExpanderException.EvaluationError(nameof(MacroProcedure), input, ce);
-            }
             catch (System.Exception e)
             {
-                throw new ExpanderException.EvaluationError(nameof(MacroProcedure), input, e.Message);
+                throw new ExpanderException.EvaluationError(nameof(MacroProcedure), input, e);
             }
 
             if (output is not Syntax outputStx)
@@ -291,18 +295,16 @@ namespace Clasp.Process
                 CoreForm parsedInput = Parser.ParseSyntax(expandedInput, subState);
                 output = Interpreter.InterpretProgram(parsedInput, StandardEnv.CreateNew());
             }
-            catch (ClaspException ce)
-            {
-                throw new ExpanderException.EvaluationError(nameof(MacroProcedure), input, ce);
-            }
             catch (System.Exception e)
             {
-                throw new ExpanderException.EvaluationError(nameof(MacroProcedure), input, e.Message);
+                throw new ExpanderException.EvaluationError(nameof(MacroProcedure), input, e);
             }
 
-            if (output is MacroProcedure macro)
+            if (output is CompoundProcedure cp
+                && cp.Arity == 1
+                && !cp.IsVariadic)
             {
-                return macro;
+                return new MacroProcedure(cp.Parameters[0], cp.Body);
             }
 
             throw new ExpanderException.WrongEvaluatedType(nameof(MacroProcedure), output, input);
@@ -345,11 +347,17 @@ namespace Clasp.Process
             }
             else if (stx is Identifier dotted)
             {
-                exState.BindVariable(dotted);
+                if (!exState.TryBindVariable(dotted, out _))
+                {
+                    throw new ExpanderException.InvalidBindingOperation(dotted, exState);
+                }
             }
             else if (stx.TryDestruct(out Identifier? id, out Syntax? cdr, out LexInfo? info))
             {
-                exState.BindVariable(id);
+                if (!exState.TryBindVariable(id, out _))
+                {
+                    throw new ExpanderException.InvalidBindingOperation(id, exState);
+                }
                 ExpandParameterList(cdr, exState);
             }
             else
@@ -588,8 +596,9 @@ namespace Clasp.Process
             [NotNullWhen(true)] out Syntax? terminator)
         {
             return TryDestructKeyValuePair(stx, out key, out keyContext, out value, out valueContext, out terminator)
-                    && exState.TryResolveBinding(key, out CompileTimeBinding? binding)
-                    && (binding.Name == Keyword.LAMBDA || binding.Name == Keyword.IMP_LAMBDA);
+                && value.TryDestruct(out Identifier? maybeLambda, out Syntax? _, out LexInfo? _)
+                && exState.TryResolveBinding(maybeLambda, out _, out CompileTimeBinding? binding)
+                && (binding.Name == Keyword.LAMBDA || binding.Name == Keyword.IMP_LAMBDA);
         }
 
         /// <summary>
@@ -639,6 +648,29 @@ namespace Clasp.Process
 
         #region Special Form Expansion
 
+        private static Syntax ExpandPartialDefineArgs(Syntax stx, ExpansionContext exState)
+        {
+            if (exState.Mode != SyntaxMode.InternalDefinition)
+            {
+                throw new ExpanderException.InvalidContext(Keyword.IMP_PARDEF, exState.Mode, stx);
+            }
+            else if (TryRewriteDefineArgs(stx,
+                out Identifier? key, out LexInfo? keyContext,
+                out Syntax? value, out LexInfo? valueContext,
+                out Syntax? terminator))
+            {
+                Syntax expandedValue = ExpandAsExpression(value, exState);
+
+                return terminator
+                    .Cons(expandedValue, valueContext)
+                    .Cons(key, keyContext);
+            }
+            else
+            {
+                throw new ExpanderException.InvalidForm(Keyword.IMP_PARDEF, stx);
+            }
+        }
+
         private static Syntax ExpandDefineArgs(Syntax stx, ExpansionContext exState)
         {
             if (exState.Mode == SyntaxMode.Expression)
@@ -651,7 +683,10 @@ namespace Clasp.Process
                 out Syntax? terminator))
             {
                 exState.SanitizeIdentifier(key);
-                exState.BindVariable(key);
+                if (!exState.TryBindVariable(key, out _))
+                {
+                    throw new ExpanderException.InvalidBindingOperation(key, exState);
+                }
 
                 Syntax expandedValue = ExpandAsExpression(value, exState);
 
@@ -679,7 +714,10 @@ namespace Clasp.Process
                 exState.SanitizeIdentifier(key);
 
                 MacroProcedure macro = ExpandAndEvalMacro(value, exState);
-                exState.BindMacro(key, macro);
+                if (!exState.TryBindMacro(key, macro, out _))
+                {
+                    throw new ExpanderException.InvalidBindingOperation(key, exState);
+                }
 
                 Syntax evaluatedMacro = ExpandImplicit(Implicit.SpDatum, AsArg(Datum.FromDatum(macro, valueContext)), exState);
 
@@ -702,16 +740,26 @@ namespace Clasp.Process
             else if (TryDestructKeyValuePair(stx,
                 out Identifier? key, out LexInfo? keyContext,
                 out Syntax? value, out LexInfo? valueContext,
-                out Syntax? terminator)
-                && exState.TryResolveBinding(key, out _))
+                out Syntax? terminator))
             {
                 exState.SanitizeIdentifier(key);
 
-                Syntax expandedValue = ExpandAsExpression(value, exState);
+                if (exState.TryResolveBinding(key, out CompileTimeBinding[] candidates, out CompileTimeBinding? binding))
+                {
+                    Syntax expandedValue = ExpandAsExpression(value, exState);
 
-                return terminator
-                    .Cons(expandedValue, valueContext)
-                    .Cons(key, keyContext);
+                    return terminator
+                        .Cons(expandedValue, valueContext)
+                        .Cons(key, keyContext);
+                }
+                else if (candidates.Length > 1)
+                {
+                    throw new ExpanderException.AmbiguousIdentifier(key, candidates);
+                }
+                else
+                {
+                    throw new ExpanderException.UnboundIdentifier(key);
+                }
             }
             else
             {

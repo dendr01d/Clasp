@@ -12,18 +12,22 @@ namespace Clasp.Data.Terms
     internal class Symbol : Atom
     {
         public string Name { get; protected init; }
-        protected Symbol(string name) => Name = name;
+        protected Symbol(string name)
+        {
+            Name = name;
+            _interned.Add(name, this);
+        }
 
-        private static readonly Dictionary<string, Symbol> Interned = new Dictionary<string, Symbol>();
-        protected static bool IsInterned(string name) => Interned.ContainsKey(name);
+        private static readonly Dictionary<string, Symbol> _interned = new Dictionary<string, Symbol>();
+        protected static bool IsInterned(string name) => _interned.ContainsKey(name);
 
         public static Symbol Intern(string name)
         {
-            if (!Interned.ContainsKey(name))
+            if (!_interned.ContainsKey(name))
             {
-                Interned[name] = new Symbol(name);
+                _interned[name] = new Symbol(name);
             }
-            return Interned[name];
+            return _interned[name];
         }
 
         public override string ToString() => Name;

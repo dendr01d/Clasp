@@ -16,7 +16,7 @@ namespace Clasp.Data.Terms
     {
         public static readonly Nil Value = new Nil();
         protected Nil() { }
-        public override string ToString() => "'()";
+        public override string ToString() => "()";
         protected override string FormatType() => "Nil";
     }
 

@@ -55,7 +55,7 @@ namespace Clasp.Data.AbstractSyntax
             if (!currentEnv.TryGetValue(VarName, out Term? def) || def is Undefined)
             {
                 currentEnv[VarName] = currentValue;
-                currentValue = Undefined.Value;
+                currentValue = VoidTerm.Value;
             }
             else
             {
@@ -81,7 +81,7 @@ namespace Clasp.Data.AbstractSyntax
             if (currentEnv.ContainsKey(VarName))
             {
                 currentEnv[VarName] = currentValue;
-                currentValue = Undefined.Value;
+                currentValue = VoidTerm.Value;
             }
             else
             {
@@ -110,7 +110,6 @@ namespace Clasp.Data.AbstractSyntax
             Alternate = alternate;
         }
         public override void RunOnMachine(Stack<MxInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
-
         {
             if (currentValue == Boolean.False)
             {
@@ -166,7 +165,7 @@ namespace Clasp.Data.AbstractSyntax
             }
         }
         public override MxInstruction CopyContinuation() => new FunctionVerification(Arguments.ToArray());
-        public override string ToString() => string.Format("APPL-VERF({0}; {1})", HOLE, Arguments.ToArray());
+        public override string ToString() => string.Format("APPL-VERIF({0}; {1})", HOLE, Arguments.ToArray());
     }
 
     /// <summary>
@@ -285,6 +284,12 @@ namespace Clasp.Data.AbstractSyntax
             {
                 continuation.Push(cp.Body);
 
+                foreach(string informal in cp.InformalParameters)
+                {
+                    continuation.Push(new BindFresh(informal));
+                    continuation.Push(new ConstValue(Undefined.Value));
+                }
+
                 int i = 0;
                 for (; i < cp.Parameters.Length; ++i )
                 {
@@ -310,177 +315,6 @@ namespace Clasp.Data.AbstractSyntax
         public override MxInstruction CopyContinuation() => new FunctionDispatch(Op, Arguments.ToArray());
         public override string ToString() => string.Format("APPL-DISP({0}; {1})", Op, string.Join(", ", Arguments.ToArray<object>()));
     }
-
-    //internal sealed class RollUpArguments : EvFrame
-    //{
-    //    private static readonly System.Random _rng = new System.Random();
-
-    //    public readonly AstNode[] Arguments;
-
-    //    public RollUpArguments(AstNode[] arguments) : base()
-    //    {
-    //        Arguments = arguments;
-    //    }
-    //    public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
-    //    {
-    //        if (currentValue is MacroProcedure macro)
-    //        {
-    //            throw new ClaspException.Uncategorized("Cannot evaluate macro-procedure as normal application: {0}", macro);
-    //        }
-    //        else if (currentValue is not Procedure proc)
-    //        {
-    //            throw new ClaspException.Uncategorized("Tried to apply non-procedure: {0}", currentValue);
-    //        }
-    //        else if (Arguments.Length < proc.Arity)
-    //        {
-    //            throw new ClaspException.Uncategorized("Too few arguments provided for procedure: {0}", proc);
-    //        }
-    //        else if (Arguments.Length > proc.Arity && !proc.IsVariadic)
-    //        {
-    //            throw new ClaspException.Uncategorized("Too many arguments provided for fixed-arity procedure: {0}", proc);
-    //        }
-    //        else
-    //        {
-    //            continuation.Push(new ApplyProcedure(proc));
-
-    //            if (Arguments.Length > 0)
-    //            {
-    //                EvFrame unrolled = new ConstValue(Nil.Value);
-
-    //                foreach(AstNode arg in Arguments.Reverse().Skip(1))
-    //                {
-    //                    unrolled = unrolled = new ArgumentSplitter(arg, unrolled, RandomBool());
-    //                }
-
-    //                continuation.Push(unrolled);
-    //            }
-    //        }
-    //    }
-    //    public override EvFrame CopyContinuation() => new RollUpArguments(Arguments.ToArray());
-    //    public override string ToString() => string.Format("*APPL([]; {0}", string.Join(", ", Arguments.ToArray<object>()));
-
-    //    private static bool RandomBool() => _rng.Next(2) == 0;
-    //}
-
-    //internal sealed class ArgumentSplitter : EvFrame
-    //{
-    //    public readonly EvFrame Head;
-    //    public readonly EvFrame Tail;
-    //    public readonly bool HeadFirst;
-
-    //    public ArgumentSplitter(EvFrame head, EvFrame tail, bool headFirst) : base()
-    //    {
-    //        Head = head;
-    //        Tail = tail;
-    //        HeadFirst = headFirst;
-    //    }
-    //    public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
-    //    {
-    //        if (HeadFirst)
-    //        {
-    //            continuation.Push(new ArgumentSwitcher(Tail, false));
-    //            continuation.Push(Head);
-    //        }
-    //        else
-    //        {
-    //            continuation.Push(new ArgumentSwitcher(Head, true));
-    //            continuation.Push(Tail);
-    //        }
-    //    }
-    //    public override EvFrame CopyContinuation() => new ArgumentSplitter(Head, Tail, HeadFirst);
-    //    public override string ToString() => string.Format("ROLL-ARGS({0}{1}, {2}{3})",
-    //        Head, HeadFirst ? "º" : string.Empty,
-    //        Tail, HeadFirst ? string.Empty : "º");
-    //}
-
-    //internal sealed class ArgumentSwitcher : EvFrame
-    //{
-    //    public readonly EvFrame RemainingTerm;
-    //    public readonly bool RemainingIsHead;
-
-    //    public ArgumentSwitcher(EvFrame remaining, bool remainingFirst)
-    //    {
-    //        RemainingTerm = remaining;
-    //        RemainingIsHead = remainingFirst;
-    //    }
-    //    public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
-    //    {
-    //        continuation.Push(new ArgumentAccumulator(currentValue, !RemainingIsHead));
-    //        continuation.Push(RemainingTerm);
-    //    }
-    //    public override EvFrame CopyContinuation() => new ArgumentSwitcher(RemainingTerm, RemainingIsHead);
-    //    public override string ToString() => string.Format("SWITCH-ARGS({0}, {1})",
-    //        RemainingIsHead ? RemainingTerm : "[]",
-    //        RemainingIsHead ? "[]" : RemainingTerm);
-    //}
-
-    //internal sealed class ArgumentAccumulator : EvFrame
-    //{
-    //    public readonly Term CompletedTerm;
-    //    public readonly bool CompletedIsHead;
-
-    //    public ArgumentAccumulator(Term completed, bool completedFirst)
-    //    {
-    //        CompletedTerm = completed;
-    //        CompletedIsHead = completedFirst;
-    //    }
-    //    public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
-    //    {
-    //        if (CompletedIsHead)
-    //        {
-    //            currentValue = ConsList.Cons(CompletedTerm, currentValue);
-    //        }
-    //        else
-    //        {
-    //            currentValue = ConsList.Cons(currentValue, CompletedTerm);
-    //        }
-    //    }
-    //    public override EvFrame CopyContinuation() => new ArgumentAccumulator(CompletedTerm, CompletedIsHead);
-    //    public override string ToString() => string.Format("ACC-ARGS({0}, {1})",
-    //        CompletedIsHead ? CompletedTerm : "[]",
-    //        CompletedIsHead ? "[]" : CompletedTerm);
-    //}
-
-    //internal sealed class ApplyProcedure : EvFrame
-    //{
-    //    public readonly Procedure Op;
-    //    public ApplyProcedure(Procedure op) => Op = op;
-    //    public override void RunOnMachine(Stack<EvFrame> continuation, ref Environment currentEnv, ref Term currentValue)
-    //    {
-    //        Term args = currentValue;
-
-    //        if (currentValue is not ConsList)
-    //        {
-    //            throw new ClaspException.Uncategorized("Expected current value to be args list: {0}", currentValue);
-    //        }
-
-    //        if (Op is CompoundProcedure cp)
-    //        {
-    //            Environment closure = new EnvFrame(cp.CapturedEnv);
-
-    //            continuation.Push(cp.Body);
-    //            continuation.Push(new ChangeCurrentEnvironment(closure));
-
-    //            for (int i = 0; i < cp.Parameters.Length; ++i)
-    //            {
-    //                continuation.Push(new ConstValue((args as ConsList)!.Car));
-    //                continuation.Push(new BindFresh(cp.Parameters[i]));
-    //                continuation.Push(new ChangeCurrentEnvironment(closure));
-
-    //                args = (args as ConsList)!.Cdr;
-    //            }
-
-    //            if (cp.VariadicParameter is not null)
-    //            {
-    //                continuation.Push(new ConstValue(args));
-    //                continuation.Push(new BindFresh(cp.VariadicParameter));
-    //                continuation.Push(new ChangeCurrentEnvironment(closure));
-    //            }
-    //        }
-    //    }
-    //    public override EvFrame CopyContinuation() => new ApplyProcedure(Op);
-    //    public override string ToString() => string.Format("*APPL({0}; [])", Op);
-    //}
 
     #endregion
 

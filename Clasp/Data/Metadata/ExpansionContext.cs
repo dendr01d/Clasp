@@ -55,7 +55,7 @@ namespace Clasp.Data.Metadata
         public static ExpansionContext FreshExpansion(Environment env, BindingStore bs, ScopeTokenGenerator gen)
         {
             return new ExpansionContext(
-                env: env,
+                env: env.Enclose(),
                 store: bs,
                 phase: 1,
                 mode: SyntaxMode.TopLevel,
@@ -155,14 +155,12 @@ namespace Clasp.Data.Metadata
         /// it as a <see cref="BindingType.Variable"/>.
         /// </summary>
         /// <returns>The renamed <see cref="Identifier"/>.</returns>
-        public Identifier BindVariable(Identifier symbolicId)
+        public bool TryBindVariable(Identifier symbolicId, out Identifier? bindingId)
         {
-            Identifier bindingId = new Identifier(new GenSym(symbolicId.Name), symbolicId.LexContext);
+            bindingId = new Identifier(new GenSym(symbolicId.Name), symbolicId.LexContext);
 
             CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Variable);
-            GlobalBindingStore.AddBinding(symbolicId, Phase, binding);
-
-            return bindingId;
+            return GlobalBindingStore.TryAddBinding(symbolicId, Phase, binding);
         }
 
         /// <summary>
@@ -172,33 +170,33 @@ namespace Clasp.Data.Metadata
         /// within the <see cref="CompileTimeEnv"/>.
         /// </summary>
         /// <returns>The renamed <see cref="Identifier"/>.</returns>
-        public Identifier BindMacro(Identifier symbolicId, MacroProcedure macro)
+        public bool TryBindMacro(Identifier symbolicId, MacroProcedure macro, out Identifier? bindingId)
         {
-            Identifier bindingId = new Identifier(new GenSym(symbolicId.Name), symbolicId.LexContext);
+            bindingId = new Identifier(new GenSym(symbolicId.Name), symbolicId.LexContext);
 
             CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Transformer);
-            GlobalBindingStore.AddBinding(symbolicId, Phase, binding);
-            CompileTimeEnv[bindingId.Name] = macro;
-
-            return bindingId;
+            if (GlobalBindingStore.TryAddBinding(symbolicId, Phase, binding))
+            {
+                CompileTimeEnv[bindingId.Name] = macro;
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
         /// Attempt to look up the binding information corresponding to <paramref name="id"/>
         /// within its given scope and the current <see cref="Phase"/>.
         /// </summary>
-        public bool TryResolveBinding(Identifier id, [NotNullWhen(true)] out CompileTimeBinding? binding)
+        public bool TryResolveBinding(Identifier id, out CompileTimeBinding[] candidates,
+            [NotNullWhen(true)] out CompileTimeBinding? binding)
         {
-            CompileTimeBinding[] candidates = GlobalBindingStore.ResolveBindings(id.Name, id.LexContext[Phase]).ToArray();
+            candidates = GlobalBindingStore.ResolveBindings(id.Name, id.LexContext[Phase].ToArray()).ToArray();
 
-            if (candidates.Length == 1)
-            {
-                binding = candidates.Single();
-                return true;
-            }
+            binding = candidates.Length == 1
+                ? candidates.Single()
+                : null;
 
-            binding = null;
-            return false;
+            return candidates.Length == 1;
         }
 
         public bool TryDereferenceBinding(CompileTimeBinding binding, [NotNullWhen(true)] out Term? boundValue)

@@ -30,5 +30,7 @@ namespace Clasp.Binding
             Id = id;
             BoundType = type;
         }
+
+        public override string ToString() => string.Format("{0}: {1}", BoundType, Name);
     }
 }

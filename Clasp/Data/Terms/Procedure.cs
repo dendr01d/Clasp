@@ -3,6 +3,7 @@
 using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
+using Clasp.Data.Primitives;
 
 namespace Clasp.Data.Terms
 {
@@ -16,13 +17,13 @@ namespace Clasp.Data.Terms
 
     internal sealed class PrimitiveProcedure : Procedure
     {
-        public readonly Primitives.Primitive OpCode;
+        public readonly Primitive OpCode;
         public readonly System.Func<Term, Term> Operation;
 
         public override int Arity { get; }
         public override bool IsVariadic { get; }
 
-        public PrimitiveProcedure(Primitives.Primitive op, System.Func<Term, Term> fun, int arity, bool variadic)
+        public PrimitiveProcedure(Primitive op, System.Func<Term, Term> fun, int arity, bool variadic)
         {
             OpCode = op;
             Operation = fun;
@@ -38,16 +39,19 @@ namespace Clasp.Data.Terms
     {
         public readonly string[] Parameters;
         public readonly string? VariadicParameter;
+        public readonly string[] InformalParameters;
         public readonly Environment CapturedEnv;
         public readonly SequentialForm Body;
 
         public override int Arity { get; }
         public override bool IsVariadic { get; }
 
-        public CompoundProcedure(string[] parameters, Environment enclosing, SequentialForm body)
+        public CompoundProcedure(string[] parameters, string[] informals, Environment enclosing, SequentialForm body)
         {
             Parameters = parameters;
             VariadicParameter = null;
+            InformalParameters = informals;
+
             CapturedEnv = enclosing;
             Body = body;
 
@@ -55,8 +59,8 @@ namespace Clasp.Data.Terms
             IsVariadic = false;
         }
 
-        public CompoundProcedure(string[] parameters, string? finalParameter, Environment enclosing, SequentialForm body)
-            : this(parameters, enclosing, body)
+        public CompoundProcedure(string[] parameters, string? finalParameter, string[] informals, Environment enclosing, SequentialForm body)
+            : this(parameters, informals, enclosing, body)
         {
             VariadicParameter = finalParameter;
             IsVariadic = VariadicParameter is not null;
@@ -75,7 +79,7 @@ namespace Clasp.Data.Terms
         public override bool IsVariadic => false;
 
         public MacroProcedure(string parameter, SequentialForm body)
-            : base([parameter], StandardEnv.CreateNew(), body)
+            : base([parameter], [], StandardEnv.CreateNew(), body)
         { }
 
         public override string ToString() => string.Format("#<macro({0})>", Parameters[0]);

@@ -90,5 +90,10 @@ namespace Clasp.Data.Metadata
             {
                 Inherent = true
             };
+
+        public override string ToString()
+        {
+            return string.Format("{0}: Line {1}, Column {2}", Source, LineNumber, Column);
+        }
     }
 }
