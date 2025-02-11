@@ -19,7 +19,13 @@ namespace Clasp.Data.Terms
         }
 
         public abstract override string ToString();
-
         protected abstract string FormatType();
+
+        #region Implicit Booleans
+
+        public static implicit operator bool(Term t) => t != Boolean.False;
+        public static implicit operator Term(bool b) => b ? Boolean.True : Boolean.False;
+
+        #endregion
     }
 }

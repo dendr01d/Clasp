@@ -45,7 +45,7 @@ namespace Clasp.Data.Terms.Syntax
             return term switch
             {
                 Syntax s => s,
-                ConsList cl => new SyntaxPair(cl.Car, cl.Cdr, ctx),
+                Pair cl => new SyntaxPair(cl.Car, cl.Cdr, ctx),
                 Symbol sym => new Identifier(sym, ctx),
                 _ => new Datum(term, ctx)
             };
@@ -93,9 +93,9 @@ namespace Clasp.Data.Terms.Syntax
             {
                 return ToDatum(stx.Expose());
             }
-            if (term is ConsList cl)
+            if (term is Pair cl)
             {
-                return ConsList.Cons(ToDatum(cl.Car), ToDatum(cl.Cdr));
+                return Pair.Cons(ToDatum(cl.Car), ToDatum(cl.Cdr));
             }
             else if (term is Vector vec)
             {

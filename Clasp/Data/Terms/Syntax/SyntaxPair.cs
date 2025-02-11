@@ -16,12 +16,12 @@ namespace Clasp.Data.Terms.Syntax
 {
     internal sealed class SyntaxPair : Syntax, ICons<Syntax, Syntax>
     {
-        private ConsList? _lazyCons;
-        public override ConsList Expose()
+        private Pair? _lazyCons;
+        public override Pair Expose()
         {
             if (_lazyCons is null)
             {
-                _lazyCons = ConsList.Cons(Car, Cdr);
+                _lazyCons = Pair.Cons(Car, Cdr);
             }
             return _lazyCons;
         }

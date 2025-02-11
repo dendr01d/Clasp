@@ -1,7 +1,7 @@
 ﻿using Clasp.Binding.Environments;
-using Clasp.Data;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Product;
+using Clasp.Ops;
 
 namespace Clasp.Binding
 {
@@ -11,12 +11,12 @@ namespace Clasp.Binding
         {
             SuperEnvironment output = new SuperEnvironment();
 
-            foreach(Symbol kw in CoreKeywords)
+            foreach (Symbol kw in CoreKeywords)
             {
                 output.DefineCoreForm(kw);
             }
 
-            foreach(PrimitiveProcedure pp in PrimProcs)
+            foreach (PrimitiveProcedure pp in PrimProcs)
             {
                 output.DefineInitial(pp.OpSymbol.Name, pp);
             }
@@ -51,43 +51,71 @@ namespace Clasp.Binding
 
         private static readonly PrimitiveProcedure[] PrimProcs = new PrimitiveProcedure[]
         {
-            new("cons", Ops.Pairs.Cons, false, 2),
-            new("car", Ops.Pairs.Car, false, 1),
-            new("cdr", Ops.Pairs.Cdr, false, 1),
-            new("set-car", Ops.Pairs.SetCar, false, 2),
-            new("set-cdr", Ops.Pairs.SetCdr, false, 2),
+            // List Ops
+            new("cons", new BinaryOp<Term, Term>(Pairs.Cons)),
+            new("car", new UnaryOp<Pair>(Pairs.Car)),
+            new("cdr", new UnaryOp<Pair>(Pairs.Cdr)),
+            new("set-car", new BinaryOp<Pair, Term>(Pairs.SetCar)),
+            new("set-cdr", new BinaryOp<Pair, Term>(Pairs.SetCdr)),
 
-            new("+", Ops.Math.Add, true, 0, 1, 2),
-            new("-", Ops.Math.Subtract, false, 0, 1, 2),
-            new("*", Ops.Math.Multiply, true, 0, 1, 2),
-            new("quotient", Ops.Math.Divide, false, 0, 1, 2),
+            // Value Equality
+            new("eq", new BinaryOp<Term, Term>(Equality.Eq)),
+            new("eqv", new BinaryOp<Term, Term>(Equality.Eqv)),
+            new("equal", new BinaryOp<Term, Term>(Equality.Equal)),
 
-            new("eq", Ops.Predicates.Eq, false, 2),
-            new("eqv", Ops.Predicates.Eqv, false, 2),
-            new("equal", Ops.Predicates.Equal, false, 2),
+            // Type Predicates
+            new("pair?", new UnaryOp<Term>(Predicates.IsType<Pair>)),
+            new("null?", new UnaryOp<Term>(Predicates.IsType<Nil>)),
 
-            new("symbol?", Ops.Predicates.IsType<Symbol>, false, 1),
-            new("null?", Ops.Predicates.IsType<Nil>, false, 1),
-            new("character?", Ops.Predicates.IsType<Character>, false, 1),
-            new("string?", Ops.Predicates.IsType<CharString>, false, 1),
-            new("integer?", Ops.Predicates.IsType<Integer>, false, 1),
-            new("real?", Ops.Predicates.IsType<Real>, false, 1),
-            new("vector?", Ops.Predicates.IsType<Vector>, false, 1),
-            new("pair?", Ops.Predicates.IsType<ConsList>, false, 1),
+            new("symbol?", new UnaryOp<Term>(Predicates.IsType<Symbol>)),
+            new("character?", new UnaryOp<Term>(Predicates.IsType<Character>)),
+            new("string?", new UnaryOp<Term>(Predicates.IsType<CharString>)),
+            new("vector?", new UnaryOp<Term>(Predicates.IsType<Vector>)),
+            new("boolean?", new UnaryOp<Term>(Predicates.IsType<Boolean>)),
 
-            new("string->symbol", Ops.Symbols.StringToSymbol, false, 1),
-            new("symbol->string", Ops.Symbols.SymbolToString, false, 1),
+            new("number?", new UnaryOp<Term>(Predicates.IsType<Number>)),
+            new("complex?", new UnaryOp<Term>(Predicates.IsType<ComplexNumber>)),
+            new("real?", new UnaryOp<Term>(Predicates.IsType<RealNumber>)),
+            new("rational?", new UnaryOp<Term>(Predicates.IsType<RationalNumber>)),
+            new("integer?", new UnaryOp<Term>(Predicates.IsType<IntegralNumber>)),
 
-            new("char=", Ops.Characters.CharEq, false, 2),
-            new("char<", Ops.Characters.CharLT, false, 2),
-            new("char>", Ops.Characters.CharGT, false, 2),
-            new("char<=", Ops.Characters.CharLTE, false, 2),
-            new("char>=", Ops.Characters.CharGTE, false, 2),
+            // Symbol Ops
+            new("symbol->string", new UnaryOp<Symbol>(Symbols.SymbolToString)),
+            new("string->symbol", new UnaryOp<CharString>(Symbols.StringToSymbol)),
 
-            new("char->integer", Ops.Characters.CharacterToInteger, false, 1),
-            new("integer->char", Ops.Characters.IntegerToCharacter, false, 1)
+            // Character Ops
+            new("char=", new BinaryOp<Character, Character>(Characters.CharEq)),
+            new("char<", new BinaryOp<Character, Character>(Characters.CharLT)),
+            new("char<=", new BinaryOp<Character, Character>(Characters.CharLTE)),
+            new("char>", new BinaryOp<Character, Character>(Characters.CharGT)),
+            new("char>=", new BinaryOp<Character, Character>(Characters.CharGTE)),
 
+            new("char->integer", new UnaryOp<Character>(Characters.CharacterToInteger)),
+            new("integer->char", new UnaryOp<IntegralNumber>(Characters.IntegerToCharacter)),
 
+            //Arithmetic
+            new("+")
+            {
+                new BinaryOp<Number, Number>(Math.Add),
+                new VarOp<Number>(Math.AddVar)
+            },
+            new("-")
+            {
+                new UnaryOp<Number>(Math.Negate),
+                new BinaryOp<Number, Number>(Math.Subtract),
+                new VarOp<Number>(Math.SubtractVar)
+            },
+            new("*")
+            {
+                new BinaryOp<Number, Number>(Math.Multiply),
+                new VarOp<Number>(Math.MultiplyVar)
+            },
+            new("/")
+            {
+                new UnaryOp<Number>(Math.Invert),
+                new BinaryOp<Number, Number>(Math.Divide),
+                new VarOp<Number>(Math.DivideVar)
+            }
 
         };
 

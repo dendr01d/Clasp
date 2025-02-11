@@ -302,7 +302,7 @@ namespace Clasp.Process
             }
 
             if (output is CompoundProcedure cp
-                && cp.Arities.Length == 1 && cp.Arities[0] == 1
+                && cp.Arity == 1
                 && !cp.IsVariadic)
             {
                 return new MacroProcedure(cp.Parameters[0], cp.Body);

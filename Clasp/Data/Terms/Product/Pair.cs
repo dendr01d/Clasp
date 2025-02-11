@@ -10,17 +10,17 @@ using Clasp.Interfaces;
 
 namespace Clasp.Data.Terms.Product
 {
-    internal class ConsList : Product, ICons<Term, Term>
+    internal class Pair : Product, ICons<Term, Term>
     {
         public virtual Term Car { get; private set; }
         public Term Cdr { get; private set; }
 
-        public bool IsDotted => Cdr is not ConsList or Nil;
+        public bool IsDotted => Cdr is not Pair or Nil;
 
         public void SetCar(Term newCar) => Car = newCar;
         public void SetCdr(Term newCdr) => Cdr = newCdr;
 
-        private ConsList(Term car, Term cdr)
+        private Pair(Term car, Term cdr)
         {
             Car = car;
             Cdr = cdr;
@@ -30,7 +30,7 @@ namespace Clasp.Data.Terms.Product
 
         #region Static Construction
 
-        public static ConsList Cons(Term car, Term cdr) => new ConsList(car, cdr);
+        public static Pair Cons(Term car, Term cdr) => new Pair(car, cdr);
 
         public static Term ProperList(params Term[] terms) => ProperList(terms.AsEnumerable());
         public static Term ProperList(IEnumerable<Term> terms)
@@ -39,7 +39,7 @@ namespace Clasp.Data.Terms.Product
 
             foreach (Term t in terms.Reverse())
             {
-                output = new ConsList(t, output);
+                output = new Pair(t, output);
             }
 
             return output;
@@ -65,7 +65,7 @@ namespace Clasp.Data.Terms.Product
         {
             return t switch
             {
-                ConsList cl => string.Format(" {0}{1}", cl.Car, PrintAsTail(cl.Cdr)),
+                Pair cl => string.Format(" {0}{1}", cl.Car, PrintAsTail(cl.Cdr)),
                 Nil => string.Empty,
                 _ => string.Format(" . {0}", t)
             };

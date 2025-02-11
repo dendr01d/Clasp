@@ -6,34 +6,19 @@ namespace Clasp.Ops
 {
     internal static class Pairs
     {
-        public static Term Cons(MachineState mx, params Term[] terms)
-        {
-            return ConsList.Cons(terms[0], terms[1]);
-        }
+        public static Term Cons(Term t1, Term t2) => Pair.Cons(t1, t2);
+        public static Term Car(Pair p) => p.Car;
+        public static Term Cdr(Pair p) => p.Cdr;
 
-        public static Term Car(MachineState mx, params Term[] terms)
+        public static Term SetCar(Pair p, Term t)
         {
-            if (terms[0] is ConsList cl) return cl.Car;
-            else throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-        }
-
-        public static Term Cdr(MachineState mx, params Term[] terms)
-        {
-            if (terms[0] is ConsList cl) return cl.Cdr;
-            else throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-        }
-
-        public static Term SetCar(MachineState mx, params Term[] terms)
-        {
-            if (terms[0] is not ConsList cl) throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-            cl.SetCar(terms[1]);
+            p.SetCar(t);
             return VoidTerm.Value;
         }
 
-        public static Term SetCdr(MachineState mx, params Term[] terms)
+        public static Term SetCdr(Pair p, Term t)
         {
-            if (terms[0] is not ConsList cl) throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-            cl.SetCdr(terms[1]);
+            p.SetCdr(t);
             return VoidTerm.Value;
         }
 

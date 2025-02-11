@@ -1,44 +1,53 @@
-﻿using Clasp.Binding;
+﻿using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+
+using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
+using Clasp.Ops;
 
 namespace Clasp.Data.Terms
 {
-    internal delegate Term PrimitiveOperation(MachineState mx, params Term[] terms);
-
     internal abstract class Procedure : Atom
     {
-        public abstract int[] Arities { get; }
-        public abstract bool IsVariadic { get; }
-
-        protected override string FormatType() => string.Format("({0}){1}", string.Join(", ", Arities), IsVariadic ? "+" : string.Empty);
     }
 
-    internal sealed class PrimitiveProcedure : Procedure
+    internal sealed class PrimitiveProcedure : Procedure, IEnumerable<NativeProcedure>
     {
         public readonly Symbol OpSymbol;
-        public readonly PrimitiveOperation Operation;
+        private readonly List<NativeProcedure> _nativeOps;
 
-        public readonly bool Pure;
-        public override int[] Arities { get; }
-        public override bool IsVariadic { get; }
-
-        public PrimitiveProcedure(Symbol opSym, PrimitiveOperation fun, bool variadic, params int[] arities)
+        public PrimitiveProcedure(Symbol opSym, params NativeProcedure[] nativeOps)
         {
             OpSymbol = opSym;
-            Operation = fun;
-
-            Arities = arities;
-            IsVariadic = variadic;
+            _nativeOps = new List<NativeProcedure>(nativeOps);
         }
 
-        public PrimitiveProcedure(string name, PrimitiveOperation fun, bool variadic, params int[] arities)
-            : this(Symbol.Intern(name), fun, variadic, arities)
+        public PrimitiveProcedure(string opName, params NativeProcedure[] nativeOps)
+            : this(Symbol.Intern(opName), nativeOps)
         { }
 
+        public Term Operate(Term[] args)
+        {
+            foreach (NativeProcedure np in _nativeOps)
+            {
+                if (np.TryOperate(args, out Term? result))
+                {
+                    return result;
+                }
+            }
+
+            throw new ProcessingException.InvalidPrimitiveArgumentsException(args);
+        }
+
+        public IEnumerator<NativeProcedure> GetEnumerator() => ((IEnumerable<NativeProcedure>)_nativeOps).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_nativeOps).GetEnumerator();
+        public void Add(NativeProcedure nativeOp) => _nativeOps.Add(nativeOp);
+
         public override string ToString() => string.Format("#<{0}>", OpSymbol);
-        protected override string FormatType() => string.Format("Prim({0})", base.FormatType());
+        protected override string FormatType() => string.Format("Prim({0}:{1})", OpSymbol, _nativeOps.Count);
     }
 
     internal class CompoundProcedure : Procedure
@@ -49,10 +58,10 @@ namespace Clasp.Data.Terms
         public readonly Environment CapturedEnv;
         public readonly SequentialForm Body;
 
-        public override int[] Arities { get; }
-        public override bool IsVariadic { get; }
+        public readonly int Arity;
+        public readonly bool IsVariadic;
 
-        public CompoundProcedure(string[] parameters, string[] informals, Environment enclosing, SequentialForm body)
+        public CompoundProcedure(string[] parameters, string? finalParameter, string[] informals, Environment enclosing, SequentialForm body)
         {
             Parameters = parameters;
             VariadicParameter = null;
@@ -61,37 +70,30 @@ namespace Clasp.Data.Terms
             CapturedEnv = enclosing;
             Body = body;
 
-            Arities = new int[] { parameters.Length };
-            IsVariadic = false;
-        }
-
-        public CompoundProcedure(string[] parameters, string? finalParameter, string[] informals, Environment enclosing, SequentialForm body)
-            : this(parameters, informals, enclosing, body)
-        {
+            Arity = parameters.Length;
             VariadicParameter = finalParameter;
             IsVariadic = VariadicParameter is not null;
         }
+
+        public CompoundProcedure(string[] parameters, string[] informals, Environment enclosing, SequentialForm body)
+            : this(parameters, null, informals, enclosing, body)
+        { }
 
         public override string ToString() => string.Format(
             "#<lambda({0}{1})>",
             string.Join(' ', Parameters),
             VariadicParameter is null ? string.Empty : string.Format(" . {0}", VariadicParameter));
-        protected override string FormatType() => string.Format("Lambda({0})", base.FormatType());
+        protected override string FormatType() => string.Format("Lambda({0}{1})", Arity, IsVariadic ? "+" : string.Empty);
     }
 
     internal sealed class MacroProcedure : CompoundProcedure
     {
-        private static readonly int[] _arities = new int[] { 1 };
-
-        public override int[] Arities => _arities;
-        public override bool IsVariadic => false;
-
         public MacroProcedure(string parameter, SequentialForm body)
             : base([parameter], [], StandardEnv.CreateNew(), body)
         { }
 
         public override string ToString() => string.Format("#<macro({0})>", Parameters[0]);
 
-        protected override string FormatType() => string.Format("Macro({0})", base.FormatType());
+        protected override string FormatType() => "Macro";
     }
 }

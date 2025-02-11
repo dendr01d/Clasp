@@ -500,5 +500,13 @@ namespace Clasp
                 "Could not process the primitive operation without any arguments.")
             { }
         }
+
+        public class UnknownNumericType : ProcessingException
+        {
+            internal UnknownNumericType(params Number[] unknownNumbers) : base(
+                "Number arguments to mathematical function are of unknown type(s): {0}",
+                string.Join(", ", unknownNumbers.AsEnumerable()))
+            { }
+        }
     }
 }

@@ -5,24 +5,35 @@ namespace Clasp.Ops
 {
     internal static class Helpers
     {
-        public static Term FoldLeft(MachineState mx, System.Func<MachineState, Term, Term, Term> op, params Term[] terms)
+        public static TOut Fold<TArg, TOut>(TOut seed, System.Func<TOut, TArg, TOut> fun, params TArg[] args)
+            where TArg : Term
+            where TOut : Term
         {
-            if (terms.Length == 0)
-            {
-                throw new ProcessingException.InvalidPrimitiveArgumentsException();
-            }
+            TOut result = seed;
 
-            Term result = terms[0];
-
-            for (int i = 1; i < terms.Length; ++i)
+            for (int i = 0; i < args.Length; ++i)
             {
-                result = op(mx, result, terms[i]);
+                result = fun(result, args[i]);
             }
 
             return result;
         }
 
-        public static Term AsTerm(bool b) => b ? Boolean.True : Boolean.False;
+        public static Boolean FoldComparison<TArg>(System.Func<TArg, TArg, bool> fun, params TArg[] args)
+        {
+            TArg prior = args[0];
 
+            for (int i = 1; i < args.Length; ++i)
+            {
+                if (!fun(prior, args[i]))
+                {
+                    return Boolean.False;
+                }
+
+                prior = args[i];
+            }
+
+            return Boolean.True;
+        }
     }
 }

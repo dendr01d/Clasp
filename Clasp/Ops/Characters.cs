@@ -5,53 +5,17 @@ namespace Clasp.Ops
 {
     internal static class Characters
     {
-        public static Term CharEq(MachineState mx, params Term[] terms)
-        {
-            if (terms[0] is Character c1 && terms[1] is Character c2)
-            {
-                return Helpers.AsTerm(c1.Value == c2.Value);
-            }
-            else
-            {
-                throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-            }
-        }
+        // I'm interning all my characters to begin with, so this is a little redundant...
+        public static Term CharEq(Character c1, Character c2) => Equality.Eq(c1, c2);
 
-        public static Term CharLT(MachineState mx, params Term[] terms)
-        {
-            if (terms[0] is Character c1 && terms[1] is Character c2) return Helpers.AsTerm(c1.AsInteger < c2.AsInteger);
-            else throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-        }
+        public static Term CharLT(Character c1, Character c2) => c1.AsInteger < c2.AsInteger;
+        public static Term CharLTE(Character c1, Character c2) => c1.AsInteger <= c2.AsInteger;
+        public static Term CharGT(Character c1, Character c2) => c1.AsInteger > c2.AsInteger;
+        public static Term CharGTE(Character c1, Character c2) => c1.AsInteger >= c2.AsInteger;
 
-        public static Term CharGT(MachineState mx, params Term[] terms)
-        {
-            if (terms[0] is Character c1 && terms[1] is Character c2) return Helpers.AsTerm(c1.AsInteger > c2.AsInteger);
-            else throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-        }
+        public static Term CharacterToInteger(Character c) => new Integer(c.AsInteger);
 
-        public static Term CharLTE(MachineState mx, params Term[] terms)
-        {
-            if (terms[0] is Character c1 && terms[1] is Character c2) return Helpers.AsTerm(c1.AsInteger <= c2.AsInteger);
-            else throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-        }
-
-        public static Term CharGTE(MachineState mx, params Term[] terms)
-        {
-            if (terms[0] is Character c1 && terms[1] is Character c2) return Helpers.AsTerm(c1.AsInteger >= c2.AsInteger);
-            else throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-        }
-
-        public static Term CharacterToInteger(MachineState mx, params Term[] terms)
-        {
-            if (terms[0] is Character c) return new Integer(c.AsInteger);
-            else throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-        }
-
-        public static Term IntegerToCharacter(MachineState mx, params Term[] terms)
-        {
-            if (terms[0] is Integer i) return Character.Intern((char)i.Value);
-            else throw new ProcessingException.InvalidPrimitiveArgumentsException(terms[0]);
-        }
+        public static Term IntegerToCharacter(IntegralNumber z) => Character.Intern((char)z.AsInteger);
 
     }
 }

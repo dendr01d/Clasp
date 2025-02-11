@@ -148,13 +148,17 @@ namespace Clasp.Data.AbstractSyntax
             {
                 throw new InterpreterException(continuation, "Tried to invoke macro at runtime: {0}", macro);
             }
-            else if (Arguments.Length > proc.Arities.Max() && !proc.IsVariadic)
+            else if (proc is CompoundProcedure cp1 && Arguments.Length > cp1.Arity && !cp1.IsVariadic)
             {
-                throw new InterpreterException(continuation, "Tried to invoke non-variadic procedure with too many arguments: {0}", proc);
+                throw new InterpreterException(continuation,
+                    "Tried to invoke non-variadic compound procedure {0} with too many arguments: {1}",
+                    cp1, string.Join(", ", Arguments.AsEnumerable()));
             }
-            else if (!proc.Arities.Contains(Arguments.Length))
+            else if (proc is CompoundProcedure cp2 && Arguments.Length < cp2.Arity)
             {
-                throw new InterpreterException(continuation, "Tried to invoke procedure with invalid number ({0}) of argument/s: {1}", Arguments.Length, proc);
+                throw new InterpreterException(continuation,
+                    "Tried to invoke compound procedure {0} with invalid number ({1}) of argument/s: {2}",
+                    cp2, Arguments.Length, string.Join(", ", Arguments.AsEnumerable()));
             }
             else if (Arguments.Length == 0)
             {
@@ -281,9 +285,7 @@ namespace Clasp.Data.AbstractSyntax
             {
                 try
                 {
-                    MachineState temp = MachineState.AsPackage(ref continuation, ref currentEnv, ref currentValue);
-                    Term result = pp.Operation(temp, Arguments);
-                    currentValue = result;
+                    currentValue = pp.Operate(Arguments);
                 }
                 catch (System.Exception ex)
                 {
@@ -311,7 +313,7 @@ namespace Clasp.Data.AbstractSyntax
                 {
                     continuation.Push(new BindFresh(cp.VariadicParameter));
                     continuation.Push(Arguments.Length > cp.Parameters.Length
-                        ? new ConstValue(ConsList.ProperList(Arguments[i..]))
+                        ? new ConstValue(Pair.ProperList(Arguments[i..]))
                         : new ConstValue(Nil.Value));
                 }
 

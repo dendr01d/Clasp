@@ -20,15 +20,6 @@ namespace Clasp.Data.Terms
         protected override string FormatType() => "Nil";
     }
 
-    //internal sealed class Maybe<T> : Nil
-    //    where T : Term
-    //{
-    //    private T? _value;
-
-    //    public Maybe(T value) => _value = value;
-    //    public Maybe(Nil _) => _value = null;
-    //}
-
     internal sealed class Undefined : Atom
     {
         public static readonly Undefined Value = new Undefined();

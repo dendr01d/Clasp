@@ -44,7 +44,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override MxInstruction CopyContinuation() => new BindingDefinition(VarName, BoundValue);
         public override string ToString() => string.Format("DEF({0}, {1})", VarName, BoundValue);
-        public override Term ToTerm() => ConsList.ProperList(Symbol.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
+        public override Term ToTerm() => Pair.ProperList(Symbol.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
 
     internal sealed class BindingMutation : CoreForm
@@ -65,7 +65,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override MxInstruction CopyContinuation() => new BindingMutation(VarName, BoundValue);
         public override string ToString() => string.Format("SET({0}, {1})", VarName, BoundValue);
-        public override Term ToTerm() => ConsList.ProperList(Symbol.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
+        public override Term ToTerm() => Pair.ProperList(Symbol.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
 
     #endregion
@@ -113,7 +113,7 @@ namespace Clasp.Data.AbstractSyntax
         public override string ToString() => Value is Terms.Atom
             ? Value.ToString()
             : string.Format("QUOTE({0})", Value);
-        public override Term ToTerm() => ConsList.ProperList(Symbol.Quote, Value);
+        public override Term ToTerm() => Pair.ProperList(Symbol.Quote, Value);
     }
 
     #endregion
@@ -141,7 +141,7 @@ namespace Clasp.Data.AbstractSyntax
         public override MxInstruction CopyContinuation() => new ConditionalForm(Test, Consequent, Alternate);
         public override string ToString() => string.Format("BRANCH({0}, {1}, {2})", Test, Consequent, Alternate);
 
-        public override Term ToTerm() => ConsList.ProperList(Symbol.If,
+        public override Term ToTerm() => Pair.ProperList(Symbol.If,
             Test.ToTerm(), Consequent.ToTerm(), Alternate.ToTerm());
     }
 
@@ -164,8 +164,8 @@ namespace Clasp.Data.AbstractSyntax
         public override MxInstruction CopyContinuation() => new SequentialForm(Sequence);
         public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToArray<object>()));
 
-        public override Term ToTerm() => ConsList.Cons(Symbol.Begin, ToImplicitTerm());
-        public Term ToImplicitTerm() => ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray());
+        public override Term ToTerm() => Pair.Cons(Symbol.Begin, ToImplicitTerm());
+        public Term ToImplicitTerm() => Pair.ProperList(Sequence.Select(x => x.ToTerm()).ToArray());
     }
 
     internal sealed class TopLevelSequentialForm : CoreForm
@@ -187,8 +187,8 @@ namespace Clasp.Data.AbstractSyntax
         public override MxInstruction CopyContinuation() => new TopLevelSequentialForm(Sequence);
         public override string ToString() => string.Format("SEQ-D({0})", string.Join(", ", Sequence.ToArray<object>()));
 
-        public override Term ToTerm() => ConsList.Cons(Symbol.Begin,
-            ConsList.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
+        public override Term ToTerm() => Pair.Cons(Symbol.Begin,
+            Pair.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
     }
 
     //internal sealed class CallWithCurrentContinuation : AstNode
@@ -228,9 +228,9 @@ namespace Clasp.Data.AbstractSyntax
             Operator,
             string.Join(", ", Arguments.ToArray<object>()));
 
-        public override Term ToTerm() => ConsList.Cons(
+        public override Term ToTerm() => Pair.Cons(
             Operator.ToTerm(),
-            ConsList.ProperList(Arguments.Select(x => x.ToTerm()).ToArray()));
+            Pair.ProperList(Arguments.Select(x => x.ToTerm()).ToArray()));
     }
 
     internal sealed class FunctionCreation : CoreForm
@@ -265,7 +265,7 @@ namespace Clasp.Data.AbstractSyntax
                 .Select<string?, Term>(x => x is null ? Nil.Value : Symbol.Intern(x))
                 .ToArray();
 
-            return ConsList.ImproperList(Symbol.Lambda, ConsList.ImproperList(parameters), Body.ToImplicitTerm());
+            return Pair.ImproperList(Symbol.Lambda, Pair.ImproperList(parameters), Body.ToImplicitTerm());
         }
     }
 
@@ -292,7 +292,7 @@ namespace Clasp.Data.AbstractSyntax
         public override MxInstruction CopyContinuation() => new MacroApplication(Macro, Argument);
         public override string ToString() => string.Format("MACRO-APPL({0}; {1})", Macro, Argument);
 
-        public override Term ToTerm() => ConsList.ProperList(Macro, Argument);
+        public override Term ToTerm() => Pair.ProperList(Macro, Argument);
     }
 
     #endregion
