@@ -22,11 +22,11 @@ namespace Clasp.Process
             BuildRgx(TokenType.Symbol         , @"(?>([a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^_\~][a-zA-Z0-9\!\$\%\&\*\/\:\<\=\>\?\^_\~\+\-\.\@]*)|\+|\-|\.\.\.)"),
             BuildRgx(TokenType.Boolean        , @"(?>(#(?:[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee]|[Tt]|[Ff])))"),
 
-            BuildRgx(TokenType.DecReal        , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+\.[0-9]+))"),
             BuildRgx(TokenType.BinInteger     , @"(?>(?:#[Bb])(?:\+)?(\-?[01]+))"),
             BuildRgx(TokenType.OctInteger     , @"(?>(?:#[Oo])(?:\+)?(\-?[0-7]+))"),
             BuildRgx(TokenType.HexInteger     , @"(?>(?:#[Xx])(?:\+)?(\-?[0-9a-fA-F]+))"),
             BuildRgx(TokenType.DecInteger     , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+))"), //radix flag is optional for decimals
+            BuildRgx(TokenType.DecReal        , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+\.[0-9]+))"), //ditto
 
             BuildRgx(TokenType.Character      , @"(?>#\\(?:(?:[^\s\(\)\-]+)|.))"),
             BuildRgx(TokenType.String         , @"(?>\""((?:[^\""|^\\]|\\""|\\\\)*)\"")"),

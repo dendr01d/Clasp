@@ -154,10 +154,10 @@ namespace Clasp
                                 if (_showingInput) writer.WriteLine("TOKENS: {0}", Printer.PrintRawTokens(tokens));
 
                                 Syntax readSyntax = clasp.Read(tokens);
-                                if (_showingInput) writer.WriteLine("  READ: {0}", readSyntax.ToString());
+                                if (_showingInput) writer.WriteLine("  READ: {0}", readSyntax.ToSourceString());
 
                                 Syntax expandedSyntax = clasp.Expand(readSyntax);
-                                if (_showingInput) writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
+                                if (_showingInput) writer.WriteLine("EXPAND: {0}", expandedSyntax.ToSourceString());
 
                                 CoreForm parsedInput = clasp.Parse(expandedSyntax);
                                 if (_showingInput) writer.WriteLine(" PARSE: {0}", parsedInput.ToTerm());

@@ -106,5 +106,7 @@ namespace Clasp.Data.Terms.Syntax
                 return term;
             }
         }
+
+        public abstract string ToSourceString();
     }
 }

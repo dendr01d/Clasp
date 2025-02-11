@@ -29,5 +29,6 @@ namespace Clasp.Data.Terms.Syntax
 
         public override string ToString() => string.Format("#'{0}", _datum);
         protected override string FormatType() => "stx";
+        public override string ToSourceString() => _datum.ToString();
     }
 }

@@ -102,5 +102,6 @@ namespace Clasp.Data.Terms.Syntax
             }
         }
         protected override string FormatType() => string.Format("StxCons<{0}, {1}>", Car.TypeName, Cdr.TypeName);
+        public override string ToSourceString() => Pair.Cons(Car.Expose(), Cdr.Expose()).ToString();
     }
 }

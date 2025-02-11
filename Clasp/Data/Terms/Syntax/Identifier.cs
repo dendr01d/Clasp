@@ -37,5 +37,6 @@ namespace Clasp.Data.Terms.Syntax
 
         public override string ToString() => string.Format("#'{0}", _sym);
         protected override string FormatType() => "StxId";
+        public override string ToSourceString() => _sym.ToString();
     }
 }

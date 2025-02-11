@@ -130,8 +130,12 @@ namespace Clasp.Process
                 TokenType.Character => new Datum(Character.Intern(current), current),
                 TokenType.String => new Datum(new CharString(current.Text), current),
                 TokenType.Boolean => ReadBoolean(current),
-                TokenType.DecInteger => new Datum(new Integer(long.Parse(current.Text)), current),
-                TokenType.DecReal => new Datum(new Real(double.Parse(current.Text)), current),
+
+                TokenType.BinInteger => ReadInteger(current, 2),
+                TokenType.OctInteger => ReadInteger(current, 8),
+                TokenType.HexInteger => ReadInteger(current, 16),
+                TokenType.DecInteger => ReadInteger(current, 10),
+                TokenType.DecReal => ReadReal(current),
 
                 TokenType.Malformed => throw new ReaderException.UnexpectedToken(current),
 
@@ -146,6 +150,24 @@ namespace Clasp.Process
                 : Data.Terms.Boolean.False;
 
             return new Datum(value, current);
+        }
+
+        private static Datum ReadInteger(Token current, int baseSystem)
+        {
+            string num = current.Text[0] == '#'
+                ? new string(current.Text.AsSpan()[2..])
+                : current.Text;
+
+            return new Datum(new Integer(Convert.ToInt64(num, baseSystem)), current);
+        }
+
+        private static Datum ReadReal(Token current)
+        {
+            string num = current.Text[0] == '#'
+                ? new string(current.Text.AsSpan()[2..])
+                : current.Text;
+
+            return new Datum(new Real(double.Parse(num)), current);
         }
 
         private static Syntax NativelyExpandSyntax(Token opToken, Symbol opSym, Stack<Token> tokens)
