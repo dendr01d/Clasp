@@ -13,21 +13,20 @@ namespace Clasp.Data.AbstractSyntax
     /// -- and in turn can be "interpreted" by the <see cref="Process.Interpreter"/>.
     /// These consist of <see cref="CoreForm"/> objects and tertiary supporting instructions.
     /// </summary>
-    internal abstract class MxInstruction
+    internal abstract class VmInstruction
     {
         protected const string HOLE = "[_]";
 
-        public abstract void RunOnMachine(
-            Stack<MxInstruction> continuation,
+        protected virtual void RunOnMachine(
+            Stack<VmInstruction> continuation,
             ref Environment currentEnv,
-            ref Term currentValue);
+            ref Term currentValue)
+        { }
 
-        public void RunOnMachine(Metadata.MachineState machine)
-        {
-            RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        }
+        public virtual void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
 
-        public abstract MxInstruction CopyContinuation();
+        public abstract VmInstruction CopyContinuation();
 
         public abstract override string ToString();
 
@@ -44,14 +43,14 @@ namespace Clasp.Data.AbstractSyntax
     /// <summary>
     /// Bind the return value to the given name in the current environment.
     /// </summary>
-    internal sealed class BindFresh : MxInstruction
+    internal sealed class BindFresh : VmInstruction
     {
         public string VarName { get; private init; }
         public BindFresh(string key) : base()
         {
             VarName = key;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             if (!currentEnv.TryGetValue(VarName, out Term? def) || def is Undefined)
             {
@@ -63,21 +62,21 @@ namespace Clasp.Data.AbstractSyntax
                 throw new InterpreterException(continuation, "Attempted to re-define existing binding of identifier '{0}'.", VarName);
             }
         }
-        public override MxInstruction CopyContinuation() => new BindFresh(VarName);
+        public override VmInstruction CopyContinuation() => new BindFresh(VarName);
         public override string ToString() => string.Format("*DEF({0}, {1})", VarName, HOLE);
     }
 
     /// <summary>
     /// Rebind the return value to the given name in the current environment.
     /// </summary>
-    internal sealed class RebindExisting : MxInstruction
+    internal sealed class RebindExisting : VmInstruction
     {
         public string VarName { get; private init; }
         public RebindExisting(string key) : base()
         {
             VarName = key;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             if (currentEnv.ContainsKey(VarName))
             {
@@ -89,7 +88,7 @@ namespace Clasp.Data.AbstractSyntax
                 throw new InterpreterException(continuation, "Attempted to change value of non-existent binding of identifier '{0}'.", VarName);
             }
         }
-        public override MxInstruction CopyContinuation() => new RebindExisting(VarName);
+        public override VmInstruction CopyContinuation() => new RebindExisting(VarName);
         public override string ToString() => string.Format("*SET({0}, {1})", VarName, HOLE);
 
     }
@@ -101,7 +100,7 @@ namespace Clasp.Data.AbstractSyntax
     /// <summary>
     /// Conditionally evaluate next either the consequent or alternate depending on the truthiness of the current value
     /// </summary>
-    internal sealed class DispatchOnCondition : MxInstruction
+    internal sealed class DispatchOnCondition : VmInstruction
     {
         public readonly CoreForm Consequent;
         public readonly CoreForm Alternate;
@@ -110,7 +109,7 @@ namespace Clasp.Data.AbstractSyntax
             Consequent = consequent;
             Alternate = alternate;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             if (currentValue == Boolean.False)
             {
@@ -121,7 +120,7 @@ namespace Clasp.Data.AbstractSyntax
                 continuation.Push(Consequent);
             }
         }
-        public override MxInstruction CopyContinuation() => new DispatchOnCondition(Consequent, Alternate);
+        public override VmInstruction CopyContinuation() => new DispatchOnCondition(Consequent, Alternate);
         public override string ToString() => string.Format("*BRANCH({0}, {1}, {2})", HOLE, Consequent, Alternate);
     }
 
@@ -133,12 +132,12 @@ namespace Clasp.Data.AbstractSyntax
     /// Checks the received term to verify that it's a procedure and that it's been invoked with the proper number of arguments.
     /// Creates a <see cref="FunctionArgs"/>.
     /// </summary>
-    internal sealed class FunctionVerification : MxInstruction
+    internal sealed class FunctionVerification : VmInstruction
     {
         public readonly CoreForm[] Arguments;
 
         public FunctionVerification(CoreForm[] arguments) => Arguments = arguments;
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             if (currentValue is not Procedure proc)
             {
@@ -169,7 +168,7 @@ namespace Clasp.Data.AbstractSyntax
                 continuation.Push(new FunctionArgs(proc, Arguments));
             }
         }
-        public override MxInstruction CopyContinuation() => new FunctionVerification(Arguments.ToArray());
+        public override VmInstruction CopyContinuation() => new FunctionVerification(Arguments.ToArray());
         public override string ToString() => string.Format("APPL-VERIF({0}; {1})", HOLE, Arguments.ToArray());
     }
 
@@ -177,7 +176,7 @@ namespace Clasp.Data.AbstractSyntax
     /// Iterates through the argument terms of a function application, evaluating each one individually in a random order.
     /// When all arguments have been evaluated, creates a <see cref="FunctionDispatch"/>.
     /// </summary>
-    internal sealed class FunctionArgs : MxInstruction
+    internal sealed class FunctionArgs : VmInstruction
     {
         private static readonly System.Random _rng = new System.Random();
 
@@ -210,7 +209,7 @@ namespace Clasp.Data.AbstractSyntax
             CurrentIndex = currentIndex;
         }
 
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             if (CurrentIndex >= 0)
             {
@@ -239,7 +238,7 @@ namespace Clasp.Data.AbstractSyntax
             }
         }
 
-        public override MxInstruction CopyContinuation() => new FunctionArgs(Op, RawArguments, EvaluatedArguments, EvaluationOrder, CurrentIndex);
+        public override VmInstruction CopyContinuation() => new FunctionArgs(Op, RawArguments, EvaluatedArguments, EvaluationOrder, CurrentIndex);
 
         public override string ToString() => string.Format("APPL-ARGS({0}; {1})", Op, string.Join(", ", BuildArgsList()));
 
@@ -269,7 +268,7 @@ namespace Clasp.Data.AbstractSyntax
         }
     }
 
-    internal sealed class FunctionDispatch : MxInstruction
+    internal sealed class FunctionDispatch : VmInstruction
     {
         public readonly Procedure Op;
         public readonly Term[] Arguments;
@@ -279,9 +278,20 @@ namespace Clasp.Data.AbstractSyntax
             Op = op;
             Arguments = args;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
-            if (Op is PrimitiveProcedure pp)
+            if (Op is SystemProcedure sp)
+            {
+                try
+                {
+                    currentValue = sp.Operate(Arguments);
+                }
+                catch (System.Exception ex)
+                {
+                    throw new InterpreterException.InvalidOperationException(this, continuation, ex);
+                }
+            }
+            else if (Op is PrimitiveProcedure pp)
             {
                 try
                 {
@@ -324,24 +334,24 @@ namespace Clasp.Data.AbstractSyntax
                 throw new InterpreterException(continuation, "Tried to dispatch on unknown procedure type(!?): {0}", Op);
             }
         }
-        public override MxInstruction CopyContinuation() => new FunctionDispatch(Op, Arguments.ToArray());
+        public override VmInstruction CopyContinuation() => new FunctionDispatch(Op, Arguments.ToArray());
         public override string ToString() => string.Format("APPL-DISP({0}; {1})", Op, string.Join(", ", Arguments.ToArray<object>()));
     }
 
     #endregion
 
-    internal sealed class ChangeCurrentEnvironment : MxInstruction
+    internal sealed class ChangeCurrentEnvironment : VmInstruction
     {
         public readonly Environment NewEnvironment;
         public ChangeCurrentEnvironment(Environment newEnv)
         {
             NewEnvironment = newEnv;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             currentEnv = NewEnvironment;
         }
-        public override MxInstruction CopyContinuation() => new ChangeCurrentEnvironment(NewEnvironment);
+        public override VmInstruction CopyContinuation() => new ChangeCurrentEnvironment(NewEnvironment);
         public override string ToString() => string.Format("MOD-ENV()");
     }
 }

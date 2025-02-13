@@ -10,7 +10,7 @@ namespace Clasp.Process
 {
     internal static class Interpreter
     {
-        public static Term InterpretProgram(CoreForm program, Environment env)
+        public static Term InterpretProgram(CoreForm program, Processor env)
         {
             MachineState machine = new MachineState(program, env);
             RunToCompletion(machine);
@@ -40,9 +40,9 @@ namespace Clasp.Process
         {
             if (!machine.Complete)
             {
-                MxInstruction nextInstruction = machine.Continuation.Pop();
+                VmInstruction nextInstruction = machine.Continuation.Pop();
 
-                nextInstruction.RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
+                nextInstruction.RunOnMachine(machine);
             }
 
             return !machine.Complete;
@@ -58,7 +58,7 @@ namespace Clasp.Process
             {
                 MachineState outputState = new MachineState(machine);
 
-                MxInstruction nextInstruction = outputState.Continuation.Pop();
+                VmInstruction nextInstruction = outputState.Continuation.Pop();
 
                 nextInstruction.RunOnMachine(outputState);
 
@@ -88,7 +88,7 @@ namespace Clasp.Process
 
             int counter = 1;
 
-            foreach (MxInstruction frame in machine.Continuation.Reverse())
+            foreach (VmInstruction frame in machine.Continuation.Reverse())
             {
                 frame.PrintAsStackFrame(sw, counter++);
             }

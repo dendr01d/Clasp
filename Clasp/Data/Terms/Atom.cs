@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Clasp.Data.Metadata;
+
 namespace Clasp.Data.Terms
 {
     /// <summary>
@@ -33,6 +35,14 @@ namespace Clasp.Data.Terms
         public static readonly VoidTerm Value = new VoidTerm();
         private VoidTerm() { }
         public override string ToString() => "#<void>";
-        protected override string FormatType() => "void";
+        protected override string FormatType() => "Void";
+    }
+
+    internal sealed class TermHandle<T> : Atom
+    {
+        public readonly T Value;
+        public TermHandle(T value) => Value = value;
+        public override string ToString() => string.Format("Handle({0})", typeof(T).Name);
+        protected override string FormatType() => ToString();
     }
 }

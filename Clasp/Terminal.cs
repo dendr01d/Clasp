@@ -249,7 +249,7 @@ namespace Clasp
             {
                 sw.WriteLine();
                 sw.WriteLine("Stack trace:");
-                foreach(MxInstruction frame in ie.ContinuationTrace)
+                foreach(VmInstruction frame in ie.ContinuationTrace)
                 {
                     sw.Write("   ");
                     sw.WriteLine(frame.ToString());

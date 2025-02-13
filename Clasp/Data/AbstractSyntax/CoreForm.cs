@@ -14,7 +14,7 @@ namespace Clasp.Data.AbstractSyntax
     /// The core forms of the Scheme being described. All programs are represented in terms of
     /// these objects, and all source code must be parsed to a tree of these values.
     /// </summary>
-    internal abstract class CoreForm : MxInstruction
+    internal abstract class CoreForm : VmInstruction
     {
         protected CoreForm() : base() { }
 
@@ -37,12 +37,12 @@ namespace Clasp.Data.AbstractSyntax
             VarName = key;
             BoundValue = value;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new BindFresh(VarName));
             continuation.Push(BoundValue);
         }
-        public override MxInstruction CopyContinuation() => new BindingDefinition(VarName, BoundValue);
+        public override VmInstruction CopyContinuation() => new BindingDefinition(VarName, BoundValue);
         public override string ToString() => string.Format("DEF({0}, {1})", VarName, BoundValue);
         public override Term ToTerm() => Pair.ProperList(Symbol.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
@@ -58,12 +58,12 @@ namespace Clasp.Data.AbstractSyntax
             VarName = name;
             BoundValue = bound;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new RebindExisting(VarName));
             continuation.Push(BoundValue);
         }
-        public override MxInstruction CopyContinuation() => new BindingMutation(VarName, BoundValue);
+        public override VmInstruction CopyContinuation() => new BindingMutation(VarName, BoundValue);
         public override string ToString() => string.Format("SET({0}, {1})", VarName, BoundValue);
         public override Term ToTerm() => Pair.ProperList(Symbol.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
@@ -80,7 +80,7 @@ namespace Clasp.Data.AbstractSyntax
         {
             VarName = key;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             if (currentEnv.TryGetValue(VarName, out Term? boundValue))
             {
@@ -91,7 +91,7 @@ namespace Clasp.Data.AbstractSyntax
                 throw new InterpreterException.InvalidBinding(VarName, continuation);
             }
         }
-        public override MxInstruction CopyContinuation() => new VariableLookup(VarName);
+        public override VmInstruction CopyContinuation() => new VariableLookup(VarName);
         public override string ToString() => string.Format("VAR({0})", VarName);
         public override Term ToTerm() => Symbol.Intern(VarName);
     }
@@ -105,11 +105,11 @@ namespace Clasp.Data.AbstractSyntax
         {
             Value = value;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             currentValue = Value;
         }
-        public override MxInstruction CopyContinuation() => new ConstValue(Value);
+        public override VmInstruction CopyContinuation() => new ConstValue(Value);
         public override string ToString() => Value is Terms.Atom
             ? Value.ToString()
             : string.Format("QUOTE({0})", Value);
@@ -132,13 +132,13 @@ namespace Clasp.Data.AbstractSyntax
             Consequent = consequent;
             Alternate = alternate;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new DispatchOnCondition(Consequent, Alternate));
             continuation.Push(new ChangeCurrentEnvironment(currentEnv));
             continuation.Push(Test);
         }
-        public override MxInstruction CopyContinuation() => new ConditionalForm(Test, Consequent, Alternate);
+        public override VmInstruction CopyContinuation() => new ConditionalForm(Test, Consequent, Alternate);
         public override string ToString() => string.Format("BRANCH({0}, {1}, {2})", Test, Consequent, Alternate);
 
         public override Term ToTerm() => Pair.ProperList(Symbol.If,
@@ -153,7 +153,7 @@ namespace Clasp.Data.AbstractSyntax
         {
             Sequence = series;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             foreach (CoreForm node in Sequence.Reverse())
             {
@@ -161,7 +161,7 @@ namespace Clasp.Data.AbstractSyntax
                 continuation.Push(new ChangeCurrentEnvironment(currentEnv));
             }
         }
-        public override MxInstruction CopyContinuation() => new SequentialForm(Sequence);
+        public override VmInstruction CopyContinuation() => new SequentialForm(Sequence);
         public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToArray<object>()));
 
         public override Term ToTerm() => Pair.Cons(Symbol.Begin, ToImplicitTerm());
@@ -176,7 +176,7 @@ namespace Clasp.Data.AbstractSyntax
         {
             Sequence = series;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             if (Sequence.Length > 1)
             {
@@ -184,7 +184,7 @@ namespace Clasp.Data.AbstractSyntax
             }
             continuation.Push(Sequence[0]);
         }
-        public override MxInstruction CopyContinuation() => new TopLevelSequentialForm(Sequence);
+        public override VmInstruction CopyContinuation() => new TopLevelSequentialForm(Sequence);
         public override string ToString() => string.Format("SEQ-D({0})", string.Join(", ", Sequence.ToArray<object>()));
 
         public override Term ToTerm() => Pair.Cons(Symbol.Begin,
@@ -213,7 +213,7 @@ namespace Clasp.Data.AbstractSyntax
             Operator = op;
             Arguments = args;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new FunctionVerification(Arguments));
             //continuation.Push(new RollUpArguments(Arguments));
@@ -221,7 +221,7 @@ namespace Clasp.Data.AbstractSyntax
             continuation.Push(Operator);
         }
 
-        public override MxInstruction CopyContinuation() => new FunctionApplication(Operator, Arguments);
+        public override VmInstruction CopyContinuation() => new FunctionApplication(Operator, Arguments);
 
         public override string ToString() => string.Format(
             "APPL({0}; {1})",
@@ -248,11 +248,11 @@ namespace Clasp.Data.AbstractSyntax
             Informals = internalKeys;
             Body = body;
         }
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             currentValue = new CompoundProcedure(Formals, DottedFormal, Informals, currentEnv, Body);
         }
-        public override MxInstruction CopyContinuation() => new FunctionCreation(Formals, DottedFormal, Informals, Body);
+        public override VmInstruction CopyContinuation() => new FunctionCreation(Formals, DottedFormal, Informals, Body);
 
         public override string ToString() => string.Format("FUN({0}{1}; {2})",
             string.Join(", ", Formals.ToArray<object>()),
@@ -285,11 +285,11 @@ namespace Clasp.Data.AbstractSyntax
             Argument = arg;
         }
 
-        public override void RunOnMachine(Stack<MxInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new FunctionDispatch(Macro, Argument));
         }
-        public override MxInstruction CopyContinuation() => new MacroApplication(Macro, Argument);
+        public override VmInstruction CopyContinuation() => new MacroApplication(Macro, Argument);
         public override string ToString() => string.Format("MACRO-APPL({0}; {1})", Macro, Argument);
 
         public override Term ToTerm() => Pair.ProperList(Macro, Argument);
