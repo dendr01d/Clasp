@@ -7,7 +7,7 @@ namespace Clasp.Ops
     {
         #region Comparison
 
-        public static Term Equivalent(Number n1, Number n2)
+        public static Boolean Equivalent(Number n1, Number n2)
         {
             return (n1, n2) switch
             {
@@ -19,11 +19,21 @@ namespace Clasp.Ops
             };
         }
 
-        public static Term LessThan(RealNumber r1, RealNumber r2) => r1.AsFloatingPoint < r2.AsFloatingPoint;
-        public static Term LessThanOrEqual(RealNumber r1, RealNumber r2) => r1.AsFloatingPoint <= r2.AsFloatingPoint;
+        public static Boolean LessThan(RealNumber r1, RealNumber r2) => r1.AsFloatingPoint < r2.AsFloatingPoint;
+        public static Boolean LessThanOrEqual(RealNumber r1, RealNumber r2) => r1.AsFloatingPoint <= r2.AsFloatingPoint;
 
-        public static Term GreaterThan(RealNumber r1, RealNumber r2) => r1.AsFloatingPoint > r2.AsFloatingPoint;
-        public static Term GreaterThanOrEqual(RealNumber r1, RealNumber r2) => r1.AsFloatingPoint >= r2.AsFloatingPoint;
+        public static Boolean GreaterThan(RealNumber r1, RealNumber r2) => r1.AsFloatingPoint > r2.AsFloatingPoint;
+        public static Boolean GreaterThanOrEqual(RealNumber r1, RealNumber r2) => r1.AsFloatingPoint >= r2.AsFloatingPoint;
+
+        #endregion
+
+        #region Predicates
+
+        public static Boolean IsZero(ComplexNumber c) => c.RealPart.AsFloatingPoint == 0 && c.ImaginaryPart.AsFloatingPoint == 0;
+        public static Boolean IsPositive(RealNumber r) => r.RealPart.AsFloatingPoint > 0;
+        public static Boolean IsNegative(RealNumber r) => r.RealPart.AsFloatingPoint < 0;
+        public static Boolean IsOdd(Number n) => !Equivalent(Modulo(n, Number.Two), Number.Zero);
+        public static Boolean IsEven(Number n) => Equivalent(Modulo(n, Number.Two), Number.Zero);
 
         #endregion
 
@@ -187,6 +197,88 @@ namespace Clasp.Ops
         }
         public static Number DivideVar(params Number[] numbers)
             => Subtract(numbers[0], MultiplyVar(numbers[1..]));
+
+        #endregion
+
+        #region Truncation
+
+        // It would be nice if I could lump these together more closely >:|
+
+        public static Number Ceiling(Number n)
+        {
+            return n switch
+            {
+                (IntegralNumber z) => z,
+                //rationals get lumped in with reals
+                (RealNumber r) => new Real(System.Math.Ceiling(r.AsFloatingPoint)),
+                (ComplexNumber c) => new Complex(
+                    new Real(System.Math.Ceiling(c.RealPart.AsFloatingPoint)),
+                    new Real(System.Math.Ceiling(c.ImaginaryPart.AsFloatingPoint))),
+                _ => throw new ProcessingException.UnknownNumericType(n)
+            };
+        }
+
+        public static Number Floor(Number n)
+        {
+            return n switch
+            {
+                (IntegralNumber z) => z,
+                //rationals get lumped in with reals
+                (RealNumber r) => new Real(System.Math.Floor(r.AsFloatingPoint)),
+                (ComplexNumber c) => new Complex(
+                    new Real(System.Math.Floor(c.RealPart.AsFloatingPoint)),
+                    new Real(System.Math.Floor(c.ImaginaryPart.AsFloatingPoint))),
+                _ => throw new ProcessingException.UnknownNumericType(n)
+            };
+        }
+
+        public static Number Truncate(Number n)
+        {
+            return n switch
+            {
+                (IntegralNumber z) => z,
+                //rationals get lumped in with reals
+                (RealNumber r) => new Real(System.Math.Truncate(r.AsFloatingPoint)),
+                (ComplexNumber c) => new Complex(
+                    new Real(System.Math.Truncate(c.RealPart.AsFloatingPoint)),
+                    new Real(System.Math.Truncate(c.ImaginaryPart.AsFloatingPoint))),
+                _ => throw new ProcessingException.UnknownNumericType(n)
+            };
+        }
+
+        #endregion
+
+        #region Composite Operations
+
+        public static Number Modulo(Number n1, Number n2) => Subtract(n1, (Multiply(n2, (Floor(Divide(n1, n2))))));
+        public static Number Remainder(Number n1, Number n2) => Subtract(n1, (Multiply(n2, (Truncate(Divide(n1, n2))))));
+
+        public static Number AbsoluteValue(Number n)
+        {
+            return n switch
+            {
+                (RealNumber r) => IsNegative(r) ? Multiply(Number.NegativeOne, r) : r,
+                (ComplexNumber c) => new Real(System.Math.Sqrt(
+                    (c.RealPart.AsFloatingPoint * c.RealPart.AsFloatingPoint) +
+                    (c.ImaginaryPart.AsFloatingPoint * c.ImaginaryPart.AsFloatingPoint)))
+            };
+        }
+
+        #endregion
+
+        #region Misc
+
+        public static Number Exp(RealNumber r) => new Real(System.Math.Exp(r.AsFloatingPoint));
+        public static Number Log(RealNumber r) => new Real(System.Math.Log(r.AsFloatingPoint));
+        public static Number Sin(RealNumber r) => new Real(System.Math.Sin(r.AsFloatingPoint));
+        public static Number Cos(RealNumber r) => new Real(System.Math.Cos(r.AsFloatingPoint));
+        public static Number Tan(RealNumber r) => new Real(System.Math.Tan(r.AsFloatingPoint));
+        public static Number ASin(RealNumber r) => new Real(System.Math.Asin(r.AsFloatingPoint));
+        public static Number ACos(RealNumber r) => new Real(System.Math.Acos(r.AsFloatingPoint));
+        public static Number ATan(RealNumber r) => new Real(System.Math.Atan(r.AsFloatingPoint));
+        public static Number ATan(RealNumber r1, RealNumber r2) => new Real(System.Math.Atan2(r1.AsFloatingPoint, r2.AsFloatingPoint));
+
+        public static Number Sqrt(RealNumber r) => new Real(System.Math.Sqrt(r.AsFloatingPoint));
 
         #endregion
 

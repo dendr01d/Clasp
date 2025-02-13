@@ -34,7 +34,7 @@ namespace Clasp.Data.Terms
         public abstract RealNumber ImaginaryPart { get; }
 
         public override bool IsExact => RealPart.IsExact && ImaginaryPart.IsExact;
-        public override Number Downcast() => ImaginaryPart.IsZero ? RealPart.Downcast() : this;
+        public override Number Downcast() => ImaginaryPart.AsFloatingPoint == 0 ? RealPart.Downcast() : this;
 
         public override string ToString() => string.Format("{0}{1}{2}¡", RealPart, ImaginaryPart.Sign, ImaginaryPart);
         protected override string FormatType() => "Complex";
@@ -44,7 +44,6 @@ namespace Clasp.Data.Terms
     {
         public abstract double AsFloatingPoint { get; }
         public abstract bool IsNegative { get; }
-        public abstract bool IsZero { get; }
 
         public char Sign => IsNegative ? '-' : '+';
 
@@ -117,7 +116,6 @@ namespace Clasp.Data.Terms
         public override RealNumber ImaginaryPart => Zero;
         public override double AsFloatingPoint => _value;
         public override bool IsNegative => _value < 0;
-        public override bool IsZero => _value == 0;
 
         public Real(double d, bool exact = true)
         {
@@ -136,7 +134,6 @@ namespace Clasp.Data.Terms
         public override RealNumber ImaginaryPart => Zero;
         public override double AsFloatingPoint => _asDouble.Value;
         public override bool IsNegative => _numer.IsNegative != _denom.IsNegative;
-        public override bool IsZero => _numer.IsZero;
         public override IntegralNumber Numerator => _numer;
         public override IntegralNumber Denominator => _denom;
 
@@ -195,7 +192,6 @@ namespace Clasp.Data.Terms
         public override RealNumber ImaginaryPart => Zero;
         public override double AsFloatingPoint => _value;
         public override bool IsNegative => _value < 0;
-        public override bool IsZero => _value == 0;
         public override IntegralNumber Numerator => this;
         public override IntegralNumber Denominator => One;
         public override long AsInteger => _value;
