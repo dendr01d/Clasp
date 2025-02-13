@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 using Clasp.Data.Metadata;
@@ -7,6 +8,7 @@ using Clasp.Data.Terms;
 using Clasp.Data.Terms.Product;
 using Clasp.Data.Terms.Syntax;
 using Clasp.Data.Text;
+using Clasp.Process;
 
 namespace Clasp.Data.AbstractSyntax
 {
@@ -37,6 +39,8 @@ namespace Clasp.Data.AbstractSyntax
             VarName = key;
             BoundValue = value;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new BindFresh(VarName));
@@ -58,6 +62,8 @@ namespace Clasp.Data.AbstractSyntax
             VarName = name;
             BoundValue = bound;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new RebindExisting(VarName));
@@ -80,6 +86,8 @@ namespace Clasp.Data.AbstractSyntax
         {
             VarName = key;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             if (currentEnv.TryGetValue(VarName, out Term? boundValue))
@@ -105,6 +113,8 @@ namespace Clasp.Data.AbstractSyntax
         {
             Value = value;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             currentValue = Value;
@@ -132,6 +142,8 @@ namespace Clasp.Data.AbstractSyntax
             Consequent = consequent;
             Alternate = alternate;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new DispatchOnCondition(Consequent, Alternate));
@@ -153,6 +165,8 @@ namespace Clasp.Data.AbstractSyntax
         {
             Sequence = series;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             foreach (CoreForm node in Sequence.Reverse())
@@ -168,28 +182,28 @@ namespace Clasp.Data.AbstractSyntax
         public Term ToImplicitTerm() => Pair.ProperList(Sequence.Select(x => x.ToTerm()).ToArray());
     }
 
-    internal sealed class TopLevelSequentialForm : CoreForm
-    {
-        public readonly CoreForm[] Sequence;
-        public override string FormName => nameof(TopLevelSequentialForm);
-        public TopLevelSequentialForm(CoreForm[] series)
-        {
-            Sequence = series;
-        }
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
-        {
-            if (Sequence.Length > 1)
-            {
-                continuation.Push(new TopLevelSequentialForm(Sequence[1..]));
-            }
-            continuation.Push(Sequence[0]);
-        }
-        public override VmInstruction CopyContinuation() => new TopLevelSequentialForm(Sequence);
-        public override string ToString() => string.Format("SEQ-D({0})", string.Join(", ", Sequence.ToArray<object>()));
+    //internal sealed class TopLevelSequentialForm : CoreForm
+    //{
+    //    public readonly CoreForm[] Sequence;
+    //    public override string FormName => nameof(TopLevelSequentialForm);
+    //    public TopLevelSequentialForm(CoreForm[] series)
+    //    {
+    //        Sequence = series;
+    //    }
+    //    protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+    //    {
+    //        if (Sequence.Length > 1)
+    //        {
+    //            continuation.Push(new TopLevelSequentialForm(Sequence[1..]));
+    //        }
+    //        continuation.Push(Sequence[0]);
+    //    }
+    //    public override VmInstruction CopyContinuation() => new TopLevelSequentialForm(Sequence);
+    //    public override string ToString() => string.Format("SEQ-D({0})", string.Join(", ", Sequence.ToArray<object>()));
 
-        public override Term ToTerm() => Pair.Cons(Symbol.Begin,
-            Pair.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
-    }
+    //    public override Term ToTerm() => Pair.Cons(Symbol.Begin,
+    //        Pair.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
+    //}
 
     //internal sealed class CallWithCurrentContinuation : AstNode
     //{
@@ -213,6 +227,8 @@ namespace Clasp.Data.AbstractSyntax
             Operator = op;
             Arguments = args;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new FunctionVerification(Arguments));
@@ -248,6 +264,8 @@ namespace Clasp.Data.AbstractSyntax
             Informals = internalKeys;
             Body = body;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             currentValue = new CompoundProcedure(Formals, DottedFormal, Informals, currentEnv, Body);
@@ -284,7 +302,8 @@ namespace Clasp.Data.AbstractSyntax
             Macro = macro;
             Argument = arg;
         }
-
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
         {
             continuation.Push(new FunctionDispatch(Macro, Argument));

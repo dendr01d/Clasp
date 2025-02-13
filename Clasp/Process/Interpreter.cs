@@ -10,7 +10,7 @@ namespace Clasp.Process
 {
     internal static class Interpreter
     {
-        public static Term InterpretProgram(CoreForm program, Processor env)
+        public static Term InterpretProgram(CoreForm program, Environment env)
         {
             MachineState machine = new MachineState(program, env);
             RunToCompletion(machine);

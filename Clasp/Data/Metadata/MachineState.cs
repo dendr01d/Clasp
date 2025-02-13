@@ -10,7 +10,6 @@ namespace Clasp.Data.Metadata
 {
     internal class MachineState
     {
-        public readonly Processor ParentProcess;
         public Term ReturningValue;
         public Environment CurrentEnv;
         public Stack<VmInstruction> Continuation;
@@ -29,9 +28,8 @@ namespace Clasp.Data.Metadata
             return new Stack<VmInstruction>(copiedInstructions);
         }
 
-        public MachineState(CoreForm program, Processor pross, Environment env)
+        public MachineState(CoreForm program, Environment env)
         {
-            ParentProcess = pross;
             ReturningValue = VoidTerm.Value;
             CurrentEnv = env;
             Continuation = new Stack<VmInstruction>();
@@ -39,14 +37,8 @@ namespace Clasp.Data.Metadata
             Continuation.Push(program);
         }
 
-        public MachineState(CoreForm program, Processor pross)
-            : this(program, pross, pross.TopLevelEnv)
-        { }
-
-
         public MachineState(MachineState machine)
         {
-            ParentProcess = machine.ParentProcess;
             ReturningValue = machine.ReturningValue;
             CurrentEnv = machine.CurrentEnv; // TODO: is this how call/cc works? do the threads share environment?
             Continuation = machine.CopyContinuation();

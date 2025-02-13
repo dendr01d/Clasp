@@ -156,10 +156,11 @@ namespace Clasp
                                 Syntax readSyntax = clasp.Read(tokens);
                                 if (_showingInput) writer.WriteLine("  READ: {0}", readSyntax.ToSourceString());
 
-                                Syntax expandedSyntax = clasp.Expand(readSyntax);
+                                ExpansionContext exState = ExpansionContext.FreshExpansion(clasp.TopLevelEnv);
+                                Syntax expandedSyntax = clasp.Expand(readSyntax, exState);
                                 if (_showingInput) writer.WriteLine("EXPAND: {0}", expandedSyntax.ToSourceString());
 
-                                CoreForm parsedInput = clasp.Parse(expandedSyntax);
+                                CoreForm parsedInput = clasp.Parse(expandedSyntax, exState);
                                 if (_showingInput) writer.WriteLine(" PARSE: {0}", parsedInput.ToTerm());
 
                                 if (_showingInput) writer.WriteLine("-------");

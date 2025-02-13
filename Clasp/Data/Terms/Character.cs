@@ -46,12 +46,14 @@ namespace Clasp.Data.Terms
 
         public override string ToString()
         {
-            //if (CharacterMap.CharToName.TryGetValue(Value, out string? name))
-            //{
-            //    return string.Format("#\\{0}", name);
-            //}
+            if (CharacterMap.CharToName.TryGetValue(Value, out string? name))
+            {
+                return string.Format("#\\{0}", name);
+            }
             return string.Format("#\\{0}", Value);
         }
+
+        public override string ToTermString() => Value.ToString();
 
         protected override string FormatType() => "Char";
     }

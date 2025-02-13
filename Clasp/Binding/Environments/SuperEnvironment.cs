@@ -6,21 +6,27 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Clasp.Data.Terms;
+using Clasp.Process;
 
 namespace Clasp.Binding.Environments
 {
     internal sealed class SuperEnvironment : Environment
     {
         private readonly Dictionary<string, Term> _staticBindings;
-
         public IEnumerable<KeyValuePair<string, Term>> StaticBindings => _staticBindings.ToList();
+
+        // There are a lot of operational values that would ordinarily be squirreled away somewhere in the environment
+        // I'm just going to link back to the host processor so I can store and access these things directly.
+        public readonly Processor ParentProcess;
+
 
         public override SuperEnvironment TopLevel => this;
         public override bool IsTopLevel => true;
 
-        public SuperEnvironment() : base(0)
+        public SuperEnvironment(Processor processor) : base(0)
         {
             _staticBindings = new Dictionary<string, Term>();
+            ParentProcess = processor;
         }
 
         protected override IEnumerable<Environment> EnumerateScope()

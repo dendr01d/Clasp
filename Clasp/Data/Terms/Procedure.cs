@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
-using Clasp.Ops;
+using Clasp.Ops.Functions;
 
 namespace Clasp.Data.Terms
 {
@@ -14,26 +13,33 @@ namespace Clasp.Data.Terms
     {
     }
 
-    internal class PrimitiveProcedure : Procedure, IEnumerable<NativeProcedure>
+    internal abstract class PrimitiveProcedure : Procedure
     {
         public readonly Symbol OpSymbol;
-        private readonly List<NativeProcedure> _nativeOps;
 
-        public PrimitiveProcedure(Symbol opSym, params NativeProcedure[] nativeOps)
+        public PrimitiveProcedure(Symbol opSym) => OpSymbol = opSym;
+
+        public override string ToString() => string.Format("#<{0}>", OpSymbol);
+    }
+
+    internal sealed class NativeProcedure : PrimitiveProcedure, IEnumerable<NativeFunction>
+    {
+        private readonly List<NativeFunction> _nativeOps;
+
+        public NativeProcedure(Symbol opSym, params NativeFunction[] nativeOps) : base(opSym)
         {
-            OpSymbol = opSym;
-            _nativeOps = new List<NativeProcedure>(nativeOps);
+            _nativeOps = new List<NativeFunction>(nativeOps);
         }
 
-        public PrimitiveProcedure(string opName, params NativeProcedure[] nativeOps)
+        public NativeProcedure(string opName, params NativeFunction[] nativeOps)
             : this(Symbol.Intern(opName), nativeOps)
         { }
 
         public Term Operate(Term[] args)
         {
-            foreach (NativeProcedure np in _nativeOps)
+            foreach (NativeFunction fun in _nativeOps)
             {
-                if (np.TryOperate(args, out Term? result))
+                if (fun.TryOperate(args, out Term? result))
                 {
                     return result;
                 }
@@ -42,22 +48,44 @@ namespace Clasp.Data.Terms
             throw new ProcessingException.InvalidPrimitiveArgumentsException(args);
         }
 
-
-        public IEnumerator<NativeProcedure> GetEnumerator() => ((IEnumerable<NativeProcedure>)_nativeOps).GetEnumerator();
+        public IEnumerator<NativeFunction> GetEnumerator() => ((IEnumerable<NativeFunction>)_nativeOps).GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_nativeOps).GetEnumerator();
-        public void Add(NativeProcedure nativeOp) => _nativeOps.Add(nativeOp);
+        public void Add(NativeFunction nativeOp) => _nativeOps.Add(nativeOp);
 
-
-        public override string ToString() => string.Format("#<{0}>", OpSymbol);
-        protected override string FormatType() => string.Format("Prim({0}:{1})", OpSymbol, _nativeOps.Count);
+        protected override string FormatType() => string.Format("Nat-Prim({0}:{1})", OpSymbol, _nativeOps.Count);
     }
 
-    internal sealed class SystemProcedure : PrimitiveProcedure
+    internal sealed class SystemProcedure : PrimitiveProcedure, IEnumerable<SystemFunction>
     {
-        public SystemProcedure(Symbol opSym, params NativeProcedure[] nativeOps)
-            : base(opSym, nativeOps)
+        private readonly List<SystemFunction> _systemOps;
+
+        public SystemProcedure(Symbol opSym, params SystemFunction[] systemOps) : base(opSym)
+        {
+            _systemOps = new List<SystemFunction>(systemOps);
+        }
+
+        public SystemProcedure(string opName, params SystemFunction[] systemOps)
+            : this(Symbol.Intern(opName), systemOps)
         { }
-        protected override string FormatType() => string.Format("Sys{0}", base.FormatType());
+
+        public Term Operate(MachineState mx, Term[] args)
+        {
+            foreach (SystemFunction fun in _systemOps)
+            {
+                if (fun.TryOperate([mx, args], out Term? result))
+                {
+                    return result;
+                }
+            }
+
+            throw new ProcessingException.InvalidPrimitiveArgumentsException(args);
+        }
+
+        public IEnumerator<SystemFunction> GetEnumerator() => ((IEnumerable<SystemFunction>)_systemOps).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_systemOps).GetEnumerator();
+        public void Add(SystemFunction systemOp) => _systemOps.Add(systemOp);
+
+        protected override string FormatType() => string.Format("Sys-Prim({0}:{1})", OpSymbol, _systemOps.Count);
     }
 
     internal class CompoundProcedure : Procedure
@@ -98,27 +126,12 @@ namespace Clasp.Data.Terms
 
     internal sealed class MacroProcedure : CompoundProcedure
     {
-        public MacroProcedure(string parameter, SequentialForm body)
-            : base([parameter], [], StandardEnv.CreateNew(), body)
+        public MacroProcedure(string parameter, Environment enclosing, SequentialForm body)
+            : base([parameter], [], enclosing, body)
         { }
 
         public override string ToString() => string.Format("#<macro({0})>", Parameters[0]);
 
         protected override string FormatType() => "Macro";
-    }
-
-    internal sealed class Continuation : Procedure
-    {
-        public readonly
-
-        public override string ToString()
-        {
-            throw new System.NotImplementedException();
-        }
-
-        protected override string FormatType()
-        {
-            throw new System.NotImplementedException();
-        }
     }
 }

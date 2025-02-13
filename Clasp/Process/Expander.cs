@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
 using Clasp.Binding;
+using Clasp.Binding.Environments;
 using Clasp.Data;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
@@ -294,7 +295,7 @@ namespace Clasp.Process
             {
                 Syntax expandedInput = Expand(input, subState);
                 CoreForm parsedInput = Parser.ParseSyntax(expandedInput, subState);
-                output = Interpreter.InterpretProgram(parsedInput, StandardEnv.CreateNew());
+                output = Interpreter.InterpretProgram(parsedInput, exState.CompileTimeEnv.TopLevel.Enclose());
             }
             catch (System.Exception e)
             {
@@ -305,7 +306,7 @@ namespace Clasp.Process
                 && cp.Arity == 1
                 && !cp.IsVariadic)
             {
-                return new MacroProcedure(cp.Parameters[0], cp.Body);
+                return new MacroProcedure(cp.Parameters[0], exState.CompileTimeEnv.TopLevel, cp.Body);
             }
 
             throw new ExpanderException.WrongEvaluatedType(nameof(MacroProcedure), output, input);

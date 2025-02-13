@@ -1,16 +1,10 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-using Clasp.ExtensionMethods;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms.Product;
+using Clasp.ExtensionMethods;
 using Clasp.Interfaces;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.ConstrainedExecution;
 
 namespace Clasp.Data.Terms.Syntax
 {
@@ -85,6 +79,8 @@ namespace Clasp.Data.Terms.Syntax
         IEnumerator IEnumerable.GetEnumerator() => this.EnumerateElements().GetEnumerator();
 
         public override string ToString() => string.Format("#'({0}{1})", Car, PrintAsTail(Cdr));
+
+        // TODO something's messed up with how tails are getting printed?
 
         private static string PrintAsTail(Syntax stx)
         {

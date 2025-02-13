@@ -15,7 +15,7 @@ namespace Clasp.Ops
 
         public static Term CharacterToInteger(Character c) => new Integer(c.AsInteger);
 
-        public static Term IntegerToCharacter(IntegralNumber z) => Character.Intern((char)z.AsInteger);
+        public static Term IntegerToCharacter(IntegralNumeric z) => Character.Intern((char)z.AsInteger);
 
     }
 }

@@ -19,6 +19,7 @@ namespace Clasp.Data.Terms
         }
 
         public abstract override string ToString();
+        public virtual string ToTermString() => ToString();
         protected abstract string FormatType();
 
         #region Implicit Booleans

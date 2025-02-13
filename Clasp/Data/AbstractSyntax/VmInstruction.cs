@@ -23,8 +23,7 @@ namespace Clasp.Data.AbstractSyntax
             ref Term currentValue)
         { }
 
-        public virtual void RunOnMachine(MachineState machine)
-            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
+        public abstract void RunOnMachine(MachineState machine);
 
         public abstract VmInstruction CopyContinuation();
 
@@ -50,6 +49,9 @@ namespace Clasp.Data.AbstractSyntax
         {
             VarName = key;
         }
+
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             if (!currentEnv.TryGetValue(VarName, out Term? def) || def is Undefined)
@@ -76,6 +78,8 @@ namespace Clasp.Data.AbstractSyntax
         {
             VarName = key;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             if (currentEnv.ContainsKey(VarName))
@@ -109,6 +113,8 @@ namespace Clasp.Data.AbstractSyntax
             Consequent = consequent;
             Alternate = alternate;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             if (currentValue == Boolean.False)
@@ -137,6 +143,8 @@ namespace Clasp.Data.AbstractSyntax
         public readonly CoreForm[] Arguments;
 
         public FunctionVerification(CoreForm[] arguments) => Arguments = arguments;
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             if (currentValue is not Procedure proc)
@@ -209,6 +217,8 @@ namespace Clasp.Data.AbstractSyntax
             CurrentIndex = currentIndex;
         }
 
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             if (CurrentIndex >= 0)
@@ -278,60 +288,61 @@ namespace Clasp.Data.AbstractSyntax
             Op = op;
             Arguments = args;
         }
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
+
+        public override void RunOnMachine(MachineState machine)
         {
             if (Op is SystemProcedure sp)
             {
                 try
                 {
-                    currentValue = sp.Operate(Arguments);
+                    machine.ReturningValue = sp.Operate(machine, Arguments);
                 }
                 catch (System.Exception ex)
                 {
-                    throw new InterpreterException.InvalidOperationException(this, continuation, ex);
+                    throw new InterpreterException.InvalidOperationException(this, machine.Continuation, ex);
                 }
             }
-            else if (Op is PrimitiveProcedure pp)
+            else if (Op is NativeProcedure pp)
             {
                 try
                 {
-                    currentValue = pp.Operate(Arguments);
+                    machine.ReturningValue = pp.Operate(Arguments);
                 }
                 catch (System.Exception ex)
                 {
-                    throw new InterpreterException.InvalidOperationException(this, continuation, ex);
+                    throw new InterpreterException.InvalidOperationException(this, machine.Continuation, ex);
                 }
             }
             else if (Op is CompoundProcedure cp)
             {
-                continuation.Push(cp.Body);
+                machine.Continuation.Push(cp.Body);
 
                 foreach(string informal in cp.InformalParameters)
                 {
-                    continuation.Push(new BindFresh(informal));
-                    continuation.Push(new ConstValue(Undefined.Value));
+                    machine.Continuation.Push(new BindFresh(informal));
+                    machine.Continuation.Push(new ConstValue(Undefined.Value));
                 }
 
                 int i = 0;
                 for (; i < cp.Parameters.Length; ++i )
                 {
-                    continuation.Push(new BindFresh(cp.Parameters[i]));
-                    continuation.Push(new ConstValue(Arguments[i]));
+                    machine.Continuation.Push(new BindFresh(cp.Parameters[i]));
+                    machine.Continuation.Push(new ConstValue(Arguments[i]));
                 }
 
                 if (cp.VariadicParameter is not null)
                 {
-                    continuation.Push(new BindFresh(cp.VariadicParameter));
-                    continuation.Push(Arguments.Length > cp.Parameters.Length
+                    machine.Continuation.Push(new BindFresh(cp.VariadicParameter));
+                    machine.Continuation.Push(Arguments.Length > cp.Parameters.Length
                         ? new ConstValue(Pair.ProperList(Arguments[i..]))
                         : new ConstValue(Nil.Value));
                 }
 
-                continuation.Push(new ChangeCurrentEnvironment(cp.CapturedEnv));
+                machine.Continuation.Push(new ChangeCurrentEnvironment(cp.CapturedEnv));
             }
             else 
             {
-                throw new InterpreterException(continuation, "Tried to dispatch on unknown procedure type(!?): {0}", Op);
+                throw new InterpreterException(machine.Continuation, "Tried to dispatch on unknown procedure type(!?): {0}", Op);
             }
         }
         public override VmInstruction CopyContinuation() => new FunctionDispatch(Op, Arguments.ToArray());
@@ -347,6 +358,8 @@ namespace Clasp.Data.AbstractSyntax
         {
             NewEnvironment = newEnv;
         }
+        public override void RunOnMachine(MachineState machine)
+            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
         protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Environment currentEnv, ref Term currentValue)
         {
             currentEnv = NewEnvironment;

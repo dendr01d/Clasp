@@ -446,18 +446,18 @@ namespace Clasp
 
     public class InterpreterException : ClaspException
     {
-        internal Stack<VmInstruction> ContinuationTrace;
+        internal VmInstruction[] ContinuationTrace;
 
         internal InterpreterException(Stack<VmInstruction> cont, string format, params object?[] args)
             : base(format, args)
         {
-            ContinuationTrace = cont;
+            ContinuationTrace = cont.ToArray();
         }
 
         internal InterpreterException(Stack<VmInstruction> cont, Exception innerException, string format, params object?[] args)
             : base(innerException, format, args)
         {
-            ContinuationTrace = cont;
+            ContinuationTrace = cont.ToArray();
         }
 
         public class InvalidBinding : InterpreterException
@@ -506,6 +506,14 @@ namespace Clasp
             internal UnknownNumericType(params Number[] unknownNumbers) : base(
                 "Number arguments to mathematical function are of unknown type(s): {0}",
                 string.Join(", ", unknownNumbers.AsEnumerable()))
+            { }
+        }
+
+        public class SemanticError : ProcessingException
+        {
+            internal SemanticError(string format, params object?[] args) : base(
+                string.Format("Semantic Error: {0}", format),
+                args)
             { }
         }
     }

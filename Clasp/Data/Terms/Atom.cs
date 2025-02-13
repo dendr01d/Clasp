@@ -38,10 +38,10 @@ namespace Clasp.Data.Terms
         protected override string FormatType() => "Void";
     }
 
-    internal sealed class TermHandle<T> : Atom
+    internal sealed class Handle<T> : Atom
     {
         public readonly T Value;
-        public TermHandle(T value) => Value = value;
+        public Handle(T value) => Value = value;
         public override string ToString() => string.Format("Handle({0})", typeof(T).Name);
         protected override string FormatType() => ToString();
     }

@@ -11,8 +11,8 @@ namespace Clasp.Ops
         public static Term IsInexact(Number n) => !n.IsExact;
 
         public static Term IsZero(Number n) => Math.Equivalent(n, Number.Zero);
-        public static Term IsPositive(RealNumber r) => !r.IsNegative;
-        public static Term IsNegative(RealNumber r) => r.IsNegative;
+        public static Term IsPositive(RealNumeric r) => !r.IsNegative;
+        public static Term IsNegative(RealNumeric r) => r.IsNegative;
 
         // https://groups.csail.mit.edu/mac/ftpdir/scheme-7.4/doc-html/scheme_5.html
 

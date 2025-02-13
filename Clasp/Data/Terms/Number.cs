@@ -28,10 +28,10 @@ namespace Clasp.Data.Terms
         public abstract Number Downcast();
     }
 
-    internal abstract class ComplexNumber : Number
+    internal abstract class ComplexNumeric : Number
     {
-        public abstract RealNumber RealPart { get; }
-        public abstract RealNumber ImaginaryPart { get; }
+        public abstract RealNumeric RealPart { get; }
+        public abstract RealNumeric ImaginaryPart { get; }
 
         public override bool IsExact => RealPart.IsExact && ImaginaryPart.IsExact;
         public override Number Downcast() => ImaginaryPart.AsFloatingPoint == 0 ? RealPart.Downcast() : this;
@@ -40,7 +40,7 @@ namespace Clasp.Data.Terms
         protected override string FormatType() => "Complex";
     }
 
-    internal abstract class RealNumber : ComplexNumber
+    internal abstract class RealNumeric : ComplexNumeric
     {
         public abstract double AsFloatingPoint { get; }
         public abstract bool IsNegative { get; }
@@ -61,10 +61,10 @@ namespace Clasp.Data.Terms
         protected override string FormatType() => "Real";
     }
 
-    internal abstract class RationalNumber : RealNumber
+    internal abstract class RationalNumeric : RealNumeric
     {
-        public abstract IntegralNumber Numerator { get; }
-        public abstract IntegralNumber Denominator { get; }
+        public abstract IntegralNumeric Numerator { get; }
+        public abstract IntegralNumeric Denominator { get; }
 
         public override bool IsExact => RealPart.IsExact && ImaginaryPart.IsExact;
         public override Number Downcast() => Denominator.AsInteger == One.AsInteger ? Numerator.Downcast() : this;
@@ -73,7 +73,7 @@ namespace Clasp.Data.Terms
         protected override string FormatType() => "Rational";
     }
 
-    internal abstract class IntegralNumber : RationalNumber
+    internal abstract class IntegralNumeric : RationalNumeric
     {
         public abstract long AsInteger { get; }
 
@@ -87,15 +87,15 @@ namespace Clasp.Data.Terms
 
     #region Concrete Instances
 
-    internal sealed class Complex : ComplexNumber
+    internal sealed class Complex : ComplexNumeric
     {
-        private readonly RealNumber _realPart;
-        private readonly RealNumber _imagPart;
+        private readonly RealNumeric _realPart;
+        private readonly RealNumeric _imagPart;
 
-        public override RealNumber RealPart => _realPart;
-        public override RealNumber ImaginaryPart => _imagPart;
+        public override RealNumeric RealPart => _realPart;
+        public override RealNumeric ImaginaryPart => _imagPart;
 
-        public Complex(RealNumber realPart, RealNumber imaginaryPart)
+        public Complex(RealNumeric realPart, RealNumeric imaginaryPart)
         {
             _realPart = realPart;
             _imagPart = imaginaryPart;
@@ -106,14 +106,14 @@ namespace Clasp.Data.Terms
         { }
     }
 
-    internal sealed class Real : RealNumber
+    internal sealed class Real : RealNumeric
     {
         private readonly double _value;
         private readonly bool _isExact;
 
         public override bool IsExact => _isExact;
-        public override RealNumber RealPart => this;
-        public override RealNumber ImaginaryPart => Zero;
+        public override RealNumeric RealPart => this;
+        public override RealNumeric ImaginaryPart => Zero;
         public override double AsFloatingPoint => _value;
         public override bool IsNegative => _value < 0;
 
@@ -124,20 +124,20 @@ namespace Clasp.Data.Terms
         }
     }
 
-    internal sealed class Rational : RationalNumber
+    internal sealed class Rational : RationalNumeric
     {
-        private readonly IntegralNumber _numer;
-        private readonly IntegralNumber _denom;
+        private readonly IntegralNumeric _numer;
+        private readonly IntegralNumeric _denom;
         private readonly Lazy<double> _asDouble;
 
-        public override RealNumber RealPart => this;
-        public override RealNumber ImaginaryPart => Zero;
+        public override RealNumeric RealPart => this;
+        public override RealNumeric ImaginaryPart => Zero;
         public override double AsFloatingPoint => _asDouble.Value;
         public override bool IsNegative => _numer.IsNegative != _denom.IsNegative;
-        public override IntegralNumber Numerator => _numer;
-        public override IntegralNumber Denominator => _denom;
+        public override IntegralNumeric Numerator => _numer;
+        public override IntegralNumeric Denominator => _denom;
 
-        private Rational(IntegralNumber numerator, IntegralNumber denominator)
+        private Rational(IntegralNumeric numerator, IntegralNumeric denominator)
         {
             _numer = numerator;
             _denom = denominator;
@@ -164,7 +164,7 @@ namespace Clasp.Data.Terms
                 new Integer(denominator / gcd, exact));
         }
 
-        public static Rational Reduce(IntegralNumber numerator, IntegralNumber denominator)
+        public static Rational Reduce(IntegralNumeric numerator, IntegralNumeric denominator)
             => Reduce(numerator.AsInteger, denominator.AsInteger, numerator.IsExact && denominator.IsExact);
 
         private static long GCD(long a, long b)
@@ -182,18 +182,18 @@ namespace Clasp.Data.Terms
         }
     }
 
-    internal sealed class Integer : IntegralNumber
+    internal sealed class Integer : IntegralNumeric
     {
         private readonly long _value;
         private readonly bool _isExact;
 
         public override bool IsExact => _isExact;
-        public override RealNumber RealPart => this;
-        public override RealNumber ImaginaryPart => Zero;
+        public override RealNumeric RealPart => this;
+        public override RealNumeric ImaginaryPart => Zero;
         public override double AsFloatingPoint => _value;
         public override bool IsNegative => _value < 0;
-        public override IntegralNumber Numerator => this;
-        public override IntegralNumber Denominator => One;
+        public override IntegralNumeric Numerator => this;
+        public override IntegralNumeric Denominator => One;
         public override long AsInteger => _value;
 
         public Integer(long l, bool exact = true)
