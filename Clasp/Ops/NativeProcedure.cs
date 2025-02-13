@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
 
 namespace Clasp.Ops
@@ -22,7 +23,7 @@ namespace Clasp.Ops
             Pure = pure;
         }
 
-        public bool TryOperate(Term[] args, [NotNullWhen(true)] out Term? result)
+        public bool TryOperate(object[] args, [NotNullWhen(true)] out Term? result)
         {
             result = null;
             if ((Variadic && args.Length >= Arity)
@@ -33,14 +34,14 @@ namespace Clasp.Ops
             return false;
         }
 
-        protected abstract bool TryMatchAndOperate(Term[] args, [NotNullWhen(true)] out Term? result);
+        protected abstract bool TryMatchAndOperate(object[] args, [NotNullWhen(true)] out Term? result);
     }
 
     internal sealed class NullaryOp : NativeProcedure
     {
         private readonly Func<Term> _operation;
         public NullaryOp(Func<Term> op) : base(0, false, true) => _operation = op;
-        protected override bool TryMatchAndOperate(Term[] args, [NotNullWhen(true)] out Term? result)
+        protected override bool TryMatchAndOperate(object[] args, [NotNullWhen(true)] out Term? result)
         {
             result = _operation();
             return true;
@@ -52,7 +53,7 @@ namespace Clasp.Ops
     {
         private readonly Func<T0, Term> _operation;
         public UnaryOp(Func<T0, Term> op) : base(1, false, true) => _operation = op;
-        protected override bool TryMatchAndOperate(Term[] args, [NotNullWhen(true)] out Term? result)
+        protected override bool TryMatchAndOperate(object[] args, [NotNullWhen(true)] out Term? result)
         {
             if (args[0] is T0 arg0)
             {
@@ -70,7 +71,7 @@ namespace Clasp.Ops
     {
         private readonly Func<T0, T1, Term> _operation;
         public BinaryOp(Func<T0, T1, Term> op) : base(2, false, true) => _operation = op;
-        protected override bool TryMatchAndOperate(Term[] args, [NotNullWhen(true)] out Term? result)
+        protected override bool TryMatchAndOperate(object[] args, [NotNullWhen(true)] out Term? result)
         {
             if (args[0] is T0 arg0 && args[1] is T1 arg1)
             {
@@ -89,7 +90,7 @@ namespace Clasp.Ops
     {
         private readonly Func<T0, T1, T2, Term> _operation;
         public TernaryOp(Func<T0, T1, T2, Term> op) : base(3, false, true) => _operation = op;
-        protected override bool TryMatchAndOperate(Term[] args, [NotNullWhen(true)] out Term? result)
+        protected override bool TryMatchAndOperate(object[] args, [NotNullWhen(true)] out Term? result)
         {
             if (args[0] is T0 arg0 && args[1] is T1 arg1 && args[2] is T2 arg2)
             {
@@ -105,8 +106,8 @@ namespace Clasp.Ops
         where V : Term
     {
         private readonly Func<V[], Term> _operation;
-        public VarOp(Func<V[], Term> op) : base(-1, false, true) => _operation = op;
-        protected override bool TryMatchAndOperate(Term[] args, [NotNullWhen(true)] out Term? result)
+        public VarOp(Func<V[], Term> op) : base(-1, true, true) => _operation = op;
+        protected override bool TryMatchAndOperate(object[] args, [NotNullWhen(true)] out Term? result)
         {
             if (args.Cast<V>().ToArray() is V[] varArgs && !varArgs.Any(x => x is null))
             {

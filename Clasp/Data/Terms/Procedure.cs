@@ -14,7 +14,7 @@ namespace Clasp.Data.Terms
     {
     }
 
-    internal sealed class PrimitiveProcedure : Procedure, IEnumerable<NativeProcedure>
+    internal class PrimitiveProcedure : Procedure, IEnumerable<NativeProcedure>
     {
         public readonly Symbol OpSymbol;
         private readonly List<NativeProcedure> _nativeOps;
@@ -42,12 +42,22 @@ namespace Clasp.Data.Terms
             throw new ProcessingException.InvalidPrimitiveArgumentsException(args);
         }
 
+
         public IEnumerator<NativeProcedure> GetEnumerator() => ((IEnumerable<NativeProcedure>)_nativeOps).GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_nativeOps).GetEnumerator();
         public void Add(NativeProcedure nativeOp) => _nativeOps.Add(nativeOp);
 
+
         public override string ToString() => string.Format("#<{0}>", OpSymbol);
         protected override string FormatType() => string.Format("Prim({0}:{1})", OpSymbol, _nativeOps.Count);
+    }
+
+    internal sealed class SystemProcedure : PrimitiveProcedure
+    {
+        public SystemProcedure(Symbol opSym, params NativeProcedure[] nativeOps)
+            : base(opSym, nativeOps)
+        { }
+        protected override string FormatType() => string.Format("Sys{0}", base.FormatType());
     }
 
     internal class CompoundProcedure : Procedure
@@ -95,5 +105,20 @@ namespace Clasp.Data.Terms
         public override string ToString() => string.Format("#<macro({0})>", Parameters[0]);
 
         protected override string FormatType() => "Macro";
+    }
+
+    internal sealed class Continuation : Procedure
+    {
+        public readonly
+
+        public override string ToString()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        protected override string FormatType()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

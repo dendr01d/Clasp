@@ -4,55 +4,52 @@ using System.Linq;
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Terms;
+using Clasp.Process;
 
 namespace Clasp.Data.Metadata
 {
     internal class MachineState
     {
+        public readonly Processor ParentProcess;
         public Term ReturningValue;
         public Environment CurrentEnv;
-        public Stack<MxInstruction> Continuation;
+        public Stack<VmInstruction> Continuation;
 
         public bool Complete => Continuation.Count == 0;
 
         /// <summary>
         /// Create a deep copy of the machine's <see cref="Continuation"/>.
         /// </summary>
-        public Stack<MxInstruction> CopyContinuation()
+        public Stack<VmInstruction> CopyContinuation()
         {
-            IEnumerable<MxInstruction> copiedInstructions = Continuation
+            IEnumerable<VmInstruction> copiedInstructions = Continuation
                 .Select(x => x.CopyContinuation())
                 .Reverse();
 
-            return new Stack<MxInstruction>(copiedInstructions);
+            return new Stack<VmInstruction>(copiedInstructions);
         }
 
-        private MachineState(ref Stack<MxInstruction> cont, ref Environment env, ref Term value)
+        public MachineState(CoreForm program, Processor pross, Environment env)
         {
-            ReturningValue = value;
-            CurrentEnv = env;
-            Continuation = cont;
-        }
-
-        public MachineState(CoreForm program, Environment env)
-        {
+            ParentProcess = pross;
             ReturningValue = VoidTerm.Value;
             CurrentEnv = env;
-            Continuation = new Stack<MxInstruction>();
+            Continuation = new Stack<VmInstruction>();
 
             Continuation.Push(program);
         }
 
+        public MachineState(CoreForm program, Processor pross)
+            : this(program, pross, pross.TopLevelEnv)
+        { }
+
+
         public MachineState(MachineState machine)
         {
+            ParentProcess = machine.ParentProcess;
             ReturningValue = machine.ReturningValue;
             CurrentEnv = machine.CurrentEnv; // TODO: is this how call/cc works? do the threads share environment?
             Continuation = machine.CopyContinuation();
-        }
-
-        public static MachineState AsPackage(ref Stack<MxInstruction> cont, ref Environment env, ref Term value)
-        {
-            return new MachineState(ref cont, ref env, ref value);
         }
     }
 }
