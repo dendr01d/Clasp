@@ -13,7 +13,7 @@ namespace Clasp
             return PrintLineErrorHelper(ist.Location.SourceText, ist.Location);
         }
 
-        public static string PrintLineErrorHelper(Blob sourceText, SourceLocation loc)
+        public static string PrintLineErrorHelper(Blob sourceText, SourceCode loc)
         {
             return PrintLineErrorHelper(sourceText.Lines[loc.NormalizedLineNumber], loc.Column, loc.Length);
         }

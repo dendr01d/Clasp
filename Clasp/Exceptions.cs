@@ -41,9 +41,9 @@ namespace Clasp
 
     public abstract class LexerException : ClaspException, ISourceTraceable
     {
-        public SourceLocation Location { get; private set; }
+        public SourceCode Location { get; private set; }
 
-        private LexerException(SourceLocation loc, string format, params object[] args) : base(format, args)
+        private LexerException(SourceCode loc, string format, params object[] args) : base(format, args)
         {
             Location = loc;
         }
@@ -81,7 +81,7 @@ namespace Clasp
 
         public class UnmatchedParenthesis : ReaderException, ISourceTraceable
         {
-            public SourceLocation Location { get; private set; }
+            public SourceCode Location { get; private set; }
 
             internal UnmatchedParenthesis(Token errantParenToken) : base(
                 "The reader found an {0} parenthesis on line {1}, column {2}.",
@@ -95,7 +95,7 @@ namespace Clasp
 
         public class UnexpectedToken : ReaderException, ISourceTraceable
         {
-            public SourceLocation Location { get; private set; }
+            public SourceCode Location { get; private set; }
 
             internal UnexpectedToken(Token errantToken) : base(
                 "Unexpected token {0} at line {1}, column {2}.",
@@ -109,7 +109,7 @@ namespace Clasp
 
         public class ExpectedToken : ReaderException, ISourceTraceable
         {
-            public SourceLocation Location { get; private set; }
+            public SourceCode Location { get; private set; }
 
             internal ExpectedToken(TokenType expectedType, Token receivedToken, Token prevToken) : base(
                 "Expected {0} token to follow after {1} on line {2}, column {3}.",
@@ -124,7 +124,7 @@ namespace Clasp
 
         public class ExpectedListEnd : ReaderException, ISourceTraceable
         {
-            public SourceLocation Location { get; private set; }
+            public SourceCode Location { get; private set; }
 
             internal ExpectedListEnd(Token receivedToken, Token dotOp) : base(
                 "Expected {0} token to complete list structure following {1} on line {2}, column {3}.",
@@ -139,7 +139,7 @@ namespace Clasp
 
         public class UnhandledToken : ReaderException, ISourceTraceable
         {
-            public SourceLocation Location { get; private set; }
+            public SourceCode Location { get; private set; }
 
             internal UnhandledToken(Token errantToken) : base(
                 "Token {0} of type {1} (on line {2}, column {3}) is unhandled by CLASP at this time :)",
@@ -155,14 +155,14 @@ namespace Clasp
 
     public abstract class ExpanderException : ClaspException, ISourceTraceable
     {
-        public SourceLocation Location { get; private set; }
+        public SourceCode Location { get; private set; }
 
-        private ExpanderException(SourceLocation loc, string format, params object?[] args) : base(format, args)
+        private ExpanderException(SourceCode loc, string format, params object?[] args) : base(format, args)
         {
             Location = loc;
         }
 
-        private ExpanderException(SourceLocation loc, Exception innerException, string format, params object?[] args)
+        private ExpanderException(SourceCode loc, Exception innerException, string format, params object?[] args)
             : base(innerException, format, args)
         {
             Location = loc;
@@ -306,13 +306,13 @@ namespace Clasp
 
     public abstract class ParserException : ClaspException, ISourceTraceable
     {
-        public SourceLocation Location { get; private set; }
-        private ParserException(SourceLocation loc, string format, params object?[] args) : base(format, args)
+        public SourceCode Location { get; private set; }
+        private ParserException(SourceCode loc, string format, params object?[] args) : base(format, args)
         {
             Location = loc;
         }
 
-        private ParserException(SourceLocation loc, Exception innerException, string format, params object?[] args)
+        private ParserException(SourceCode loc, Exception innerException, string format, params object?[] args)
             : base(innerException, format, args)
         {
             Location = loc;
@@ -446,18 +446,18 @@ namespace Clasp
 
     public class InterpreterException : ClaspException
     {
-        internal VmInstruction[] ContinuationTrace;
+        internal Stack<VmInstruction> ContinuationTrace;
 
         internal InterpreterException(Stack<VmInstruction> cont, string format, params object?[] args)
             : base(format, args)
         {
-            ContinuationTrace = cont.ToArray();
+            ContinuationTrace = cont;
         }
 
         internal InterpreterException(Stack<VmInstruction> cont, Exception innerException, string format, params object?[] args)
             : base(innerException, format, args)
         {
-            ContinuationTrace = cont.ToArray();
+            ContinuationTrace = cont;
         }
 
         public class InvalidBinding : InterpreterException
@@ -506,14 +506,6 @@ namespace Clasp
             internal UnknownNumericType(params Number[] unknownNumbers) : base(
                 "Number arguments to mathematical function are of unknown type(s): {0}",
                 string.Join(", ", unknownNumbers.AsEnumerable()))
-            { }
-        }
-
-        public class SemanticError : ProcessingException
-        {
-            internal SemanticError(string format, params object?[] args) : base(
-                string.Format("Semantic Error: {0}", format),
-                args)
             { }
         }
     }

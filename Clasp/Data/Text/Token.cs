@@ -9,11 +9,11 @@ namespace Clasp.Data.Text
         public readonly string Text;
         public readonly TokenType TType;
         public Blob SourceText { get; private set; }
-        public SourceLocation Location { get; private set; }
+        public SourceCode Location { get; private set; }
 
         public string SurroundingLine => SourceText[Location.NormalizedLineNumber]; //lines of text are 1-indexed
 
-        protected Token(string s, TokenType t, Blob text, SourceLocation loc)
+        protected Token(string s, TokenType t, Blob text, SourceCode loc)
         {
             Text = s;
             TType = t;
@@ -21,7 +21,7 @@ namespace Clasp.Data.Text
             Location = loc;
         }
 
-        public static Token Tokenize(TokenType tType, string s, Blob text, SourceLocation loc)
+        public static Token Tokenize(TokenType tType, string s, Blob text, SourceCode loc)
         {
             return new Token(s, tType, text, loc);
         }

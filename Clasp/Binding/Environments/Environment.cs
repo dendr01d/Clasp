@@ -13,8 +13,7 @@ namespace Clasp.Binding.Environments
         protected readonly Dictionary<string, Term> _mutableBindings;
         public readonly int Depth;
 
-        public abstract SuperEnvironment TopLevel { get; }
-        public abstract bool IsTopLevel { get; }
+        public abstract SuperEnvironment GlobalEnv { get; }
 
         protected Environment(int depth)
         {
@@ -28,30 +27,7 @@ namespace Clasp.Binding.Environments
         public abstract Term LookUp(string name);
 
         public bool Binds(string name) => ContainsKey(name);
-        public abstract bool StaticallyBinds(string name);
 
-        protected abstract IEnumerable<Environment> EnumerateScope();
-
-        private IEnumerable<KeyValuePair<string, Term>> EnumerateAccessibleBindings()
-        {
-            return EnumerateScope()
-                .SelectMany(x => x._mutableBindings)
-                .DistinctBy(x => x.Key);
-        }
-
-        //public Environment ExtractCompileTimeEnv()
-        //{
-        //    Environment output = new Environment(EnumerateAccessibleBindings()
-        //        .Where(x => x.Value is Variable || x.Value is Fixed));
-
-        //    output.Add(Symbol.Lambda.Name, Symbol.Lambda);
-        //    output.Add(Symbol.Define.Name, Symbol.Define);
-        //    output.Add(Symbol.DefineSyntax.Name, Symbol.DefineSyntax);
-        //    output.Add(Symbol.Quote.Name, Symbol.Quote);
-        //    output.Add(Symbol.Syntax.Name, Symbol.Syntax);
-
-        //    return output;
-        //}
 
         #endregion
 

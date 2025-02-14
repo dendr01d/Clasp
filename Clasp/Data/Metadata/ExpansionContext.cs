@@ -52,14 +52,14 @@ namespace Clasp.Data.Metadata
             _macroUseSite = macroUseSite;
         }
 
-        public static ExpansionContext FreshExpansion(Environment env)
+        public static ExpansionContext FreshExpansion(Environment env, BindingStore bs, ScopeTokenGenerator gen)
         {
             return new ExpansionContext(
                 env: env.Enclose(),
-                store: new BindingStore(env),
+                store: bs,
                 phase: 1,
                 mode: SyntaxMode.TopLevel,
-                gen: new ScopeTokenGenerator(), // TODO: I /think/ this is fine? nothing is preserved through expansions I think?
+                gen: gen,
                 insideEdge: null,
                 macroUseSite: null);
         }
@@ -67,8 +67,8 @@ namespace Clasp.Data.Metadata
         public ExpansionContext InNewPhase()
         {
             return new ExpansionContext(
-                env: CompileTimeEnv.TopLevel.Enclose(),
-                store: new BindingStore(CompileTimeEnv.TopLevel.Enclose()),
+                env: CompileTimeEnv.GlobalEnv.Enclose(),
+                store: new BindingStore(CompileTimeEnv.GlobalEnv.Enclose()),
                 phase: Phase + 1,
                 mode: SyntaxMode.TopLevel,
                 gen: _gen,

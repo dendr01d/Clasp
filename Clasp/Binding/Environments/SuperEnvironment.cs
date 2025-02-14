@@ -12,27 +12,24 @@ namespace Clasp.Binding.Environments
 {
     internal sealed class SuperEnvironment : Environment
     {
-        private readonly Dictionary<string, Term> _staticBindings;
-        public IEnumerable<KeyValuePair<string, Term>> StaticBindings => _staticBindings.ToList();
-
         // There are a lot of operational values that would ordinarily be squirreled away somewhere in the environment
         // I'm just going to link back to the host processor so I can store and access these things directly.
         public readonly Processor ParentProcess;
 
+        // Holds the intrinsic bindings for things like special keywords and primitive procedures
+        private readonly Dictionary<string, Term> _staticBindings;
 
-        public override SuperEnvironment TopLevel => this;
-        public override bool IsTopLevel => true;
+        // Holds definitions imported from modules, indexed by module name
+        private readonly List<KeyValuePair<string, Environment>> _importedModules;
+
+
+        public override SuperEnvironment GlobalEnv => this;
 
         public SuperEnvironment(Processor processor) : base(0)
         {
-            _staticBindings = new Dictionary<string, Term>();
             ParentProcess = processor;
-        }
-
-        protected override IEnumerable<Environment> EnumerateScope()
-        {
-            yield return this;
-            yield break;
+            _staticBindings = new Dictionary<string, Term>();
+            _importedModules = new();
         }
 
         public void DefineInitial(string key, Term value)
@@ -48,19 +45,32 @@ namespace Clasp.Binding.Environments
             {
                 return result1;
             }
-            else if (_staticBindings.TryGetValue(name, out Term? result2))
+
+            foreach(var kvp in _importedModules)
             {
-                return result2;
+                if (kvp.Value.TryGetValue(name, out Term? result2))
+                {
+                    return result2;
+                }
             }
-            else
+            
+            
+            if (_staticBindings.TryGetValue(name, out Term? result3))
             {
-                throw new ClaspGeneralException("Tried to access top-level binding of '{0}' that doesn't exist.", name);
+                return result3;
             }
+
+            throw new ClaspGeneralException("Tried to access binding of '{0}' that doesn't exist.", name);
+
         }
 
-        public override bool StaticallyBinds(string name) => _staticBindings.ContainsKey(name);
+        public override bool ContainsKey(string key)
+        {
+            return _mutableBindings.ContainsKey(key)
+                || _importedModules.Any(x => x.Value.ContainsKey(key))
+                || _staticBindings.ContainsKey(key);
+        }
 
-        public override bool ContainsKey(string key) => _mutableBindings.ContainsKey(key) || _staticBindings.ContainsKey(key);
         public override bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value)
         {
             if (_mutableBindings.TryGetValue(key, out Term? mutableValue))
@@ -68,7 +78,17 @@ namespace Clasp.Binding.Environments
                 value = mutableValue;
                 return true;
             }
-            else if (_staticBindings.TryGetValue(key, out Term? staticValue))
+
+            foreach(var kvp in _importedModules)
+            {
+                if (kvp.Value.TryGetValue(key, out Term? moduleValue))
+                {
+                    value = moduleValue;
+                    return true;
+                }
+            }
+
+            if (_staticBindings.TryGetValue(key, out Term? staticValue))
             {
                 value = staticValue;
                 return true;

@@ -175,7 +175,7 @@ namespace Clasp.Process
             Token subListToken = tokens.Peek();
             Syntax arg = ReadSyntax(tokens);
 
-            SourceLocation loc = SynthesizeSourceStructure(opToken, arg);
+            SourceCode loc = SynthesizeSourceStructure(opToken, arg);
 
             return Datum.Implicit(Nil.Value)
                 .Cons(arg, new LexInfo(subListToken.Location))
@@ -194,7 +194,7 @@ namespace Clasp.Process
 
             Token close = tokens.Pop(); // remove closing paren
 
-            SourceLocation loc = SynthesizeSourceStructure(lead, close);
+            SourceCode loc = SynthesizeSourceStructure(lead, close);
 
             return new Datum(new Vector(contents.ToArray()), new LexInfo(loc));
         }
@@ -212,7 +212,7 @@ namespace Clasp.Process
             else if (tokens.Peek().TType == TokenType.ClosingParen)
             {
                 Token close = tokens.Pop(); // remove closing paren
-                SourceLocation loc = SynthesizeSourceStructure(lead, close);
+                SourceCode loc = SynthesizeSourceStructure(lead, close);
                 return new Datum(Nil.Value, new LexInfo(loc));
             }
 
@@ -221,7 +221,7 @@ namespace Clasp.Process
             if (tokens.Peek().TType == TokenType.ClosingParen)
             {
                 Token close = tokens.Pop(); // remove closing paren
-                SourceLocation loc = SynthesizeSourceStructure(lead, close);
+                SourceCode loc = SynthesizeSourceStructure(lead, close);
                 return new SyntaxPair(car, Datum.Implicit(Nil.Value), new LexInfo(loc));
             }
             else if (tokens.Peek().TType == TokenType.DotOperator)
@@ -235,20 +235,20 @@ namespace Clasp.Process
                 }
 
                 Token close = tokens.Pop(); // remove closing paren
-                SourceLocation loc = SynthesizeSourceStructure(lead, close);
+                SourceCode loc = SynthesizeSourceStructure(lead, close);
                 return new SyntaxPair(car, cdr, new LexInfo(loc));
             }
             else
             {
                 Syntax cdr = ReadList(tokens.Peek(), tokens);
-                SourceLocation loc = SynthesizeSourceStructure(lead, cdr);
+                SourceCode loc = SynthesizeSourceStructure(lead, cdr);
                 return new SyntaxPair(car, cdr, new LexInfo(loc));
             }
         }
 
-        private static SourceLocation SynthesizeSourceStructure(ISourceTraceable first, ISourceTraceable rest)
+        private static SourceCode SynthesizeSourceStructure(ISourceTraceable first, ISourceTraceable rest)
         {
-            return new SourceLocation(
+            return new SourceCode(
                 first.Location.Source,
                 first.Location.LineNumber,
                 first.Location.Column,

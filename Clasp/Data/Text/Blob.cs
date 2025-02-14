@@ -24,6 +24,11 @@ namespace Clasp.Data.Text
 
         public string this[int i] => Lines[i];
 
+        public string Extract(int line, int column, int length)
+        {
+            return Lines[line].Substring(column, length);
+        }
+
         public IEnumerator<string> GetEnumerator() => ((IEnumerable<string>)Lines).GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => Lines.GetEnumerator();
     }

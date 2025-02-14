@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
+using Clasp.Binding;
 using Clasp.Data.Terms.Syntax;
 
 
@@ -14,74 +16,78 @@ namespace Clasp.Data.Metadata
     /// </summary>
     internal class LexInfo : ISourceTraceable
     {
-        public static readonly LexInfo Innate = new LexInfo(SourceLocation.Innate);
+        public SourceCode Location { get; private set; }
 
-        public SourceLocation Location { get; private set; }
+        private readonly Dictionary<int, HashSet<Scope>> _phasedScopeSets;
 
-        private readonly Dictionary<int, ImmutableHashSet<uint>> _phasedScopeSets;
-
-        private LexInfo(SourceLocation loc, IEnumerable<KeyValuePair<int, ImmutableHashSet<uint>>> dict)
+        private LexInfo(SourceCode loc, IEnumerable<KeyValuePair<int, HashSet<Scope>>> dict)
         {
             Location = loc;
-            _phasedScopeSets = new Dictionary<int, ImmutableHashSet<uint>>(dict);
+            _phasedScopeSets = new Dictionary<int, HashSet<Scope>>(dict);
         }
 
-        public LexInfo(SourceLocation loc) : this(loc, []) { }
+        public LexInfo(SourceCode source) : this(source, []) { }
 
         public LexInfo(LexInfo original)
-            : this(original.Location,
-                  original._phasedScopeSets.ToDictionary(x => x.Key, x => x.Value.ToImmutableHashSet()))
+            : this(original.Location, original._phasedScopeSets)
         { }
 
-        private static readonly ImmutableHashSet<uint> _emptySet = Array.Empty<uint>().ToImmutableHashSet();
-
-        public ImmutableHashSet<uint> this[int i]
+        public IEnumerable<Scope> this[int i]
         {
-            get => _phasedScopeSets.TryGetValue(i, out ImmutableHashSet<uint>? scopes)
+            get => _phasedScopeSets.TryGetValue(i, out HashSet<Scope>? scopes)
                 ? scopes
-                : _emptySet;
+                : [];
         }
 
-        public void AddScope(int phase, params uint[] tokens)
+        public void AddScope(int phase, params Scope[] scopes)
         {
             if (!_phasedScopeSets.ContainsKey(phase))
             {
-                _phasedScopeSets[phase] = tokens.ToImmutableHashSet();
+                _phasedScopeSets[phase] = new HashSet<Scope>();
             }
-            else
-            {
-                _phasedScopeSets[phase] = _phasedScopeSets[phase].Union(tokens);
-            }
+            _phasedScopeSets[phase].UnionWith(scopes);
         }
 
-        public void FlipScope(int phase, params uint[] tokens)
+        public void FlipScope(int phase, params Scope[] scopes)
         {
             if (!_phasedScopeSets.ContainsKey(phase))
             {
-                _phasedScopeSets[phase] = tokens.ToImmutableHashSet();
+                _phasedScopeSets[phase] = new HashSet<Scope>();
             }
-            else
-            {
-                _phasedScopeSets[phase] = _phasedScopeSets[phase].SymmetricExcept(tokens);
-            }
+            _phasedScopeSets[phase].SymmetricExceptWith(scopes);
         }
 
-        public void RemoveScope(int phase, params uint[] tokens)
+        public void RemoveScope(int phase, params Scope[] scopes)
         {
 
             if (!_phasedScopeSets.ContainsKey(phase))
             {
-                _phasedScopeSets[phase] = _emptySet;
+                _phasedScopeSets[phase] = new HashSet<Scope>();
             }
-            else
-            {
-                _phasedScopeSets[phase] = _phasedScopeSets[phase].Except(tokens);
-            }
+            _phasedScopeSets[phase].ExceptWith(scopes);
         }
 
         public LexInfo RestrictPhaseUpTo(int phase)
         {
             return new LexInfo(Location, _phasedScopeSets.Where(x => x.Key <= phase));
+        }
+
+        public bool TryResolveBinding(int phase, string symbolicName,
+            [NotNullWhen(true)] out CompileTimeBinding? binding)
+        {
+            if (_phasedScopeSets.TryGetValue(phase, out HashSet<Scope>? scopes))
+            {
+                foreach(Scope scp in scopes.OrderByDescending(x => x.Id))
+                {
+                    if (scp.TryResolve(symbolicName, out binding))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            binding = null;
+            return false;
         }
     }
 }

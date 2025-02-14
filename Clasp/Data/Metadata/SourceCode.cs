@@ -8,35 +8,38 @@ using Clasp.Data.Text;
 
 namespace Clasp.Data.Metadata
 {
-    public struct SourceLocation
+    /// <summary>
+    /// Representation of a snippet of source code.
+    /// </summary>
+    public struct SourceCode
     {
         /// <summary>
-        /// The name of the location to which this <see cref="SourceLocation"/> refers.
+        /// The name of the location to which this <see cref="SourceCode"/> refers.
         /// May be a file path or something else.
         /// </summary>
         public readonly string Source;
 
         /// <summary>
         /// The line number (1-indexed) within the source text to which this
-        /// <see cref="SourceLocation"/> refers.
+        /// <see cref="SourceCode"/> refers.
         /// </summary>
         public readonly int LineNumber;
 
         /// <summary>
         /// The column number (0-indexed by character) within the source text to which this
-        /// <see cref="SourceLocation"/> refers.
+        /// <see cref="SourceCode"/> refers.
         /// </summary>
         public readonly int Column;
 
         /// <summary>
         /// The first character (1-indexed) of the source text (as an array of characters) to which
-        /// this <see cref="SourceLocation"/> refers.
+        /// this <see cref="SourceCode"/> refers.
         /// </summary>
         public readonly int StartingPosition;
 
         /// <summary>
         /// The length of the span of characters within the source text (as an array of characters)
-        /// to which this <see cref="SourceLocation"/> refers.
+        /// to which this <see cref="SourceCode"/> refers.
         /// </summary>
         public readonly int Length;
 
@@ -52,10 +55,9 @@ namespace Clasp.Data.Metadata
         public readonly Blob SourceText;
 
         /// <summary>
-        /// Indicates that the object associated with this <see cref="SourceLocation"/> is inherent
-        /// to the language and thus has no proper source location.
+        /// The text of the source code as it appeared in <see cref="Source"/>.
         /// </summary>
-        public bool Inherent { get; init; }
+        public string Snippet => SourceText.Extract(NormalizedLineNumber, Column, Length);
 
         /// <summary>
         /// The <see cref="LineNumber"/> normalized to a 0-indexed system.
@@ -67,7 +69,7 @@ namespace Clasp.Data.Metadata
         /// </summary>
         public int NormalizedStartingPosition => StartingPosition - 1;
 
-        public SourceLocation(string source,
+        public SourceCode(string source,
             int lineNumber, int column, int startingPosition, int length,
             Blob text, bool original = true)
         {
@@ -82,14 +84,6 @@ namespace Clasp.Data.Metadata
 
             Inherent = false;
         }
-
-        public SourceLocation Derivation() => new SourceLocation(Source, LineNumber, Column, StartingPosition, 0, SourceText, false);
-
-        public static readonly SourceLocation Innate =
-            new SourceLocation("CLASP", -1, -1, -1, -1, new Blob("CLASP", []), true)
-            {
-                Inherent = true
-            };
 
         public override string ToString()
         {

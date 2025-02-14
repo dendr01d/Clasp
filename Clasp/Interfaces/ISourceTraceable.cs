@@ -10,10 +10,10 @@ using Clasp.Data.Text;
 namespace Clasp
 {
     /// <summary>
-    /// Indicates that this class can trace its origin back to a <see cref="SourceLocation"/>.
+    /// Indicates that this class can trace its origin back to a <see cref="SourceCode"/>.
     /// </summary>
     public interface ISourceTraceable
     {
-        public SourceLocation Location { get; }
+        public SourceCode Location { get; }
     }
 }

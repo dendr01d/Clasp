@@ -12,17 +12,13 @@ namespace Clasp.Process
 {
     internal class Processor
     {
-        public SuperEnvironment TopLevelEnv { get; private set; }
+        public SuperEnvironment RuntimeEnv { get; private set; }
+        public SuperEnvironment CompileTimeEnv { get; private set; }
 
         public Processor()
         {
-            TopLevelEnv = null!;
-            ReloadEnv();
-        }
-
-        public void ReloadEnv()
-        {
-            TopLevelEnv = StandardEnv.CreateNew(this);
+            RuntimeEnv = new SuperEnvironment(this);
+            CompileTimeEnv = new SuperEnvironment(this);
         }
 
         /// <summary>
@@ -46,7 +42,7 @@ namespace Clasp.Process
         /// <summary>
         /// Expand macros in <paramref name="rawSyntax"/>.
         /// </summary>
-        public Syntax Expand(Syntax rawSyntax) => Expander.ExpandSyntax(rawSyntax, ExpansionContext.FreshExpansion(TopLevelEnv));
+        public Syntax Expand(Syntax rawSyntax) => Expander.ExpandSyntax(rawSyntax, ExpansionContext.FreshExpansion(RuntimeEnv));
 
         /// <summary>
         /// Parse <paramref name="expandedSyntax"/> into a structured <see cref="CoreForm"/> object using the lexical
@@ -59,7 +55,7 @@ namespace Clasp.Process
         /// </summary>
         public CoreForm Parse(Syntax rawSyntax)
         {
-            ExpansionContext context = ExpansionContext.FreshExpansion(TopLevelEnv);
+            ExpansionContext context = ExpansionContext.FreshExpansion(RuntimeEnv);
             Syntax expandedStx = Expand(rawSyntax, context);
             return Parse(expandedStx, context);
         }
@@ -67,13 +63,13 @@ namespace Clasp.Process
         /// <summary>
         /// Invoke a virtual machine to execute the program encoded by <paramref name="prog"/> and return the result.
         /// </summary>
-        public Term Interpret(CoreForm prog) => Interpreter.InterpretProgram(prog, TopLevelEnv);
+        public Term Interpret(CoreForm prog) => Interpreter.InterpretProgram(prog, RuntimeEnv);
         /// <summary>
         /// <inheritdoc cref="Interpret(CoreForm)"/>
         /// <paramref name="postStepHook"/> will be called following every machine step.
         /// </summary>
         public Term Interpret(CoreForm prog, System.Action<int, MachineState> postStepHook)
-            => Interpreter.Interpret(prog, TopLevelEnv, postStepHook);
+            => Interpreter.Interpret(prog, RuntimeEnv, postStepHook);
 
 
         #region Statics
