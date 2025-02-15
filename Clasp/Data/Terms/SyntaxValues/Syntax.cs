@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
+﻿using System.Linq;
 
 using Clasp.Binding;
 using Clasp.Data.Metadata;
-using Clasp.Data.Terms.Product;
+using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Text;
+using Clasp.ExtensionMethods;
 using Clasp.Interfaces;
 
-namespace Clasp.Data.Terms.Syntax
+namespace Clasp.Data.Terms.SyntaxValues
 {
     internal abstract class Syntax : Term, ISourceTraceable
     {
@@ -27,7 +25,7 @@ namespace Clasp.Data.Terms.Syntax
 
         private static Syntax Wrap(Term term, SourceCode loc)
         {
-            LexInfo ctx = new LexInfo(loc);
+            LexInfo ctx = new(loc);
             return Wrap(term, ctx);
         }
 
@@ -36,7 +34,7 @@ namespace Clasp.Data.Terms.Syntax
             return term switch
             {
                 Syntax s => s,
-                Pair cl => new SyntaxPair(cl.Car, cl.Cdr, ctx),
+                Pair cl => SyntaxList.Wrap(cl, ctx),
                 Symbol sym => new Identifier(sym, ctx),
                 _ => new Datum(term, ctx)
             };

@@ -4,10 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using Clasp.Data.Metadata;
 using Clasp.Data.Text;
 
-namespace Clasp
+namespace Clasp.Interfaces
 {
     /// <summary>
     /// Indicates that this class can trace its origin back to a <see cref="SourceCode"/>.

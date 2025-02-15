@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.ConstrainedExecution;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
-using Clasp.Interfaces;
+using Clasp.Data.Static;
 
 namespace Clasp.Data.Terms
 {
@@ -18,7 +13,7 @@ namespace Clasp.Data.Terms
             _interned.Add(name, this);
         }
 
-        private static readonly Dictionary<string, Symbol> _interned = new Dictionary<string, Symbol>();
+        private static readonly Dictionary<string, Symbol> _interned = [];
         protected static bool IsInterned(string name) => _interned.ContainsKey(name);
 
         public static Symbol Intern(string name)
@@ -107,14 +102,14 @@ namespace Clasp.Data.Terms
     {
         private Implicit(string name) : base(name) { }
 
-        public static readonly Implicit SpApply = new Implicit(Keyword.IMP_APP);
-        public static readonly Implicit SpDatum = new Implicit(Keyword.IMP_DATUM);
-        public static readonly Implicit SpTop = new Implicit(Keyword.IMP_TOP);
-        public static readonly Implicit SpLambda = new Implicit(Keyword.IMP_LAMBDA);
+        public static readonly Implicit SpApply = new(Keyword.IMP_APP);
+        public static readonly Implicit SpDatum = new(Keyword.IMP_DATUM);
+        public static readonly Implicit SpTop = new(Keyword.IMP_TOP);
+        public static readonly Implicit SpLambda = new(Keyword.IMP_LAMBDA);
 
-        public static readonly Implicit SpVar = new Implicit(Keyword.IMP_VAR);
+        public static readonly Implicit SpVar = new(Keyword.IMP_VAR);
 
-        public static readonly Implicit ParDef = new Implicit(Keyword.IMP_PARDEF);
+        public static readonly Implicit ParDef = new(Keyword.IMP_PARDEF);
 
         protected override string FormatType() => "ImpSymbol";
     }

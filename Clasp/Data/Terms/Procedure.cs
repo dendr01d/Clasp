@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
-using Clasp.Data.Metadata;
+using Clasp.Data.VirtualMachine;
 using Clasp.Ops.Functions;
 
 namespace Clasp.Data.Terms
@@ -116,6 +116,18 @@ namespace Clasp.Data.Terms
         public CompoundProcedure(string[] parameters, string[] informals, Environment enclosing, SequentialForm body)
             : this(parameters, null, informals, enclosing, body)
         { }
+
+        public bool TryCoerceMacro([NotNullWhen(true)] out MacroProcedure? macro)
+        {
+            if (Arity == 1 && !IsVariadic)
+            {
+                macro = new MacroProcedure(Parameters[0], CapturedEnv, Body);
+                return true;
+            }
+
+            macro = null;
+            return false;
+        }
 
         public override string ToString() => string.Format(
             "#<lambda({0}{1})>",

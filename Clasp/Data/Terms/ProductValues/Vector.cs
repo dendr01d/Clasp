@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.Data.Terms.Product
+namespace Clasp.Data.Terms.ProductValues
 {
-    internal sealed class Vector : Product
+    internal sealed class Vector : Term
     {
         public readonly Term[] Values;
         public Vector(params Term[] values) => Values = values;

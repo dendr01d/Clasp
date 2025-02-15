@@ -2,228 +2,206 @@
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
-using Clasp.Data;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
+using Clasp.Data.Static;
 using Clasp.Data.Terms;
-using Clasp.Data.Terms.Syntax;
+using Clasp.Data.Terms.ProductValues;
+using Clasp.Data.Terms.SyntaxValues;
 using Clasp.ExtensionMethods;
+
+using static System.Net.WebRequestMethods;
 
 namespace Clasp.Process
 {
     internal static class Expander
     {
-        public static Syntax ExpandSyntax(Syntax input, ExpansionContext exState)
+        public static Syntax ExpandSyntax(Syntax input, Environment compileTimeEnv, int phase = 1)
         {
-            //exState = ExpansionContext.FreshExpansion(env, gen);
-            return ExpandAsTop(input, exState);
+            return Expand(input, new ExpansionContext(compileTimeEnv, phase));
         }
 
-        #region Dispatching
-
-        private static Syntax ExpandAsTop(Syntax stx, ExpansionContext exState)
-            => Expand(stx, exState.InSyntaxMode(SyntaxMode.TopLevel));
-
-        private static Syntax ExpandAsExpression(Syntax stx, ExpansionContext exState)
-            => Expand(stx, exState.InSyntaxMode(SyntaxMode.Expression));
-
-        private static Syntax ExpandAsBodyTerm(Syntax stx, ExpansionContext exState)
-            => Expand(stx, exState.InSyntaxMode(SyntaxMode.InternalDefinition));
-
-        private static Syntax Expand(Syntax stx, ExpansionContext exState)
+        private static Syntax Expand(Syntax stx, ExpansionContext context)
         {
             if (stx is Identifier id)
             {
-                return ExpandIdentifier(id, exState);
+                return ExpandIdentifier(id, context);
             }
-            else if (stx is SyntaxPair idApp && idApp.Car is Identifier op)
+            else if (stx is SyntaxList idApp && idApp.Car is Identifier op)
             {
-                return ExpandIdApplication(op, idApp, exState);
+                return ExpandIdApplication(op, idApp, context);
             }
-            else if (stx is SyntaxPair app)
+            else if (stx is SyntaxList app)
             {
-                return ExpandApplication(app, exState);
+                return ExpandApplication(app, context);
             }
             else
             {
-                return ExpandImplicit(Implicit.SpDatum, AsArg(stx), exState);
+                return ExpandImplicit(Implicit.SpDatum, AsArg(stx), context);
             }
         }
-
-        #endregion
 
         #region Basic Expansion
 
         /// <summary>
         /// Expand an identifier as a standalone expression.
         /// </summary>
-        private static Syntax ExpandIdentifier(Identifier id, ExpansionContext exState)
+        private static Syntax ExpandIdentifier(Identifier id, ExpansionContext context)
         {
-            if (exState.TryResolveBinding(id,
-                out _,
-                out CompileTimeBinding? binding))
+            if (id.TryResolveBinding(context.Phase, out CompileTimeBinding? binding))
             {
                 if (binding.BoundType == BindingType.Transformer)
                 {
-                    return ExpandSyntaxTransformation(binding, id, exState);
+                    return ExpandSyntaxTransformation(binding, id, context);
                 }
                 else if (binding.BoundType == BindingType.Variable
                     || binding.BoundType == BindingType.Primitive)
                 {
-                    return ExpandImplicit(Implicit.SpVar, AsArg(id), exState);
-                }
-                else
-                {
-                    throw new ExpanderException.InvalidSyntax(id);
+                    return ExpandImplicit(Implicit.SpVar, AsArg(id), context);
                 }
             }
-            else
+            else if (context.Mode != ExpansionMode.Module)
             {
                 // indicate that it must be a top-level binding that doesn't exist yet
-                return ExpandImplicit(Implicit.SpTop, AsArg(id), exState);
+                return ExpandImplicit(Implicit.SpTop, AsArg(id), context);
             }
+
+            throw new ExpanderException.InvalidSyntax(id);
         }
 
         /// <summary>
         /// Expand a function application form containing an identifier in the operator position.
         /// </summary>
-        private static Syntax ExpandIdApplication(Identifier op, SyntaxPair stx, ExpansionContext exState)
+        private static Syntax ExpandIdApplication(Identifier op, SyntaxList stl, ExpansionContext context)
         {
-            if (exState.TryResolveBinding(op,
-                out _,
-                out CompileTimeBinding? binding))
+            if (op.TryResolveBinding(context.Phase, out CompileTimeBinding? binding))
             {
                 if (binding.BoundType == BindingType.Transformer)
                 {
-                    return ExpandSyntaxTransformation(binding, stx, exState);
+                    return ExpandSyntaxTransformation(binding, stl, context);
                 }
                 else if (binding.BoundType == BindingType.Special)
                 {
-                    return ExpandSpecialForm(binding.Name, stx, exState);
+                    return ExpandSpecialForm(binding.Name, stl, context);
                 }
             }
 
-            return ExpandApplication(stx, exState);
+            return ExpandApplication(stl, context);
         }
 
         /// <summary>
         /// Expand a function application form containing an arbitrary expression in the operator position.
         /// </summary>
-        private static Syntax ExpandApplication(SyntaxPair stx, ExpansionContext exState)
+        private static Syntax ExpandApplication(SyntaxList stl, ExpansionContext context)
         {
-            Syntax op;
-            Syntax args;
-
             try
             {
-                op = ExpandAsExpression(stx.Car, exState);
-                args = ExpandOperands(stx.Cdr, exState);
+                StxPair args = ExpandExpressionList(stl.Expose(), stl.LexContext, context);
+                SyntaxList stp = new SyntaxList(args, stl.LexContext);
+                return ExpandImplicit(Implicit.SpApply, stp, context);
             }
             catch (ExpanderException ee)
             {
-                throw new ExpanderException.InvalidForm(Keyword.IMP_APP, stx, ee);
+                throw new ExpanderException.InvalidForm(Keyword.IMP_APP, stl, ee);
             }
-
-            SyntaxPair expandedApp = new SyntaxPair(op, args, stx);
-            return ExpandImplicit(Implicit.SpApply, expandedApp, exState);
         }
 
-        private static SyntaxPair AsArg(Syntax stx)
+        private static SyntaxList AsArg(Syntax stx)
         {
-            return new SyntaxPair(stx, Datum.Implicit(Nil.Value), stx);
+            return new SyntaxList(stx, stx.LexContext);
         }
 
         /// <summary>
-        /// Prepend <paramref name="stx"/> with a special <see cref="Identifier"/> that shares its
+        /// Prepend <paramref name="stl"/> with a special <see cref="Identifier"/> that shares its
         /// <see cref="LexInfo"/>, indicating how it should be handled by the <see cref="Parser"/>.
         /// </summary>
-        private static Syntax ExpandImplicit(Implicit formName, SyntaxPair stx, ExpansionContext exState)
+        private static Syntax ExpandImplicit(Implicit formSym, SyntaxList stl, ExpansionContext context)
         {
-            Identifier op = Identifier.Implicit(formName);
-            return new SyntaxPair(op, stx, stx);
+            Identifier op = new Identifier(formSym, stl);
+            return stl.Prepend(op);
         }
 
         /// <summary>
         /// Expand the invocation of a special syntactic form.
         /// </summary>
         /// <param name="formName">The the form's default keyword within the surface language.</param>
-        /// <param name="stx">The entirety of the form's application expression.</param>
-        private static Syntax ExpandSpecialForm(string formName, Syntax stx, ExpansionContext exState)
+        /// <param name="stl">The entirety of the form's application expression.</param>
+        private static Syntax ExpandSpecialForm(string formName, SyntaxList stl, ExpansionContext context)
         {
-            if (!stx.TryDestruct(out Identifier? op, out SyntaxPair? tail, out LexInfo? info))
+            if (stl.Expose() is not StxPair stp
+                || stp.Car is not Identifier op
+                || stp.Cdr is not StxPair tail)
             {
                 // all special forms require arguments
-                throw new ExpanderException.InvalidSyntax(stx);
+                throw new ExpanderException.InvalidSyntax(stl);
             }
 
-            Syntax expandedTail;
+            LexInfo info = stl.LexContext;
+            StxPair expandedTail;
 
             try
             {
                 expandedTail = formName switch
                 {
-                    Keyword.IMP_PARDEF => ExpandPartialDefineArgs(tail, exState),
+                    Keyword.IMP_PARDEF => ExpandPartialDefineArgs(tail, info, context),
 
-                    Keyword.DEFINE => ExpandDefineArgs(tail, exState),
-                    Keyword.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(tail, exState),
-                    Keyword.SET => ExpandSetArgs(tail, exState),
+                    Keyword.DEFINE => ExpandDefineArgs(tail, info, context),
+                    Keyword.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(tail, info, context),
+                    Keyword.SET => ExpandSetArgs(tail, info, context),
 
-                    Keyword.QUOTE => ExpandQuoteArgs(tail, exState),
-                    Keyword.QUOTE_SYNTAX => ExpandQuoteArgs(tail, exState),
+                    Keyword.QUOTE => tail, // just leave them alone for now
+                    Keyword.QUOTE_SYNTAX => tail,
 
-                    Keyword.LAMBDA => ExpandLambdaArgs(tail, exState),
+                    Keyword.LAMBDA => ExpandLambdaArgs(tail, info, context),
 
-                    Keyword.IF => ExpandIfArgs(tail, exState),
-                    Keyword.BEGIN => ExpandSequence(tail, exState),
+                    Keyword.IF => ExpandIfArgs(tail, info, context),
+                    Keyword.BEGIN => ExpandSequence(tail, info, context),
 
-                    _ => throw new ExpanderException.InvalidSyntax(stx)
+                    _ => throw new ExpanderException.InvalidSyntax(stl)
                 };
             }
             catch (System.Exception e)
             {
-                throw new ExpanderException.InvalidForm(formName, stx, e);
+                throw new ExpanderException.InvalidForm(formName, stl, e);
             }
 
-            return new SyntaxPair(op, expandedTail, info);
+            return new SyntaxList(StxPair.Cons(op, expandedTail), info);
         }
 
         /// <summary>
         /// Partially expand <paramref name="stx"/>
         /// </summary>
-        private static Syntax? PartiallyExpandBodyTerm(Syntax stx, ExpansionContext exState)
+        private static Syntax? PartiallyExpandBodyTerm(Syntax stx, ExpansionContext context)
         {
             // essentially just check the path to special forms and disregard otherwise
-            if (stx is SyntaxPair idApp
-                && idApp.Car is Identifier op
-                && exState.TryResolveBinding(op, out _, out CompileTimeBinding? binding)
+            if (stx is SyntaxList stp
+                && stp.Car is Identifier op
+                && op.TryResolveBinding(context.Phase, out CompileTimeBinding? binding)
                 && binding.BoundType == BindingType.Special)
             {
-                Syntax args = idApp.Cdr;
+                StxPair args = stp.Expose();
 
                 if (binding.Name == Keyword.DEFINE_SYNTAX)
                 {
-                    // expand and bind the macro, then discard the definition syntax
-                    ExpandDefineSyntaxArgs(args, exState);
+                    // expand and bind the macro, then discard the syntax
+                    ExpandDefineSyntaxArgs(args, stx.LexContext, context);
                     return null;
                 }
                 else if (binding.Name == Keyword.DEFINE)
                 {
-                    // rewrite the form, both because we need to extract the key,
-                    // and to mark that it's been partially expanded
-                    if (TryRewriteDefineArgs(args,
-                        out Identifier? key, out LexInfo? keyContext,
-                        out Syntax? value, out LexInfo? valueContext,
-                        out Syntax? terminator))
+                    // extract and rename the key, then rewrite the form to indicate we did so
+
+                    if (TryRewriteDefineArgs(args, out Identifier? key, out Syntax? value))
                     {
-                        if (!exState.TryBindVariable(key, out _))
+                        if (!key.TryRenameAsVariable(context.Phase, out _))
                         {
-                            throw new ExpanderException.InvalidBindingOperation(key, exState);
+                            throw new ExpanderException.InvalidBindingOperation(key, context);
                         }
 
-                        return terminator
-                            .Cons(value, valueContext)
-                            .Cons(key, keyContext)
-                            .Cons(new Identifier(Implicit.ParDef, op), stx.LexContext);
+                        Identifier newOp = new Identifier(Implicit.ParDef, op);
+                        StxPair form = StxPair.ProperList(newOp, key, value);
+
+                        return new SyntaxList(form, op.LexContext);
                     }
                     else
                     {
@@ -240,22 +218,23 @@ namespace Clasp.Process
 
         #region Macro-Related
 
-        private static Syntax ExpandSyntaxTransformation(CompileTimeBinding binding, Syntax input, ExpansionContext exState)
+        private static Syntax ExpandSyntaxTransformation(CompileTimeBinding binding, Syntax input, ExpansionContext context)
         {
-            if (exState.TryDereferenceMacro(binding, out MacroProcedure? macro))
+            if (context.CompileTimeEnv.TryGetValue(binding.Name, out Term? maybeValue)
+                && maybeValue is MacroProcedure macro)
             {
-                uint introScope = exState.FreshScopeToken();
-                uint useSiteScope = exState.FreshScopeToken();
-                exState.AddScope(input, introScope, useSiteScope);
+                Scope introScope = new Scope(input);
+                Scope useSiteScope = new Scope(input);
+
+                input.AddScope(context.Phase, introScope, useSiteScope);
 
                 Syntax output = ApplySyntaxTransformer(macro, input);
 
-                ExpansionContext exMacro = exState.AsMacroResult(useSiteScope);
+                ExpansionContext macroContext = context.InTransformed(useSiteScope);
+                output.FlipScope(macroContext.Phase, useSiteScope);
+                context.AddPendingInsideEdge(output);
 
-                exMacro.FlipScope(output, useSiteScope);
-                exMacro.AddPendingInsideEdgeScope(output);
-
-                return Expand(output, exMacro);
+                return Expand(output, macroContext);
             }
             else
             {
@@ -285,9 +264,9 @@ namespace Clasp.Process
             return outputStx;
         }
 
-        private static MacroProcedure ExpandAndEvalMacro(Syntax input, ExpansionContext exState)
+        private static MacroProcedure ExpandAndEvalMacro(Syntax input, ExpansionContext context)
         {
-            ExpansionContext subState = exState.InNewPhase();
+            ExpansionContext subState = context.InNewPhase();
 
             Term output;
 
@@ -295,7 +274,7 @@ namespace Clasp.Process
             {
                 Syntax expandedInput = Expand(input, subState);
                 CoreForm parsedInput = Parser.ParseSyntax(expandedInput, subState);
-                output = Interpreter.InterpretProgram(parsedInput, exState.CompileTimeEnv.TopLevel.Enclose());
+                output = Interpreter.InterpretProgram(parsedInput, context.CompileTimeEnv.GlobalEnv.Enclose());
             }
             catch (System.Exception e)
             {
@@ -303,10 +282,9 @@ namespace Clasp.Process
             }
 
             if (output is CompoundProcedure cp
-                && cp.Arity == 1
-                && !cp.IsVariadic)
+                && cp.TryCoerceMacro(out MacroProcedure? macro))
             {
-                return new MacroProcedure(cp.Parameters[0], exState.CompileTimeEnv.TopLevel, cp.Body);
+                return macro;
             }
 
             throw new ExpanderException.WrongEvaluatedType(nameof(MacroProcedure), output, input);
@@ -319,146 +297,141 @@ namespace Clasp.Process
         /// <summary>
         /// Expand a proper list of expressions.
         /// </summary>
-        private static Syntax ExpandOperands(Syntax stx, ExpansionContext exState)
+        private static StxPair ExpandExpressionList(StxPair stp, LexInfo ctx, ExpansionContext context)
         {
-            if (stx.IsTerminator())
-            {
-                return stx;
-            }
-            else if (stx.TryDestruct(out Syntax? car, out Syntax? cdr, out LexInfo? info))
-            {
-                Syntax expandedCar = ExpandAsExpression(car, exState);
-                Syntax expandedCdr = ExpandOperands(cdr, exState);
+            Syntax expandedCar = Expand(stp.Car, context.AsExpression());
 
-                return new SyntaxPair(expandedCar, expandedCdr, info);
-            }
-            else
+            if (stp.Cdr is Nil n)
             {
-                throw new ExpanderException.ExpectedProperList(stx);
+                return StxPair.Cons(expandedCar, n);
             }
+            else if (stp.Cdr is StxPair cdr)
+            {
+                StxPair expandedCdr = ExpandExpressionList(cdr, ctx, context);
+                return StxPair.Cons(expandedCar, expandedCdr);
+            }
+
+            throw new ExpanderException.ExpectedProperList(nameof(Syntax), stp, ctx);
         }
 
         /// <summary>
         /// Expand and bind renames for a list of Identifier terms. No mutation takes place, so nothing is returned.
         /// </summary>
-        private static void ExpandParameterList(Syntax stx, ExpansionContext exState)
+        private static void ExpandParameterList(StxPair stp, LexInfo ctx, ExpansionContext context)
         {
-            if (stx.IsTerminator())
+            if (stp.Car is Identifier id)
             {
-                return;
-            }
-            else if (stx is Identifier dotted)
-            {
-                if (!exState.TryBindVariable(dotted, out _))
+                if (!id.TryRenameAsVariable(context.Phase, out _))
                 {
-                    throw new ExpanderException.InvalidBindingOperation(dotted, exState);
+                    throw new ExpanderException.InvalidBindingOperation(id, context);
+                }
+
+                if (stp.Cdr is Nil)
+                {
+                    return;
+                }
+                else if (stp.Cdr is StxPair cdr)
+                {
+                    ExpandParameterList(cdr, ctx, context);
                 }
             }
-            else if (stx.TryDestruct(out Identifier? id, out Syntax? cdr, out LexInfo? info))
-            {
-                if (!exState.TryBindVariable(id, out _))
-                {
-                    throw new ExpanderException.InvalidBindingOperation(id, exState);
-                }
-                ExpandParameterList(cdr, exState);
-            }
-            else
-            {
-                // the only way this can go wrong is if a non-identifier is encountered
-                throw new ExpanderException.ExpectedProperList(nameof(Identifier), stx);
-            }
+
+            throw new ExpanderException.ExpectedProperList(nameof(Identifier), stp, ctx);
         }
 
         /// <summary>
         /// Partially expand a sequence of terms to capture any requisite bindings,
         /// then properly run through and expand each term in sequence.
         /// </summary>
-        private static SyntaxPair ExpandBody(Syntax stx, ExpansionContext exState)
+        private static StxPair ExpandBody(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            Syntax partiallyExpandedBody = PartiallyExpandBody(stx, exState);
+            StxPair partiallyExpandedBody = PartiallyExpandBody(stp, info, context);
 
-            // TODO inside/outside edge scopes
-
-            return ExpandSequence(partiallyExpandedBody, exState);
+            return ExpandSequence(partiallyExpandedBody, info, context);
         }
 
         /// <summary>
         /// Recur through a sequence of terms, recording bindings for any definitions,
         /// (and discarding those definitions if they bind macros)
         /// </summary>
-        private static Syntax PartiallyExpandBody(Syntax stx, ExpansionContext exState)
+        private static StxPair PartiallyExpandBody(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            if (stx.IsTerminator())
-            {
-                return stx;
-            }
-            else if (stx.TryDestruct(out Syntax? bodyTerm, out Syntax? tail, out LexInfo? info))
-            {
-                Syntax? partiallyExpandedBodyTerm = PartiallyExpandBodyTerm(bodyTerm, exState);
+            Syntax? partiallyExpandedBodyTerm = PartiallyExpandBodyTerm(stp.Car, context);
 
+            if (partiallyExpandedBodyTerm is null)
+            {
                 // internal syntax definitions are recorded, then discarded
-                if (partiallyExpandedBodyTerm is null)
-                {
-                    return PartiallyExpandBody(tail, exState);
-                }
 
-                Syntax partiallyExpandedTail = PartiallyExpandBody(tail, exState);
-                return new SyntaxPair(partiallyExpandedBodyTerm, partiallyExpandedTail, info);
+                if (stp.Cdr is Nil)
+                {
+                    throw new ExpanderException.InvalidContext("Definition",
+                        ExpansionMode.Expression, stp, info);
+                }
+                else if (stp.Cdr is StxPair cdr)
+                {
+                    return PartiallyExpandBody(cdr, info, context);
+                }
             }
             else
             {
-                throw new ExpanderException.ExpectedProperList(stx);
+                if (stp.Cdr is Nil n)
+                {
+                    return StxPair.Cons(partiallyExpandedBodyTerm, n);
+                }
+                else if (stp.Cdr is StxPair cdr)
+                {
+                    StxPair partiallyExpandedTail = PartiallyExpandBody(cdr, info, context);
+                    return StxPair.Cons(partiallyExpandedBodyTerm, partiallyExpandedTail);
+                }
             }
+
+            throw new ExpanderException.ExpectedProperList(nameof(Syntax), stp, info);
         }
 
         /// <summary>
         /// Recur through a sequence of terms, expanding and replacing each one.
-        /// The final term is expected to be a <see cref="SyntaxMode.Expression"/>.
+        /// The final term is expected to be a <see cref="ExpansionMode.Expression"/>.
         /// </summary>
-        private static SyntaxPair ExpandSequence(Syntax stx, ExpansionContext exState)
+        private static StxPair ExpandSequence(StxPair stxList, LexInfo info, ExpansionContext context)
         {
-            if (stx.TryDestruct(out Syntax? car, out Syntax? cdr, out LexInfo? info))
+            if (stxList.Car is Syntax stx)
             {
-                Syntax outCar;
-                Syntax outCdr;
-
-                if (cdr.IsTerminator())
+                if (stxList.Cdr is Nil n)
                 {
-                    outCar = ExpandAsExpression(car, exState);
-                    outCdr = cdr;
+                    Syntax expandedCar = Expand(stx, context.AsExpression());
+                    return StxPair.Cons(expandedCar, n);
                 }
-                else
+                else if (stxList.Cdr is StxPair cdr)
                 {
-                    outCar = ExpandAsBodyTerm(car, exState);
-                    outCdr = ExpandSequence(cdr, exState);
+                    Syntax expandedCar = Expand(stx, context.AsExpression());
+                    StxPair expandedCdr = ExpandSequence(cdr, info, context);
+                    return StxPair.Cons(expandedCar, expandedCdr);
                 }
+            }
 
-                return new SyntaxPair(outCar, outCdr, info);
-            }
-            else
-            {
-                throw new ExpanderException.ExpectedProperList(stx);
-            }
+            throw new ExpanderException.ExpectedProperList(nameof(Syntax), stxList, info);
         }
 
         /// <summary>
         /// Recur through a sequence of terms, where each is expected to be a let-syntax binding pair.
         /// </summary>
-        private static void ExpandLetSyntaxBindingList(Syntax stx, ExpansionContext exState)
+        private static void ExpandLetSyntaxBindingList(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            if (stx.TryDestruct(out SyntaxPair? car, out Syntax? cdr, out LexInfo? _))
+            if (stp.Car is SyntaxList stl)
             {
-                ExpandDefineSyntaxArgs(car, exState);
-                ExpandLetSyntaxBindingList(cdr, exState);
+                ExpandDefineSyntaxArgs(stl.Expose(), info, context);
+
+                if (stp.Cdr is Nil)
+                {
+                    return;
+                }
+                else if (stp.Cdr is StxPair cdr)
+                { 
+                    ExpandLetSyntaxBindingList(cdr, info, context);
+                }
             }
-            else if (stx.IsTerminator())
-            {
-                return;
-            }
-            else
-            {
-                throw new ExpanderException.ExpectedProperList("Let-Syntax Binding Pair", stx);
-            }
+
+            throw new ExpanderException.ExpectedProperList(nameof(SyntaxList), stp, info);
         }
 
         #endregion
@@ -469,34 +442,22 @@ namespace Clasp.Process
         /// Given the arguments to a <see cref="Keyword.DEFINE"/> form,
         /// rewrite them explicitly into the standard key/value pair format.
         /// </summary>
-        private static bool TryRewriteDefineArgs(Syntax stx,
-            [NotNullWhen(true)] out Identifier? key, [NotNullWhen(true)] out LexInfo? keyContext,
-            [NotNullWhen(true)] out Syntax? value, [NotNullWhen(true)] out LexInfo? valueContext,
-            [NotNullWhen(true)] out Syntax? terminator)
+        private static bool TryRewriteDefineArgs(StxPair stp,
+            [NotNullWhen(true)] out Identifier? key,
+            [NotNullWhen(true)] out Syntax? value)
         {
             // The arguments to 'define' can come in two formats:
             // - (define key value)
             // - (define (key . formals) . body)
 
-            if (TryDestructKeyValuePair(stx,
-                out key, out keyContext,
-                out value, out valueContext,
-                out terminator))
+            if (TryDestructKeyValuePair(stp, out key, out value))
             {
                 return true;
             }
-            else if (TryDestructImplicitLambda(stx,
-                out key, out keyContext,
-                out Syntax? formals,
-                out Syntax? body))
+            else if (TryDestructImplicitLambda(stp,
+                out key, out Syntax? formals, out StxPair? body))
             {
-                valueContext = body.LexContext;
-                value = body
-                    .Cons(formals, body.LexContext)
-                    .Cons(Identifier.Implicit(Implicit.SpLambda), body.LexContext);
-
-                terminator = Datum.Implicit(Nil.Value);
-
+                value = BuildLambda(formals, body);
                 return true;
             }
             else
@@ -509,48 +470,32 @@ namespace Clasp.Process
         /// Given the arguments to a <see cref="Keyword.DEFINE_SYNTAX"/> form,
         /// rewrite them explicitly into the standard key/lambda pair format.
         /// </summary>
-        private static bool TryRewriteDefineSyntaxArgs(Syntax stx, ExpansionContext exState,
-            [NotNullWhen(true)] out Identifier? key, [NotNullWhen(true)] out LexInfo? keyContext,
-            [NotNullWhen(true)] out Syntax? value, [NotNullWhen(true)] out LexInfo? valueContext,
-            [NotNullWhen(true)] out Syntax? terminator)
+        private static bool TryRewriteDefineSyntaxArgs(StxPair stp, ExpansionContext context,
+            [NotNullWhen(true)] out Identifier? key,
+            [NotNullWhen(true)] out Syntax? value)
         {
             // The arguments to 'define-syntax' can come in three formats:
             // - (define key (lambda ...))
             // - (define key value)
             // - (define (key . formals) . body)
 
-            if (TryDestructExplicitLambda(stx, exState,
-                out key, out keyContext,
-                out value, out valueContext,
-                out terminator))
+            if (TryDestructExplicitLambda(stp, context, out key, out value))
             {
                 return true;
             }
-            else if (TryDestructKeyValuePair(stx,
-                out key, out keyContext,
-                out Syntax? returnValue, out valueContext,
-                out terminator))
+            else if (TryDestructKeyValuePair(stp, out key, out value))
             {
                 // rewrite the non-lambda term as a parameter-less procedure that returns the term
+                Datum formals = new Datum(Nil.Value, value.LexContext);
+                StxPair body = StxPair.Cons(value, Nil.Value);
+                value = BuildLambda(formals, body);
 
-                value = Datum.Implicit(Nil.Value)
-                    .Cons(returnValue, valueContext)
-                    .Cons(Datum.FromDatum(Nil.Value, valueContext), valueContext)
-                    .Cons(Identifier.Implicit(Implicit.SpLambda), valueContext);
                 return true;
             }
-            else if (TryDestructImplicitLambda(stx,
-                out key, out keyContext,
-                out Syntax? formals,
-                out Syntax? body))
+            else if (TryDestructImplicitLambda(stp, out key,
+                out Syntax? formals, out StxPair? body))
             {
-                valueContext = body.LexContext;
-                value = body
-                    .Cons(formals, body.LexContext)
-                    .Cons(Identifier.Implicit(Implicit.SpLambda), body.LexContext);
-
-                terminator = Datum.Implicit(Nil.Value);
-
+                value = BuildLambda(formals, body);
                 return true;
             }
             else
@@ -559,47 +504,63 @@ namespace Clasp.Process
             }
         }
 
-        // (define-whatever key value)
-        private static bool TryDestructKeyValuePair(Syntax stx,
-            [NotNullWhen(true)] out Identifier? key, [NotNullWhen(true)] out LexInfo? keyContext,
-            [NotNullWhen(true)] out Syntax? value, [NotNullWhen(true)] out LexInfo? valueContext,
-            [NotNullWhen(true)] out Syntax? terminator)
+        private static Syntax BuildLambda(Syntax formals, StxPair body)
         {
-            key = null;
-            keyContext = null;
-            value = null;
-            valueContext = null;
-            terminator = null;
+            StxPair args = StxPair.Cons(formals, body);
+            Identifier op = new Identifier(Implicit.SpLambda, formals);
+            StxPair lambda = StxPair.Cons(op, args);
 
-            return stx.TryDestruct(out key, out SyntaxPair? keyTail, out keyContext)
-                && keyTail.TryDestruct(out value, out terminator, out valueContext)
-                && terminator.IsTerminator();
+            return new SyntaxList(lambda, body.Car.LexContext);
         }
 
         // (define-whatever (key . formals) . body)
-        private static bool TryDestructImplicitLambda(Syntax stx,
-            [NotNullWhen(true)] out Identifier? key, [NotNullWhen(true)] out LexInfo? keyContext,
+        private static bool TryDestructImplicitLambda(StxPair stp,
+            [NotNullWhen(true)] out Identifier? key,
             [NotNullWhen(true)] out Syntax? formals,
-            [NotNullWhen(true)] out Syntax? body)
+            [NotNullWhen(true)] out StxPair? body)
         {
+            if (stp.TryMatchLeading(out SyntaxList? nameAndFormals, out Term? tail)
+                && nameAndFormals.Expose().TryMatchLeading(out key, out Term? maybeFormals)
+                && (tail is StxPair outBody))
+            {
+
+                if (maybeFormals is Nil n)
+                {
+                    formals = new Datum(n, key.LexContext);
+                    body = outBody;
+                    return true;
+                }
+                else if (maybeFormals is StxPair fp)
+                {
+                    formals = new SyntaxList(fp, key.LexContext);
+                    body = outBody;
+                    return true;
+                }
+            }
+
             key = null;
-            keyContext = null;
             formals = null;
             body = null;
+            return false;
+        }
 
-            return stx.TryDestruct(out SyntaxPair? keyWithFormals, out body, out keyContext)
-                && keyWithFormals.TryDestruct(out key, out formals, out LexInfo? _);
+        // (define-whatever key value)
+        private static bool TryDestructKeyValuePair(StxPair stp,
+            [NotNullWhen(true)] out Identifier? key,
+            [NotNullWhen(true)] out Syntax? value)
+        {
+            return stp.TryMatchOnly(out key, out value);
         }
 
         // (define-whatever key (lambda ...))
-        private static bool TryDestructExplicitLambda(Syntax stx, ExpansionContext exState,
-            [NotNullWhen(true)] out Identifier? key, [NotNullWhen(true)] out LexInfo? keyContext,
-            [NotNullWhen(true)] out Syntax? value, [NotNullWhen(true)] out LexInfo? valueContext,
-            [NotNullWhen(true)] out Syntax? terminator)
+        private static bool TryDestructExplicitLambda(StxPair stp, ExpansionContext context,
+            [NotNullWhen(true)] out Identifier? key,
+            [NotNullWhen(true)] out Syntax? value)
         {
-            return TryDestructKeyValuePair(stx, out key, out keyContext, out value, out valueContext, out terminator)
-                && value.TryDestruct(out Identifier? maybeLambda, out Syntax? _, out LexInfo? _)
-                && exState.TryResolveBinding(maybeLambda, out _, out CompileTimeBinding? binding)
+            return TryDestructKeyValuePair(stp, out key, out value)
+                && value.Expose() is StxPair maybeLambda
+                && maybeLambda.Car is Identifier maybeOp
+                && maybeOp.TryResolveBinding(context.Phase, out CompileTimeBinding? binding)
                 && (binding.Name == Keyword.LAMBDA || binding.Name == Keyword.IMP_LAMBDA);
         }
 
@@ -607,42 +568,31 @@ namespace Clasp.Process
         /// Given the arguments to a <see cref="Keyword.IF"/> form,
         /// rewrite them explicitly into the standard cond/then/else format.
         /// </summary>
-        private static bool TryRewriteIfArgs(Syntax stx,
-            [NotNullWhen(true)] out Syntax? condValue, [NotNullWhen(true)] out LexInfo? condContext,
-            [NotNullWhen(true)] out Syntax? thenValue, [NotNullWhen(true)] out LexInfo? thenContext,
-            [NotNullWhen(true)] out Syntax? elseValue, [NotNullWhen(true)] out LexInfo? elseContext,
-            [NotNullWhen(true)] out Syntax? terminator)
+        private static bool TryRewriteIfArgs(StxPair stp,
+            [NotNullWhen(true)] out Syntax? condValue,
+            [NotNullWhen(true)] out Syntax? thenValue,
+            [NotNullWhen(true)] out Syntax? elseValue)
         {
             // The arguments to 'if' can come in two formats:
             // - (if cond then else)
             // - (if cond then)
 
-            if (stx.TryDestruct(out condValue, out SyntaxPair? thenPair, out condContext)
-                && thenPair.TryDestruct(out thenValue, out Syntax? elsePair, out thenContext))
+            if (stp.TryMatchLeading(out condValue, out thenValue, out Term? tail))
             {
-                if (elsePair.IsTerminator())
+                if (tail is Nil n)
                 {
-                    elseValue = Datum.Implicit(Boolean.False);
-                    elseContext = thenContext;
-                    terminator = elsePair;
-
+                    elseValue = new Datum(Boolean.False, thenValue.LexContext);
                     return true;
                 }
-                else if (elsePair.TryDestruct(out elseValue, out terminator, out elseContext)
-                    && terminator.IsTerminator())
+                else if (tail is Cons cns && cns.TryMatchOnly(out elseValue))
                 {
                     return true;
                 }
             }
 
             condValue = null;
-            condContext = null;
             thenValue = null;
-            thenContext = null;
             elseValue = null;
-            elseContext = null;
-            terminator = null;
-
             return false;
 
         }
@@ -650,109 +600,97 @@ namespace Clasp.Process
 
         #region Special Form Expansion
 
-        private static Syntax ExpandPartialDefineArgs(Syntax stx, ExpansionContext exState)
+        private static StxPair ExpandPartialDefineArgs(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            if (exState.Mode != SyntaxMode.InternalDefinition)
+            if (context.Mode != ExpansionMode.InternalDefinition)
             {
-                throw new ExpanderException.InvalidContext(Keyword.IMP_PARDEF, exState.Mode, stx);
+                throw new ExpanderException.InvalidContext(Keyword.IMP_PARDEF, context.Mode, stp, info);
             }
-            else if (TryRewriteDefineArgs(stx,
-                out Identifier? key, out LexInfo? keyContext,
-                out Syntax? value, out LexInfo? valueContext,
-                out Syntax? terminator))
+            else if (TryRewriteDefineArgs(stp, out Identifier? key, out Syntax? value))
             {
-                Syntax expandedValue = ExpandAsExpression(value, exState);
+                // key has already been renamed in the partial pass
 
-                return terminator
-                    .Cons(expandedValue, valueContext)
-                    .Cons(key, keyContext);
+                Syntax expandedValue = Expand(value, context.AsExpression());
+
+                return StxPair.Cons(key, value);
             }
             else
             {
-                throw new ExpanderException.InvalidForm(Keyword.IMP_PARDEF, stx);
+                throw new ExpanderException.InvalidArguments(stp, info);
             }
         }
 
-        private static Syntax ExpandDefineArgs(Syntax stx, ExpansionContext exState)
+        private static StxPair ExpandDefineArgs(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            if (exState.Mode == SyntaxMode.Expression)
+            if (context.Mode != ExpansionMode.InternalDefinition)
             {
-                throw new ExpanderException.InvalidContext(Keyword.DEFINE, exState.Mode, stx);
+                throw new ExpanderException.InvalidContext(Keyword.DEFINE, context.Mode, stp, info);
             }
-            else if (TryRewriteDefineArgs(stx,
-                out Identifier? key, out LexInfo? keyContext,
-                out Syntax? value, out LexInfo? valueContext,
-                out Syntax? terminator))
+            else if (TryRewriteDefineArgs(stp, out Identifier? key, out Syntax? value))
             {
-                exState.SanitizeIdentifier(key);
-                if (!exState.TryBindVariable(key, out _))
+                context.SanitizeIdentifier(key);
+                if (!key.TryRenameAsVariable(context.Phase, out _))
                 {
-                    throw new ExpanderException.InvalidBindingOperation(key, exState);
+                    throw new ExpanderException.InvalidBindingOperation(key, context);
                 }
 
-                Syntax expandedValue = ExpandAsExpression(value, exState);
+                Syntax expandedValue = Expand(value, context.AsExpression());
 
-                return terminator
-                    .Cons(expandedValue, valueContext)
-                    .Cons(key, keyContext);
+                return StxPair.Cons(key, value);
             }
             else
             {
-                throw new ExpanderException.InvalidForm(Keyword.DEFINE, stx);
+                throw new ExpanderException.InvalidArguments(stp, info);
             }
         }
 
-        private static Syntax ExpandDefineSyntaxArgs(Syntax stx, ExpansionContext exState)
+        private static StxPair ExpandDefineSyntaxArgs(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            if (exState.Mode == SyntaxMode.Expression)
+            if (context.Mode != ExpansionMode.InternalDefinition)
             {
-                throw new ExpanderException.InvalidContext(Keyword.DEFINE_SYNTAX, exState.Mode, stx);
+                throw new ExpanderException.InvalidContext(Keyword.DEFINE_SYNTAX, context.Mode, stp, info);
             }
-            else if (TryRewriteDefineSyntaxArgs(stx, exState,
-                out Identifier? key, out LexInfo? keyContext,
-                out Syntax? value, out LexInfo? valueContext,
-                out Syntax? terminator))
+            else if (TryRewriteDefineSyntaxArgs(stp, context, out Identifier? key, out Syntax? value))
             {
-                exState.SanitizeIdentifier(key);
+                context.SanitizeIdentifier(key);
 
-                MacroProcedure macro = ExpandAndEvalMacro(value, exState);
-                if (!exState.TryBindMacro(key, macro, out _))
+                MacroProcedure macro = ExpandAndEvalMacro(value, context);
+                if (!key.TryRenameAsMacro(context.Phase, out Identifier? bindingId))
                 {
-                    throw new ExpanderException.InvalidBindingOperation(key, exState);
+                    throw new ExpanderException.InvalidBindingOperation(key, context);
+                }
+                else
+                {
+                    context.CompileTimeEnv[bindingId.Name] = macro;
                 }
 
-                Syntax evaluatedMacro = ExpandImplicit(Implicit.SpDatum, AsArg(Datum.FromDatum(macro, valueContext)), exState);
+                Syntax evaluatedMacro = ExpandImplicit(Implicit.SpDatum, AsArg(new Datum(macro, value)), context);
 
-                return terminator
-                    .Cons(evaluatedMacro, valueContext)
-                    .Cons(key, keyContext);
+                return StxPair.Cons(key, evaluatedMacro);
             }
             else
             {
-                throw new ExpanderException.InvalidForm(Keyword.DEFINE_SYNTAX, stx);
+                throw new ExpanderException.InvalidArguments(stp, info);
             }
         }
 
-        private static Syntax ExpandSetArgs(Syntax stx, ExpansionContext exState)
+        private static StxPair ExpandSetArgs(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            if (exState.Mode == SyntaxMode.Expression)
+            if (context.Mode != ExpansionMode.InternalDefinition)
             {
-                throw new ExpanderException.InvalidContext(Keyword.SET, exState.Mode, stx);
+                throw new ExpanderException.InvalidContext(Keyword.SET, context.Mode, stp, info);
             }
-            else if (TryDestructKeyValuePair(stx,
-                out Identifier? key, out LexInfo? keyContext,
-                out Syntax? value, out LexInfo? valueContext,
-                out Syntax? terminator))
+            else if (TryRewriteDefineArgs(stp, out Identifier? key, out Syntax? value))
             {
-                exState.SanitizeIdentifier(key);
+                context.SanitizeIdentifier(key);
 
-                if (exState.TryResolveBinding(key, out CompileTimeBinding[] candidates, out CompileTimeBinding? binding))
+                if (key.TryResolveBinding(context.Phase,
+                    out CompileTimeBinding? binding,
+                    out CompileTimeBinding[] candidates))
                 {
-                    Syntax expandedValue = ExpandAsExpression(value, exState);
+                    Syntax expandedValue = Expand(value, context.AsExpression());
 
-                    return terminator
-                        .Cons(expandedValue, valueContext)
-                        .Cons(key, keyContext);
+                    return StxPair.Cons(key, expandedValue);
                 }
                 else if (candidates.Length > 1)
                 {
@@ -765,58 +703,56 @@ namespace Clasp.Process
             }
             else
             {
-                throw new ExpanderException.InvalidForm(Keyword.SET, stx);
+                throw new ExpanderException.InvalidArguments(stp, info);
             }
         }
 
-        private static Syntax ExpandQuoteArgs(SyntaxPair stx, ExpansionContext exState)
+        private static StxPair ExpandIfArgs(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            return stx; //it'll get stripped later during parsing
-        }
-
-        private static Syntax ExpandIfArgs(SyntaxPair stx, ExpansionContext exState)
-        {
-            if (TryRewriteIfArgs(stx,
-                out Syntax? condValue, out LexInfo? condContext,
-                out Syntax? thenValue, out LexInfo? thenContext,
-                out Syntax? elseValue, out LexInfo? elseContext,
-                out Syntax? terminator))
+            if (TryRewriteIfArgs(stp,
+                out Syntax? condValue,
+                out Syntax? thenValue,
+                out Syntax? elseValue))
             {
-                Syntax expandedCond = ExpandAsExpression(condValue, exState);
-                Syntax expandedThen = ExpandAsExpression(thenValue, exState);
-                Syntax expandedElse = ExpandAsExpression(elseValue, exState);
+                Syntax expandedCond = Expand(condValue, context.AsExpression());
+                Syntax expandedThen = Expand(thenValue, context.AsExpression());
+                Syntax expandedElse = Expand(elseValue, context.AsExpression());
 
-                return terminator
-                    .Cons(expandedElse, elseContext)
-                    .Cons(expandedThen, thenContext)
-                    .Cons(expandedCond, condContext);
+                return StxPair.ProperList(expandedCond, expandedThen, expandedElse);
             }
             else
             {
-                throw new ExpanderException.InvalidForm(Keyword.IF, stx);
+                throw new ExpanderException.InvalidArguments(stp, info);
             }
         }
 
-        private static Syntax ExpandLambdaArgs(Syntax stx, ExpansionContext exState)
+        private static StxPair ExpandLambdaArgs(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            if (stx.TryDestruct(out Syntax? formals, out SyntaxPair? body, out LexInfo? info))
+            if (stp.TryMatchLeading(out Syntax? formals, out Term? cdr)
+                && formals.Expose() is Nil or StxPair
+                && cdr is StxPair body)
             {
-                uint outsideEdge = exState.FreshScopeToken();
-                uint insideEdge = exState.FreshScopeToken();
+                Scope outsideEdge = new Scope(formals);
+                Scope insideEdge = new Scope(formals);
 
-                exState.AddScope(formals, outsideEdge, insideEdge);
-                exState.AddScope(body, outsideEdge, insideEdge);
+                formals.AddScope(context.Phase, outsideEdge, insideEdge);
+                formals.AddScope(context.Phase, outsideEdge, insideEdge);
 
-                ExpansionContext exBody = exState.InBody(insideEdge);
+                ExpansionContext bodyContext = context.InBody(insideEdge);
 
-                ExpandParameterList(formals, exBody);
-                SyntaxPair expandedBody = ExpandBody(body, exBody);
+                if (formals.Expose() is StxPair fp)
+                {
+                    ExpandParameterList(fp, info, bodyContext);
+                }
+                // nil parameter list needn't be expanded
 
-                return new SyntaxPair(formals, expandedBody, info);
+                StxPair expandedBody = ExpandBody(body, info, bodyContext);
+
+                return StxPair.Cons(formals, expandedBody);
             }
             else
             {
-                throw new ExpanderException.InvalidForm(Keyword.LAMBDA, stx);
+                throw new ExpanderException.InvalidArguments(stp, info);
             }
         }
 

@@ -8,7 +8,8 @@ using System.IO;
 using System;
 using System.Collections.Generic;
 using Clasp.Data.Metadata;
-using Clasp.Data.Terms.Syntax;
+using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Data.VirtualMachine;
 
 namespace Clasp
 {

@@ -3,8 +3,8 @@ using System.IO;
 using System.Linq;
 
 using Clasp.Data.AbstractSyntax;
-using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
+using Clasp.Data.VirtualMachine;
 using Clasp.Process;
 
 namespace Clasp.Ops

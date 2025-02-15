@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
-using Clasp.Data.Metadata;
 using Clasp.Data.Text;
 
 namespace Clasp

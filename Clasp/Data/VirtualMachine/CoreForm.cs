@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
-using Clasp.Data.Terms.Product;
-using Clasp.Data.Terms.Syntax;
+using Clasp.Data.Terms.ProductValues;
+using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
+using Clasp.Data.VirtualMachine;
 using Clasp.Process;
 
 namespace Clasp.Data.AbstractSyntax

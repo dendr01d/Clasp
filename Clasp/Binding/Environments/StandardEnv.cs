@@ -1,6 +1,6 @@
 ﻿using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
-using Clasp.Data.Terms.Product;
+using Clasp.Data.Terms.ProductValues;
 using Clasp.Ops;
 using Clasp.Ops.Functions;
 using Clasp.Process;

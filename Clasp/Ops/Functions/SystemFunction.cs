@@ -5,8 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
+using Clasp.Data.VirtualMachine;
 
 namespace Clasp.Ops.Functions
 {

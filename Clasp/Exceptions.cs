@@ -7,8 +7,10 @@ using Clasp.Binding;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
-using Clasp.Data.Terms.Syntax;
+using Clasp.Data.Terms.ProductValues;
+using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
+using Clasp.Interfaces;
 
 [assembly: InternalsVisibleTo("Tests")]
 namespace Clasp
@@ -206,12 +208,12 @@ namespace Clasp
 
         public class InvalidBindingOperation : ExpanderException
         {
-            internal InvalidBindingOperation(Identifier unboundId, ExpansionContext exState) : base(
+            internal InvalidBindingOperation(Identifier unboundId, ExpansionContext context) : base(
                 unboundId.Location,
                 "Failed to bind '{0}' in phase {1} in scope ({2}).",
                 unboundId.Name,
-                exState.Phase,
-                string.Join(", ", unboundId.GetScopeSet(exState.Phase)))
+                context.Phase,
+                string.Join(", ", unboundId.LexContext[context.Phase]))
             { }
         }
 
@@ -249,17 +251,17 @@ namespace Clasp
 
         public class ExpectedProperList : ExpanderException
         {
-            internal ExpectedProperList(Syntax notAProperList) : base(
-                notAProperList.Location,
+            internal ExpectedProperList(Cons notAProperList, LexInfo info) : base(
+                info.Location,
                 "Expected proper list: {0}",
                 notAProperList)
             { }
 
-            internal ExpectedProperList(string expectedType, Syntax wrong) : base(
-                wrong.Location,
+            internal ExpectedProperList(string expectedType, Cons notAProperList, LexInfo info) : base(
+                info.Location,
                 "Expected proper list with '{0}' elements: {1}",
                 expectedType,
-                wrong)
+                notAProperList)
             { }
         }
 
@@ -282,24 +284,37 @@ namespace Clasp
         }
 
         /// <summary>For when you only know the subform, and you're relying on an <see cref="InvalidForm"/> to catch this.</summary>
-        public class InvalidSubForm : ExpanderException
+        public class InvalidArguments : ExpanderException
         {
-            internal InvalidSubForm(string subFormName, Syntax invalid) : base(
+            internal InvalidArguments(Syntax invalid) : base(
                 invalid.Location,
-                "Wrong shape for '{0}' sub-form: {1}",
-                subFormName,
+                "Wrong shape for argument: {1}",
+                invalid)
+            { }
+
+            internal InvalidArguments(StxPair invalid, LexInfo info) : base(
+                info.Location,
+                "Wrong shape for arguments: {0}",
                 invalid)
             { }
         }
 
         public class InvalidContext : ExpanderException
         {
-            internal InvalidContext(string formName, SyntaxMode mode, Syntax wrongSyntax) : base(
+            internal InvalidContext(string invalidType, ExpansionMode mode, Syntax wrongSyntax) : base(
                 wrongSyntax.Location,
                 "Input of type '{0}' is invalid in '{1}' expansion context: {2}",
-                formName,
+                invalidType,
                 mode.ToString(),
                 wrongSyntax)
+            { }
+
+            internal InvalidContext(string invalidType, ExpansionMode mode, Term wrongTerm, LexInfo info) : base(
+                info.Location,
+                "Input of type '{0}' is invalid in '{1}' expansion context: {2}",
+                invalidType,
+                mode.ToString(),
+                wrongTerm)
             { }
         }
     }

@@ -4,9 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using Clasp.Data.Text;
-
-namespace Clasp.Data.Metadata
+namespace Clasp.Data.Text
 {
     /// <summary>
     /// Representation of a snippet of source code.

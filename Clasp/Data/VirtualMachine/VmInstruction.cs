@@ -2,14 +2,14 @@
 using System.Linq;
 
 using Clasp.Binding.Environments;
-using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
-using Clasp.Data.Terms.Product;
+using Clasp.Data.Terms.ProductValues;
+using Clasp.Data.VirtualMachine;
 
 namespace Clasp.Data.AbstractSyntax
 {
     /// <summary>
-    /// Represents instructional forms that act upon a <see cref="Metadata.MachineState"/>
+    /// Represents instructional forms that act upon a <see cref="VirtualMachine.MachineState"/>
     /// -- and in turn can be "interpreted" by the <see cref="Process.Interpreter"/>.
     /// These consist of <see cref="CoreForm"/> objects and tertiary supporting instructions.
     /// </summary>

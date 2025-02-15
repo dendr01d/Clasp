@@ -5,7 +5,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using Clasp.Binding;
-using Clasp.Data.Terms.Syntax;
+using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Data.Text;
+using Clasp.Interfaces;
 
 
 namespace Clasp.Data.Metadata
@@ -38,6 +40,8 @@ namespace Clasp.Data.Metadata
                 ? scopes
                 : [];
         }
+
+        #region Scope Manipulation
 
         public void AddScope(int phase, params Scope[] scopes)
         {
@@ -72,22 +76,36 @@ namespace Clasp.Data.Metadata
             return new LexInfo(Location, _phasedScopeSets.Where(x => x.Key <= phase));
         }
 
-        public bool TryResolveBinding(int phase, string symbolicName,
-            [NotNullWhen(true)] out CompileTimeBinding? binding)
+        #endregion
+
+        #region Binding as a Set of Scopes
+
+        public bool TryBind(int phase, string symbolicName, CompileTimeBinding binding)
+        {
+            if (_phasedScopeSets[phase].MinBy(x => x.Id) is Scope scp
+                && !scp.Binds(symbolicName))
+            {
+                scp.AddBinding(symbolicName, binding);
+                return true;
+            }
+
+            return false;
+        }
+
+        public IEnumerable<CompileTimeBinding> ResolveBindings(int phase, string symbolicName)
         {
             if (_phasedScopeSets.TryGetValue(phase, out HashSet<Scope>? scopes))
             {
-                foreach(Scope scp in scopes.OrderByDescending(x => x.Id))
+                foreach (Scope scp in scopes.OrderByDescending(x => x.Id))
                 {
-                    if (scp.TryResolve(symbolicName, out binding))
+                    if (scp.TryResolve(symbolicName, out CompileTimeBinding? binding))
                     {
-                        return true;
+                        yield return binding;
                     }
                 }
             }
-
-            binding = null;
-            return false;
         }
+
+        #endregion
     }
 }

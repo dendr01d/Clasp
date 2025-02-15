@@ -1,7 +1,7 @@
 ﻿using Clasp.Data.Metadata;
 using Clasp.Data.Text;
 
-namespace Clasp.Data.Terms.Syntax
+namespace Clasp.Data.Terms.SyntaxValues
 {
     internal class Datum : Syntax
     {

@@ -5,8 +5,9 @@ using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
-using Clasp.Data.Terms.Syntax;
+using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
+using Clasp.Data.VirtualMachine;
 
 namespace Clasp.Process
 {

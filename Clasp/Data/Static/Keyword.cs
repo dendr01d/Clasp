@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.Data
+namespace Clasp.Data.Static
 {
     /// <summary>
     /// The default keywords used for special forms within the language.

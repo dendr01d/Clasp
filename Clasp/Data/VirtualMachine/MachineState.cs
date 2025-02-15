@@ -6,7 +6,7 @@ using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Terms;
 using Clasp.Process;
 
-namespace Clasp.Data.Metadata
+namespace Clasp.Data.VirtualMachine
 {
     internal class MachineState
     {

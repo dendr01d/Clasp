@@ -3,8 +3,8 @@ using System.Linq;
 
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
-using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
+using Clasp.Data.VirtualMachine;
 
 namespace Clasp.Process
 {

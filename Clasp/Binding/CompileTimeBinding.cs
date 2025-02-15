@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Clasp.Data.Terms;
-using Clasp.Data.Terms.Syntax;
+using Clasp.Data.Terms.SyntaxValues;
 
 namespace Clasp.Binding
 {

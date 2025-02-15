@@ -6,12 +6,12 @@ using System.Reflection;
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
-using Clasp.Data;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.ConcreteSyntax;
 using Clasp.Data.Metadata;
+using Clasp.Data.Static;
 using Clasp.Data.Terms;
-using Clasp.Data.Terms.Syntax;
+using Clasp.Data.Terms.SyntaxValues;
 using Clasp.ExtensionMethods;
 
 namespace Clasp.Process
@@ -58,7 +58,7 @@ namespace Clasp.Process
                     throw new ParserException.UnboundIdentifier(id);
                 }
             }
-            else if (stx is SyntaxPair stp)
+            else if (stx is SyntaxList stp)
             {
                 return ParseApplication(stp, exResult);
             }
@@ -68,7 +68,7 @@ namespace Clasp.Process
             }
         }
 
-        private static CoreForm ParseApplication(SyntaxPair stp, ExpansionContext exResult)
+        private static CoreForm ParseApplication(SyntaxList stp, ExpansionContext exResult)
         {
             if (stp.Car is Identifier idOp
                 && exResult.TryResolveBinding(idOp, out _, out CompileTimeBinding? binding)
@@ -90,10 +90,10 @@ namespace Clasp.Process
             return new FunctionApplication(parsedOp, argTerms.ToArray());
         }
 
-        private static CoreForm ParseSpecial(string formName, SyntaxPair stx, ExpansionContext exResult)
+        private static CoreForm ParseSpecial(string formName, SyntaxList stx, ExpansionContext exResult)
         {
             // all special forms have at least one argument
-            if (stx.Cdr is not SyntaxPair args)
+            if (stx.Cdr is not SyntaxList args)
             {
                 throw new ParserException.WrongArity(formName, "at least one", stx);
             }
@@ -188,7 +188,7 @@ namespace Clasp.Process
 
         private static BindingDefinition ParseDefinition(Syntax stx, ExpansionContext exResult)
         {
-            if (stx.TryDestruct(out Identifier? key, out SyntaxPair? keyTail, out _)
+            if (stx.TryDestruct(out Identifier? key, out SyntaxList? keyTail, out _)
                 && keyTail.TryDestruct(out Syntax? value, out Syntax? terminator, out _)
                 && terminator.IsTerminator())
             {
@@ -212,7 +212,7 @@ namespace Clasp.Process
 
         private static BindingMutation ParseSet(Syntax stx, ExpansionContext exResult)
         {
-            if (stx.TryDestruct(out Identifier? key, out SyntaxPair? keyTail, out _)
+            if (stx.TryDestruct(out Identifier? key, out SyntaxList? keyTail, out _)
                 && keyTail.TryDestruct(out Syntax? value, out Syntax? terminator, out _)
                 && terminator.IsTerminator())
             {
@@ -238,7 +238,7 @@ namespace Clasp.Process
 
         private static FunctionCreation ParseLambda(Syntax stx, ExpansionContext exResult)
         {
-            if (stx.TryDestruct(out Syntax? formals, out SyntaxPair? body, out _))
+            if (stx.TryDestruct(out Syntax? formals, out SyntaxList? body, out _))
             {
                 System.Tuple<string[], string?> parameters = ParseParameters(formals, exResult);
 
@@ -255,7 +255,7 @@ namespace Clasp.Process
 
         private static ConditionalForm ParseIf(Syntax stx, ExpansionContext exResult)
         {
-            if (stx.TryDestruct(out Syntax? condValue, out SyntaxPair? thenPair, out _)
+            if (stx.TryDestruct(out Syntax? condValue, out SyntaxList? thenPair, out _)
                 && thenPair.TryDestruct(out Syntax? thenValue, out Syntax? elsePair, out _)
                 && elsePair.TryDestruct(out Syntax? elseValue, out Syntax? terminator, out _)
                 && terminator.IsTerminator())
