@@ -12,17 +12,8 @@ namespace Clasp.Data.Metadata
     /// <summary>
     /// Manages state information of an ongoing program expansion
     /// </summary>
-    internal sealed class ExpansionContext
+    internal sealed class ExpansionContext : ParseContext
     {
-        /// <summary>
-        /// Records compile-time bindings of identifiers in the current lexical scope. Closures
-        /// are used to ensure the locality of bound values.
-        /// </summary>
-        public readonly Environment CompileTimeEnv;
-
-        /// <summary>The current phase of expansion.</summary>
-        public readonly int Phase;
-
         /// <summary>
         /// The inside edge of the surrounding <see cref="ExpansionMode.InternalDefinition"/>, if it exists.
         /// </summary>
@@ -36,9 +27,8 @@ namespace Clasp.Data.Metadata
         public readonly ExpansionMode Mode;
 
         private ExpansionContext(Environment env, int phase, Scope? edge, Scope? site, ExpansionMode mode)
+            : base(env, phase)
         {
-            CompileTimeEnv = env;
-            Phase = phase;
             InsideEdge = edge;
             MacroUseSite = site;
             Mode = mode;

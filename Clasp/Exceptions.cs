@@ -342,6 +342,15 @@ namespace Clasp
             { }
         }
 
+        public class UnboundMacro : ParserException
+        {
+            internal UnboundMacro(Identifier macroBindingId) : base(
+                macroBindingId.Location,
+                "The variable name '{0}' wasn't bound to a macro procedure as expected.",
+                macroBindingId.Name)
+            { }
+        }
+
         public class UnboundIdentifier : ParserException
         {
             internal UnboundIdentifier(Identifier id) : base(
@@ -401,19 +410,26 @@ namespace Clasp
 
         public class ExpectedExpression : ParserException
         {
-            internal ExpectedExpression(CoreForm wrongInput, Syntax wrongSyntax) : base(
-                wrongSyntax.Location,
+            internal ExpectedExpression(CoreForm wrongInput, LexInfo info) : base(
+                info.Location,
                 "Expected expression form, but received imperative '{0}' form instead: {1}",
                 wrongInput.FormName,
-                wrongSyntax)
+                wrongInput)
             { }
         }
 
         public class ExpectedProperList : ParserException
         {
-            internal ExpectedProperList(Syntax notAProperList) : base(
-                notAProperList.Location,
+            internal ExpectedProperList(Term notAProperList, LexInfo info) : base(
+                info.Location,
                 "Expected to parse proper list: {0}",
+                notAProperList)
+            { }
+
+            internal ExpectedProperList(string expectedType, Term notAProperList, LexInfo info) : base(
+                info.Location,
+                "Expected proper list with '{0}' elements: {1}",
+                expectedType,
                 notAProperList)
             { }
         }

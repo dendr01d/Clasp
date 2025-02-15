@@ -220,8 +220,7 @@ namespace Clasp.Process
 
         private static Syntax ExpandSyntaxTransformation(CompileTimeBinding binding, Syntax input, ExpansionContext context)
         {
-            if (context.CompileTimeEnv.TryGetValue(binding.Name, out Term? maybeValue)
-                && maybeValue is MacroProcedure macro)
+            if (context.TryLookupMacro(binding, out MacroProcedure? macro))
             {
                 Scope introScope = new Scope(input);
                 Scope useSiteScope = new Scope(input);

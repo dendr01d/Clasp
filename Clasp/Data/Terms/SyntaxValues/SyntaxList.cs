@@ -8,7 +8,8 @@ namespace Clasp.Data.Terms.SyntaxValues
         private readonly StxPair _list;
         public override StxPair Expose() => _list;
 
-        public Term Car => _list.Car;
+        public Syntax Car => _list.Car;
+        public Term Cdr => _list.Cdr;
 
         public SyntaxList(StxPair list, LexInfo ctx) : base(ctx)
         {

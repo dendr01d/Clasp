@@ -1,16 +1,13 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Numerics;
-using System.Reflection;
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
-using Clasp.Data.ConcreteSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Static;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.ExtensionMethods;
 
@@ -21,46 +18,42 @@ namespace Clasp.Process
         // the MOST IMPORTANT thing to remember here is that every syntactic form must break down
         // into ONLY core forms
 
-        public static CoreForm ParseSyntax(Syntax stx, ExpansionContext exResult)
+        public static CoreForm ParseSyntax(Syntax stx, ParseContext context)
         {
-            return Parse(stx, exResult);
+            return Parse(stx, context);
         }
 
-        private static CoreForm Parse(Syntax stx, ExpansionContext exResult)
+        public static CoreForm ParseSyntax(Syntax stx, Environment env, int phase)
+        {
+            ParseContext ctx = new ParseContext(env, phase);
+            return Parse(stx, ctx);
+        }
+
+        private static CoreForm Parse(Syntax stx, ParseContext context)
         {
             if (stx is Identifier id)
             {
-                if (exResult.TryResolveBinding(id, out CompileTimeBinding[] candidates, out CompileTimeBinding? binding))
+                CompileTimeBinding binding = ResolveBinding(id, context);
+
+                if (binding.BoundType == BindingType.Variable)
                 {
-                    if (binding.BoundType == BindingType.Variable)
-                    {
-                        return new VariableLookup(binding.Name);
-                    }
-                    else if (exResult.TryDereferenceMacro(binding, out MacroProcedure? macro))
+                    return new VariableLookup(binding.Name);
+                }
+                else if (binding.BoundType == BindingType.Transformer)
+                {
+                    if (context.TryLookupMacro(binding, out MacroProcedure? macro))
                     {
                         return new ConstValue(macro);
                     }
-                    else if (binding.BoundType == BindingType.Primitive)
-                    {
-                        throw new System.NotImplementedException();
-                    }
-                    else
-                    {
-                        throw new ParserException.InvalidForm(id.Name, id);
-                    }
+
+                    throw new ParserException.UnboundMacro(binding.Id);
                 }
-                else if (candidates.Length > 1)
-                {
-                    throw new ParserException.AmbiguousIdentifier(id, candidates);
-                }
-                else
-                {
-                    throw new ParserException.UnboundIdentifier(id);
-                }
+
+                throw new ParserException.InvalidForm(id.Name, stx);
             }
-            else if (stx is SyntaxList stp)
+            else if (stx is SyntaxList stl)
             {
-                return ParseApplication(stp, exResult);
+                return ParseApplication(stl, context);
             }
             else
             {
@@ -68,29 +61,33 @@ namespace Clasp.Process
             }
         }
 
-        private static CoreForm ParseApplication(SyntaxList stp, ExpansionContext exResult)
+        private static CoreForm ParseApplication(SyntaxList stl, ParseContext context)
         {
-            if (stp.Car is Identifier idOp
-                && exResult.TryResolveBinding(idOp, out _, out CompileTimeBinding? binding)
+            if (stl.Car is Identifier op
+                && op.TryResolveBinding(context.Phase, out CompileTimeBinding? binding)
                 && binding.BoundType == BindingType.Special)
             {
-                return ParseSpecial(idOp.Name, stp, exResult);
+                return ParseSpecial(op.Name, stl, context);
             }
 
-            CoreForm parsedOp = Parse(stp.Car, exResult);
+            CoreForm parsedOp = Parse(stl.Car, context);
 
-            // check to make sure it's not an imperative form
             if (parsedOp.IsImperative)
             {
-                throw new ParserException.InvalidOperator(parsedOp, stp);
+                throw new ParserException.InvalidOperator(parsedOp, stl);
             }
 
-            CoreForm[] argTerms = ParseArguments(stp.Cdr, exResult).ToArray();
+            CoreForm[] argTerms = stl.Cdr switch
+            {
+                Nil => [],
+                StxPair stp => ParseArguments(stp, stl.LexContext, context).ToArray(),
+                _ => throw new ParserException.InvalidSyntax(stl)
+            };
 
-            return new FunctionApplication(parsedOp, argTerms.ToArray());
+            return new FunctionApplication(parsedOp, argTerms);
         }
 
-        private static CoreForm ParseSpecial(string formName, SyntaxList stx, ExpansionContext exResult)
+        private static CoreForm ParseSpecial(string formName, SyntaxList stx, ParseContext context)
         {
             // all special forms have at least one argument
             if (stx.Cdr is not SyntaxList args)
@@ -99,7 +96,7 @@ namespace Clasp.Process
             }
 
             CoreForm result;
-            
+
             try
             {
                 result = formName switch
@@ -140,7 +137,7 @@ namespace Clasp.Process
 
         #region Special Forms
 
-        private static CoreForm ParseVariableLookup(Syntax stx, ExpansionContext exResult)
+        private static CoreForm ParseVariableLookup(Syntax stx, ParseContext context)
         {
             if (stx.TryDestruct(out Identifier? idArg, out Syntax? terminator, out _)
                 && terminator.IsTerminator())
@@ -186,7 +183,7 @@ namespace Clasp.Process
             throw new ParserException.WrongArity(Keyword.QUOTE_SYNTAX, "exactly one", stx);
         }
 
-        private static BindingDefinition ParseDefinition(Syntax stx, ExpansionContext exResult)
+        private static BindingDefinition ParseDefinition(Syntax stx, ParseContext context)
         {
             if (stx.TryDestruct(out Identifier? key, out SyntaxList? keyTail, out _)
                 && keyTail.TryDestruct(out Syntax? value, out Syntax? terminator, out _)
@@ -206,11 +203,11 @@ namespace Clasp.Process
                     throw new ParserException.UnboundIdentifier(key);
                 }
             }
-            
+
             throw new ParserException.WrongArity(Symbol.Define.Name, "exactly two", stx);
         }
 
-        private static BindingMutation ParseSet(Syntax stx, ExpansionContext exResult)
+        private static BindingMutation ParseSet(Syntax stx, ParseContext context)
         {
             if (stx.TryDestruct(out Identifier? key, out SyntaxList? keyTail, out _)
                 && keyTail.TryDestruct(out Syntax? value, out Syntax? terminator, out _)
@@ -236,7 +233,7 @@ namespace Clasp.Process
             throw new ParserException.WrongArity(Symbol.Define.Name, "exactly two", stx);
         }
 
-        private static FunctionCreation ParseLambda(Syntax stx, ExpansionContext exResult)
+        private static FunctionCreation ParseLambda(Syntax stx, ParseContext context)
         {
             if (stx.TryDestruct(out Syntax? formals, out SyntaxList? body, out _))
             {
@@ -245,7 +242,7 @@ namespace Clasp.Process
                 IEnumerable<CoreForm> bodyTerms = ParseSequence(body, exResult);
                 AggregateKeyTerms(bodyTerms, out string[] informals, out CoreForm[] moddedBodyTerms);
 
-                SequentialForm bodyForm = new SequentialForm(moddedBodyTerms);
+                SequentialForm bodyForm = new(moddedBodyTerms);
 
                 return new FunctionCreation(parameters.Item1, parameters.Item2, informals, bodyForm);
             }
@@ -253,7 +250,7 @@ namespace Clasp.Process
             throw new ParserException.WrongArity(Symbol.Lambda.Name, "two or more", stx);
         }
 
-        private static ConditionalForm ParseIf(Syntax stx, ExpansionContext exResult)
+        private static ConditionalForm ParseIf(Syntax stx, ParseContext context)
         {
             if (stx.TryDestruct(out Syntax? condValue, out SyntaxList? thenPair, out _)
                 && thenPair.TryDestruct(out Syntax? thenValue, out Syntax? elsePair, out _)
@@ -270,7 +267,7 @@ namespace Clasp.Process
             throw new ParserException.WrongArity(Symbol.Lambda.Name, "exactly three", stx);
         }
 
-        private static SequentialForm ParseBegin(Syntax stx, ExpansionContext exResult)
+        private static SequentialForm ParseBegin(Syntax stx, ParseContext context)
         {
             IEnumerable<CoreForm> sequence = ParseSequence(stx, exResult);
             return new SequentialForm(sequence.ToArray());
@@ -283,26 +280,26 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of argument expressions.
         /// </summary>
-        private static IEnumerable<CoreForm> ParseArguments(Syntax stx, ExpansionContext exResult)
+        private static IEnumerable<CoreForm> ParseArguments(StxPair stp, LexInfo info, ParseContext context)
         {
-            Syntax current = stx;
+            Term current = stp;
 
-            while (current.TryDestruct(out Syntax? first, out Syntax? rest, out _))
+            while (current is StxPair currentStp)
             {
-                CoreForm nextArg = Parse(first, exResult);
+                CoreForm nextArg = Parse(currentStp.Car, context);
 
                 if (nextArg.IsImperative)
                 {
-                    throw new ParserException.ExpectedExpression(nextArg, stx);
+                    throw new ParserException.ExpectedExpression(nextArg, currentStp.Car);
                 }
 
                 yield return nextArg;
-                current = rest;
+                current = currentStp.Cdr;
             }
 
-            if (!current.IsTerminator())
+            if (current is not Nil)
             {
-                throw new ParserException.ExpectedProperList(stx);
+                throw new ParserException.ExpectedProperList(stp, info);
             }
 
             yield break;
@@ -311,48 +308,32 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the identifiers in a list of parameter values.
         /// </summary>
-        private static System.Tuple<string[], string?> ParseParameters(Syntax stx, ExpansionContext exResult)
+        private static System.Tuple<string[], string?> ParseParameters(Term t, LexInfo info, ParseContext context)
         {
-            List<string> ids = new List<string>();
+            List<string> ids = [];
             string? dotted = null;
 
-            Syntax current = stx;
+            Term current = t;
 
-            while (current.TryDestruct(out Identifier? nextParam, out Syntax? rest, out _))
+            while(current is StxPair stp)
             {
-                if (exResult.TryResolveBinding(nextParam, 
-                    out CompileTimeBinding[] candidates,
-                    out CompileTimeBinding? binding))
+                if (stp.Car is Identifier nextParam)
                 {
+                    CompileTimeBinding binding = ResolveBinding(nextParam, context);
                     ids.Add(binding.Name);
-                    current = rest;
-                }
-                else if (candidates.Length > 1)
-                {
-                    throw new ParserException.AmbiguousIdentifier(nextParam, candidates);
                 }
                 else
                 {
-                    throw new ParserException.UnboundIdentifier(nextParam);
+                    throw new ParserException.ExpectedProperList(nameof(Identifier), t, info);
                 }
+
+                current = stp.Cdr;
             }
 
             if (current is Identifier lastParam)
             {
-                if (exResult.TryResolveBinding(lastParam,
-                    out CompileTimeBinding[] candidates,
-                    out CompileTimeBinding? binding))
-                {
-                    dotted = binding.Name;
-                }
-                else if (candidates.Length > 1)
-                {
-                    throw new ParserException.AmbiguousIdentifier(lastParam, candidates);
-                }
-                else
-                {
-                    throw new ParserException.UnboundIdentifier(lastParam);
-                }
+                CompileTimeBinding binding = ResolveBinding(lastParam, context);
+                dotted = binding.Name;
             }
 
             return new System.Tuple<string[], string?>(ids.ToArray(), dotted);
@@ -361,21 +342,20 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of body terms, where the last must be an expression.
         /// </summary>
-        private static IEnumerable<CoreForm> ParseSequence(Syntax stx, ExpansionContext exResult)
+        private static IEnumerable<CoreForm> ParseSequence(StxPair stp, LexInfo info, ParseContext context)
         {
-            Syntax current = stx;
+            Term current = stp;
 
-            while (current.TryDestruct(out Syntax? first, out Syntax? rest, out _))
+            while (current is StxPair nextSequent)
             {
-                CoreForm nextForm = Parse(first, exResult);
+                CoreForm nextForm = Parse(nextSequent.Car, context);
 
-                if (rest.IsTerminator() && nextForm.IsImperative)
+                if (nextSequent.Cdr is Nil && nextForm.IsImperative)
                 {
-                    throw new ParserException.ExpectedExpression(nextForm, stx);
+                    throw new ParserException.ExpectedExpression(nextForm, info);
                 }
                 else if (nextForm is SequentialForm sf)
                 {
-                    // flatten nested sequences
                     foreach(CoreForm form in sf.Sequence)
                     {
                         yield return form;
@@ -386,16 +366,21 @@ namespace Clasp.Process
                     yield return nextForm;
                 }
 
-                current = rest;
+                current = nextSequent.Cdr;
             }
 
-            if (!current.IsTerminator())
+            if (current is not Nil)
             {
-                throw new ParserException.ExpectedProperList(stx);
+                throw new ParserException.ExpectedProperList(stp, info);
             }
 
             yield break;
         }
+
+        #endregion
+
+        #region Helpers
+
 
         /// <summary>
         /// Iterate through a list of body terms, aggregating the key variables from each
@@ -405,10 +390,10 @@ namespace Clasp.Process
             out string[] keyTerms,
             out CoreForm[] adjustedForms)
         {
-            List<string> keys = new List<string>();
-            List<CoreForm> adjustments = new List<CoreForm>();
+            List<string> keys = [];
+            List<CoreForm> adjustments = [];
 
-            foreach(CoreForm form in initialForms)
+            foreach (CoreForm form in initialForms)
             {
                 if (form is BindingDefinition bd)
                 {
@@ -423,6 +408,24 @@ namespace Clasp.Process
 
             keyTerms = keys.ToArray();
             adjustedForms = adjustments.ToArray();
+        }
+
+        private static CompileTimeBinding ResolveBinding(Identifier id, ParseContext context)
+        {
+            if (id.TryResolveBinding(context.Phase,
+                out CompileTimeBinding? binding,
+                out CompileTimeBinding[] candidates))
+            {
+                return binding;
+            }
+            else if (candidates.Length > 1)
+            {
+                throw new ParserException.AmbiguousIdentifier(id, candidates);
+            }
+            else
+            {
+                throw new ParserException.UnboundIdentifier(id);
+            }
         }
 
         #endregion
