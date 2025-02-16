@@ -177,7 +177,7 @@ namespace Clasp.Data.AbstractSyntax
             }
         }
         public override VmInstruction CopyContinuation() => new FunctionVerification(Arguments.ToArray());
-        public override string ToString() => string.Format("APPL-VERIF({0}; {1})", HOLE, Arguments.ToArray());
+        public override string ToString() => string.Format("APPL-VERIF({0}; {1})", HOLE, string.Join(", ", Arguments.AsEnumerable()));
     }
 
     /// <summary>
@@ -346,7 +346,7 @@ namespace Clasp.Data.AbstractSyntax
             }
         }
         public override VmInstruction CopyContinuation() => new FunctionDispatch(Op, Arguments.ToArray());
-        public override string ToString() => string.Format("APPL-DISP({0}; {1})", Op, string.Join(", ", Arguments.ToArray<object>()));
+        public override string ToString() => string.Format("APPL-DSPX({0}; {1})", Op, string.Join(", ", Arguments.ToArray<object>()));
     }
 
     #endregion

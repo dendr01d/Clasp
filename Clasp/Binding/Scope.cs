@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
+using Clasp.Data.Metadata;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
 using Clasp.Interfaces;
@@ -29,6 +30,17 @@ namespace Clasp.Binding
 
         public bool Binds(string symbolicName) => _bindingStore.ContainsKey(symbolicName);
 
+        /// <summary>
+        /// Create a <paramref name="type"/> <see cref="CompileTimeBinding"/> on
+        /// <paramref name="symbolicName"/> that binds to itself as an <see cref="Identifier"/>.
+        /// </summary>
+        public void AddStaticBinding(string symbolicName, BindingType type)
+        {
+            Identifier newId = new Identifier(symbolicName, LexInfo.StaticInfo);
+            CompileTimeBinding newBinding = new CompileTimeBinding(newId, type);
+            AddBinding(symbolicName, newBinding);
+        }
+
         public void AddBinding(string symbolicName, CompileTimeBinding binding)
         {
             _bindingStore.Add(symbolicName, binding);
@@ -42,7 +54,7 @@ namespace Clasp.Binding
 
         public override string ToString()
         {
-            return string.Format("Scope #{0} @ {1}", Id, Location.Snippet);
+            return string.Format("Scope #{0} @ {1}", Id, Location);
         }
     }
 }

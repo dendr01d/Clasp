@@ -9,5 +9,6 @@ namespace Clasp.Data.Terms
         public override string ToString() => string.Format("\"{0}\"", System.Uri.UnescapeDataString(Value));
         public override string ToTermString() => Value;
         protected override string FormatType() => "String";
+        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(CharString), Value);
     }
 }

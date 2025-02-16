@@ -177,6 +177,13 @@ namespace Clasp
                 "The given syntax is invalid for expansion: {0}",
                 unknownForm)
             { }
+
+            internal InvalidSyntax(Syntax unknownForm, ClaspException innerException) : base(
+                unknownForm.Location,
+                innerException,
+                "The given syntax is invalid for expansion: {0}",
+                unknownForm)
+            { }
         }
 
         public class UnboundIdentifier : ExpanderException
@@ -213,7 +220,7 @@ namespace Clasp
                 "Failed to bind '{0}' in phase {1} in scope ({2}).",
                 unboundId.Name,
                 context.Phase,
-                string.Join(", ", unboundId.LexContext[context.Phase]))
+                string.Join(", ", unboundId.LexContext[context.Phase].Select(x => x.Id)))
             { }
         }
 
@@ -251,13 +258,13 @@ namespace Clasp
 
         public class ExpectedProperList : ExpanderException
         {
-            internal ExpectedProperList(Cons notAProperList, LexInfo info) : base(
+            internal ExpectedProperList(Term notAProperList, LexInfo info) : base(
                 info.Location,
                 "Expected proper list: {0}",
                 notAProperList)
             { }
 
-            internal ExpectedProperList(string expectedType, Cons notAProperList, LexInfo info) : base(
+            internal ExpectedProperList(string expectedType, Term notAProperList, LexInfo info) : base(
                 info.Location,
                 "Expected proper list with '{0}' elements: {1}",
                 expectedType,
@@ -340,6 +347,13 @@ namespace Clasp
                 "The parser is unable to parse this syntax: {0}",
                 badSyntax)
             { }
+
+            internal InvalidSyntax(Syntax badSyntax, ClaspException innerException) : base(
+                badSyntax.Location,
+                innerException,
+                "The parser is unable to parse this syntax: {0}",
+                badSyntax)
+            { }
         }
 
         public class UnboundMacro : ParserException
@@ -412,7 +426,7 @@ namespace Clasp
 
             internal InvalidArguments(StxPair invalid, string preQualifier, int expectedNumber, LexInfo info) : base(
                 info.Location,
-                "The form requires {0} {1} argument{2}: {3}",
+                "The form requires{0} {1} argument{2}: {3}",
                 string.IsNullOrWhiteSpace(preQualifier) ? string.Empty : " " + preQualifier,
                 expectedNumber.ToString(),
                 expectedNumber == 1 ? string.Empty : "s",

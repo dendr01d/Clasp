@@ -18,14 +18,23 @@ namespace Clasp.Process
 
         public Processor()
         {
-            RuntimeEnv = new SuperEnvironment(this);
-            CompileTimeEnv = new SuperEnvironment(this);
+            RuntimeEnv = StandardEnv.CreateNew(this);
+            CompileTimeEnv = StandardEnv.CreateNew(this);
         }
 
         /// <summary>
         /// Lex <paramref name="input"/> into a stream of tokens, while earmarking it as coming from <paramref name="source"/>.
         /// </summary>
         public IEnumerable<Token> Lex(string source, string input) => Lexer.LexText(source, input);
+
+        public IEnumerable<Token> LexLine(string input, Blob session)
+        {
+            int currentCharCount = session.CharacterCount;
+            int currentLineCount = session.Lines.Length + 1;
+            session.AddLine(input);
+
+            return Lexer.LexSingleLine(session, input, currentLineCount, currentCharCount);
+        }
 
         /// <summary>
         /// Read a series of tokens into structured <see cref="Term"/> values, preserving lexical qualities

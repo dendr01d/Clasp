@@ -13,14 +13,20 @@ namespace Clasp.Data.Text
     /// </summary>
     public class Blob : IEnumerable<string>
     {
+        private readonly List<string> _lines;
+
         public readonly string Source;
-        public readonly string[] Lines;
+        public string[] Lines => _lines.ToArray();
+
+        public int CharacterCount => _lines.Select(x => x.Length).Sum();
 
         public Blob(string source, IEnumerable<string> lines)
         {
+            _lines = new List<string>(lines);
             Source = source;
-            Lines = lines.ToArray();
         }
+
+        public void AddLine(string line) => _lines.Add(line);
 
         public string this[int i] => Lines[i];
 

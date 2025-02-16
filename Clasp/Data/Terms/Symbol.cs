@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
+using System.Runtime.ConstrainedExecution;
 
 using Clasp.Data.Static;
+using Clasp.Data.Terms.ProductValues;
 
 namespace Clasp.Data.Terms
 {
@@ -64,6 +66,7 @@ namespace Clasp.Data.Terms
 
 
         protected override string FormatType() => "Symbol";
+        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(Symbol), Name);
     }
 
     internal class GenSym : Symbol
@@ -88,6 +91,7 @@ namespace Clasp.Data.Terms
         public GenSym() : this("GenSym") { }
 
         protected override string FormatType() => "GenSym";
+        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(GenSym), nameof(Symbol), Name);
     }
 
     /// <summary>
@@ -112,5 +116,6 @@ namespace Clasp.Data.Terms
         public static readonly Implicit ParDef = new(Keyword.IMP_PARDEF);
 
         protected override string FormatType() => "ImpSymbol";
+        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(Implicit), nameof(Symbol), Name);
     }
 }

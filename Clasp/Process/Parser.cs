@@ -33,52 +33,60 @@ namespace Clasp.Process
 
         private static CoreForm Parse(Syntax stx, ParseContext context)
         {
-            if (stx is Identifier id)
+            try
             {
-                CompileTimeBinding binding = ResolveBinding(id, context);
+                if (stx is Identifier id)
+                {
+                    CompileTimeBinding binding = ResolveBinding(id, context);
 
-                if (binding.BoundType == BindingType.Variable)
-                {
-                    return new VariableLookup(binding.Name);
-                }
-                else if (binding.BoundType == BindingType.Transformer)
-                {
-                    if (context.TryLookupMacro(binding, out MacroProcedure? macro))
+                    if (binding.BoundType == BindingType.Variable)
                     {
-                        return new ConstValue(macro);
+                        return new VariableLookup(binding.Name);
+                    }
+                    else if (binding.BoundType == BindingType.Transformer)
+                    {
+                        if (context.TryLookupMacro(binding, out MacroProcedure? macro))
+                        {
+                            return new ConstValue(macro);
+                        }
+
+                        throw new ParserException.UnboundMacro(binding.Id);
                     }
 
-                    throw new ParserException.UnboundMacro(binding.Id);
+                    throw new ParserException.InvalidForm(id.Name, stx);
                 }
+                else if (stx is SyntaxList stl)
+                {
+                    return ParseApplication(stl, context);
+                }
+                else
+                {
+                    return new ConstValue(stx.ToDatum());
+                }
+            }
+            catch (ClaspException cex)
+            {
+                throw new ParserException.InvalidSyntax(stx, cex);
+            }
 
-                throw new ParserException.InvalidForm(id.Name, stx);
-            }
-            else if (stx is SyntaxList stl)
-            {
-                return ParseApplication(stl, context);
-            }
-            else
-            {
-                return new ConstValue(stx.ToDatum());
-            }
         }
 
         private static CoreForm ParseApplication(SyntaxList stl, ParseContext context)
         {
-            if (stl.Car is Identifier op
+            if (stl.Expose().Car is Identifier op
                 && ResolveBinding(op, context).BoundType == BindingType.Special)
             {
                 return ParseSpecial(op.Name, stl, context);
             }
 
-            CoreForm parsedOp = Parse(stl.Car, context);
+            CoreForm parsedOp = Parse(stl.Expose().Car, context);
 
             if (parsedOp.IsImperative)
             {
                 throw new ParserException.InvalidOperator(parsedOp, stl);
             }
 
-            CoreForm[] argTerms = stl.Cdr switch
+            CoreForm[] argTerms = stl.Expose().Cdr switch
             {
                 Nil => [],
                 StxPair stp => ParseArguments(stp, stl.LexContext, context).ToArray(),
@@ -91,7 +99,7 @@ namespace Clasp.Process
         private static CoreForm ParseSpecial(string formName, SyntaxList stl, ParseContext context)
         {
             // all special forms have at least one argument
-            if (stl.Cdr is not StxPair args)
+            if (stl.Expose().Cdr is not StxPair args)
             {
                 throw new ParserException.InvalidForm(formName, stl);
             }
@@ -111,8 +119,8 @@ namespace Clasp.Process
 
                     Keyword.QUOTE_SYNTAX => ParseQuoteSyntax(args, info, context),
 
-                    Keyword.APPLY => ParseApplication(stl, context),
-                    Keyword.IMP_APP => ParseApplication(stl, context),
+                    Keyword.APPLY => ParseApplication(stl.PopFront(), context),
+                    Keyword.IMP_APP => ParseApplication(stl.PopFront(), context),
 
                     Keyword.IMP_PARDEF => ParseDefinition(args, info, context),
                     Keyword.DEFINE => ParseDefinition(args, info, context),

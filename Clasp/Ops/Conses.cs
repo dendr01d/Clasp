@@ -4,7 +4,7 @@ using Clasp.Data.Terms.ProductValues;
 
 namespace Clasp.Ops
 {
-    internal static class Pairs
+    internal static class Conses
     {
         public static Term Cons(Term t1, Term t2) => Pair.Cons(t1, t2);
         public static Term Car(Pair p) => p.Car;
@@ -21,6 +21,5 @@ namespace Clasp.Ops
             p.SetCdr(t);
             return VoidTerm.Value;
         }
-
     }
 }

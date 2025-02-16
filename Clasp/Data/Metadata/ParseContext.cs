@@ -14,8 +14,8 @@ namespace Clasp.Data.Metadata
     internal class ParseContext
     {
         /// <summary>
-        /// Records compile-time bindings of identifiers in the current lexical scope. Closures
-        /// are used to ensure the locality of bound values.
+        /// Records compile-time bindings of identifiers in the current lexical scope.
+        /// Closures are used to ensure the locality of bound values.
         /// </summary>
         public readonly Environment CompileTimeEnv;
 

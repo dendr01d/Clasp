@@ -6,6 +6,8 @@ using System.Text.RegularExpressions;
 
 using Clasp.Data.Text;
 
+using static Clasp.LexerException;
+
 namespace Clasp.Process
 {
     internal static class Lexer
@@ -94,36 +96,61 @@ namespace Clasp.Process
 
             foreach (string line in inputLines)
             {
-                if (!string.IsNullOrWhiteSpace(line))
+                try
                 {
-                    var lineMatches = Regex.Matches(line, _grammar);
-
-                    foreach (Match match in lineMatches)
+                    IEnumerable<Token> lineOutput = LexSingleLine(sourceText, line, lineNo, charNo);
+                }
+                catch(AggregateException aggEx)
+                {
+                    foreach(LexerException inner in aggEx.InnerExceptions.OfType<LexerException>())
                     {
-                        SourceCode locale = new SourceCode(
-                            sourceName, lineNo, match.Index, charNo + match.Index, match.Length, sourceText);
-
-                        TokenType tokType = ExtractMatchedTokenType(match);
-
-                        Token newToken = Token.Tokenize(tokType, match.Value, sourceText, locale);
-
-                        if (newToken.TType == TokenType.Comment || newToken.TType == TokenType.Whitespace)
-                        {
-                            continue; //maybe I'll do something with this later?
-                        }
-                        else if (newToken.TType == TokenType.Malformed)
-                        {
-                            malformedInputs.Add(new LexerException.MalformedInput(newToken));
-                        }
-                        else
-                        {
-                            output.Add(newToken);
-                        }
+                        malformedInputs.Add(inner);
                     }
                 }
 
                 charNo += line.Length;
                 ++lineNo;
+            }
+
+            if (malformedInputs.Any())
+            {
+                throw new AggregateException("Malformed lexemes found in input.", malformedInputs);
+            }
+
+            return output;
+        }
+
+        public static IEnumerable<Token> LexSingleLine(Blob sourceText, string text, int lineNo, int charNo)
+        {
+            List<Token> output = new List<Token>();
+            List<LexerException> malformedInputs = new List<LexerException>();
+
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                var lineMatches = Regex.Matches(text, _grammar);
+
+                foreach (Match match in lineMatches)
+                {
+                    SourceCode locale = new SourceCode(
+                        sourceText.Source, lineNo, match.Index, charNo + match.Index, match.Length, sourceText);
+
+                    TokenType tokType = ExtractMatchedTokenType(match);
+
+                    Token newToken = Token.Tokenize(tokType, match.Value, sourceText, locale);
+
+                    if (newToken.TType == TokenType.Comment || newToken.TType == TokenType.Whitespace)
+                    {
+                        continue; //maybe I'll do something with this later?
+                    }
+                    else if (newToken.TType == TokenType.Malformed)
+                    {
+                        malformedInputs.Add(new LexerException.MalformedInput(newToken));
+                    }
+                    else
+                    {
+                        output.Add(newToken);
+                    }
+                }
             }
 
             if (malformedInputs.Any())

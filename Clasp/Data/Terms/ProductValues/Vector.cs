@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -16,5 +17,6 @@ namespace Clasp.Data.Terms.ProductValues
             string.Format(", ", Values.ToArray<object>()));
 
         protected override string FormatType() => string.Format("Vec<{0}>", string.Join(", ", Values.Select(x => x.TypeName)));
+        internal override string DisplayDebug() => string.Format("{0}: [{1}]", nameof(Vector), string.Join(", ", Values.AsEnumerable()).ToArray());
     }
 }

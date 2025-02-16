@@ -15,8 +15,10 @@ namespace Clasp.Data.Terms
         private Boolean(bool b) => Value = b;
         public override string ToString() => Value ? "#t" : "#f";
         protected override string FormatType() => "Bool";
+        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(Boolean), Value);
 
         public static implicit operator Boolean(bool b) => b ? True : False;
         public static implicit operator bool(Boolean b) => b != False;
+
     }
 }

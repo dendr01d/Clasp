@@ -14,7 +14,8 @@ namespace Clasp.Data.Terms.SyntaxValues
 
         public Datum(Term t, Token source) : this(t, new LexInfo(source.Location)) { }
 
-        public override string ToString() => string.Format("#'{0}", _datum);
+        //public override string ToString() => string.Format("#'{0}", _datum);
         protected override string FormatType() => "Stx";
+        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(Datum), nameof(Syntax), _datum.ToString());
     }
 }

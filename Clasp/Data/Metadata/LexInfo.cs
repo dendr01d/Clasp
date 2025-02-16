@@ -22,6 +22,8 @@ namespace Clasp.Data.Metadata
 
         private readonly Dictionary<int, HashSet<Scope>> _phasedScopeSets;
 
+        public static readonly LexInfo StaticInfo = new LexInfo(SourceCode.StaticSource);
+
         private LexInfo(SourceCode loc, IEnumerable<KeyValuePair<int, HashSet<Scope>>> dict)
         {
             Location = loc;
@@ -82,7 +84,7 @@ namespace Clasp.Data.Metadata
 
         public bool TryBind(int phase, string symbolicName, CompileTimeBinding binding)
         {
-            if (_phasedScopeSets[phase].MinBy(x => x.Id) is Scope scp
+            if (_phasedScopeSets[phase].MaxBy(x => x.Id) is Scope scp
                 && !scp.Binds(symbolicName))
             {
                 scp.AddBinding(symbolicName, binding);
@@ -103,6 +105,10 @@ namespace Clasp.Data.Metadata
                         yield return binding;
                     }
                 }
+            }
+            else
+            {
+                throw new ClaspGeneralException("The variable '{0}' has no assigned scopes in phase {1}.", symbolicName, phase);
             }
         }
 

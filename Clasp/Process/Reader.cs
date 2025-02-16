@@ -247,9 +247,9 @@ namespace Clasp.Process
             LexInfo listContext = SynthesizeLexicalSource(lead, tokens.Pop());
 
             StxPair listElements = dottedList
-                ? null!
+                ? StxPair.ImproperList(guaranteedItem, remainingItems.ToArray())
                 : StxPair.ProperList(guaranteedItem, remainingItems.ToArray());
-
+                
             return new SyntaxList(listElements, listContext);
         }
 

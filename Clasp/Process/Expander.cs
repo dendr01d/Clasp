@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
@@ -8,6 +9,7 @@ using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Data.Text;
 using Clasp.ExtensionMethods;
 
 using static System.Net.WebRequestMethods;
@@ -18,26 +20,34 @@ namespace Clasp.Process
     {
         public static Syntax ExpandSyntax(Syntax input, ExpansionContext context)
         {
+            input.AddScope(context.Phase, context.CompileTimeEnv.GlobalEnv.SuperScope);
             return Expand(input, context);
         }
 
         private static Syntax Expand(Syntax stx, ExpansionContext context)
         {
-            if (stx is Identifier id)
+            try
             {
-                return ExpandIdentifier(id, context);
+                if (stx is Identifier id)
+                {
+                    return ExpandIdentifier(id, context);
+                }
+                else if (stx is SyntaxList idApp && idApp.Expose().Car is Identifier op)
+                {
+                    return ExpandIdApplication(op, idApp, context);
+                }
+                else if (stx is SyntaxList app)
+                {
+                    return ExpandApplication(app, context);
+                }
+                else
+                {
+                    return ExpandImplicit(Implicit.SpDatum, AsArg(stx), context);
+                }
             }
-            else if (stx is SyntaxList idApp && idApp.Car is Identifier op)
+            catch (ClaspException cex)
             {
-                return ExpandIdApplication(op, idApp, context);
-            }
-            else if (stx is SyntaxList app)
-            {
-                return ExpandApplication(app, context);
-            }
-            else
-            {
-                return ExpandImplicit(Implicit.SpDatum, AsArg(stx), context);
+                throw new ExpanderException.InvalidSyntax(stx, cex);
             }
         }
 
@@ -118,7 +128,7 @@ namespace Clasp.Process
         private static Syntax ExpandImplicit(Implicit formSym, SyntaxList stl, ExpansionContext context)
         {
             Identifier op = new Identifier(formSym, stl);
-            return stl.Prepend(op);
+            return stl.Push(op);
         }
 
         /// <summary>
@@ -153,6 +163,7 @@ namespace Clasp.Process
                     Keyword.QUOTE_SYNTAX => tail,
 
                     Keyword.LAMBDA => ExpandLambdaArgs(tail, info, context),
+                    Keyword.IMP_LAMBDA => ExpandLambdaArgs(tail, info, context),
 
                     Keyword.IF => ExpandIfArgs(tail, info, context),
                     Keyword.BEGIN => ExpandSequence(tail, info, context),
@@ -175,7 +186,7 @@ namespace Clasp.Process
         {
             // essentially just check the path to special forms and disregard otherwise
             if (stx is SyntaxList stp
-                && stp.Car is Identifier op
+                && stp.Expose().Car is Identifier op
                 && op.TryResolveBinding(context.Phase, out CompileTimeBinding? binding)
                 && binding.BoundType == BindingType.Special)
             {
@@ -271,7 +282,7 @@ namespace Clasp.Process
 
             try
             {
-                Syntax expandedInput = Expand(input, subState);
+                Syntax expandedInput = ExpandSyntax(input, subState);
                 CoreForm parsedInput = Parser.ParseSyntax(expandedInput, subState);
                 output = Interpreter.InterpretProgram(parsedInput, context.CompileTimeEnv.GlobalEnv.Enclose());
             }
@@ -316,26 +327,36 @@ namespace Clasp.Process
         /// <summary>
         /// Expand and bind renames for a list of Identifier terms. No mutation takes place, so nothing is returned.
         /// </summary>
-        private static void ExpandParameterList(StxPair stp, LexInfo ctx, ExpansionContext context)
+        private static void ExpandParameterList(Term t, LexInfo info, ExpansionContext context)
         {
-            if (stp.Car is Identifier id)
+            if (t is Nil)
             {
-                if (!id.TryRenameAsVariable(context.Phase, out _))
-                {
-                    throw new ExpanderException.InvalidBindingOperation(id, context);
-                }
-
-                if (stp.Cdr is Nil)
-                {
-                    return;
-                }
-                else if (stp.Cdr is StxPair cdr)
-                {
-                    ExpandParameterList(cdr, ctx, context);
-                }
+                return;
             }
-
-            throw new ExpanderException.ExpectedProperList(nameof(Identifier), stp, ctx);
+            else if (t is Identifier dottedParam)
+            {
+                if (!dottedParam.TryRenameAsVariable(context.Phase, out _))
+                {
+                    throw new ExpanderException.InvalidBindingOperation(dottedParam, context);
+                }
+                return;
+            }
+            else if (t is Cons cns && cns.Car is Identifier nextParam)
+            {
+                if (!nextParam.TryRenameAsVariable(context.Phase, out _))
+                {
+                    throw new ExpanderException.InvalidBindingOperation(nextParam, context);
+                }
+                ExpandParameterList(cns.Cdr, info, context);
+            }
+            else if (t is SyntaxList stl)
+            {
+                ExpandParameterList(stl.Expose(), info, context);
+            }
+            else
+            {
+                throw new ExpanderException.ExpectedProperList(nameof(Identifier), t, info);
+            }
         }
 
         /// <summary>
@@ -503,7 +524,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax BuildLambda(Syntax formals, StxPair body)
+        private static SyntaxList BuildLambda(Syntax formals, StxPair body)
         {
             StxPair args = StxPair.Cons(formals, body);
             Identifier op = new Identifier(Implicit.SpLambda, formals);
@@ -522,17 +543,21 @@ namespace Clasp.Process
                 && nameAndFormals.Expose().TryMatchLeading(out key, out Term? maybeFormals)
                 && (tail is StxPair outBody))
             {
+                body = outBody;
 
                 if (maybeFormals is Nil n)
                 {
                     formals = new Datum(n, key.LexContext);
-                    body = outBody;
+                    return true;
+                }
+                else if (maybeFormals is Identifier dottedFormal)
+                {
+                    formals = dottedFormal;
                     return true;
                 }
                 else if (maybeFormals is StxPair fp)
                 {
                     formals = new SyntaxList(fp, key.LexContext);
-                    body = outBody;
                     return true;
                 }
             }
@@ -621,21 +646,23 @@ namespace Clasp.Process
 
         private static StxPair ExpandDefineArgs(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            if (context.Mode != ExpansionMode.InternalDefinition)
+            if (context.Mode == ExpansionMode.Expression)
             {
                 throw new ExpanderException.InvalidContext(Keyword.DEFINE, context.Mode, stp, info);
             }
             else if (TryRewriteDefineArgs(stp, out Identifier? key, out Syntax? value))
             {
                 context.SanitizeIdentifier(key);
-                if (!key.TryRenameAsVariable(context.Phase, out _))
+
+                if (!key.TryRenameAsVariable(context.Phase, out _)
+                    && !key.TryResolveBinding(context.Phase, out _))
                 {
                     throw new ExpanderException.InvalidBindingOperation(key, context);
                 }
 
                 Syntax expandedValue = Expand(value, context.AsExpression());
 
-                return StxPair.Cons(key, value);
+                return StxPair.ProperList(key, value);
             }
             else
             {
@@ -645,7 +672,7 @@ namespace Clasp.Process
 
         private static StxPair ExpandDefineSyntaxArgs(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            if (context.Mode != ExpansionMode.InternalDefinition)
+            if (context.Mode == ExpansionMode.Expression)
             {
                 throw new ExpanderException.InvalidContext(Keyword.DEFINE_SYNTAX, context.Mode, stp, info);
             }
@@ -665,7 +692,7 @@ namespace Clasp.Process
 
                 Syntax evaluatedMacro = ExpandImplicit(Implicit.SpDatum, AsArg(new Datum(macro, value)), context);
 
-                return StxPair.Cons(key, evaluatedMacro);
+                return StxPair.ProperList(key, evaluatedMacro);
             }
             else
             {
@@ -675,7 +702,7 @@ namespace Clasp.Process
 
         private static StxPair ExpandSetArgs(StxPair stp, LexInfo info, ExpansionContext context)
         {
-            if (context.Mode != ExpansionMode.InternalDefinition)
+            if (context.Mode == ExpansionMode.Expression)
             {
                 throw new ExpanderException.InvalidContext(Keyword.SET, context.Mode, stp, info);
             }
@@ -689,7 +716,7 @@ namespace Clasp.Process
                 {
                     Syntax expandedValue = Expand(value, context.AsExpression());
 
-                    return StxPair.Cons(key, expandedValue);
+                    return StxPair.ProperList(key, expandedValue);
                 }
                 else if (candidates.Length > 1)
                 {
@@ -728,7 +755,7 @@ namespace Clasp.Process
         private static StxPair ExpandLambdaArgs(StxPair stp, LexInfo info, ExpansionContext context)
         {
             if (stp.TryMatchLeading(out Syntax? formals, out Term? cdr)
-                && formals.Expose() is Nil or StxPair
+                && (formals.Expose() is Nil or StxPair || formals is Identifier)
                 && cdr is StxPair body)
             {
                 Scope outsideEdge = new Scope(formals);
@@ -739,11 +766,7 @@ namespace Clasp.Process
 
                 ExpansionContext bodyContext = context.InBody(insideEdge);
 
-                if (formals.Expose() is StxPair fp)
-                {
-                    ExpandParameterList(fp, info, bodyContext);
-                }
-                // nil parameter list needn't be expanded
+                ExpandParameterList(formals, info, context);
 
                 StxPair expandedBody = ExpandBody(body, info, bodyContext);
 

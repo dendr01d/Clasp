@@ -35,7 +35,7 @@ namespace Clasp.ExtensionMethods
             where T2 : Term
         {
             if (p.Car is T1 outCar
-                && p.Cdr is Pair p2
+                && p.Cdr is Cons p2
                 && p2.Car is T2 outCadr)
             {
                 car = outCar;
@@ -60,9 +60,9 @@ namespace Clasp.ExtensionMethods
             where T3 : Term
         {
             if (p.Car is T1 outCar
-                && p.Cdr is Pair p2
+                && p.Cdr is Cons p2
                 && p2.Car is T2 outCadr
-                && p2.Cdr is Pair p3
+                && p2.Cdr is Cons p3
                 && p3.Car is T3 outCaddr)
             {
                 car = outCar;

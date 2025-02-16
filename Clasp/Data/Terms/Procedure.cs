@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Xml.Linq;
 
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
@@ -53,6 +54,7 @@ namespace Clasp.Data.Terms
         public void Add(NativeFunction nativeOp) => _nativeOps.Add(nativeOp);
 
         protected override string FormatType() => string.Format("Nat-Prim({0}:{1})", OpSymbol, _nativeOps.Count);
+        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(NativeProcedure), nameof(PrimitiveProcedure), OpSymbol);
     }
 
     internal sealed class SystemProcedure : PrimitiveProcedure, IEnumerable<SystemFunction>
@@ -86,6 +88,7 @@ namespace Clasp.Data.Terms
         public void Add(SystemFunction systemOp) => _systemOps.Add(systemOp);
 
         protected override string FormatType() => string.Format("Sys-Prim({0}:{1})", OpSymbol, _systemOps.Count);
+        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(SystemProcedure), nameof(PrimitiveProcedure), OpSymbol);
     }
 
     internal class CompoundProcedure : Procedure
@@ -105,7 +108,7 @@ namespace Clasp.Data.Terms
             VariadicParameter = null;
             InformalParameters = informals;
 
-            CapturedEnv = enclosing;
+            CapturedEnv = enclosing.Enclose();
             Body = body;
 
             Arity = parameters.Length;
@@ -134,6 +137,7 @@ namespace Clasp.Data.Terms
             string.Join(' ', Parameters),
             VariadicParameter is null ? string.Empty : string.Format(" . {0}", VariadicParameter));
         protected override string FormatType() => string.Format("Lambda({0}{1})", Arity, IsVariadic ? "+" : string.Empty);
+        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(CompoundProcedure), ToString());
     }
 
     internal sealed class MacroProcedure : CompoundProcedure

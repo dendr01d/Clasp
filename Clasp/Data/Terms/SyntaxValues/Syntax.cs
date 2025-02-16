@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Diagnostics;
+using System.Linq;
 
 using Clasp.Binding;
 using Clasp.Data.Metadata;
@@ -28,7 +29,7 @@ namespace Clasp.Data.Terms.SyntaxValues
             return term switch
             {
                 Syntax s => s,
-                Pair cl => SyntaxList.Wrap(cl, ctx),
+                Cons cl => SyntaxList.Wrap(cl, ctx),
                 Symbol sym => new Identifier(sym, ctx),
                 _ => new Datum(term, ctx)
             };
@@ -75,13 +76,13 @@ namespace Clasp.Data.Terms.SyntaxValues
             {
                 return ToDatum(stx.Expose());
             }
-            if (term is Pair cl)
+            if (term is Cons cl)
             {
                 return Pair.Cons(ToDatum(cl.Car), ToDatum(cl.Cdr));
             }
             else if (term is Vector vec)
             {
-                return new Vector(vec.Values.Select(x => ToDatum(x)).ToArray());
+                return new Vector(vec.Values.Select(ToDatum).ToArray());
             }
             else
             {
@@ -89,13 +90,15 @@ namespace Clasp.Data.Terms.SyntaxValues
             }
         }
 
-        public override string ToString()
+        public override string ToString() => string.Format("#'{0}", Expose().ToString());
+
+        public string ToSyntaxString()
         {
             return string.Format("#<syntax:{0}:{1}:{2} {3}>",
                 LexContext.Location.Source,
                 LexContext.Location.LineNumber,
                 LexContext.Location.Column,
-                LexContext.Location.Snippet);
+                ToString());
         }
     }
 }

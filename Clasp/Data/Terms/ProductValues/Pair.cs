@@ -10,6 +10,19 @@ namespace Clasp.Data.Terms.ProductValues
     {
         public abstract Term Car { get; }
         public abstract Term Cdr { get; }
+
+        public override string ToString() => string.Format("({0}{1})", Car, PrintAsTail(Cdr));
+
+        private static string PrintAsTail(Term t)
+        {
+            return t switch
+            {
+                SyntaxList stl => PrintAsTail(stl.Expose()),
+                Cons cns => string.Format(" {0}{1}", cns.Car, PrintAsTail(cns.Cdr)),
+                Nil => string.Empty,
+                _ => string.Format(" . {0}", t)
+            };
+        }
     }
 
     internal abstract class Cons<T1, T2> : Cons
@@ -30,18 +43,6 @@ namespace Clasp.Data.Terms.ProductValues
 
         public void SetCar(T1 newCar) => _car = newCar;
         public void SetCdr(T2 newCdr) => _cdr = newCdr;
-
-        public override string ToString() => string.Format("({0}{1})", Car, PrintAsTail(Cdr));
-
-        private static string PrintAsTail(Term t)
-        {
-            return t switch
-            {
-                Cons cns => string.Format(" {0}{1}", cns.Car, PrintAsTail(cns.Cdr)),
-                Nil => string.Empty,
-                _ => string.Format(" . {0}", t)
-            };
-        }
 
         protected override string FormatType() => string.Format("Cons<{0}, {1}>", Car.TypeName, Cdr.TypeName);
     }
@@ -76,6 +77,7 @@ namespace Clasp.Data.Terms.ProductValues
 
             return output;
         }
+        internal override string DisplayDebug() => string.Format("{0} ({1}): ", nameof(Pair), nameof(Cons), ToString());
     }
 
     internal sealed class StxPair : Cons<Syntax, Term>
@@ -114,5 +116,6 @@ namespace Clasp.Data.Terms.ProductValues
                 return StxPair.Cons(first, cdr);
             }
         }
+        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(StxPair), nameof(Cons), ToString());
     }
 }

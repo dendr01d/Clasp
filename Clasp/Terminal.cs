@@ -75,7 +75,10 @@ namespace Clasp
             string input = string.Empty;
             string output = string.Empty;
 
+            // -----
+
             Processor clasp = new Processor();
+            Blob session = new Blob("REPL", []);
 
             while (input != _QUIT_CMD)
             {
@@ -152,17 +155,19 @@ namespace Clasp
                             {
                                 if (_showingInput) writer.WriteLine(" INPUT: {0}", input);
 
-                                IEnumerable<Token> tokens = clasp.Lex("REPL", input);
+                                IEnumerable<Token> tokens = clasp.LexLine(input, session);
                                 if (_showingInput) writer.WriteLine("TOKENS: {0}", Printer.PrintRawTokens(tokens));
 
                                 Syntax readSyntax = clasp.Read(tokens);
                                 if (_showingInput) writer.WriteLine("  READ: {0}", readSyntax.ToString());
+                                if (_showingInput) writer.WriteLine("    └─> {0}", readSyntax.ToDatum());
 
                                 Syntax expandedSyntax = clasp.Expand(readSyntax);
                                 if (_showingInput) writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
+                                if (_showingInput) writer.WriteLine("    └─> {0}", expandedSyntax.ToDatum());
 
                                 CoreForm parsedInput = clasp.Parse(expandedSyntax);
-                                if (_showingInput) writer.WriteLine(" PARSE: {0}", parsedInput.ToTerm());
+                                if (_showingInput) writer.WriteLine(" PARSE: {0}", parsedInput.ToString());
 
                                 if (_showingInput) writer.WriteLine("-------");
 
@@ -230,7 +235,7 @@ namespace Clasp
             if (ex.InnerException is not null)
             {
                 PrintExceptionInfo(sw, ex.InnerException);
-                sw.WriteLine("└─>");
+                sw.Write("└─> ");
             }
 
             sw.Write(ex switch

@@ -15,12 +15,12 @@ namespace Clasp.Binding.Environments
 
             foreach (Symbol kw in CoreKeywords)
             {
-                output.DefineCoreForm(kw);
+                output.DefineStaticKeyword(kw);
             }
 
             foreach (PrimitiveProcedure pp in PrimProcs)
             {
-                output.DefineInitial(pp.OpSymbol.Name, pp);
+                output.DefineStaticPrimitive(pp.OpSymbol, pp);
             }
 
             return output;
@@ -54,11 +54,11 @@ namespace Clasp.Binding.Environments
         private static readonly PrimitiveProcedure[] PrimProcs = new PrimitiveProcedure[]
         {
             // List Ops
-            new NativeProcedure("cons", new NativeBinary<Term, Term>(Pairs.Cons)),
-            new NativeProcedure("car", new NativeUnary<Pair>(Pairs.Car)),
-            new NativeProcedure("cdr", new NativeUnary<Pair>(Pairs.Cdr)),
-            new NativeProcedure("set-car", new NativeBinary<Pair, Term>(Pairs.SetCar)),
-            new NativeProcedure("set-cdr", new NativeBinary<Pair, Term>(Pairs.SetCdr)),
+            new NativeProcedure("cons", new NativeBinary<Term, Term>(Conses.Cons)),
+            new NativeProcedure("car", new NativeUnary<Pair>(Conses.Car)),
+            new NativeProcedure("cdr", new NativeUnary<Pair>(Conses.Cdr)),
+            new NativeProcedure("set-car", new NativeBinary<Pair, Term>(Conses.SetCar)),
+            new NativeProcedure("set-cdr", new NativeBinary<Pair, Term>(Conses.SetCdr)),
 
             // Value Equality
             new NativeProcedure("eq", new NativeBinary<Term, Term>(Equality.Eq)),

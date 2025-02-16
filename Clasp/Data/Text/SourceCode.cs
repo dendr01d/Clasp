@@ -81,8 +81,15 @@ namespace Clasp.Data.Text
             Original = original;
         }
 
+        public static readonly SourceCode StaticSource = new SourceCode("CLASP", -1, -1, -1, -1, new Blob("CLASP", []), true);
+
         public override string ToString()
         {
+            if (this.Equals(StaticSource))
+            {
+                return "Static";
+            }
+
             return string.Format("{0}: Line {1}, Column {2}", Source, LineNumber, Column);
         }
     }

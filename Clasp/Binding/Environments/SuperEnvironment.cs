@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Clasp.Data.Terms;
+using Clasp.Data.Text;
 using Clasp.Process;
 
 namespace Clasp.Binding.Environments
@@ -22,6 +23,7 @@ namespace Clasp.Binding.Environments
         // Holds definitions imported from modules, indexed by module name
         private readonly List<KeyValuePair<string, Environment>> _importedModules;
 
+        public readonly Scope SuperScope;
 
         public override SuperEnvironment GlobalEnv => this;
 
@@ -30,14 +32,20 @@ namespace Clasp.Binding.Environments
             ParentProcess = processor;
             _staticBindings = new Dictionary<string, Term>();
             _importedModules = new();
+            SuperScope = new Scope(SourceCode.StaticSource);
         }
 
-        public void DefineInitial(string key, Term value)
+        public void DefineStaticKeyword(Symbol keySym)
         {
-            _staticBindings.Add(key, value);
+            _staticBindings.Add(keySym.Name, keySym);
+            SuperScope.AddStaticBinding(keySym.Name, BindingType.Special);
         }
 
-        public void DefineCoreForm(Symbol sym) => DefineInitial(sym.Name, sym);
+        public void DefineStaticPrimitive(Symbol keySym, PrimitiveProcedure pp)
+        {
+            _staticBindings.Add(keySym.Name, pp);
+            SuperScope.AddStaticBinding(keySym.Name, BindingType.Primitive);
+        }
 
         public override Term LookUp(string name)
         {

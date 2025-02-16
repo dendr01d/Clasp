@@ -54,7 +54,7 @@ namespace Clasp.Data.Terms
         }
 
         public override string ToTermString() => Value.ToString();
-
         protected override string FormatType() => "Char";
+        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(Character), Value);
     }
 }
