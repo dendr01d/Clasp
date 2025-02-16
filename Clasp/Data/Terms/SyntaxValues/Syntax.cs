@@ -23,12 +23,6 @@ namespace Clasp.Data.Terms.SyntaxValues
 
         #region Static Constructors
 
-        private static Syntax Wrap(Term term, SourceCode loc)
-        {
-            LexInfo ctx = new(loc);
-            return Wrap(term, ctx);
-        }
-
         private static Syntax Wrap(Term term, LexInfo ctx)
         {
             return term switch
@@ -43,13 +37,16 @@ namespace Clasp.Data.Terms.SyntaxValues
         /// <summary>
         /// Create a syntax with blank scope corresponding to the location of the given token.
         /// </summary>
-        public static Syntax FromDatum(Term term, Token token) => Wrap(term, token.Location);
+        public static Syntax FromDatum(Term term, Token token) => Wrap(term, new LexInfo(token.Location));
 
         /// <summary>
-        /// Create a syntax with the same scope and location as an existing syntax.
+        /// Create a syntax with the same scope and location as existing syntax.
         /// </summary>
         public static Syntax FromDatum(Term term, Syntax stx) => Wrap(term, stx.LexContext);
 
+        /// <summary>
+        /// Create a syntax with the provided lexical information.
+        /// </summary>
         public static Syntax FromDatum(Term term, LexInfo ctx) => Wrap(term, ctx);
 
         #endregion
@@ -59,9 +56,18 @@ namespace Clasp.Data.Terms.SyntaxValues
         public virtual void RemoveScope(int phase, params Scope[] scopes) => LexContext.RemoveScope(phase, scopes);
 
         /// <summary>
+        /// Create a copy of this Syntax stripped of scope information at or above
+        /// the level of <paramref name="inclusivePhaseThreshold"/>.
+        /// </summary>
+        public Syntax StripScopes(int inclusivePhaseThreshold)
+        {
+            LexInfo strippedContext = LexContext.RestrictPhaseUpTo(inclusivePhaseThreshold);
+            return FromDatum(ToDatum(), strippedContext);
+        }
+
+        /// <summary>
         /// Strip all the syntactic info from this syntax's wrapped value. Recurs upon nested terms.
         /// </summary>
-        /// <returns></returns>
         public Term ToDatum() => ToDatum(Expose());
         private static Term ToDatum(Term term)
         {

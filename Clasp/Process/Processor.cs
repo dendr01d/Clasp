@@ -34,32 +34,17 @@ namespace Clasp.Process
         public Syntax Read(IEnumerable<Token> tokens) => Reader.ReadTokens(tokens);
 
         /// <summary>
-        /// Hygienically expand macros in <paramref name="rawSyntax"/>, recording variable renamings in <paramref name="context"/>.
+        /// Hygienically expand macros in <paramref name="rawSyntax"/>.
         /// </summary>
-        /// <remarks>
-        /// Parsing the resulting expanded syntax will require <paramref name="context"/>.
-        /// </remarks>
-        public Syntax Expand(Syntax rawSyntax, ExpansionContext context) => Expander.ExpandSyntax(rawSyntax, context);
-        /// <summary>
-        /// Expand macros in <paramref name="rawSyntax"/>.
-        /// </summary>
-        public Syntax Expand(Syntax rawSyntax) => Expander.ExpandSyntax(rawSyntax, ExpansionContext.FreshExpansion(RuntimeEnv));
+        public Syntax Expand(Syntax rawSyntax, int phase = 1)
+            => Expander.ExpandSyntax(rawSyntax, new ExpansionContext(CompileTimeEnv, phase));
 
         /// <summary>
         /// Parse <paramref name="expandedSyntax"/> into a structured <see cref="CoreForm"/> object using the lexical
         /// information saved in <paramref name="context"/>.
         /// </summary>
-        public CoreForm Parse(Syntax expandedSyntax, ExpansionContext context) => Parser.ParseSyntax(expandedSyntax, context);
-        /// <summary>
-        /// First <see cref="Expand(Syntax, ExpansionContext)"/> the provided <paramref name="rawSyntax"/>, then
-        /// <see cref="Parse(Syntax, ExpansionContext)"/> it into a <see cref="CoreForm"/>.
-        /// </summary>
-        public CoreForm Parse(Syntax rawSyntax)
-        {
-            ExpansionContext context = ExpansionContext.FreshExpansion(RuntimeEnv);
-            Syntax expandedStx = Expand(rawSyntax, context);
-            return Parse(expandedStx, context);
-        }
+        public CoreForm Parse(Syntax expandedSyntax, int phase = 1)
+            => Parser.ParseSyntax(expandedSyntax, new ParseContext(CompileTimeEnv, phase));
 
         /// <summary>
         /// Invoke a virtual machine to execute the program encoded by <paramref name="prog"/> and return the result.
@@ -71,20 +56,6 @@ namespace Clasp.Process
         /// </summary>
         public Term Interpret(CoreForm prog, System.Action<int, MachineState> postStepHook)
             => Interpreter.Interpret(prog, RuntimeEnv, postStepHook);
-
-
-        #region Statics
-
-        public static CoreForm ParseText(string source, string input, Environment env)
-        {
-            Syntax rawStx = Reader.ReadTokens(Lexer.LexText(source, input));
-
-            ExpansionContext context = ExpansionContext.FreshExpansion(env);
-            Syntax expandedStx = Expander.ExpandSyntax(rawStx, context);
-            return Parser.ParseSyntax(expandedStx, context);
-        }
-
-        #endregion
 
 
     }

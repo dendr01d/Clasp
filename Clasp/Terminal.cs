@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.VirtualMachine;
+using Clasp.Interfaces;
 
 namespace Clasp
 {
@@ -67,7 +68,7 @@ namespace Clasp
 
             bool showHeader = true;
             bool showHelp = true;
-            bool reloadEnv = false;
+            //bool reloadEnv = false;
 
             bool showTimer = false;
 
@@ -99,11 +100,11 @@ namespace Clasp
                         showHelp = false;
                     }
 
-                    if (reloadEnv)
-                    {
-                        clasp.ReloadEnv();
-                        reloadEnv = false;
-                    }
+                    //if (reloadEnv)
+                    //{
+                    //    clasp.ReloadEnv();
+                    //    reloadEnv = false;
+                    //}
 
                     writer.WriteLine();
                     PrintSeparator();
@@ -142,9 +143,9 @@ namespace Clasp
                             showHeader = true;
                             break;
 
-                        case _RELOAD_ENV_CMD:
-                            reloadEnv = true;
-                            break;
+                        //case _RELOAD_ENV_CMD:
+                        //    reloadEnv = true;
+                        //    break;
 
                         default:
                             if (!string.IsNullOrWhiteSpace(input))
@@ -155,13 +156,12 @@ namespace Clasp
                                 if (_showingInput) writer.WriteLine("TOKENS: {0}", Printer.PrintRawTokens(tokens));
 
                                 Syntax readSyntax = clasp.Read(tokens);
-                                if (_showingInput) writer.WriteLine("  READ: {0}", readSyntax.ToSourceString());
+                                if (_showingInput) writer.WriteLine("  READ: {0}", readSyntax.ToString());
 
-                                ExpansionContext exState = ExpansionContext.FreshExpansion(clasp.TopLevelEnv);
-                                Syntax expandedSyntax = clasp.Expand(readSyntax, exState);
-                                if (_showingInput) writer.WriteLine("EXPAND: {0}", expandedSyntax.ToSourceString());
+                                Syntax expandedSyntax = clasp.Expand(readSyntax);
+                                if (_showingInput) writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
 
-                                CoreForm parsedInput = clasp.Parse(expandedSyntax, exState);
+                                CoreForm parsedInput = clasp.Parse(expandedSyntax);
                                 if (_showingInput) writer.WriteLine(" PARSE: {0}", parsedInput.ToTerm());
 
                                 if (_showingInput) writer.WriteLine("-------");
@@ -247,7 +247,7 @@ namespace Clasp
 
             sw.WriteLine(ex.Message);
 
-            if (ex is InterpreterException ie && ie.ContinuationTrace.Length > 0)
+            if (ex is InterpreterException ie && ie.ContinuationTrace.Count > 0)
             {
                 sw.WriteLine();
                 sw.WriteLine("Stack trace:");

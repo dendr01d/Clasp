@@ -79,8 +79,6 @@ namespace Clasp.Data.Text
 
             SourceText = text;
             Original = original;
-
-            Inherent = false;
         }
 
         public override string ToString()

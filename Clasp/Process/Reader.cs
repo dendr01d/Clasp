@@ -10,6 +10,7 @@ using Clasp.Data.Terms.ProductValues;
 using Clasp.ExtensionMethods;
 using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
+using Clasp.Interfaces;
 
 namespace Clasp.Process
 {
@@ -116,15 +117,15 @@ namespace Clasp.Process
                 TokenType.OpenListParen => ReadList(current, tokens),
                 TokenType.OpenVecParen => ReadVector(current, tokens),
 
-                TokenType.Quote => NativelyExpandSyntax(current, Symbol.Quote, tokens),
-                TokenType.Quasiquote => NativelyExpandSyntax(current, Symbol.Quasiquote, tokens),
-                TokenType.Unquote => NativelyExpandSyntax(current, Symbol.Unquote, tokens),
-                TokenType.UnquoteSplice => NativelyExpandSyntax(current, Symbol.UnquoteSplicing, tokens),
+                TokenType.Quote => NativelyExpand(current, Symbol.Quote, tokens),
+                TokenType.Quasiquote => NativelyExpand(current, Symbol.Quasiquote, tokens),
+                TokenType.Unquote => NativelyExpand(current, Symbol.Unquote, tokens),
+                TokenType.UnquoteSplice => NativelyExpand(current, Symbol.UnquoteSplicing, tokens),
 
-                TokenType.Syntax => NativelyExpandSyntax(current, Symbol.Syntax, tokens),
-                TokenType.QuasiSyntax => NativelyExpandSyntax(current, Symbol.Quasisyntax, tokens),
-                TokenType.Unsyntax => NativelyExpandSyntax(current, Symbol.Unsyntax, tokens),
-                TokenType.UnsyntaxSplice => NativelyExpandSyntax(current, Symbol.UnsyntaxSplicing, tokens),
+                TokenType.Syntax => NativelyExpand(current, Symbol.Syntax, tokens),
+                TokenType.QuasiSyntax => NativelyExpand(current, Symbol.Quasisyntax, tokens),
+                TokenType.Unsyntax => NativelyExpand(current, Symbol.Unsyntax, tokens),
+                TokenType.UnsyntaxSplice => NativelyExpand(current, Symbol.UnsyntaxSplicing, tokens),
 
                 TokenType.Symbol => new Identifier(current),
                 TokenType.Character => new Datum(Character.Intern(current), current),
@@ -170,19 +171,18 @@ namespace Clasp.Process
             return new Datum(new Real(double.Parse(num)), current);
         }
 
-        private static Syntax NativelyExpandSyntax(Token opToken, Symbol opSym, Stack<Token> tokens)
+        private static SyntaxList NativelyExpand(Token opToken, Symbol opSym, Stack<Token> tokens)
         {
-            Token subListToken = tokens.Peek();
             Syntax arg = ReadSyntax(tokens);
 
-            SourceCode loc = SynthesizeSourceStructure(opToken, arg);
+            LexInfo info = SynthesizeLexicalSource(opToken, arg);
 
-            return Datum.Implicit(Nil.Value)
-                .Cons(arg, new LexInfo(subListToken.Location))
-                .Cons(Syntax.FromDatum(opSym, opToken), new LexInfo(loc));
+            Identifier op = new Identifier(opSym, arg.LexContext);
+
+            return new SyntaxList(StxPair.ProperList(op, arg), info);
         }
 
-        private static Syntax ReadVector(Token lead, Stack<Token> tokens)
+        private static Datum ReadVector(Token lead, Stack<Token> tokens)
         {
             List<Syntax> contents = new List<Syntax>();
 
@@ -194,14 +194,10 @@ namespace Clasp.Process
 
             Token close = tokens.Pop(); // remove closing paren
 
-            SourceCode loc = SynthesizeSourceStructure(lead, close);
+            LexInfo info = SynthesizeLexicalSource(lead, close);
 
-            return new Datum(new Vector(contents.ToArray()), new LexInfo(loc));
+            return new Datum(new Vector(contents.ToArray()), info);
         }
-
-        // See here https://docs.racket-lang.org/reference/reader.html#%28part._parse-pair%29
-        // For a peculiarity in how lists are read in the case of dotted terminators
-        // Not sure that I care to implement that here?
 
         private static Syntax ReadList(Token lead, Stack<Token> tokens)
         {
@@ -212,43 +208,54 @@ namespace Clasp.Process
             else if (tokens.Peek().TType == TokenType.ClosingParen)
             {
                 Token close = tokens.Pop(); // remove closing paren
-                SourceCode loc = SynthesizeSourceStructure(lead, close);
-                return new Datum(Nil.Value, new LexInfo(loc));
+                LexInfo info = SynthesizeLexicalSource(lead, close);
+                return new Datum(Nil.Value, info);
             }
 
-            Syntax car = ReadSyntax(tokens);
+            Token lastReadToken = tokens.Peek(); // stash the last token read for reporting purposes
+            Syntax guaranteedItem = ReadSyntax(tokens); // list not empty, so for sure at least one
 
-            if (tokens.Peek().TType == TokenType.ClosingParen)
+            List<Syntax> remainingItems = new List<Syntax>();
+            bool dottedList = false;
+
+            while(tokens.Peek().TType != TokenType.DotOperator
+                && tokens.Peek().TType != TokenType.ClosingParen)
             {
-                Token close = tokens.Pop(); // remove closing paren
-                SourceCode loc = SynthesizeSourceStructure(lead, close);
-                return new SyntaxPair(car, Datum.Implicit(Nil.Value), new LexInfo(loc));
+                lastReadToken = tokens.Peek();
+                Syntax next = ReadSyntax(tokens);
+                remainingItems.Add(next);
             }
-            else if (tokens.Peek().TType == TokenType.DotOperator)
-            {
-                Token dotOp = tokens.Pop(); // remove dot operator
-                Syntax cdr = ReadSyntax(tokens);
 
-                if (tokens.Peek().TType != TokenType.ClosingParen)
-                {
-                    throw new ReaderException.ExpectedListEnd(tokens.Peek(), dotOp);
-                }
-
-                Token close = tokens.Pop(); // remove closing paren
-                SourceCode loc = SynthesizeSourceStructure(lead, close);
-                return new SyntaxPair(car, cdr, new LexInfo(loc));
-            }
-            else
+            // check if there's a dotted element at the end
+            if (tokens.Peek().TType == TokenType.DotOperator)
             {
-                Syntax cdr = ReadList(tokens.Peek(), tokens);
-                SourceCode loc = SynthesizeSourceStructure(lead, cdr);
-                return new SyntaxPair(car, cdr, new LexInfo(loc));
+                tokens.Pop(); // remove the dot operator
+                dottedList = true;
+
+                lastReadToken = tokens.Peek();
+                Syntax next = ReadSyntax(tokens); // read the dotted item
+                remainingItems.Add(next);
             }
+
+            // ensure that a closing paren finishes the list
+            if (tokens.Peek().TType != TokenType.ClosingParen)
+            {
+                throw new ReaderException.ExpectedListEnd(tokens.Peek(), lastReadToken);
+            }
+
+            // pop off the closing paren while also synthesizing the aggregate lexical info
+            LexInfo listContext = SynthesizeLexicalSource(lead, tokens.Pop());
+
+            StxPair listElements = dottedList
+                ? null!
+                : StxPair.ProperList(guaranteedItem, remainingItems.ToArray());
+
+            return new SyntaxList(listElements, listContext);
         }
 
-        private static SourceCode SynthesizeSourceStructure(ISourceTraceable first, ISourceTraceable rest)
+        private static LexInfo SynthesizeLexicalSource(ISourceTraceable first, ISourceTraceable rest)
         {
-            return new SourceCode(
+            SourceCode sc = new SourceCode(
                 first.Location.Source,
                 first.Location.LineNumber,
                 first.Location.Column,
@@ -256,6 +263,8 @@ namespace Clasp.Process
                 rest.Location.StartingPosition + rest.Location.Length - first.Location.StartingPosition,
                 first.Location.SourceText,
                 true);
+
+            return new LexInfo(sc);
         }
 
     }

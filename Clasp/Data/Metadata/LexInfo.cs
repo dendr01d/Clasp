@@ -73,7 +73,7 @@ namespace Clasp.Data.Metadata
 
         public LexInfo RestrictPhaseUpTo(int phase)
         {
-            return new LexInfo(Location, _phasedScopeSets.Where(x => x.Key <= phase));
+            return new LexInfo(Location, _phasedScopeSets.Where(x => x.Key < phase));
         }
 
         #endregion

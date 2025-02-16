@@ -128,12 +128,12 @@ namespace Clasp
         {
             public SourceCode Location { get; private set; }
 
-            internal ExpectedListEnd(Token receivedToken, Token dotOp) : base(
+            internal ExpectedListEnd(Token receivedToken, Token previous) : base(
                 "Expected {0} token to complete list structure following {1} on line {2}, column {3}.",
                 TokenType.ClosingParen,
-                dotOp,
-                dotOp.Location.LineNumber,
-                dotOp.Location.Column)
+                previous,
+                previous.Location.LineNumber,
+                previous.Location.Column)
             {
                 Location = receivedToken.Location;
             }
@@ -288,13 +288,13 @@ namespace Clasp
         {
             internal InvalidArguments(Syntax invalid) : base(
                 invalid.Location,
-                "Wrong shape for argument: {1}",
+                "Argument has the wrong shape: {1}",
                 invalid)
             { }
 
             internal InvalidArguments(StxPair invalid, LexInfo info) : base(
                 info.Location,
-                "Wrong shape for arguments: {0}",
+                "Arguments have the wrong shape: {0}",
                 invalid)
             { }
         }
@@ -379,17 +379,6 @@ namespace Clasp
             { }
         }
 
-        public class WrongArity : ParserException
-        {
-            internal WrongArity(string formName, string howMany, Syntax badApplication) : base(
-                badApplication.Location,
-                "Form of type '{0}' requires {1} argument/s in a proper list: {2}",
-                formName,
-                howMany,
-                badApplication)
-            { }
-        }
-
         public class InvalidForm : ParserException
         {
             internal InvalidForm(string formName, Syntax invalidForm) : base(
@@ -405,6 +394,30 @@ namespace Clasp
                 "Error parsing '{0}' form: {1}",
                 formName,
                 invalidForm)
+            { }
+        }
+        public class InvalidArguments : ParserException
+        {
+            internal InvalidArguments(Syntax invalid) : base(
+                invalid.Location,
+                "Argument has the wrong shape: {1}",
+                invalid)
+            { }
+
+            internal InvalidArguments(StxPair invalid, LexInfo info) : base(
+                info.Location,
+                "Arguments have the wrong shape: {0}",
+                invalid)
+            { }
+
+            internal InvalidArguments(StxPair invalid, string preQualifier, int expectedNumber, LexInfo info) : base(
+                info.Location,
+                "The form requires {0} {1} argument{2}: {3}",
+                string.IsNullOrWhiteSpace(preQualifier) ? string.Empty : " " + preQualifier,
+                expectedNumber.ToString(),
+                expectedNumber == 1 ? string.Empty : "s",
+                invalid
+                )
             { }
         }
 

@@ -17,32 +17,32 @@ namespace Clasp.Ops
             return VoidTerm.Value;
         }
 
-        public static VoidTerm Import(MachineState mx, CharString cs)
-        {
-            if (mx.CurrentEnv != mx.CurrentEnv.TopLevel)
-            {
-                throw new ProcessingException.SemanticError("Files may only be imported at the top level of execution.");
-            }
+        //public static VoidTerm Import(MachineState mx, CharString cs)
+        //{
+        //    if (mx.CurrentEnv != mx.CurrentEnv.GlobalEnv)
+        //    {
+        //        throw new ProcessingException.SemanticError("Files may only be imported at the top level of execution.");
+        //    }
 
-            string path = Path.GetFullPath(cs.Value);
+        //    string path = Path.GetFullPath(cs.Value);
 
-            if (!File.Exists(path))
-            {
-                throw new ProcessingException.SemanticError("Could not find the file: {0}", path);
-            }
+        //    if (!File.Exists(path))
+        //    {
+        //        throw new ProcessingException.SemanticError("Could not find the file: {0}", path);
+        //    }
 
-            string fullText = string.Format("(begin {0} )", File.ReadAllText(path));
-            CoreForm output = Processor.ParseText(path, fullText, mx.CurrentEnv);
+        //    string fullText = string.Format("(begin {0} )", File.ReadAllText(path));
+        //    CoreForm output = Processor.ParseText(path, fullText, mx.CurrentEnv);
 
-            if (output is not SequentialForm sf)
-            {
-                throw new ClaspGeneralException("Somehow parsed imported 'begin' form to a different core form?");
-            }
+        //    if (output is not SequentialForm sf)
+        //    {
+        //        throw new ClaspGeneralException("Somehow parsed imported 'begin' form to a different core form?");
+        //    }
 
-            mx.Continuation.Push(output);
+        //    mx.Continuation.Push(output);
 
-            return VoidTerm.Value;
-        }
+        //    return VoidTerm.Value;
+        //}
 
 
 

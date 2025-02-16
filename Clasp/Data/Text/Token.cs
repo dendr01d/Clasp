@@ -1,5 +1,7 @@
 ﻿using System.Linq;
 
+using Clasp.Interfaces;
+
 namespace Clasp.Data.Text
 {
     public class Token : ISourceTraceable

@@ -16,9 +16,9 @@ namespace Clasp.Process
 {
     internal static class Expander
     {
-        public static Syntax ExpandSyntax(Syntax input, Environment compileTimeEnv, int phase = 1)
+        public static Syntax ExpandSyntax(Syntax input, ExpansionContext context)
         {
-            return Expand(input, new ExpansionContext(compileTimeEnv, phase));
+            return Expand(input, context);
         }
 
         private static Syntax Expand(Syntax stx, ExpansionContext context)

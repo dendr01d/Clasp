@@ -97,5 +97,22 @@ namespace Clasp.Data.Terms.ProductValues
                 return Cons(first, ProperList(rest[0], rest[1..]));
             }
         }
+
+        public static StxPair ImproperList(Syntax first, params Syntax[] rest)
+        {
+            if (rest.Length < 1)
+            {
+                throw new ClaspGeneralException("Can't create improper {0} without at least 2 arguments.", nameof(StxPair));
+            }
+            else if (rest.Length == 1)
+            {
+                return StxPair.Cons(first, rest[0]);
+            }
+            else
+            {
+                StxPair cdr = ImproperList(rest[0], rest[1..]);
+                return StxPair.Cons(first, cdr);
+            }
+        }
     }
 }

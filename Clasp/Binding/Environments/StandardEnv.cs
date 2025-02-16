@@ -121,7 +121,7 @@ namespace Clasp.Binding.Environments
 
             //IO
             new SystemProcedure("display", new SystemVariadic<Term>(IO.Display)),
-            new SystemProcedure("import", new SystemUnary<CharString>(IO.Import))
+            //new SystemProcedure("import", new SystemUnary<CharString>(IO.Import))
         };
 
     }

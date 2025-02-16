@@ -11,6 +11,8 @@ using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.ExtensionMethods;
 
+using static System.Net.WebRequestMethods;
+
 namespace Clasp.Process
 {
     internal static class Parser
@@ -64,8 +66,7 @@ namespace Clasp.Process
         private static CoreForm ParseApplication(SyntaxList stl, ParseContext context)
         {
             if (stl.Car is Identifier op
-                && op.TryResolveBinding(context.Phase, out CompileTimeBinding? binding)
-                && binding.BoundType == BindingType.Special)
+                && ResolveBinding(op, context).BoundType == BindingType.Special)
             {
                 return ParseSpecial(op.Name, stl, context);
             }
@@ -87,49 +88,50 @@ namespace Clasp.Process
             return new FunctionApplication(parsedOp, argTerms);
         }
 
-        private static CoreForm ParseSpecial(string formName, SyntaxList stx, ParseContext context)
+        private static CoreForm ParseSpecial(string formName, SyntaxList stl, ParseContext context)
         {
             // all special forms have at least one argument
-            if (stx.Cdr is not SyntaxList args)
+            if (stl.Cdr is not StxPair args)
             {
-                throw new ParserException.WrongArity(formName, "at least one", stx);
+                throw new ParserException.InvalidForm(formName, stl);
             }
 
+            LexInfo info = stl.LexContext;
             CoreForm result;
 
             try
             {
                 result = formName switch
                 {
-                    Keyword.IMP_TOP => ParseVariableLookup(args, exResult),
-                    Keyword.IMP_VAR => ParseVariableLookup(args, exResult),
+                    Keyword.IMP_TOP => ParseVariableLookup(args, info, context),
+                    Keyword.IMP_VAR => ParseVariableLookup(args, info, context),
 
-                    Keyword.QUOTE => ParseQuote(args),
-                    Keyword.IMP_DATUM => ParseQuote(args),
+                    Keyword.QUOTE => ParseQuote(args, info),
+                    Keyword.IMP_DATUM => ParseQuote(args, info),
 
-                    Keyword.QUOTE_SYNTAX => ParseQuoteSyntax(args),
+                    Keyword.QUOTE_SYNTAX => ParseQuoteSyntax(args, info, context),
 
-                    Keyword.APPLY => ParseApplication(args, exResult),
-                    Keyword.IMP_APP => ParseApplication(args, exResult),
+                    Keyword.APPLY => ParseApplication(stl, context),
+                    Keyword.IMP_APP => ParseApplication(stl, context),
 
-                    Keyword.IMP_PARDEF => ParseDefinition(args, exResult),
-                    Keyword.DEFINE => ParseDefinition(args, exResult),
-                    Keyword.DEFINE_SYNTAX => ParseDefinition(args, exResult),
-                    Keyword.SET => ParseSet(args, exResult),
+                    Keyword.IMP_PARDEF => ParseDefinition(args, info, context),
+                    Keyword.DEFINE => ParseDefinition(args, info, context),
+                    Keyword.DEFINE_SYNTAX => ParseDefinition(args, info, context),
+                    Keyword.SET => ParseSet(args, info, context),
 
-                    Keyword.LAMBDA => ParseLambda(args, exResult),
-                    Keyword.IMP_LAMBDA => ParseLambda(args, exResult),
+                    Keyword.LAMBDA => ParseLambda(args, info, context),
+                    Keyword.IMP_LAMBDA => ParseLambda(args, info, context),
 
-                    Keyword.IF => ParseIf(args, exResult),
+                    Keyword.IF => ParseIf(args, info, context),
 
-                    Keyword.BEGIN => ParseBegin(args, exResult),
+                    Keyword.BEGIN => ParseBegin(args, info, context),
 
-                    _ => throw new ParserException.InvalidSyntax(stx)
+                    _ => throw new ParserException.InvalidSyntax(stl)
                 };
             }
             catch (ParserException pe)
             {
-                throw new ParserException.InvalidForm(formName, stx, pe);
+                throw new ParserException.InvalidForm(formName, stl, pe);
             }
 
             return result;
@@ -137,109 +139,72 @@ namespace Clasp.Process
 
         #region Special Forms
 
-        private static CoreForm ParseVariableLookup(Syntax stx, ParseContext context)
+        private static CoreForm ParseVariableLookup(StxPair stp, LexInfo info, ParseContext context)
         {
-            if (stx.TryDestruct(out Identifier? idArg, out Syntax? terminator, out _)
-                && terminator.IsTerminator())
+            if (stp.TryMatchOnly(out Identifier? id))
             {
-                if (exResult.TryResolveBinding(idArg, out CompileTimeBinding[] candidates, out CompileTimeBinding? binding))
-                {
-                    return new VariableLookup(binding.Name);
-                }
-                else if (candidates.Length > 1)
-                {
-                    throw new ParserException.AmbiguousIdentifier(idArg, candidates);
-                }
-                else
-                {
-                    throw new ParserException.UnboundIdentifier(idArg);
-                }
+                CompileTimeBinding binding = ResolveBinding(id, context);
+
+                return new VariableLookup(binding.Name);
             }
-            else
-            {
-                throw new ParserException.InvalidSyntax(stx);
-            }
+
+            throw new ParserException.InvalidArguments(stp, "exactly", 1, info);
         }
 
-        private static ConstValue ParseQuote(Syntax stx)
+        private static ConstValue ParseQuote(StxPair stp, LexInfo info)
         {
-            if (stx.TryDestruct(out Syntax? arg, out Syntax? terminator, out _)
-                && terminator.IsTerminator())
+            if (stp.TryMatchOnly(out Syntax? stx))
             {
-                return new ConstValue(arg.ToDatum());
+                return new ConstValue(stx.ToDatum());
             }
 
-            throw new ParserException.WrongArity(Keyword.QUOTE, "exactly one", stx);
+            throw new ParserException.InvalidArguments(stp, "exactly", 1, info);
         }
 
-        private static ConstValue ParseQuoteSyntax(Syntax stx)
+        private static ConstValue ParseQuoteSyntax(StxPair stp, LexInfo info, ParseContext context)
         {
-            if (stx.TryDestruct(out Syntax? arg, out Syntax? terminator, out _)
-                && terminator.IsTerminator())
+            if (stp.TryMatchOnly(out Syntax? stx))
             {
-                return new ConstValue(arg);
+                return new ConstValue(stx.StripScopes(context.Phase));
             }
 
-            throw new ParserException.WrongArity(Keyword.QUOTE_SYNTAX, "exactly one", stx);
+            throw new ParserException.InvalidArguments(stp, "exactly", 1, info);
         }
 
-        private static BindingDefinition ParseDefinition(Syntax stx, ParseContext context)
+        private static BindingDefinition ParseDefinition(StxPair stp, LexInfo info, ParseContext context)
         {
-            if (stx.TryDestruct(out Identifier? key, out SyntaxList? keyTail, out _)
-                && keyTail.TryDestruct(out Syntax? value, out Syntax? terminator, out _)
-                && terminator.IsTerminator())
+            if (stp.TryMatchOnly(out Identifier? key, out Syntax? value))
             {
-                if (exResult.TryResolveBinding(key, out CompileTimeBinding[] candidates, out CompileTimeBinding? binding))
-                {
-                    CoreForm parsedValue = Parse(value, exResult);
-                    return new BindingDefinition(binding.Name, parsedValue);
-                }
-                else if (candidates.Length > 1)
-                {
-                    throw new ParserException.AmbiguousIdentifier(key, candidates);
-                }
-                else
-                {
-                    throw new ParserException.UnboundIdentifier(key);
-                }
+                CompileTimeBinding binding = ResolveBinding(key, context);
+                CoreForm parsedValue = Parse(value, context);
+
+                return new BindingDefinition(binding.Name, parsedValue);
             }
 
-            throw new ParserException.WrongArity(Symbol.Define.Name, "exactly two", stx);
+            throw new ParserException.InvalidArguments(stp, "exactly", 2, info);
         }
 
-        private static BindingMutation ParseSet(Syntax stx, ParseContext context)
+        private static BindingMutation ParseSet(StxPair stp, LexInfo info, ParseContext context)
         {
-            if (stx.TryDestruct(out Identifier? key, out SyntaxList? keyTail, out _)
-                && keyTail.TryDestruct(out Syntax? value, out Syntax? terminator, out _)
-                && terminator.IsTerminator())
+            if (stp.TryMatchOnly(out Identifier? key, out Syntax? value))
             {
-                if (exResult.TryResolveBinding(key,
-                    out CompileTimeBinding[] candidates,
-                    out CompileTimeBinding? binding))
-                {
-                    CoreForm parsedValue = Parse(value, exResult);
-                    return new BindingMutation(binding.Name, parsedValue);
-                }
-                else if (candidates.Length > 1)
-                {
-                    throw new ParserException.AmbiguousIdentifier(key, candidates);
-                }
-                else
-                {
-                    throw new ParserException.UnboundIdentifier(key);
-                }
+                CompileTimeBinding binding = ResolveBinding(key, context);
+                CoreForm parsedValue = Parse(value, context);
+
+                return new BindingMutation(binding.Name, parsedValue);
             }
 
-            throw new ParserException.WrongArity(Symbol.Define.Name, "exactly two", stx);
+            throw new ParserException.InvalidArguments(stp, "exactly", 2, info);
         }
 
-        private static FunctionCreation ParseLambda(Syntax stx, ParseContext context)
+        private static FunctionCreation ParseLambda(StxPair stp, LexInfo info, ParseContext context)
         {
-            if (stx.TryDestruct(out Syntax? formals, out SyntaxList? body, out _))
+            if (stp.TryMatchLeading(out Syntax? formals, out Term maybeBody)
+                && maybeBody is StxPair body)
             {
-                System.Tuple<string[], string?> parameters = ParseParameters(formals, exResult);
+                System.Tuple<string[], string?> parameters = ParseParameters(formals, info, context);
 
-                IEnumerable<CoreForm> bodyTerms = ParseSequence(body, exResult);
+                IEnumerable<CoreForm> bodyTerms = ParseSequence(body, info, context);
                 AggregateKeyTerms(bodyTerms, out string[] informals, out CoreForm[] moddedBodyTerms);
 
                 SequentialForm bodyForm = new(moddedBodyTerms);
@@ -247,29 +212,26 @@ namespace Clasp.Process
                 return new FunctionCreation(parameters.Item1, parameters.Item2, informals, bodyForm);
             }
 
-            throw new ParserException.WrongArity(Symbol.Lambda.Name, "two or more", stx);
+            throw new ParserException.InvalidArguments(stp, "at least", 2, info);
         }
 
-        private static ConditionalForm ParseIf(Syntax stx, ParseContext context)
+        private static ConditionalForm ParseIf(StxPair stp, LexInfo info, ParseContext context)
         {
-            if (stx.TryDestruct(out Syntax? condValue, out SyntaxList? thenPair, out _)
-                && thenPair.TryDestruct(out Syntax? thenValue, out Syntax? elsePair, out _)
-                && elsePair.TryDestruct(out Syntax? elseValue, out Syntax? terminator, out _)
-                && terminator.IsTerminator())
+            if (stp.TryMatchOnly(out Syntax? condStx, out Syntax? thenStx, out Syntax? elseStx))
             {
-                CoreForm parsedCond = Parse(condValue, exResult);
-                CoreForm parsedThen = Parse(thenValue, exResult);
-                CoreForm parsedElse = Parse(elseValue, exResult);
+                CoreForm parsedCond = Parse(condStx, context);
+                CoreForm parsedThen = Parse(condStx, context);
+                CoreForm parsedElse = Parse(condStx, context);
 
                 return new ConditionalForm(parsedCond, parsedThen, parsedElse);
             }
 
-            throw new ParserException.WrongArity(Symbol.Lambda.Name, "exactly three", stx);
+            throw new ParserException.InvalidArguments(stp, "exactly", 3, info);
         }
 
-        private static SequentialForm ParseBegin(Syntax stx, ParseContext context)
+        private static SequentialForm ParseBegin(StxPair stp, LexInfo info, ParseContext context)
         {
-            IEnumerable<CoreForm> sequence = ParseSequence(stx, exResult);
+            IEnumerable<CoreForm> sequence = ParseSequence(stp, info, context);
             return new SequentialForm(sequence.ToArray());
         }
 
@@ -290,7 +252,7 @@ namespace Clasp.Process
 
                 if (nextArg.IsImperative)
                 {
-                    throw new ParserException.ExpectedExpression(nextArg, currentStp.Car);
+                    throw new ParserException.ExpectedExpression(nextArg, currentStp.Car.LexContext);
                 }
 
                 yield return nextArg;

@@ -2,6 +2,7 @@
 using System.Linq;
 
 using Clasp.Data.Text;
+using Clasp.Interfaces;
 
 namespace Clasp
 {
