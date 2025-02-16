@@ -55,10 +55,10 @@ namespace Clasp.Binding.Environments
         {
             // List Ops
             new NativeProcedure("cons", new NativeBinary<Term, Term>(Conses.Cons)),
-            new NativeProcedure("car", new NativeUnary<Pair>(Conses.Car)),
-            new NativeProcedure("cdr", new NativeUnary<Pair>(Conses.Cdr)),
-            new NativeProcedure("set-car", new NativeBinary<Pair, Term>(Conses.SetCar)),
-            new NativeProcedure("set-cdr", new NativeBinary<Pair, Term>(Conses.SetCdr)),
+            new NativeProcedure("car", new NativeUnary<Cons>(Conses.Car)),
+            new NativeProcedure("cdr", new NativeUnary<Cons>(Conses.Cdr)),
+            new NativeProcedure("set-car", new NativeBinary<Cons<Term, Term>, Term>(Conses.SetCar)),
+            new NativeProcedure("set-cdr", new NativeBinary<Cons<Term, Term>, Term>(Conses.SetCdr)),
 
             // Value Equality
             new NativeProcedure("eq", new NativeBinary<Term, Term>(Equality.Eq)),
@@ -66,7 +66,7 @@ namespace Clasp.Binding.Environments
             new NativeProcedure("equal", new NativeBinary<Term, Term>(Equality.Equal)),
 
             // Type Predicates
-            new NativeProcedure("pair?", new NativeUnary<Term>(Predicates.IsType<Pair>)),
+            new NativeProcedure("pair?", new NativeUnary<Term>(Predicates.IsType<Cons>)),
             new NativeProcedure("null?", new NativeUnary<Term>(Predicates.IsType<Nil>)),
 
             new NativeProcedure("symbol?", new NativeUnary<Term>(Predicates.IsType<Symbol>)),

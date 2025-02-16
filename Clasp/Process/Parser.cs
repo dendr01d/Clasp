@@ -89,7 +89,7 @@ namespace Clasp.Process
             CoreForm[] argTerms = stl.Expose().Cdr switch
             {
                 Nil => [],
-                StxPair stp => ParseArguments(stp, stl.LexContext, context).ToArray(),
+                Cons cns => ParseArguments(cns, stl.LexContext, context).ToArray(),
                 _ => throw new ParserException.InvalidSyntax(stl)
             };
 
@@ -99,7 +99,7 @@ namespace Clasp.Process
         private static CoreForm ParseSpecial(string formName, SyntaxList stl, ParseContext context)
         {
             // all special forms have at least one argument
-            if (stl.Expose().Cdr is not StxPair args)
+            if (stl.Expose().Cdr is not Cons args)
             {
                 throw new ParserException.InvalidForm(formName, stl);
             }
@@ -147,41 +147,41 @@ namespace Clasp.Process
 
         #region Special Forms
 
-        private static CoreForm ParseVariableLookup(StxPair stp, LexInfo info, ParseContext context)
+        private static CoreForm ParseVariableLookup(Cons cns, LexInfo info, ParseContext context)
         {
-            if (stp.TryMatchOnly(out Identifier? id))
+            if (cns.TryMatchOnly(out Identifier? id))
             {
                 CompileTimeBinding binding = ResolveBinding(id, context);
 
                 return new VariableLookup(binding.Name);
             }
 
-            throw new ParserException.InvalidArguments(stp, "exactly", 1, info);
+            throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
         }
 
-        private static ConstValue ParseQuote(StxPair stp, LexInfo info)
+        private static ConstValue ParseQuote(Cons cns, LexInfo info)
         {
-            if (stp.TryMatchOnly(out Syntax? stx))
+            if (cns.TryMatchOnly(out Syntax? stx))
             {
                 return new ConstValue(stx.ToDatum());
             }
 
-            throw new ParserException.InvalidArguments(stp, "exactly", 1, info);
+            throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
         }
 
-        private static ConstValue ParseQuoteSyntax(StxPair stp, LexInfo info, ParseContext context)
+        private static ConstValue ParseQuoteSyntax(Cons cns, LexInfo info, ParseContext context)
         {
-            if (stp.TryMatchOnly(out Syntax? stx))
+            if (cns.TryMatchOnly(out Syntax? stx))
             {
                 return new ConstValue(stx.StripScopes(context.Phase));
             }
 
-            throw new ParserException.InvalidArguments(stp, "exactly", 1, info);
+            throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
         }
 
-        private static BindingDefinition ParseDefinition(StxPair stp, LexInfo info, ParseContext context)
+        private static BindingDefinition ParseDefinition(Cons cns, LexInfo info, ParseContext context)
         {
-            if (stp.TryMatchOnly(out Identifier? key, out Syntax? value))
+            if (cns.TryMatchOnly(out Identifier? key, out Syntax? value))
             {
                 CompileTimeBinding binding = ResolveBinding(key, context);
                 CoreForm parsedValue = Parse(value, context);
@@ -189,12 +189,12 @@ namespace Clasp.Process
                 return new BindingDefinition(binding.Name, parsedValue);
             }
 
-            throw new ParserException.InvalidArguments(stp, "exactly", 2, info);
+            throw new ParserException.InvalidArguments(cns, "exactly", 2, info);
         }
 
-        private static BindingMutation ParseSet(StxPair stp, LexInfo info, ParseContext context)
+        private static BindingMutation ParseSet(Cons cns, LexInfo info, ParseContext context)
         {
-            if (stp.TryMatchOnly(out Identifier? key, out Syntax? value))
+            if (cns.TryMatchOnly(out Identifier? key, out Syntax? value))
             {
                 CompileTimeBinding binding = ResolveBinding(key, context);
                 CoreForm parsedValue = Parse(value, context);
@@ -202,13 +202,13 @@ namespace Clasp.Process
                 return new BindingMutation(binding.Name, parsedValue);
             }
 
-            throw new ParserException.InvalidArguments(stp, "exactly", 2, info);
+            throw new ParserException.InvalidArguments(cns, "exactly", 2, info);
         }
 
-        private static FunctionCreation ParseLambda(StxPair stp, LexInfo info, ParseContext context)
+        private static FunctionCreation ParseLambda(Cons cns, LexInfo info, ParseContext context)
         {
-            if (stp.TryMatchLeading(out Syntax? formals, out Term maybeBody)
-                && maybeBody is StxPair body)
+            if (cns.TryMatchLeading(out Syntax? formals, out Term maybeBody)
+                && maybeBody is Cons body)
             {
                 System.Tuple<string[], string?> parameters = ParseParameters(formals, info, context);
 
@@ -220,12 +220,12 @@ namespace Clasp.Process
                 return new FunctionCreation(parameters.Item1, parameters.Item2, informals, bodyForm);
             }
 
-            throw new ParserException.InvalidArguments(stp, "at least", 2, info);
+            throw new ParserException.InvalidArguments(cns, "at least", 2, info);
         }
 
-        private static ConditionalForm ParseIf(StxPair stp, LexInfo info, ParseContext context)
+        private static ConditionalForm ParseIf(Cons cns, LexInfo info, ParseContext context)
         {
-            if (stp.TryMatchOnly(out Syntax? condStx, out Syntax? thenStx, out Syntax? elseStx))
+            if (cns.TryMatchOnly(out Syntax? condStx, out Syntax? thenStx, out Syntax? elseStx))
             {
                 CoreForm parsedCond = Parse(condStx, context);
                 CoreForm parsedThen = Parse(condStx, context);
@@ -234,10 +234,10 @@ namespace Clasp.Process
                 return new ConditionalForm(parsedCond, parsedThen, parsedElse);
             }
 
-            throw new ParserException.InvalidArguments(stp, "exactly", 3, info);
+            throw new ParserException.InvalidArguments(cns, "exactly", 3, info);
         }
 
-        private static SequentialForm ParseBegin(StxPair stp, LexInfo info, ParseContext context)
+        private static SequentialForm ParseBegin(Cons stp, LexInfo info, ParseContext context)
         {
             IEnumerable<CoreForm> sequence = ParseSequence(stp, info, context);
             return new SequentialForm(sequence.ToArray());
@@ -250,26 +250,26 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of argument expressions.
         /// </summary>
-        private static IEnumerable<CoreForm> ParseArguments(StxPair stp, LexInfo info, ParseContext context)
+        private static IEnumerable<CoreForm> ParseArguments(Cons cns, LexInfo info, ParseContext context)
         {
-            Term current = stp;
+            Term current = cns;
 
-            while (current is StxPair currentStp)
+            while (current is Cons currentCons && currentCons.Car is Syntax nextStx)
             {
-                CoreForm nextArg = Parse(currentStp.Car, context);
+                CoreForm nextArg = Parse(nextStx, context);
 
                 if (nextArg.IsImperative)
                 {
-                    throw new ParserException.ExpectedExpression(nextArg, currentStp.Car.LexContext);
+                    throw new ParserException.ExpectedExpression(nextArg, info);
                 }
 
                 yield return nextArg;
-                current = currentStp.Cdr;
+                current = currentCons.Cdr;
             }
 
             if (current is not Nil)
             {
-                throw new ParserException.ExpectedProperList(stp, info);
+                throw new ParserException.ExpectedProperList(cns, info);
             }
 
             yield break;
@@ -285,7 +285,7 @@ namespace Clasp.Process
 
             Term current = t;
 
-            while(current is StxPair stp)
+            while(current is Cons stp)
             {
                 if (stp.Car is Identifier nextParam)
                 {
@@ -312,13 +312,13 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of body terms, where the last must be an expression.
         /// </summary>
-        private static IEnumerable<CoreForm> ParseSequence(StxPair stp, LexInfo info, ParseContext context)
+        private static IEnumerable<CoreForm> ParseSequence(Cons stp, LexInfo info, ParseContext context)
         {
             Term current = stp;
 
-            while (current is StxPair nextSequent)
+            while (current is Cons nextSequent && nextSequent.Car is Syntax nextStx)
             {
-                CoreForm nextForm = Parse(nextSequent.Car, context);
+                CoreForm nextForm = Parse(nextStx, context);
 
                 if (nextSequent.Cdr is Nil && nextForm.IsImperative)
                 {

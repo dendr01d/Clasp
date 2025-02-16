@@ -334,7 +334,7 @@ namespace Clasp.Data.AbstractSyntax
                 {
                     machine.Continuation.Push(new BindFresh(cp.VariadicParameter));
                     machine.Continuation.Push(Arguments.Length > cp.Parameters.Length
-                        ? new ConstValue(Pair.ProperList(Arguments[i..]))
+                        ? new ConstValue(Cons.ProperList(Arguments[i..]))
                         : new ConstValue(Nil.Value));
                 }
 

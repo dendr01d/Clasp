@@ -78,7 +78,7 @@ namespace Clasp.Data.Terms.SyntaxValues
             }
             if (term is Cons cl)
             {
-                return Pair.Cons(ToDatum(cl.Car), ToDatum(cl.Cdr));
+                return Cons.Truct(ToDatum(cl.Car), ToDatum(cl.Cdr));
             }
             else if (term is Vector vec)
             {

@@ -179,7 +179,8 @@ namespace Clasp.Process
 
             Identifier op = new Identifier(opSym, arg.LexContext);
 
-            return new SyntaxList(StxPair.ProperList(op, arg), info);
+            return new SyntaxList(arg, info)
+                .Push(op);
         }
 
         private static Datum ReadVector(Token lead, Stack<Token> tokens)
@@ -213,9 +214,8 @@ namespace Clasp.Process
             }
 
             Token lastReadToken = tokens.Peek(); // stash the last token read for reporting purposes
-            Syntax guaranteedItem = ReadSyntax(tokens); // list not empty, so for sure at least one
 
-            List<Syntax> remainingItems = new List<Syntax>();
+            List<Syntax> contents = new List<Syntax>();
             bool dottedList = false;
 
             while(tokens.Peek().TType != TokenType.DotOperator
@@ -223,18 +223,24 @@ namespace Clasp.Process
             {
                 lastReadToken = tokens.Peek();
                 Syntax next = ReadSyntax(tokens);
-                remainingItems.Add(next);
+                contents.Add(next);
             }
 
             // check if there's a dotted element at the end
             if (tokens.Peek().TType == TokenType.DotOperator)
             {
+                // must be an element before AND after the dot
+                if (contents.Count == 0)
+                {
+                    throw new ReaderException.UnexpectedToken(tokens.Peek());
+                }
+
                 tokens.Pop(); // remove the dot operator
                 dottedList = true;
 
                 lastReadToken = tokens.Peek();
                 Syntax next = ReadSyntax(tokens); // read the dotted item
-                remainingItems.Add(next);
+                contents.Add(next);
             }
 
             // ensure that a closing paren finishes the list
@@ -246,11 +252,14 @@ namespace Clasp.Process
             // pop off the closing paren while also synthesizing the aggregate lexical info
             LexInfo listContext = SynthesizeLexicalSource(lead, tokens.Pop());
 
-            StxPair listElements = dottedList
-                ? StxPair.ImproperList(guaranteedItem, remainingItems.ToArray())
-                : StxPair.ProperList(guaranteedItem, remainingItems.ToArray());
-                
-            return new SyntaxList(listElements, listContext);
+            if (dottedList)
+            {
+                return SyntaxList.ImproperList(listContext, contents[0], contents[1], contents[2..].ToArray());
+            }
+            else
+            {
+                return SyntaxList.ProperList(listContext, contents[0], contents[1..].ToArray());
+            }
         }
 
         private static LexInfo SynthesizeLexicalSource(ISourceTraceable first, ISourceTraceable rest)

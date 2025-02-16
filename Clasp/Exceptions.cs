@@ -299,7 +299,7 @@ namespace Clasp
                 invalid)
             { }
 
-            internal InvalidArguments(StxPair invalid, LexInfo info) : base(
+            internal InvalidArguments(Cons invalid, LexInfo info) : base(
                 info.Location,
                 "Arguments have the wrong shape: {0}",
                 invalid)
@@ -418,13 +418,13 @@ namespace Clasp
                 invalid)
             { }
 
-            internal InvalidArguments(StxPair invalid, LexInfo info) : base(
+            internal InvalidArguments(Cons invalid, LexInfo info) : base(
                 info.Location,
                 "Arguments have the wrong shape: {0}",
                 invalid)
             { }
 
-            internal InvalidArguments(StxPair invalid, string preQualifier, int expectedNumber, LexInfo info) : base(
+            internal InvalidArguments(Cons invalid, string preQualifier, int expectedNumber, LexInfo info) : base(
                 info.Location,
                 "The form requires{0} {1} argument{2}: {3}",
                 string.IsNullOrWhiteSpace(preQualifier) ? string.Empty : " " + preQualifier,

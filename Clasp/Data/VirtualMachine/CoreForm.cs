@@ -48,7 +48,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override VmInstruction CopyContinuation() => new BindingDefinition(VarName, BoundValue);
         public override string ToString() => string.Format("DEF({0}, {1})", VarName, BoundValue);
-        public override Term ToTerm() => Pair.ProperList(Symbol.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
+        public override Term ToTerm() => Cons.ProperList(Symbol.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
 
     internal sealed class BindingMutation : CoreForm
@@ -71,7 +71,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override VmInstruction CopyContinuation() => new BindingMutation(VarName, BoundValue);
         public override string ToString() => string.Format("SET({0}, {1})", VarName, BoundValue);
-        public override Term ToTerm() => Pair.ProperList(Symbol.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
+        public override Term ToTerm() => Cons.ProperList(Symbol.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
 
     #endregion
@@ -123,7 +123,7 @@ namespace Clasp.Data.AbstractSyntax
         public override string ToString() => Value is Terms.Atom
             ? Value.ToString()
             : string.Format("QUOTE({0})", Value);
-        public override Term ToTerm() => Pair.ProperList(Symbol.Quote, Value);
+        public override Term ToTerm() => Cons.ProperList(Symbol.Quote, Value);
     }
 
     #endregion
@@ -153,7 +153,7 @@ namespace Clasp.Data.AbstractSyntax
         public override VmInstruction CopyContinuation() => new ConditionalForm(Test, Consequent, Alternate);
         public override string ToString() => string.Format("BRANCH({0}, {1}, {2})", Test, Consequent, Alternate);
 
-        public override Term ToTerm() => Pair.ProperList(Symbol.If,
+        public override Term ToTerm() => Cons.ProperList(Symbol.If,
             Test.ToTerm(), Consequent.ToTerm(), Alternate.ToTerm());
     }
 
@@ -178,8 +178,8 @@ namespace Clasp.Data.AbstractSyntax
         public override VmInstruction CopyContinuation() => new SequentialForm(Sequence);
         public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToArray<object>()));
 
-        public override Term ToTerm() => Pair.Cons(Symbol.Begin, ToImplicitTerm());
-        public Term ToImplicitTerm() => Pair.ProperList(Sequence.Select(x => x.ToTerm()).ToArray());
+        public override Term ToTerm() => Cons.Truct(Symbol.Begin, ToImplicitTerm());
+        public Term ToImplicitTerm() => Cons.ProperList(Sequence.Select(x => x.ToTerm()).ToArray());
     }
 
     //internal sealed class TopLevelSequentialForm : CoreForm
@@ -202,7 +202,7 @@ namespace Clasp.Data.AbstractSyntax
     //    public override string ToString() => string.Format("SEQ-D({0})", string.Join(", ", Sequence.ToArray<object>()));
 
     //    public override Term ToTerm() => Pair.Cons(Symbol.Begin,
-    //        Pair.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
+    //        Cons.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
     //}
 
     //internal sealed class CallWithCurrentContinuation : AstNode
@@ -244,9 +244,9 @@ namespace Clasp.Data.AbstractSyntax
             Operator,
             string.Join(", ", Arguments.ToArray<object>()));
 
-        public override Term ToTerm() => Pair.Cons(
+        public override Term ToTerm() => Cons.Truct(
             Operator.ToTerm(),
-            Pair.ProperList(Arguments.Select(x => x.ToTerm()).ToArray()));
+            Cons.ProperList(Arguments.Select(x => x.ToTerm()).ToArray()));
     }
 
     internal sealed class FunctionCreation : CoreForm
@@ -283,7 +283,7 @@ namespace Clasp.Data.AbstractSyntax
                 .Select<string?, Term>(x => x is null ? Nil.Value : Symbol.Intern(x))
                 .ToArray();
 
-            return Pair.ImproperList(Symbol.Lambda, Pair.ImproperList(parameters), Body.ToImplicitTerm());
+            return Cons.ImproperList(Symbol.Lambda, Cons.ImproperList(parameters), Body.ToImplicitTerm());
         }
     }
 
@@ -311,7 +311,7 @@ namespace Clasp.Data.AbstractSyntax
         public override VmInstruction CopyContinuation() => new MacroApplication(Macro, Argument);
         public override string ToString() => string.Format("MACRO-APPL({0}; {1})", Macro, Argument);
 
-        public override Term ToTerm() => Pair.ProperList(Macro, Argument);
+        public override Term ToTerm() => Cons.ProperList<Term>(Macro, Argument);
     }
 
     #endregion

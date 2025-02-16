@@ -28,7 +28,7 @@ namespace Clasp.Ops
             {
                 (CharString cs1, CharString cs2) => string.Equals(cs1.Value, cs2.Value),
                 (Vector v1, Vector v2) => v1.Values.Zip(v2.Values, Equal).All(x => x),
-                (Pair p1, Pair p2) => Equal(p1.Car, p2.Car) && Equal(p1.Cdr, p2.Cdr),
+                (Cons p1, Cons p2) => Equal(p1.Car, p2.Car) && Equal(p1.Cdr, p2.Cdr),
                 _ => Eqv(t1, t2)
             };
         }
