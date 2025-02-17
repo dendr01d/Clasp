@@ -135,6 +135,9 @@ namespace Clasp.Process
 
                     Keyword.BEGIN => ParseBegin(args, info, context),
 
+                    Keyword.MODULE => ParseModule(args, info, context),
+                    Keyword.IMPORT => ParseImport(args, info, context),
+
                     _ => throw new ParserException.InvalidSyntax(stl)
                 };
             }
@@ -242,6 +245,40 @@ namespace Clasp.Process
         {
             IEnumerable<CoreForm> sequence = ParseSequence(stp, info, context);
             return new SequentialForm(sequence.ToArray());
+        }
+
+        private static Importation ParseImport(Cons cns, LexInfo info, ParseContext context)
+        {
+            if (cns.TryMatchOnly(out Datum? maybePath)
+                && maybePath.Expose() is CharString path)
+            {
+                return new Importation(path.Value);
+            }
+
+            throw new ParserException.InvalidArguments(cns, info);
+        }
+
+        private static CoreForm ParseModule(Cons cns, LexInfo info, ParseContext context)
+        {
+            if (cns.TryMatchLeading(out Identifier? id, out Term maybeBody)
+                && maybeBody is Cons body)
+            {
+                if (context.Phase == 1)
+                {
+                    // if running at phase 1, then this is the content of the current execution
+                    // therefore we just switch to evaluating its contents directly
+                    return ParseBegin(body, info, context);
+                }
+
+                IEnumerable<CoreForm> bodyTerms = ParseSequence(body, info, context);
+                AggregateExportedNames(bodyTerms, out string[] exportedNames, out CoreForm[] filteredBodyTerms);
+
+                SequentialForm moduleBody = new SequentialForm(filteredBodyTerms);
+
+                return new ModuleForm(id.Name, exportedNames, moduleBody);
+            }
+
+            throw new ParserException.InvalidArguments(cns, "at least", 2, info);
         }
 
         #endregion
@@ -356,7 +393,22 @@ namespace Clasp.Process
         #endregion
 
         #region Helpers
-
+        private static CompileTimeBinding ResolveBinding(Identifier id, ParseContext context)
+        {
+            if (id.TryResolveBinding(context.Phase,
+                out CompileTimeBinding? binding))
+            {
+                return binding;
+            }
+            //else if (candidates.Length > 1)
+            //{
+            //    throw new ParserException.AmbiguousIdentifier(id, candidates);
+            //}
+            else
+            {
+                throw new ParserException.UnboundIdentifier(id);
+            }
+        }
 
         /// <summary>
         /// Iterate through a list of body terms, aggregating the key variables from each
@@ -386,21 +438,27 @@ namespace Clasp.Process
             adjustedForms = adjustments.ToArray();
         }
 
-        private static CompileTimeBinding ResolveBinding(Identifier id, ParseContext context)
+        private static void AggregateExportedNames(IEnumerable<CoreForm> initialBody,
+            out string[] exportedNames,
+            out CoreForm[] filteredBody)
         {
-            if (id.TryResolveBinding(context.Phase,
-                out CompileTimeBinding? binding))
+            List<string> names = new List<string>();
+            List<CoreForm> filtered = new List<CoreForm>();
+
+            foreach(CoreForm form in initialBody)
             {
-                return binding;
+                if (form is Exportation exprt)
+                {
+                    names.Add(exprt.Name);
+                }
+                else
+                {
+                    filtered.Add(form);
+                }
             }
-            //else if (candidates.Length > 1)
-            //{
-            //    throw new ParserException.AmbiguousIdentifier(id, candidates);
-            //}
-            else
-            {
-                throw new ParserException.UnboundIdentifier(id);
-            }
+
+            exportedNames = names.ToArray();
+            filteredBody = filtered.ToArray();
         }
 
         #endregion

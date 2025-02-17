@@ -1,8 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 
+using Clasp.Binding.Environments;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
@@ -73,6 +74,83 @@ namespace Clasp.Data.AbstractSyntax
         public override VmInstruction CopyContinuation() => new BindingMutation(VarName, BoundValue);
         public override string ToString() => string.Format("SET({0}, {1})", VarName, BoundValue);
         public override Term ToTerm() => Cons.ProperList(Symbol.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
+    }
+
+    internal sealed class Importation : CoreForm
+    {
+        public readonly string FilePath;
+        public override bool IsImperative => true;
+        public override string FormName => nameof(Importation);
+        public Importation(string path) : base()
+        {
+            FilePath = path;
+        }
+        public override void RunOnMachine(MachineState machine)
+        {
+            CoreForm importedProgram;
+
+            try
+            {
+                Processor pross = machine.CurrentEnv.GlobalEnv.ParentProcess.CreateSubProcess();
+                importedProgram = pross.ProcessProgram(FilePath);
+            }
+            catch (System.Exception ex)
+            {
+                throw new InterpreterException.ExceptionalSubProcess(this, machine.Continuation, ex);
+            }
+
+            if (importedProgram is not ModuleForm)
+            {
+                throw new InterpreterException(machine.Continuation,
+                    "Imported file failed to yield '{0}' program as expected.",
+                    nameof(ModuleForm));
+            }
+
+            machine.Continuation.Push(importedProgram);
+        }
+        public override Importation CopyContinuation() => new Importation(FilePath);
+        public override string ToString() => string.Format("IMPRT(\"{0}\")", FilePath);
+        public override Term ToTerm() => Cons.ProperList<Term>(Symbol.Import, new CharString(FilePath));
+    }
+
+    internal sealed class ModuleForm : CoreForm
+    {
+        public readonly string Name;
+        public readonly string[] ExportedNames;
+        public readonly SequentialForm Body;
+
+        // to run this form, the entire body is run in a pocket environment
+        // then the exportations are gathered up and placed in a module-env in the super from beforehand
+        public override bool IsImperative => true;
+        public override string FormName => nameof(ModuleForm);
+        public ModuleForm(string name, string[] exportedNames, SequentialForm body) : base()
+        {
+            Name = name;
+            ExportedNames = exportedNames;
+            Body = body;
+        }
+        public override void RunOnMachine(MachineState machine)
+        {
+            machine.Continuation.Push(new ChangeCurrentEnvironment(machine.CurrentEnv)); // switch back to current env
+            machine.Continuation.Push(new ModuleInstallation(Name, ExportedNames)); // pluck exported defs out into module
+            machine.Continuation.Push(Body); // enrich subEnv with definitions
+            machine.Continuation.Push(new ChangeCurrentEnvironment(machine.CurrentEnv.Enclose())); // switch to subEnv
+        }
+        public override ModuleForm CopyContinuation() => new ModuleForm(Name, ExportedNames, Body.CopyContinuation());
+        public override string ToString() => string.Format("MDL({0}: {1})", Name, Body);
+        public override Term ToTerm() => Cons.ImproperList(Symbol.Module, Symbol.Intern(Name), Body.ToImplicitTerm());
+    }
+
+    internal sealed class Exportation : CoreForm
+    {
+        public readonly string Name;
+        public override bool IsImperative => false;
+        public override string FormName => nameof(Importation);
+        public Exportation(string name) => Name = name;
+        public override void RunOnMachine(MachineState machine) { }
+        public override Exportation CopyContinuation() => new Exportation(Name);
+        public override string ToString() => string.Format("EXPRT({0})", Name);
+        public override Term ToTerm() => Cons.ProperList<Term>(Symbol.Export, new CharString(Name));
     }
 
     #endregion
@@ -172,11 +250,11 @@ namespace Clasp.Data.AbstractSyntax
         {
             foreach (CoreForm node in Sequence.Reverse())
             {
-                continuation.Push(node);
                 continuation.Push(new ChangeCurrentEnvironment(currentEnv));
+                continuation.Push(node);
             }
         }
-        public override VmInstruction CopyContinuation() => new SequentialForm(Sequence);
+        public override SequentialForm CopyContinuation() => new SequentialForm(Sequence);
         public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToArray<object>()));
 
         public override Term ToTerm() => Cons.Truct(Symbol.Begin, ToImplicitTerm());

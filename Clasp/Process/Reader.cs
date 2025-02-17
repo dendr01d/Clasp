@@ -12,6 +12,7 @@ using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
 using Clasp.Interfaces;
 using Clasp.Exceptions;
+using Clasp.Data.Static;
 
 namespace Clasp.Process
 {
@@ -26,24 +27,28 @@ namespace Clasp.Process
             // First, do a quick check to make sure the parentheses all match up
             CheckParentheses(tokens);
 
-            if (tokens.Any())
-            {
-                Stack<Token> stk = new Stack<Token>(tokens.Reverse());
-
-                if (stk.Peek().TType == TokenType.ModuleFlag)
-                {
-                    SyntaxList module = ReadModule(stk.Pop(), stk);
-                    module.Push(new Identifier(Symbol.Module, module.LexContext));
-                    return module;
-                }
-
-                return ReadSyntax(stk);
-            }
-            else
+            if (!tokens.Any())
             {
                 throw new ReaderException.EmptyTokenStream();
             }
 
+            Syntax[] terms = ReadMultipleSyntaxes(new Stack<Token>(tokens.Reverse())).ToArray();
+
+            if (terms.Length == 1)
+            {
+                return terms.First();
+            }
+            else 
+            {
+                SyntaxList syntax = SyntaxList.ProperList(terms[0].LexContext, terms[0], terms[1..]);
+                
+                if (terms[0] is not Identifier id || id.Name != Keyword.MODULE)
+                {
+                    syntax.Push(new Identifier(Implicit.Sp_Begin, terms[0]));
+                }
+
+                return syntax;
+            }
         }
 
         #region Parentheses-Checking
@@ -104,6 +109,14 @@ namespace Clasp.Process
         }
         #endregion
 
+        private static IEnumerable<Syntax> ReadMultipleSyntaxes(Stack<Token> tokens)
+        {
+            while (tokens.Peek().TType != TokenType.EOF)
+            {
+                yield return ReadSyntax(tokens);
+            }
+        }
+
         private static Syntax ReadSyntax(Stack<Token> tokens)
         {
             if (tokens.Peek().TType == TokenType.EOF)
@@ -141,9 +154,10 @@ namespace Clasp.Process
                 TokenType.Unsyntax => NativelyExpand(current, Symbol.Unsyntax, tokens),
                 TokenType.UnsyntaxSplice => NativelyExpand(current, Symbol.UnsyntaxSplicing, tokens),
 
+                TokenType.ModuleFlag => new Identifier(Keyword.MODULE, new LexInfo(current.Location)),
                 TokenType.Symbol => new Identifier(current),
                 TokenType.Character => new Datum(Character.Intern(current), current),
-                TokenType.String => new Datum(new CharString(current.Text), current),
+                TokenType.String => ReadCharString(current),
                 TokenType.Boolean => ReadBoolean(current),
 
                 TokenType.BinInteger => ReadInteger(current, 2),
@@ -183,6 +197,12 @@ namespace Clasp.Process
                 : current.Text;
 
             return new Datum(new Real(double.Parse(num)), current);
+        }
+
+        private static Datum ReadCharString(Token current)
+        {
+            string sansQuotes = current.Text.Trim('\"');
+            return new Datum(new CharString(sansQuotes), current);
         }
 
         private static SyntaxList NativelyExpand(Token opToken, Symbol opSym, Stack<Token> tokens)
@@ -274,20 +294,6 @@ namespace Clasp.Process
             {
                 return SyntaxList.ProperList(listContext, contents[0], contents[1..].ToArray());
             }
-        }
-
-        private static SyntaxList ReadModule(Token lead, Stack<Token> tokens)
-        {
-            List<Syntax> terms = new List<Syntax>();
-
-            while(tokens.Peek().TType != TokenType.EOF)
-            {
-                terms.Add(ReadSyntax(tokens));
-            }
-
-            LexInfo info = SynthesizeLexicalSource(lead, tokens.Peek());
-
-            return SyntaxList.ProperList(info, terms.First(), terms[1..].ToArray());
         }
 
         private static LexInfo SynthesizeLexicalSource(ISourceTraceable first, ISourceTraceable rest)

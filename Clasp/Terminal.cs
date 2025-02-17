@@ -78,7 +78,7 @@ namespace Clasp
 
             // -----
 
-            Processor clasp = new Processor();
+            Processor clasp = new Processor(writer);
             Blob session = new Blob("REPL", []);
 
             while (input != _QUIT_CMD)
@@ -233,49 +233,6 @@ namespace Clasp
         private static void PrintExceptionInfo(StreamWriter sw, Exception ex)
         {
 
-            if (ex.InnerException is not null)
-            {
-                PrintExceptionInfo(sw, ex.InnerException);
-                sw.Write("└─> ");
-            }
-
-            sw.Write(ex switch
-            {
-                LexerException => "Lexing error: ",
-                ReaderException => "Reading error: ",
-                ExpanderException => "Expansion error: ",
-                ParserException => "Parsing error: ",
-                InterpreterException => "Interpreter Runtime error: ",
-                ProcessingException => "Processing error: ",
-                ClaspException => "CLASP error: ",
-                _ => string.Format("System-Level error ({0}): ", ex.GetType().Name)
-            });
-
-            sw.WriteLine(ex.Message);
-
-            if (ex is InterpreterException ie && ie.ContinuationTrace.Count > 0)
-            {
-                sw.WriteLine();
-                sw.WriteLine("Stack trace:");
-                foreach(VmInstruction frame in ie.ContinuationTrace)
-                {
-                    sw.Write("   ");
-                    sw.WriteLine(frame.ToString());
-                }
-                sw.WriteLine();
-            }
-            
-            if(ex is ISourceTraceable ist)
-            {
-                sw.WriteLine();
-                sw.WriteLine("At input source:");
-                sw.WriteLine(Printer.PrintLineErrorHelper(ist));
-            }
-
-            sw.WriteLine("From CLASP source:");
-            sw.WriteLine(ex.GetSimpleStackTrace());
-
-            sw.WriteLine();
         }
 
         private static void PrintSeparator()

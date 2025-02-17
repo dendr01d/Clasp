@@ -300,7 +300,7 @@ namespace Clasp.Data.AbstractSyntax
                 }
                 catch (System.Exception ex)
                 {
-                    throw new InterpreterException.InvalidOperationException(this, machine.Continuation, ex);
+                    throw new InterpreterException.InvalidOperation(this, machine.Continuation, ex);
                 }
             }
             else if (Op is NativeProcedure pp)
@@ -311,7 +311,7 @@ namespace Clasp.Data.AbstractSyntax
                 }
                 catch (System.Exception ex)
                 {
-                    throw new InterpreterException.InvalidOperationException(this, machine.Continuation, ex);
+                    throw new InterpreterException.InvalidOperation(this, machine.Continuation, ex);
                 }
             }
             else if (Op is CompoundProcedure cp)
@@ -348,6 +348,41 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override VmInstruction CopyContinuation() => new FunctionDispatch(Op, Arguments.ToArray());
         public override string ToString() => string.Format("APPL-DSPX({0}; {1})", Op, string.Join(", ", Arguments.ToArray<object>()));
+    }
+
+    #endregion
+
+    #region Module Operations
+
+    internal sealed class ModuleInstallation : VmInstruction
+    {
+        public readonly string Name;
+        public readonly string[] ExportedNames;
+
+        public ModuleInstallation(string name, string[] exportedNames)
+        {
+            Name = name;
+            ExportedNames = exportedNames;
+        }
+
+        public override void RunOnMachine(MachineState machine)
+        {
+            Environment moduleEnv = machine.CurrentEnv.GlobalEnv.InstallNewModuleEnv(Name);
+            Environment defEnv = machine.CurrentEnv;
+
+            machine.Continuation.Push(new ConstValue(VoidTerm.Value));
+
+            // look up the exported value from the definition environment, then bind it in the module environment
+            foreach(string export in ExportedNames)
+            {
+                machine.Continuation.Push(new BindFresh(export));
+                machine.Continuation.Push(new ChangeCurrentEnvironment(moduleEnv));
+                machine.Continuation.Push(new VariableLookup(export));
+                machine.Continuation.Push(new ChangeCurrentEnvironment(defEnv));
+            }
+        }
+        public override ModuleInstallation CopyContinuation() => new ModuleInstallation(Name, ExportedNames);
+        public override string ToString() => string.Format("MDL-INSTL({0}; {1})", Name, string.Join(", ", ExportedNames));
     }
 
     #endregion

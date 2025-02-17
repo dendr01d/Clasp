@@ -2,14 +2,29 @@
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Data.Text;
 using Clasp.Ops;
 using Clasp.Ops.Functions;
-using Clasp.Process;
 
 namespace Clasp.Binding.Environments
 {
     internal static class StandardEnv
     {
+        public static readonly Scope StaticScope = new Scope(SourceCode.StaticSource);
+
+        static StandardEnv()
+        {
+            foreach (Symbol kw in CoreKeywords)
+            {
+                StaticScope.AddStaticBinding(kw.Name, BindingType.Special);
+            }
+
+            foreach (PrimitiveProcedure pp in PrimProcs)
+            {
+                StaticScope.AddStaticBinding(pp.OpSymbol.Name, BindingType.Primitive);
+            }
+        }
+
         public static SuperEnvironment CreateNew(Processor processor)
         {
             SuperEnvironment output = new SuperEnvironment(processor);
@@ -26,6 +41,7 @@ namespace Clasp.Binding.Environments
 
             return output;
         }
+
 
         private static readonly Symbol[] CoreKeywords = new Symbol[]
         {
@@ -52,6 +68,7 @@ namespace Clasp.Binding.Environments
             Symbol.Begin,
             Implicit.Sp_Begin,
 
+            Symbol.Module,
             Symbol.BeginForSyntax,
             Symbol.ImportForSyntax,
             Symbol.Import,

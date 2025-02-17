@@ -13,15 +13,12 @@ using Clasp.Data.Text;
 using Clasp.Exceptions;
 using Clasp.ExtensionMethods;
 
-using static System.Net.WebRequestMethods;
-
 namespace Clasp.Process
 {
     internal static class Expander
     {
         public static Syntax ExpandSyntax(Syntax input, ExpansionContext context)
         {
-            input.AddScope(context.Phase, context.CompileTimeEnv.GlobalEnv.SuperScope);
             return Expand(input, context);
         }
 
@@ -175,6 +172,10 @@ namespace Clasp.Process
 
                     Keyword.IF => ExpandIfArgs(args, info, context),
                     Keyword.BEGIN => ExpandSequence(args, info, context),
+
+                    Keyword.MODULE => ExpandModuleArgs(args, info, context),
+
+                    Keyword.IMPORT => args,
 
                     _ => throw new ExpanderException.InvalidSyntax(stl)
                 };
@@ -378,7 +379,7 @@ namespace Clasp.Process
         /// </summary>
         private static void ExpandParameterList(Term t, LexInfo info, ExpansionContext context)
         {
-            if (t is Nil)
+            if (t is Nil || (t is Datum dat && dat.Expose() is Nil))
             {
                 return;
             }
@@ -467,12 +468,16 @@ namespace Clasp.Process
             {
                 if (stxList.Cdr is Nil n)
                 {
-                    Syntax expandedCar = Expand(stx, context.AsExpression());
+                    ExpansionContext finalTermContext = context.Mode != ExpansionMode.Module
+                        ? context.AsExpression()
+                        : context;
+
+                    Syntax expandedCar = Expand(stx, finalTermContext);
                     return Cons.Truct<Syntax, Term>(expandedCar, n);
                 }
                 else if (stxList.Cdr is Cons<Syntax, Term> cdr)
                 {
-                    Syntax expandedCar = Expand(stx, context.AsExpression());
+                    Syntax expandedCar = Expand(stx, context);
                     Cons<Syntax, Term> expandedCdr = ExpandSequence(cdr, info, context);
                     return Cons.Truct<Syntax, Term>(expandedCar, expandedCdr);
                 }
@@ -815,12 +820,15 @@ namespace Clasp.Process
             }
         }
 
-        private static Cons<Syntax, Term> ExpandModule(Cons<Syntax, Term> cns, LexInfo info, ExpansionContext context)
+        private static Cons<Syntax, Term> ExpandModuleArgs(Cons<Syntax, Term> cns, LexInfo info, ExpansionContext context)
         {
             if (cns.TryMatchLeading(out Identifier? id, out Term rest)
                 && rest is Cons<Syntax, Term> body)
             {
                 ExpansionContext moduleContext = context.InModule();
+                Cons<Syntax, Term> expandedBody = ExpandBody(body, info, moduleContext);
+
+                return Cons.Truct<Syntax, Term>(id, expandedBody);
             }
 
             throw new ExpanderException.InvalidArguments(cns, info);

@@ -81,7 +81,7 @@ namespace Clasp.Data.Text
             Original = original;
         }
 
-        public static readonly SourceCode StaticSource = new SourceCode("CLASP", -1, -1, -1, -1, new Blob("CLASP", []), true);
+        public static readonly SourceCode StaticSource = new SourceCode("CLASP", 0, 0, 0, 0, new Blob("CLASP", []), true);
 
         public override string ToString()
         {

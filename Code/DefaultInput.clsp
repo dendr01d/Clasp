@@ -1,0 +1,7 @@
+#module default
+
+(import "./TestAddition.clsp")
+
+((lambda () "Hello world!"))
+
+(add 5 6)

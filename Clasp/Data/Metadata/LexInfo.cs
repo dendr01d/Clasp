@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using Clasp.Binding;
+using Clasp.Binding.Environments;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
 using Clasp.Interfaces;
@@ -107,8 +108,12 @@ namespace Clasp.Data.Metadata
                 }
             }
 
+            if (StandardEnv.StaticScope.TryResolve(symbolicName, out CompileTimeBinding? staticBinding))
+            {
+                return staticBinding;
+            }
+
             return null;
-            //throw new ClaspGeneralException("The variable '{0}' has no assigned scopes in phase {1}.", symbolicName, phase);
         }
 
         #endregion

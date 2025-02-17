@@ -99,7 +99,7 @@ namespace Clasp.Process
             {
                 try
                 {
-                    IEnumerable<Token> lineOutput = LexSingleLine(sourceText, line, lineNo, charNo);
+                    output.AddRange(LexSingleLine(sourceText, line, lineNo, charNo));
                 }
                 catch(AggregateException aggEx)
                 {

@@ -20,7 +20,7 @@ namespace Clasp
 
         private const string INDENT = "   ";
 
-        public static string PrintLineErrorHelper(string fullLine, int lineNo, int column, int length, string source)
+        private static string PrintLineErrorHelper(string fullLine, int lineNo, int column, int length, string source)
         {
             string lineText = fullLine.Trim();
 

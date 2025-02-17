@@ -51,6 +51,8 @@ namespace Clasp.Data.Static
         public const string BEGIN_FOR_SYNTAX = "begin-for-syntax";
 
         public const string MODULE = "module";
+        public const string MARK_MODULE = "#module";
+
         public const string IMP_MODULE_BEGIN = "#%module-begin";
     }
 }

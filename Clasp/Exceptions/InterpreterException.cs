@@ -30,13 +30,24 @@ namespace Clasp.Exceptions
             { }
         }
 
-        public class InvalidOperationException : InterpreterException
+        public class InvalidOperation : InterpreterException
         {
-            internal InvalidOperationException(VmInstruction operation, Stack<VmInstruction> cont, Exception innerException) : base(
+            internal InvalidOperation(VmInstruction operation, Stack<VmInstruction> cont, Exception innerException) : base(
                 cont,
                 innerException,
                 "Error evaluating the operation:\n\t{0}",
                 operation)
+            { }
+        }
+
+        public class ExceptionalSubProcess : InterpreterException
+        {
+            internal ExceptionalSubProcess(VmInstruction subProcessLauncher, Stack<VmInstruction> cont, Exception innerException) : base(
+                cont,
+                innerException,
+                "An error occurred while executing a sub-process prompted by {0}.",
+                subProcessLauncher.ToString()
+                )
             { }
         }
     }
