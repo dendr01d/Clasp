@@ -37,25 +37,23 @@ namespace Clasp.Data.Terms.SyntaxValues
             return LexContext.TryBind(phase, Name, binding);
         }
 
+        //public bool TryResolveBinding(int phase,
+        //    [NotNullWhen(true)] out CompileTimeBinding? binding)
+        //{
+        //    return TryResolveBinding(phase, out binding, out _);
+        //}
+
         public bool TryResolveBinding(int phase,
             [NotNullWhen(true)] out CompileTimeBinding? binding)
         {
-            return TryResolveBinding(phase, out binding, out _);
-        }
+            binding = LexContext.ResolveBindings(phase, Name);
+            return binding is not null;
 
-        public bool TryResolveBinding(int phase,
-            [NotNullWhen(true)] out CompileTimeBinding? binding,
-            [NotNullWhen(true)] out CompileTimeBinding[] candidates)
-        {
-            //return LexContext.TryResolveBinding(phase, Name, out binding);
+            //binding = candidates.Length == 1
+            //    ? candidates[0]
+            //    : null;
 
-            candidates = LexContext.ResolveBindings(phase, Name).ToArray();
-
-            binding = candidates.Length == 1
-                ? candidates[0]
-                : null;
-
-            return candidates.Length == 1;
+            //return candidates.Length == 1;
         }
 
         //public override string ToString() => string.Format("#'{0}", _sym);

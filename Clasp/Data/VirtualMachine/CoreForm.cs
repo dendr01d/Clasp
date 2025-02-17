@@ -8,6 +8,7 @@ using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
 using Clasp.Data.VirtualMachine;
+using Clasp.Exceptions;
 using Clasp.Process;
 
 namespace Clasp.Data.AbstractSyntax

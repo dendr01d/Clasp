@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using Clasp.Data.Terms;
 using Clasp.Data.Text;
+using Clasp.Exceptions;
 using Clasp.Process;
 
 namespace Clasp.Binding.Environments

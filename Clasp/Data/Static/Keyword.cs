@@ -41,7 +41,16 @@ namespace Clasp.Data.Static
         public const string IMP_TOP = "#%top";
         public const string IMP_LAMBDA = "#%lambda";
         public const string IMP_VAR = "#%var";
+        public const string IMP_BEGIN = "#%begin";
 
         public const string IMP_PARDEF = "#%part-define";
+
+        public const string EXPORT = "export";
+        public const string IMPORT = "import";
+        public const string IMPORT_FOR_SYNTAX = "import-for-syntax";
+        public const string BEGIN_FOR_SYNTAX = "begin-for-syntax";
+
+        public const string MODULE = "module";
+        public const string IMP_MODULE_BEGIN = "#%module-begin";
     }
 }

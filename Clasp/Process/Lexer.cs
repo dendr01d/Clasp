@@ -5,8 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 
 using Clasp.Data.Text;
-
-using static Clasp.LexerException;
+using Clasp.Exceptions;
 
 namespace Clasp.Process
 {
@@ -45,6 +44,8 @@ namespace Clasp.Process
             BuildRgx(TokenType.QuasiSyntax    , @"\#\`"),
             BuildRgx(TokenType.Unsyntax       , @"\#\,"),
             BuildRgx(TokenType.UnsyntaxSplice , @"\#\@\,"),
+
+            BuildRgx(TokenType.ModuleFlag     , @"\#[Mm]odule"),
 
             BuildRgx(TokenType.DotOperator    , @"\."),
             BuildRgx(TokenType.Undefined      , @"\#undefined"),
@@ -116,6 +117,8 @@ namespace Clasp.Process
             {
                 throw new AggregateException("Malformed lexemes found in input.", malformedInputs);
             }
+
+            output.Add(Token.Tokenize(TokenType.EOF, string.Empty, sourceText, SourceCode.StaticSource));
 
             return output;
         }

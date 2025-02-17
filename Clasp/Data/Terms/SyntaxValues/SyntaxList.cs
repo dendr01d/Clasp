@@ -3,6 +3,7 @@
 using Clasp.Binding;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms.ProductValues;
+using Clasp.Exceptions;
 
 namespace Clasp.Data.Terms.SyntaxValues
 {

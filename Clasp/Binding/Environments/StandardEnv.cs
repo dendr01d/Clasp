@@ -1,6 +1,7 @@
 ﻿using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
+using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Ops;
 using Clasp.Ops.Functions;
 using Clasp.Process;
@@ -28,27 +29,33 @@ namespace Clasp.Binding.Environments
 
         private static readonly Symbol[] CoreKeywords = new Symbol[]
         {
-            Implicit.SpTop,
-            Implicit.SpVar,
+            Implicit.Sp_Top,
+            Implicit.Sp_Var,
 
             Symbol.Quote,
-            Implicit.SpDatum,
+            Implicit.Sp_Datum,
 
             Symbol.QuoteSyntax,
 
             Symbol.Apply,
-            Implicit.SpApply,
+            Implicit.Sp_Apply,
 
-            Implicit.ParDef,
+            Implicit.Par_Def,
             Symbol.Define,
             Symbol.DefineSyntax,
             Symbol.Set,
 
             Symbol.Lambda,
-            Implicit.SpLambda,
+            Implicit.Sp_Lambda,
 
             Symbol.If,
             Symbol.Begin,
+            Implicit.Sp_Begin,
+
+            Symbol.BeginForSyntax,
+            Symbol.ImportForSyntax,
+            Symbol.Import,
+            Symbol.Export
         };
 
         private static readonly PrimitiveProcedure[] PrimProcs = new PrimitiveProcedure[]
@@ -81,6 +88,9 @@ namespace Clasp.Binding.Environments
             new NativeProcedure("rational?", new NativeUnary<Term>(Predicates.IsType<RationalNumeric>)),
             new NativeProcedure("integer?", new NativeUnary<Term>(Predicates.IsType<IntegralNumeric>)),
 
+            new NativeProcedure("syntax?", new NativeUnary<Term>(Predicates.IsType<Syntax>)),
+            new NativeProcedure("identifier?", new NativeUnary<Term>(Predicates.IsType<Identifier>)),
+
             // Symbol Ops
             new NativeProcedure("symbol->string", new NativeUnary<Symbol>(Symbols.SymbolToString)),
             new NativeProcedure("string->symbol", new NativeUnary<CharString>(Symbols.StringToSymbol)),
@@ -94,6 +104,20 @@ namespace Clasp.Binding.Environments
 
             new NativeProcedure("char->integer", new NativeUnary<Character>(Characters.CharacterToInteger)),
             new NativeProcedure("integer->char", new NativeUnary<IntegralNumeric>(Characters.IntegerToCharacter)),
+
+            // Syntax Ops
+            new NativeProcedure("syntax-source", new NativeUnary<Syntax>(Syntaxes.SyntaxSource)),
+            new NativeProcedure("syntax-line", new NativeUnary<Syntax>(Syntaxes.SyntaxLine)),
+            new NativeProcedure("syntax-column", new NativeUnary<Syntax>(Syntaxes.SyntaxColumn)),
+            new NativeProcedure("syntax-position", new NativeUnary<Syntax>(Syntaxes.SyntaxPosition)),
+            new NativeProcedure("syntax-span", new NativeUnary<Syntax>(Syntaxes.SyntaxSpan)),
+            new NativeProcedure("syntax-original", new NativeUnary<Syntax>(Syntaxes.SyntaxOriginal)),
+
+            new NativeProcedure("syntax-e", new NativeUnary<Syntax>(Syntaxes.SyntaxE)),
+            new NativeProcedure("syntax->list", new NativeUnary<Syntax>(Syntaxes.SyntaxToList)),
+            new NativeProcedure("syntax->datum", new NativeUnary<Syntax>(Syntaxes.SyntaxToDatum)),
+            new NativeProcedure("datum->syntax", new NativeBinary<Syntax, Term>(Syntaxes.DatumToSyntax)),
+
 
             //Arithmetic
             new NativeProcedure("+")

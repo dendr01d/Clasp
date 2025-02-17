@@ -10,6 +10,7 @@ using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
+using Clasp.Exceptions;
 using Clasp.ExtensionMethods;
 
 using static System.Net.WebRequestMethods;
@@ -42,7 +43,7 @@ namespace Clasp.Process
                 }
                 else
                 {
-                    return ExpandImplicit(Implicit.SpDatum, AsArg(stx), context);
+                    return ExpandImplicit(Implicit.Sp_Datum, AsArg(stx), context);
                 }
             }
             catch (ClaspException cex)
@@ -67,13 +68,13 @@ namespace Clasp.Process
                 else if (binding.BoundType == BindingType.Variable
                     || binding.BoundType == BindingType.Primitive)
                 {
-                    return ExpandImplicit(Implicit.SpVar, AsArg(id), context);
+                    return ExpandImplicit(Implicit.Sp_Var, AsArg(id), context);
                 }
             }
             else if (context.Mode != ExpansionMode.Module)
             {
                 // indicate that it must be a top-level binding that doesn't exist yet
-                return ExpandImplicit(Implicit.SpTop, AsArg(id), context);
+                return ExpandImplicit(Implicit.Sp_Top, AsArg(id), context);
             }
 
             throw new ExpanderException.InvalidSyntax(id);
@@ -108,7 +109,7 @@ namespace Clasp.Process
             {
                 Cons<Syntax, Term> args = ExpandExpressionList(stl.Expose(), stl.LexContext, context);
                 SyntaxList stp = new SyntaxList(args, stl.LexContext);
-                return ExpandImplicit(Implicit.SpApply, stp, context);
+                return ExpandImplicit(Implicit.Sp_Apply, stp, context);
             }
             catch (ExpanderException ee)
             {
@@ -125,7 +126,7 @@ namespace Clasp.Process
         /// Prepend <paramref name="stl"/> with a special <see cref="Identifier"/> that shares its
         /// <see cref="LexInfo"/>, indicating how it should be handled by the <see cref="Parser"/>.
         /// </summary>
-        private static Syntax ExpandImplicit(Implicit formSym, SyntaxList stl, ExpansionContext context)
+        private static SyntaxList ExpandImplicit(Implicit formSym, SyntaxList stl, ExpansionContext context)
         {
             Identifier op = new Identifier(formSym, stl);
             return stl.Push(op);
@@ -140,33 +141,40 @@ namespace Clasp.Process
         {
             if (stl.Expose() is not Cons<Syntax, Term> cns
                 || cns.Car is not Identifier op
-                || cns.Cdr is not Cons<Syntax, Term> tail)
+                || cns.Cdr is not Cons<Syntax, Term> args)
             {
                 // all special forms require arguments
                 throw new ExpanderException.InvalidSyntax(stl);
             }
+
 
             LexInfo info = stl.LexContext;
             Cons<Syntax, Term> expandedTail;
 
             try
             {
+                if (formName == Keyword.BEGIN_FOR_SYNTAX)
+                {
+                    BeginForSyntax(stl, context);
+                    return new Datum(VoidTerm.Value, stl);
+                }
+
                 expandedTail = formName switch
                 {
-                    Keyword.IMP_PARDEF => ExpandPartialDefineArgs(tail, info, context),
+                    Keyword.IMP_PARDEF => ExpandPartialDefineArgs(args, info, context),
 
-                    Keyword.DEFINE => ExpandDefineArgs(tail, info, context),
-                    Keyword.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(tail, info, context),
-                    Keyword.SET => ExpandSetArgs(tail, info, context),
+                    Keyword.DEFINE => ExpandDefineArgs(args, info, context),
+                    Keyword.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(args, info, context),
+                    Keyword.SET => ExpandSetArgs(args, info, context),
 
-                    Keyword.QUOTE => tail, // just leave them alone for now
-                    Keyword.QUOTE_SYNTAX => tail,
+                    Keyword.QUOTE => args, // just leave them alone for now
+                    Keyword.QUOTE_SYNTAX => args,
 
-                    Keyword.LAMBDA => ExpandLambdaArgs(tail, info, context),
-                    Keyword.IMP_LAMBDA => ExpandLambdaArgs(tail, info, context),
+                    Keyword.LAMBDA => ExpandLambdaArgs(args, info, context),
+                    Keyword.IMP_LAMBDA => ExpandLambdaArgs(args, info, context),
 
-                    Keyword.IF => ExpandIfArgs(tail, info, context),
-                    Keyword.BEGIN => ExpandSequence(tail, info, context),
+                    Keyword.IF => ExpandIfArgs(args, info, context),
+                    Keyword.BEGIN => ExpandSequence(args, info, context),
 
                     _ => throw new ExpanderException.InvalidSyntax(stl)
                 };
@@ -209,7 +217,7 @@ namespace Clasp.Process
                             throw new ExpanderException.InvalidBindingOperation(key, context);
                         }
 
-                        Identifier newOp = new Identifier(Implicit.ParDef, op);
+                        Identifier newOp = new Identifier(Implicit.Par_Def, op);
 
                         return new SyntaxList(value, op.LexContext)
                             .Push(key)
@@ -269,7 +277,7 @@ namespace Clasp.Process
 
             if (output is not Syntax outputStx)
             {
-                throw new ExpanderException.WrongEvaluatedType(nameof(Syntax), output, input);
+                throw new ExpanderException.InvalidTransformation(output, macro, input);
             }
 
             return outputStx;
@@ -298,7 +306,47 @@ namespace Clasp.Process
                 return macro;
             }
 
-            throw new ExpanderException.WrongEvaluatedType(nameof(MacroProcedure), output, input);
+            throw new ExpanderException.InvalidTransformer(output, input);
+        }
+
+        private static void BeginForSyntax(SyntaxList form, ExpansionContext context)
+        {
+            Cons<Syntax, Term> terms = form.Expose();
+            LexInfo info = form.LexContext;
+            ExpansionContext subState = context.InNewPhase();
+
+            Term output;
+
+            try
+            {
+                // Treat the sequent terms like a regular Begin form, but in the substate
+                Cons<Syntax, Term> expandedSequence = ExpandSequence(terms, info, subState);
+                SyntaxList stxSequence = new SyntaxList(expandedSequence, info);
+                SyntaxList beginStx = ExpandImplicit(Implicit.Sp_Begin, stxSequence, subState);
+
+                // Nest the first Begin form inside a second, to add an implicit return value (#t)
+                SyntaxList nestedStx = new SyntaxList(new Datum(Boolean.True, info), info)
+                    .Push(beginStx);
+                nestedStx = ExpandImplicit(Implicit.Sp_Begin, nestedStx, subState);
+
+                // Parse (still in the substate), which will de-nest the final list of terms
+                CoreForm parsedInput = Parser.ParseSyntax(beginStx, subState);
+
+                // Now interpret the parse, but back in THIS expansion's context
+                // Which allows for mutation of the current compile-time environment
+                output = Interpreter.InterpretProgram(parsedInput, context.CompileTimeEnv.GlobalEnv.Enclose());
+            }
+            catch (System.Exception e)
+            {
+                throw new ExpanderException.EvaluationError(Keyword.BEGIN_FOR_SYNTAX, form, e);
+            }
+
+            // Check that the interpretation returned #t as expected
+            if (output is not Boolean b || b != Boolean.True)
+            {
+                throw new ExpanderException.EvaluationError(Keyword.BEGIN_FOR_SYNTAX, form,
+                    string.Format("Compile-Time Interpretation yielded an unexpected value: {0}", output));
+            }
         }
 
         #endregion
@@ -528,7 +576,7 @@ namespace Clasp.Process
         private static SyntaxList BuildLambda(Syntax formals, Cons<Syntax, Term> body)
         {
             Cons<Syntax, Term> args = Cons.Truct<Syntax, Term>(formals, body);
-            Identifier op = new Identifier(Implicit.SpLambda, formals);
+            Identifier op = new Identifier(Implicit.Sp_Lambda, formals);
             Cons<Syntax, Term> lambda = Cons.Truct<Syntax, Term>(op, args);
 
             return new SyntaxList(lambda, body.Car.LexContext);
@@ -623,7 +671,7 @@ namespace Clasp.Process
         }
         #endregion
 
-        #region Special Form Expansion
+        #region Syntactic Form Expansion
 
         private static Cons<Syntax, Term> ExpandPartialDefineArgs(Cons<Syntax, Term> stp, LexInfo info, ExpansionContext context)
         {
@@ -691,7 +739,7 @@ namespace Clasp.Process
                     context.CompileTimeEnv[bindingId.Name] = macro;
                 }
 
-                Syntax evaluatedMacro = ExpandImplicit(Implicit.SpDatum, AsArg(new Datum(macro, value)), context);
+                Syntax evaluatedMacro = ExpandImplicit(Implicit.Sp_Datum, AsArg(new Datum(macro, value)), context);
 
                 return new Cons<Syntax, Term>(key, Cons.Truct(evaluatedMacro, Nil.Value));
             }
@@ -711,22 +759,10 @@ namespace Clasp.Process
             {
                 context.SanitizeIdentifier(key);
 
-                if (key.TryResolveBinding(context.Phase,
-                    out CompileTimeBinding? binding,
-                    out CompileTimeBinding[] candidates))
-                {
-                    Syntax expandedValue = Expand(value, context.AsExpression());
+                CompileTimeBinding binding = ResolveBinding(key, context);
+                Syntax expandedValue = Expand(value, context.AsExpression());
 
-                    return new Cons<Syntax, Term>(key, Cons.Truct(expandedValue, Nil.Value));
-                }
-                else if (candidates.Length > 1)
-                {
-                    throw new ExpanderException.AmbiguousIdentifier(key, candidates);
-                }
-                else
-                {
-                    throw new ExpanderException.UnboundIdentifier(key);
-                }
+                return new Cons<Syntax, Term>(key, Cons.Truct(expandedValue, Nil.Value));
             }
             else
             {
@@ -779,6 +815,29 @@ namespace Clasp.Process
             }
         }
 
+        private static Cons<Syntax, Term> ExpandModule(Cons<Syntax, Term> cns, LexInfo info, ExpansionContext context)
+        {
+            if (cns.TryMatchLeading(out Identifier? id, out Term rest)
+                && rest is Cons<Syntax, Term> body)
+            {
+                ExpansionContext moduleContext = context.InModule();
+            }
+
+            throw new ExpanderException.InvalidArguments(cns, info);
+        }
+
         #endregion
+
+        private static CompileTimeBinding ResolveBinding(Identifier id, ExpansionContext context)
+        {
+            if (id.TryResolveBinding(context.Phase, out CompileTimeBinding? binding))
+            {
+                return binding;
+            }
+            else
+            {
+                throw new ExpanderException.UnboundIdentifier(id);
+            }
+        }
     }
 }

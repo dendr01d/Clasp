@@ -56,11 +56,12 @@ namespace Clasp.Data.Terms
 
         public static readonly Symbol Apply = Intern(Keyword.APPLY);
 
-        //public static readonly Symbol ImplicitApp = Intern(Keyword.IMP_APP);
-        //public static readonly Symbol ImplicitDatum = Intern(Keyword.IMP_DATUM);
-        //public static readonly Symbol ImplicitTop = Intern(Keyword.IMP_TOP);
-        //public static readonly Symbol ImplicitExpression = Intern(Keyword.IMP_EXPRESSION);
-        //public static readonly Symbol ImplicitLambda = Intern(Keyword.IMP_LAMBDA);
+        public static readonly Symbol Export = Intern(Keyword.EXPORT);
+        public static readonly Symbol Import = Intern(Keyword.IMPORT);
+        public static readonly Symbol ImportForSyntax = Intern(Keyword.IMPORT_FOR_SYNTAX);
+        public static readonly Symbol BeginForSyntax = Intern(Keyword.BEGIN_FOR_SYNTAX);
+
+        public static readonly Symbol Module = Intern(Keyword.MODULE);
 
         #endregion
 
@@ -106,14 +107,14 @@ namespace Clasp.Data.Terms
     {
         private Implicit(string name) : base(name) { }
 
-        public static readonly Implicit SpApply = new(Keyword.IMP_APP);
-        public static readonly Implicit SpDatum = new(Keyword.IMP_DATUM);
-        public static readonly Implicit SpTop = new(Keyword.IMP_TOP);
-        public static readonly Implicit SpLambda = new(Keyword.IMP_LAMBDA);
-
-        public static readonly Implicit SpVar = new(Keyword.IMP_VAR);
-
-        public static readonly Implicit ParDef = new(Keyword.IMP_PARDEF);
+        public static readonly Implicit Sp_Apply = new(Keyword.IMP_APP);
+        public static readonly Implicit Sp_Datum = new(Keyword.IMP_DATUM);
+        public static readonly Implicit Sp_Top = new(Keyword.IMP_TOP);
+        public static readonly Implicit Sp_Lambda = new(Keyword.IMP_LAMBDA);
+        public static readonly Implicit Sp_Var = new(Keyword.IMP_VAR);
+        public static readonly Implicit Par_Def = new(Keyword.IMP_PARDEF);
+        public static readonly Implicit Sp_Begin = new(Keyword.IMP_BEGIN);
+        public static readonly Implicit Sp_Module_Begin = new Implicit(Keyword.IMP_MODULE_BEGIN);
 
         protected override string FormatType() => "ImpSymbol";
         internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(Implicit), nameof(Symbol), Name);

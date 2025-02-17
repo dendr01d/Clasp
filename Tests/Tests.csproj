@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Clasp\Clasp.csproj" />
+    <ProjectReference Include="..\Clasp\ClaspLib.csproj" />
   </ItemGroup>
 
 </Project>

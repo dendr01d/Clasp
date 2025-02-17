@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Clasp.Data.Text;
+using Clasp.Exceptions;
 
 namespace Clasp.Data.Terms
 {

@@ -11,6 +11,7 @@ using Clasp.ExtensionMethods;
 using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
 using Clasp.Interfaces;
+using Clasp.Exceptions;
 
 namespace Clasp.Process
 {
@@ -27,7 +28,16 @@ namespace Clasp.Process
 
             if (tokens.Any())
             {
-                return ReadSyntax(new Stack<Token>(tokens.Reverse()));
+                Stack<Token> stk = new Stack<Token>(tokens.Reverse());
+
+                if (stk.Peek().TType == TokenType.ModuleFlag)
+                {
+                    SyntaxList module = ReadModule(stk.Pop(), stk);
+                    module.Push(new Identifier(Symbol.Module, module.LexContext));
+                    return module;
+                }
+
+                return ReadSyntax(stk);
             }
             else
             {
@@ -96,7 +106,11 @@ namespace Clasp.Process
 
         private static Syntax ReadSyntax(Stack<Token> tokens)
         {
-            // Use this later to extract metadata about the syntax
+            if (tokens.Peek().TType == TokenType.EOF)
+            {
+                throw new ReaderException.UnexpectedToken(tokens.Peek());
+            }
+
             Token current = tokens.Pop();
 
             // Ignore whitespace
@@ -260,6 +274,20 @@ namespace Clasp.Process
             {
                 return SyntaxList.ProperList(listContext, contents[0], contents[1..].ToArray());
             }
+        }
+
+        private static SyntaxList ReadModule(Token lead, Stack<Token> tokens)
+        {
+            List<Syntax> terms = new List<Syntax>();
+
+            while(tokens.Peek().TType != TokenType.EOF)
+            {
+                terms.Add(ReadSyntax(tokens));
+            }
+
+            LexInfo info = SynthesizeLexicalSource(lead, tokens.Peek());
+
+            return SyntaxList.ProperList(info, terms.First(), terms[1..].ToArray());
         }
 
         private static LexInfo SynthesizeLexicalSource(ISourceTraceable first, ISourceTraceable rest)

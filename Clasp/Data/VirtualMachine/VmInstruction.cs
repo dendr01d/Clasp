@@ -5,6 +5,7 @@ using Clasp.Binding.Environments;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.VirtualMachine;
+using Clasp.Exceptions;
 
 namespace Clasp.Data.AbstractSyntax
 {

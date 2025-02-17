@@ -5,6 +5,8 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
+using Clasp.Exceptions;
+
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Clasp.Data.Terms

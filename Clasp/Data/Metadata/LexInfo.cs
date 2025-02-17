@@ -94,7 +94,7 @@ namespace Clasp.Data.Metadata
             return false;
         }
 
-        public IEnumerable<CompileTimeBinding> ResolveBindings(int phase, string symbolicName)
+        public CompileTimeBinding? ResolveBindings(int phase, string symbolicName)
         {
             if (_phasedScopeSets.TryGetValue(phase, out HashSet<Scope>? scopes))
             {
@@ -102,14 +102,13 @@ namespace Clasp.Data.Metadata
                 {
                     if (scp.TryResolve(symbolicName, out CompileTimeBinding? binding))
                     {
-                        yield return binding;
+                        return binding;
                     }
                 }
             }
-            else
-            {
-                throw new ClaspGeneralException("The variable '{0}' has no assigned scopes in phase {1}.", symbolicName, phase);
-            }
+
+            return null;
+            //throw new ClaspGeneralException("The variable '{0}' has no assigned scopes in phase {1}.", symbolicName, phase);
         }
 
         #endregion

@@ -11,6 +11,7 @@ using Clasp.Data.Metadata;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.VirtualMachine;
 using Clasp.Interfaces;
+using Clasp.Exceptions;
 
 namespace Clasp
 {

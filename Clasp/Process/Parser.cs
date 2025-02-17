@@ -9,6 +9,7 @@ using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Exceptions;
 using Clasp.ExtensionMethods;
 
 using static System.Net.WebRequestMethods;
@@ -285,6 +286,11 @@ namespace Clasp.Process
 
             Term current = t;
 
+            if (current is SyntaxList stl)
+            {
+                current = stl.Expose();
+            }
+
             while(current is Cons stp)
             {
                 if (stp.Car is Identifier nextParam)
@@ -383,15 +389,14 @@ namespace Clasp.Process
         private static CompileTimeBinding ResolveBinding(Identifier id, ParseContext context)
         {
             if (id.TryResolveBinding(context.Phase,
-                out CompileTimeBinding? binding,
-                out CompileTimeBinding[] candidates))
+                out CompileTimeBinding? binding))
             {
                 return binding;
             }
-            else if (candidates.Length > 1)
-            {
-                throw new ParserException.AmbiguousIdentifier(id, candidates);
-            }
+            //else if (candidates.Length > 1)
+            //{
+            //    throw new ParserException.AmbiguousIdentifier(id, candidates);
+            //}
             else
             {
                 throw new ParserException.UnboundIdentifier(id);

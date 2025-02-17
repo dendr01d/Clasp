@@ -27,6 +27,7 @@ namespace Clasp.Data.Text
         OpenListParen,
         OpenVecParen,
         ClosingParen,
+
         Quote,
         Quasiquote,
         Unquote,
@@ -37,6 +38,9 @@ namespace Clasp.Data.Text
         Unsyntax,
         UnsyntaxSplice,
 
+        ModuleFlag,
+
+        EOF,
         DotOperator,
         Undefined,
 
