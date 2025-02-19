@@ -43,7 +43,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
         {
             continuation.Push(new BindFresh(VarName));
             continuation.Push(BoundValue);
@@ -66,7 +66,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
         {
             continuation.Push(new RebindExisting(VarName));
             continuation.Push(BoundValue);
@@ -91,7 +91,7 @@ namespace Clasp.Data.AbstractSyntax
 
             try
             {
-                Processor pross = machine.CurrentEnv.GlobalEnv.ParentProcess.CreateSubProcess();
+                Processor pross = machine.CurrentEnv.Runtime.ParentProcess.CreateSubProcess();
                 importedProgram = pross.ProcessProgram(FilePath);
             }
             catch (System.Exception ex)
@@ -167,7 +167,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
         {
             if (currentEnv.TryGetValue(VarName, out Term? boundValue))
             {
@@ -194,7 +194,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
         {
             currentValue = Value;
         }
@@ -223,7 +223,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
         {
             continuation.Push(new DispatchOnCondition(Consequent, Alternate));
             continuation.Push(new ChangeCurrentEnvironment(currentEnv));
@@ -246,7 +246,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
         {
             foreach (CoreForm node in Sequence.Reverse())
             {
@@ -308,7 +308,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
         {
             continuation.Push(new FunctionVerification(Arguments));
             //continuation.Push(new RollUpArguments(Arguments));
@@ -345,7 +345,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
         {
             currentValue = new CompoundProcedure(Formals, DottedFormal, Informals, currentEnv, Body);
         }
@@ -383,7 +383,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
         {
             continuation.Push(new FunctionDispatch(Macro, Argument));
         }

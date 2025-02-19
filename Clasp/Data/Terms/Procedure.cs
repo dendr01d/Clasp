@@ -97,13 +97,13 @@ namespace Clasp.Data.Terms
         public readonly string[] Parameters;
         public readonly string? VariadicParameter;
         public readonly string[] InformalParameters;
-        public readonly Environment CapturedEnv;
+        public readonly ClaspEnvironment CapturedEnv;
         public readonly SequentialForm Body;
 
         public readonly int Arity;
         public readonly bool IsVariadic;
 
-        public CompoundProcedure(string[] parameters, string? finalParameter, string[] informals, Environment enclosing, SequentialForm body)
+        public CompoundProcedure(string[] parameters, string? finalParameter, string[] informals, ClaspEnvironment enclosing, SequentialForm body)
         {
             Parameters = parameters;
             VariadicParameter = null;
@@ -117,7 +117,7 @@ namespace Clasp.Data.Terms
             IsVariadic = VariadicParameter is not null;
         }
 
-        public CompoundProcedure(string[] parameters, string[] informals, Environment enclosing, SequentialForm body)
+        public CompoundProcedure(string[] parameters, string[] informals, ClaspEnvironment enclosing, SequentialForm body)
             : this(parameters, null, informals, enclosing, body)
         { }
 
@@ -143,7 +143,7 @@ namespace Clasp.Data.Terms
 
     internal sealed class MacroProcedure : CompoundProcedure
     {
-        public MacroProcedure(string parameter, Environment enclosing, SequentialForm body)
+        public MacroProcedure(string parameter, ClaspEnvironment enclosing, SequentialForm body)
             : base([parameter], [], enclosing, body)
         { }
 

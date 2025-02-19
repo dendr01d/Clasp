@@ -16,14 +16,14 @@ namespace Clasp
     public class Processor
     {
         internal StreamWriter OutputStream { get; private set; }
-        internal SuperEnvironment RuntimeEnv { get; private set; }
-        internal SuperEnvironment CompileTimeEnv { get; private set; }
+        internal RuntimeEnv RuntimeEnv { get; private set; }
+        internal RuntimeEnv CompileTimeEnv { get; private set; }
 
         public Processor(StreamWriter outputStream)
         {
             OutputStream = outputStream;
-            RuntimeEnv = StandardEnv.CreateNew(this);
-            CompileTimeEnv = StandardEnv.CreateNew(this);
+            RuntimeEnv = StaticEnv.CreateNew(this);
+            CompileTimeEnv = StaticEnv.CreateNew(this);
         }
 
         public Processor CreateSubProcess() => new Processor(OutputStream);

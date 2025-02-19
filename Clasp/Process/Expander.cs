@@ -294,7 +294,7 @@ namespace Clasp.Process
             {
                 Syntax expandedInput = ExpandSyntax(input, subState);
                 CoreForm parsedInput = Parser.ParseSyntax(expandedInput, subState);
-                output = Interpreter.InterpretProgram(parsedInput, context.CompileTimeEnv.GlobalEnv.Enclose());
+                output = Interpreter.InterpretProgram(parsedInput, context.CompileTimeEnv.Runtime.Enclose());
             }
             catch (System.Exception e)
             {
@@ -335,7 +335,7 @@ namespace Clasp.Process
 
                 // Now interpret the parse, but back in THIS expansion's context
                 // Which allows for mutation of the current compile-time environment
-                output = Interpreter.InterpretProgram(parsedInput, context.CompileTimeEnv.GlobalEnv.Enclose());
+                output = Interpreter.InterpretProgram(parsedInput, context.CompileTimeEnv.Runtime.Enclose());
             }
             catch (System.Exception e)
             {

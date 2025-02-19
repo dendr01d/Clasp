@@ -108,7 +108,7 @@ namespace Clasp.Data.Metadata
                 }
             }
 
-            if (StandardEnv.StaticScope.TryResolve(symbolicName, out CompileTimeBinding? staticBinding))
+            if (StaticEnv.StaticScope.TryResolve(symbolicName, out CompileTimeBinding? staticBinding))
             {
                 return staticBinding;
             }

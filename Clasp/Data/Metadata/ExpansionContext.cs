@@ -26,7 +26,7 @@ namespace Clasp.Data.Metadata
         /// <summary>Informs how certain terms should be expanded.</summary>
         public readonly ExpansionMode Mode;
 
-        private ExpansionContext(Environment env, int phase, Scope? edge, Scope? site, ExpansionMode mode)
+        private ExpansionContext(ClaspEnvironment env, int phase, Scope? edge, Scope? site, ExpansionMode mode)
             : base(env, phase)
         {
             InsideEdge = edge;
@@ -34,7 +34,7 @@ namespace Clasp.Data.Metadata
             Mode = mode;
         }
 
-        public ExpansionContext(Environment env, int phase)
+        public ExpansionContext(ClaspEnvironment env, int phase)
             : this(env, phase, null, null, ExpansionMode.TopLevel)
         { }
 
@@ -71,7 +71,7 @@ namespace Clasp.Data.Metadata
         public ExpansionContext InNewPhase()
         {
             return new ExpansionContext(
-                env: CompileTimeEnv.GlobalEnv.Enclose(),
+                env: CompileTimeEnv.Runtime.Enclose(),
                 phase: Phase + 1,
                 edge: null,
                 site: null,

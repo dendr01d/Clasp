@@ -11,7 +11,7 @@ namespace Clasp.Data.VirtualMachine
     internal class MachineState
     {
         public Term ReturningValue;
-        public Environment CurrentEnv;
+        public ClaspEnvironment CurrentEnv;
         public Stack<VmInstruction> Continuation;
 
         public bool Complete => Continuation.Count == 0;
@@ -28,7 +28,7 @@ namespace Clasp.Data.VirtualMachine
             return new Stack<VmInstruction>(copiedInstructions);
         }
 
-        public MachineState(CoreForm program, Environment env)
+        public MachineState(CoreForm program, ClaspEnvironment env)
         {
             ReturningValue = VoidTerm.Value;
             CurrentEnv = env;

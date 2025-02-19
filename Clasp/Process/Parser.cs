@@ -26,7 +26,7 @@ namespace Clasp.Process
             return Parse(stx, context);
         }
 
-        public static CoreForm ParseSyntax(Syntax stx, Environment env, int phase)
+        public static CoreForm ParseSyntax(Syntax stx, ClaspEnvironment env, int phase)
         {
             ParseContext ctx = new ParseContext(env, phase);
             return Parse(stx, ctx);

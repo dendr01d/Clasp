@@ -17,12 +17,12 @@ namespace Clasp.Data.Metadata
         /// Records compile-time bindings of identifiers in the current lexical scope.
         /// Closures are used to ensure the locality of bound values.
         /// </summary>
-        public readonly Environment CompileTimeEnv;
+        public readonly ClaspEnvironment CompileTimeEnv;
 
         /// <summary>The current phase of expansion.</summary>
         public readonly int Phase;
     
-        public ParseContext(Environment env, int phase)
+        public ParseContext(ClaspEnvironment env, int phase)
         {
             CompileTimeEnv = env;
             Phase = phase;

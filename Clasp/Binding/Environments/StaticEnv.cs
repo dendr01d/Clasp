@@ -1,4 +1,6 @@
-﻿using Clasp.Data.Metadata;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
@@ -6,42 +8,40 @@ using Clasp.Data.Text;
 using Clasp.Ops;
 using Clasp.Ops.Functions;
 
+using Clasp.Exceptions;
+
 namespace Clasp.Binding.Environments
 {
-    internal static class StandardEnv
+    internal sealed class StaticEnv : LibraryEnv
     {
-        public static readonly Scope StaticScope = new Scope(SourceCode.StaticSource);
+        public override LibraryEnv Predecessor => null!; // deal with it
+        public override Scope ImplicitScope { get; }
 
-        static StandardEnv()
+        public StaticEnv(RuntimeEnv runtime) : base(runtime)
         {
-            foreach (Symbol kw in CoreKeywords)
+            ImplicitScope = new Scope(SourceCode.StaticSource);
+
+            foreach (Symbol sym in CoreKeywords)
             {
-                StaticScope.AddStaticBinding(kw.Name, BindingType.Special);
+                ImplicitScope.AddStaticBinding(sym.Name, BindingType.Special);
+                _definitions.Add(sym.Name, sym);
             }
 
-            foreach (PrimitiveProcedure pp in PrimProcs)
+            foreach(PrimitiveProcedure pp in PrimProcs)
             {
-                StaticScope.AddStaticBinding(pp.OpSymbol.Name, BindingType.Primitive);
+                ImplicitScope.AddStaticBinding(pp.OpSymbol.Name, BindingType.Primitive);
+                _definitions.Add(pp.OpSymbol.Name, pp);
             }
         }
-
-        public static SuperEnvironment CreateNew(Processor processor)
+        public override bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value)
         {
-            SuperEnvironment output = new SuperEnvironment(processor);
-
-            foreach (Symbol kw in CoreKeywords)
+            if (_definitions.TryGetValue(key, out value))
             {
-                output.DefineStaticKeyword(kw);
+                return true;
             }
-
-            foreach (PrimitiveProcedure pp in PrimProcs)
-            {
-                output.DefineStaticPrimitive(pp.OpSymbol, pp);
-            }
-
-            return output;
+            // end of the line
+            throw new ClaspGeneralException("Could not find definition of '{0}' in environment chain.", key);
         }
-
 
         private static readonly Symbol[] CoreKeywords = new Symbol[]
         {
