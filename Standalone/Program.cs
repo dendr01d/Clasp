@@ -10,28 +10,37 @@ namespace Standalone
         static void Main(string[] args)
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
-            string sourcePath = string.Empty;
+            string sourceDir = string.Empty;
+            string moduleName = string.Empty;
+
+            string inputPath = string.Empty;
             StreamWriter outputStream = new StreamWriter(Console.OpenStandardOutput(), System.Text.Encoding.Default)
             {
                 AutoFlush = true
             };
             bool consoleOutput = true;
 
-            if (args.Length == 0)
+
+            if (args.Length < 2 || args.Length > 3)
             {
                 PrintHelp(outputStream);
                 PauseConsole(outputStream, consoleOutput);
                 return;
             }
 
-            if (args.Length > 0)
+            if (args.Length >= 2)
             {
-                string fullPath = Path.GetFullPath(args[0]);
-                if (File.Exists(fullPath))
-                {
-                    sourcePath = fullPath;
-                }
-                else
+                sourceDir = args[0];
+
+                string fileName = Path.HasExtension(args[1])
+                    ? args[1]
+                    : string.Format("{0}.clsp", args[1]);
+
+                moduleName = Path.GetFileNameWithoutExtension(args[1]);
+
+                inputPath = Path.Combine(sourceDir, fileName);
+
+                if (!File.Exists(inputPath))
                 {
                     PrintHelp(outputStream);
                     PauseConsole(outputStream, consoleOutput);
@@ -39,7 +48,7 @@ namespace Standalone
                 }
             }
 
-            if (args.Length > 1)
+            if (args.Length >= 3)
             {
                 string destFile = Path.GetFullPath(args[1]);
                 if (!Path.EndsInDirectorySeparator(destFile)
@@ -60,7 +69,7 @@ namespace Standalone
 
             try
             {
-                string output = RunProcessor(sourcePath, outputStream);
+                string output = RunProcessor(sourceDir, outputStream);
                 if (consoleOutput)
                 {
                     Console.WriteLine(output);
@@ -85,10 +94,11 @@ namespace Standalone
         private static void PrintHelp(StreamWriter outputStream)
         {
             outputStream.WriteLine("{0} Usage:", EXE_NAME);
-            outputStream.WriteLine("   - {0} <source>", EXE_NAME);
-            outputStream.WriteLine("   - {0} <source> <destination>", EXE_NAME);
+            outputStream.WriteLine("   - {0} <source dir> <module path>", EXE_NAME);
+            outputStream.WriteLine("   - {0} <source dir> <module path> <destination>", EXE_NAME);
             outputStream.WriteLine();
-            outputStream.WriteLine("     <source>: The path to a CLASP file to be executed.");
+            outputStream.WriteLine(" <source dir>: The root directory of the CLASP code repository.");
+            outputStream.WriteLine("<module name>: The name of the CLASP module to be executed.");
             outputStream.WriteLine("<destination>: The path to an output file, if provided.");
         }
 

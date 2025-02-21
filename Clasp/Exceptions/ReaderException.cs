@@ -1,4 +1,6 @@
-﻿using Clasp.Data.Text;
+﻿using Clasp.Data.Metadata;
+using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Data.Text;
 using Clasp.Interfaces;
 
 namespace Clasp.Exceptions
@@ -93,6 +95,14 @@ namespace Clasp.Exceptions
             {
                 Location = errantToken.Location;
             }
+        }
+
+        public class InvalidModuleForm : ReaderException
+        {
+            internal InvalidModuleForm(Syntax stx) : base(
+                "Syntax doesn't comprise a module as expected: {0}",
+                stx)
+            { }
         }
     }
 }

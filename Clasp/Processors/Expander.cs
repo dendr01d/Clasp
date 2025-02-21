@@ -30,6 +30,8 @@ namespace Clasp.Process
 
          */
 
+        public static
+
         public static Syntax ExpandSyntax(Syntax input, ExpansionContext context)
         {
             return Expand(input, context);
@@ -158,7 +160,7 @@ namespace Clasp.Process
                     Keyword.MODULE => ExpandModule(stl, context),
                     Keyword.STATIC_PARMOD => throw new ClaspGeneralException("Shouldn't ever see this?"),
                     Keyword.IMPORT => ExpandImportArgs(args, context),
-                    Keyword.EXPORT => ExpandExportArgs(args, context)
+                    Keyword.EXPORT => ExpandExportArgs(args, context),
 
                     Keyword.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(args, info, context),
                     Keyword.BEGIN_FOR_SYNTAX => null, //interpret in context of next phase?

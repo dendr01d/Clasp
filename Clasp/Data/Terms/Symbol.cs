@@ -86,13 +86,11 @@ namespace Clasp.Data.Terms
         public static readonly Symbol UnquoteSplicing = Symbol.Intern(Keyword.UNQUOTE_SPLICING);
 
         public static readonly Symbol QuoteSyntax = Symbol.Intern(Keyword.QUOTE_SYNTAX);
-        public static readonly Symbol LetSyntax = Symbol.Intern(Keyword.LET_SYNTAX);
-
-        public static readonly Symbol Syntax = Symbol.Intern(Keyword.SYNTAX);
         public static readonly Symbol Quasisyntax = Symbol.Intern(Keyword.QUASISYNTAX);
         public static readonly Symbol Unsyntax = Symbol.Intern(Keyword.UNSYNTAX);
         public static readonly Symbol UnsyntaxSplicing = Symbol.Intern(Keyword.UNSYNTAX_SPLICING);
 
+        public static readonly Symbol Syntax = Symbol.Intern(Keyword.SYNTAX);
         public static readonly Symbol Ellipsis = Symbol.Intern(Keyword.ELLIPSIS);
 
         public static readonly Symbol Apply = Symbol.Intern(Keyword.APPLY);

@@ -1,11 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
-using Clasp.Binding.Environments;
+using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Data.Text;
+using Clasp.Exceptions;
+using Clasp.Process;
 
 namespace Clasp.Modules
 {
@@ -16,9 +15,26 @@ namespace Clasp.Modules
     {
         public readonly Syntax FreshSyntax;
 
-        public FreshModule(string name, Syntax stx) : base(name)
+        private FreshModule(string name, Syntax stx) : base(name)
         {
             FreshSyntax = stx;
+        }
+
+        public static FreshModule LoadFromFile(string path)
+        {
+            IEnumerable<string> file = Piper.PipeInFileContents(path);
+            IEnumerable<Token> tokens = Lexer.LexLines(path, file);
+            Syntax stx = Reader.ReadTokens(tokens);
+
+            if (stx is not SyntaxList stl
+                || stl.Expose() is not Cons cns
+                || cns.Cdr is not Cons cns2
+                || cns.Car is not Identifier id)
+            {
+                throw new ReaderException.InvalidModuleForm(stx);
+            }
+
+            return new FreshModule(id.Name, stx);
         }
     }
 }

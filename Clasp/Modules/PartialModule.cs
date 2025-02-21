@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
+using Clasp.Data.Metadata;
 using Clasp.Data.Terms.SyntaxValues;
 
 namespace Clasp.Modules
@@ -18,16 +19,15 @@ namespace Clasp.Modules
         public readonly Syntax PartiallyExpandedSyntax;
         private readonly Scope _insideEdge;
 
-        private readonly Dictionary<int, RootEnv> _compileTimeEnvironments;
+        private readonly ExpansionContext _context;
 
         private PartialModule(string name, Syntax stx, Identifier[] exports,
-            Scope outerEdge, Scope innerEdge, IEnumerable<KeyValuePair<int, RootEnv>> ctes)
+            Scope outerEdge, Scope innerEdge, ExpansionContext context)
             : base(name, outerEdge, exports)
         {
             PartiallyExpandedSyntax = stx;
             _insideEdge = innerEdge;
-
-            _compileTimeEnvironments = new Dictionary<int, RootEnv>(ctes);
+            _context = context;
         }
 
         public static PartialModule VisitFresh(FreshModule fresh)

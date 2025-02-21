@@ -20,6 +20,8 @@ namespace Clasp.Binding.Environments
         public static readonly StaticEnv Instance = new StaticEnv();
         public readonly Scope ImplicitScope;
 
+        public static string ClaspSourceDir = string.Empty;
+
         #region Instance Data
         private StaticEnv()
         {

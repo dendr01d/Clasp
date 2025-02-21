@@ -16,8 +16,6 @@ namespace Clasp
     public class Processor
     {
         internal StreamWriter OutputStream { get; private set; }
-        internal RuntimeEnv RuntimeEnv { get; private set; }
-        internal RuntimeEnv CompileTimeEnv { get; private set; }
 
         public Processor(StreamWriter outputStream)
         {
