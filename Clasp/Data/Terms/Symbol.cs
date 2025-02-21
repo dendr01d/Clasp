@@ -28,52 +28,13 @@ namespace Clasp.Data.Terms
         }
 
         public override string ToString() => Name;
-
-        #region Default static Symbols
-
-        public static readonly Symbol Define = Intern(Keyword.DEFINE);
-        public static readonly Symbol DefineSyntax = Intern(Keyword.DEFINE_SYNTAX);
-        public static readonly Symbol Set = Intern(Keyword.SET);
-
-        public static readonly Symbol Begin = Intern(Keyword.BEGIN);
-        public static readonly Symbol If = Intern(Keyword.IF);
-        public static readonly Symbol Lambda = Intern(Keyword.LAMBDA);
-
-        public static readonly Symbol Quote = Intern(Keyword.QUOTE);
-        public static readonly Symbol Quasiquote = Intern(Keyword.QUASIQUOTE);
-        public static readonly Symbol Unquote = Intern(Keyword.UNQUOTE);
-        public static readonly Symbol UnquoteSplicing = Intern(Keyword.UNQUOTE_SPLICING);
-
-        public static readonly Symbol QuoteSyntax = Intern(Keyword.QUOTE_SYNTAX);
-        public static readonly Symbol LetSyntax = Intern(Keyword.LET_SYNTAX);
-
-        public static readonly Symbol Syntax = Intern(Keyword.SYNTAX);
-        public static readonly Symbol Quasisyntax = Intern(Keyword.QUASISYNTAX);
-        public static readonly Symbol Unsyntax = Intern(Keyword.UNSYNTAX);
-        public static readonly Symbol UnsyntaxSplicing = Intern(Keyword.UNSYNTAX_SPLICING);
-
-        public static readonly Symbol Ellipsis = Intern(Keyword.ELLIPSIS);
-
-        public static readonly Symbol Apply = Intern(Keyword.APPLY);
-
-        public static readonly Symbol Export = Intern(Keyword.EXPORT);
-        public static readonly Symbol Import = Intern(Keyword.IMPORT);
-        public static readonly Symbol ImportForSyntax = Intern(Keyword.IMPORT_FOR_SYNTAX);
-        public static readonly Symbol BeginForSyntax = Intern(Keyword.BEGIN_FOR_SYNTAX);
-
-        public static readonly Symbol Module = Intern(Keyword.MODULE);
-
-        #endregion
-
-
         protected override string FormatType() => "Symbol";
         internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(Symbol), Name);
     }
 
     internal class GenSym : Symbol
     {
-        // Gamma (G) for GenSym
-        // I also considered using ⌠ instead because it interpolates more cleanly
+        // Gamma, for "GenSym"
         private const string _SEP = "Γ";
 
         private static string GenerateUniqueName(string partial)
@@ -96,27 +57,67 @@ namespace Clasp.Data.Terms
     }
 
     /// <summary>
-    /// Special symbols that cannot be linguistically represented.
-    /// They act as "unshadowable" representations of implicit core forms.
+    /// Special symbols that cannot be linguistically represented. They act as
+    /// "unshadowable" representations of certain important keywords by dint of being
+    /// an entirely different Type.
     /// </summary>
-    /// <remarks>
-    /// By separating them into a unique type, they can never be equal to ordinary symbols,
-    /// even if they technically have matching names.
-    /// </remarks>
-    internal sealed class Implicit : Symbol
+    internal sealed class ReservedSymbol : Symbol
     {
-        private Implicit(string name) : base(name) { }
-
-        public static readonly Implicit Sp_Apply = new(Keyword.IMP_APP);
-        public static readonly Implicit Sp_Datum = new(Keyword.IMP_DATUM);
-        public static readonly Implicit Sp_Top = new(Keyword.IMP_TOP);
-        public static readonly Implicit Sp_Lambda = new(Keyword.IMP_LAMBDA);
-        public static readonly Implicit Sp_Var = new(Keyword.IMP_VAR);
-        public static readonly Implicit Par_Def = new(Keyword.IMP_PARDEF);
-        public static readonly Implicit Sp_Begin = new(Keyword.IMP_BEGIN);
-        public static readonly Implicit Sp_Module_Begin = new Implicit(Keyword.IMP_MODULE_BEGIN);
+        public ReservedSymbol(string name) : base(name) { }
 
         protected override string FormatType() => "ImpSymbol";
-        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(Implicit), nameof(Symbol), Name);
+        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(ReservedSymbol), nameof(Symbol), Name);
+    }
+
+    internal static class Symbols
+    {
+
+        public static readonly Symbol Define = Symbol.Intern(Keyword.DEFINE);
+        public static readonly Symbol DefineSyntax = Symbol.Intern(Keyword.DEFINE_SYNTAX);
+        public static readonly Symbol Set = Symbol.Intern(Keyword.SET);
+
+        public static readonly Symbol Begin = Symbol.Intern(Keyword.BEGIN);
+        public static readonly Symbol If = Symbol.Intern(Keyword.IF);
+        public static readonly Symbol Lambda = Symbol.Intern(Keyword.LAMBDA);
+
+        public static readonly Symbol Quote = Symbol.Intern(Keyword.QUOTE);
+        public static readonly Symbol Quasiquote = Symbol.Intern(Keyword.QUASIQUOTE);
+        public static readonly Symbol Unquote = Symbol.Intern(Keyword.UNQUOTE);
+        public static readonly Symbol UnquoteSplicing = Symbol.Intern(Keyword.UNQUOTE_SPLICING);
+
+        public static readonly Symbol QuoteSyntax = Symbol.Intern(Keyword.QUOTE_SYNTAX);
+        public static readonly Symbol LetSyntax = Symbol.Intern(Keyword.LET_SYNTAX);
+
+        public static readonly Symbol Syntax = Symbol.Intern(Keyword.SYNTAX);
+        public static readonly Symbol Quasisyntax = Symbol.Intern(Keyword.QUASISYNTAX);
+        public static readonly Symbol Unsyntax = Symbol.Intern(Keyword.UNSYNTAX);
+        public static readonly Symbol UnsyntaxSplicing = Symbol.Intern(Keyword.UNSYNTAX_SPLICING);
+
+        public static readonly Symbol Ellipsis = Symbol.Intern(Keyword.ELLIPSIS);
+
+        public static readonly Symbol Apply = Symbol.Intern(Keyword.APPLY);
+
+        public static readonly Symbol Export = Symbol.Intern(Keyword.EXPORT);
+        public static readonly Symbol Import = Symbol.Intern(Keyword.IMPORT);
+        public static readonly Symbol ImportForSyntax = Symbol.Intern(Keyword.IMPORT_FOR_SYNTAX);
+        public static readonly Symbol BeginForSyntax = Symbol.Intern(Keyword.BEGIN_FOR_SYNTAX);
+
+        public static readonly Symbol Module = Symbol.Intern(Keyword.MODULE);
+
+
+        public static readonly ReservedSymbol StaticApply = new(Keyword.STATIC_APPLY);
+        //public static readonly Implicit Sp_Datum = new(Keyword.IMP_DATUM);
+        //public static readonly Implicit Sp_Top = new(Keyword.IMP_TOP);
+        public static readonly ReservedSymbol StaticLambda = new(Keyword.STATIC_LAMBDA);
+        //public static readonly Implicit Sp_Var = new(Keyword.IMP_VAR);
+        public static readonly ReservedSymbol StaticParDef = new(Keyword.STATIC_PARDEF);
+        //public static readonly Implicit Sp_Begin = new(Keyword.IMP_BEGIN);
+        //public static readonly Implicit Sp_Module_Begin = new(Keyword.IMP_MODULE_BEGIN);
+
+        public static readonly ReservedSymbol StaticParMod = new(Keyword.STATIC_PARMOD);
+
+        public static readonly ReservedSymbol StaticQuote = new(Keyword.STATIC_QUOTE);
+
+        public static readonly ReservedSymbol StaticBegin = new(Keyword.STATIC_BEGIN);
     }
 }

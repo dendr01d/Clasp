@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -40,5 +41,15 @@ namespace Clasp.Data.Terms
         public override string ToString() => "#<void>";
         protected override string FormatType() => "Void";
         internal override string DisplayDebug() => nameof(VoidTerm);
+    }
+
+    internal sealed class ModuleTerm : Atom
+    {
+        public readonly Module Handle;
+
+        public ModuleTerm(Module mdl) => Handle = mdl;
+        public override string ToString() => string.Format("Mdl({0})", Handle.Name);
+        protected override string FormatType() => "Module";
+        internal override string DisplayDebug() => string.Format("Module '{0}'", Handle.Name);
     }
 }

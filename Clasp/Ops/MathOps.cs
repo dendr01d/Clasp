@@ -4,7 +4,7 @@ using Clasp.Exceptions;
 
 namespace Clasp.Ops
 {
-    internal class Math
+    internal class MathOps
     {
         #region Comparison
 

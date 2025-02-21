@@ -7,7 +7,7 @@ using Clasp.Data.Terms.ProductValues;
 
 namespace Clasp.Ops
 {
-    internal static class Equality
+    internal static class EqualityOps
     {
         public static Term Eq(Term t1, Term t2) => t1 == t2;
 
@@ -15,7 +15,7 @@ namespace Clasp.Ops
         {
             return (t1, t2) switch
             {
-                (Number n1, Number n2) => Math.Equivalent(n1, n2),
+                (Number n1, Number n2) => MathOps.Equivalent(n1, n2),
                 (Character c1, Character c2) => c1.Value == c2.Value,
                 (Boolean b1, Boolean b2) => b1.Value == b2.Value,
                 _ => Eq(t1, t2)

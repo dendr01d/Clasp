@@ -9,15 +9,19 @@ using Clasp.Ops;
 using Clasp.Ops.Functions;
 
 using Clasp.Exceptions;
+using Clasp.Data.Terms.Procedures;
+using System.Collections.Generic;
+using Clasp.Modules;
 
 namespace Clasp.Binding.Environments
 {
-    internal sealed class StaticEnv : LibraryEnv
+    internal sealed class StaticEnv : ClaspEnvironment
     {
-        public override LibraryEnv Predecessor => null!; // deal with it
-        public override Scope ImplicitScope { get; }
+        public static readonly StaticEnv Instance = new StaticEnv();
+        public readonly Scope ImplicitScope;
 
-        public StaticEnv(RuntimeEnv runtime) : base(runtime)
+        #region Instance Data
+        private StaticEnv()
         {
             ImplicitScope = new Scope(SourceCode.StaticSource);
 
@@ -33,6 +37,7 @@ namespace Clasp.Binding.Environments
                 _definitions.Add(pp.OpSymbol.Name, pp);
             }
         }
+
         public override bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value)
         {
             if (_definitions.TryGetValue(key, out value))
@@ -42,128 +47,144 @@ namespace Clasp.Binding.Environments
             // end of the line
             throw new ClaspGeneralException("Could not find definition of '{0}' in environment chain.", key);
         }
+        #endregion
 
         private static readonly Symbol[] CoreKeywords = new Symbol[]
         {
-            Implicit.Sp_Top,
-            Implicit.Sp_Var,
+            Symbols.Quote,
+            Symbols.StaticQuote,
+            Symbols.QuoteSyntax,
 
-            Symbol.Quote,
-            Implicit.Sp_Datum,
+            Symbols.Apply,
+            Symbols.StaticApply,
 
-            Symbol.QuoteSyntax,
+            Symbols.Define,
+            Symbols.StaticParDef,
+            Symbols.Set,
 
-            Symbol.Apply,
-            Implicit.Sp_Apply,
+            Symbols.Lambda,
+            Symbols.StaticLambda,
 
-            Implicit.Par_Def,
-            Symbol.Define,
-            Symbol.DefineSyntax,
-            Symbol.Set,
+            Symbols.If,
 
-            Symbol.Lambda,
-            Implicit.Sp_Lambda,
+            Symbols.Begin,
+            Symbols.StaticBegin,
 
-            Symbol.If,
-            Symbol.Begin,
-            Implicit.Sp_Begin,
+            Symbols.Module,
+            Symbols.StaticParMod,
+            Symbols.Import,
+            Symbols.Export,
 
-            Symbol.Module,
-            Symbol.BeginForSyntax,
-            Symbol.ImportForSyntax,
-            Symbol.Import,
-            Symbol.Export
+            Symbols.DefineSyntax,
+            Symbols.BeginForSyntax,
+            Symbols.ImportForSyntax
         };
 
         private static readonly PrimitiveProcedure[] PrimProcs = new PrimitiveProcedure[]
         {
             // List Ops
-            new NativeProcedure("cons", new NativeBinary<Term, Term>(Conses.Cons)),
-            new NativeProcedure("car", new NativeUnary<Cons>(Conses.Car)),
-            new NativeProcedure("cdr", new NativeUnary<Cons>(Conses.Cdr)),
-            new NativeProcedure("set-car", new NativeBinary<Cons<Term, Term>, Term>(Conses.SetCar)),
-            new NativeProcedure("set-cdr", new NativeBinary<Cons<Term, Term>, Term>(Conses.SetCdr)),
+            new NativeProcedure("cons", new NativeBinary<Term, Term>(ConsOps.Cons)),
+            new NativeProcedure("car", new NativeUnary<Cons>(ConsOps.Car)),
+            new NativeProcedure("cdr", new NativeUnary<Cons>(ConsOps.Cdr)),
+            new NativeProcedure("set-car", new NativeBinary<Cons<Term, Term>, Term>(ConsOps.SetCar)),
+            new NativeProcedure("set-cdr", new NativeBinary<Cons<Term, Term>, Term>(ConsOps.SetCdr)),
 
             // Value Equality
-            new NativeProcedure("eq", new NativeBinary<Term, Term>(Equality.Eq)),
-            new NativeProcedure("eqv", new NativeBinary<Term, Term>(Equality.Eqv)),
-            new NativeProcedure("equal", new NativeBinary<Term, Term>(Equality.Equal)),
+            new NativeProcedure("eq", new NativeBinary<Term, Term>(EqualityOps.Eq)),
+            new NativeProcedure("eqv", new NativeBinary<Term, Term>(EqualityOps.Eqv)),
+            new NativeProcedure("equal", new NativeBinary<Term, Term>(EqualityOps.Equal)),
 
             // Type Predicates
-            new NativeProcedure("pair?", new NativeUnary<Term>(Predicates.IsType<Cons>)),
-            new NativeProcedure("null?", new NativeUnary<Term>(Predicates.IsType<Nil>)),
+            new NativeProcedure("pair?", new NativeUnary<Term>(PredicateOps.IsType<Cons>)),
+            new NativeProcedure("null?", new NativeUnary<Term>(PredicateOps.IsType<Nil>)),
 
-            new NativeProcedure("symbol?", new NativeUnary<Term>(Predicates.IsType<Symbol>)),
-            new NativeProcedure("character?", new NativeUnary<Term>(Predicates.IsType<Character>)),
-            new NativeProcedure("string?", new NativeUnary<Term>(Predicates.IsType<CharString>)),
-            new NativeProcedure("vector?", new NativeUnary<Term>(Predicates.IsType<Vector>)),
-            new NativeProcedure("boolean?", new NativeUnary<Term>(Predicates.IsType<Boolean>)),
+            new NativeProcedure("symbol?", new NativeUnary<Term>(PredicateOps.IsType<Symbol>)),
+            new NativeProcedure("character?", new NativeUnary<Term>(PredicateOps.IsType<Character>)),
+            new NativeProcedure("string?", new NativeUnary<Term>(PredicateOps.IsType<CharString>)),
+            new NativeProcedure("vector?", new NativeUnary<Term>(PredicateOps.IsType<Vector>)),
+            new NativeProcedure("boolean?", new NativeUnary<Term>(PredicateOps.IsType<Boolean>)),
 
-            new NativeProcedure("number?", new NativeUnary<Term>(Predicates.IsType<Number>)),
-            new NativeProcedure("complex?", new NativeUnary<Term>(Predicates.IsType<ComplexNumeric>)),
-            new NativeProcedure("real?", new NativeUnary<Term>(Predicates.IsType<RealNumeric>)),
-            new NativeProcedure("rational?", new NativeUnary<Term>(Predicates.IsType<RationalNumeric>)),
-            new NativeProcedure("integer?", new NativeUnary<Term>(Predicates.IsType<IntegralNumeric>)),
+            new NativeProcedure("number?", new NativeUnary<Term>(PredicateOps.IsType<Number>)),
+            new NativeProcedure("complex?", new NativeUnary<Term>(PredicateOps.IsType<ComplexNumeric>)),
+            new NativeProcedure("real?", new NativeUnary<Term>(PredicateOps.IsType<RealNumeric>)),
+            new NativeProcedure("rational?", new NativeUnary<Term>(PredicateOps.IsType<RationalNumeric>)),
+            new NativeProcedure("integer?", new NativeUnary<Term>(PredicateOps.IsType<IntegralNumeric>)),
 
-            new NativeProcedure("syntax?", new NativeUnary<Term>(Predicates.IsType<Syntax>)),
-            new NativeProcedure("identifier?", new NativeUnary<Term>(Predicates.IsType<Identifier>)),
+            new NativeProcedure("syntax?", new NativeUnary<Term>(PredicateOps.IsType<Syntax>)),
+            new NativeProcedure("identifier?", new NativeUnary<Term>(PredicateOps.IsType<Identifier>)),
 
             // Symbol Ops
-            new NativeProcedure("symbol->string", new NativeUnary<Symbol>(Symbols.SymbolToString)),
-            new NativeProcedure("string->symbol", new NativeUnary<CharString>(Symbols.StringToSymbol)),
+            new NativeProcedure("symbol->string", new NativeUnary<Symbol>(SymbolOps.SymbolToString)),
+            new NativeProcedure("string->symbol", new NativeUnary<CharString>(SymbolOps.StringToSymbol)),
 
             // Character Ops
-            new NativeProcedure("char=", new NativeBinary<Character, Character>(Characters.CharEq)),
-            new NativeProcedure("char<", new NativeBinary<Character, Character>(Characters.CharLT)),
-            new NativeProcedure("char<=", new NativeBinary<Character, Character>(Characters.CharLTE)),
-            new NativeProcedure("char>", new NativeBinary<Character, Character>(Characters.CharGT)),
-            new NativeProcedure("char>=", new NativeBinary<Character, Character>(Characters.CharGTE)),
+            new NativeProcedure("char=", new NativeBinary<Character, Character>(CharacterOps.CharEq)),
+            new NativeProcedure("char<", new NativeBinary<Character, Character>(CharacterOps.CharLT)),
+            new NativeProcedure("char<=", new NativeBinary<Character, Character>(CharacterOps.CharLTE)),
+            new NativeProcedure("char>", new NativeBinary<Character, Character>(CharacterOps.CharGT)),
+            new NativeProcedure("char>=", new NativeBinary<Character, Character>(CharacterOps.CharGTE)),
 
-            new NativeProcedure("char->integer", new NativeUnary<Character>(Characters.CharacterToInteger)),
-            new NativeProcedure("integer->char", new NativeUnary<IntegralNumeric>(Characters.IntegerToCharacter)),
+            new NativeProcedure("char->integer", new NativeUnary<Character>(CharacterOps.CharacterToInteger)),
+            new NativeProcedure("integer->char", new NativeUnary<IntegralNumeric>(CharacterOps.IntegerToCharacter)),
 
             // Syntax Ops
-            new NativeProcedure("syntax-source", new NativeUnary<Syntax>(Syntaxes.SyntaxSource)),
-            new NativeProcedure("syntax-line", new NativeUnary<Syntax>(Syntaxes.SyntaxLine)),
-            new NativeProcedure("syntax-column", new NativeUnary<Syntax>(Syntaxes.SyntaxColumn)),
-            new NativeProcedure("syntax-position", new NativeUnary<Syntax>(Syntaxes.SyntaxPosition)),
-            new NativeProcedure("syntax-span", new NativeUnary<Syntax>(Syntaxes.SyntaxSpan)),
-            new NativeProcedure("syntax-original", new NativeUnary<Syntax>(Syntaxes.SyntaxOriginal)),
+            new NativeProcedure("syntax-source", new NativeUnary<Syntax>(SyntaxOps.SyntaxSource)),
+            new NativeProcedure("syntax-line", new NativeUnary<Syntax>(SyntaxOps.SyntaxLine)),
+            new NativeProcedure("syntax-column", new NativeUnary<Syntax>(SyntaxOps.SyntaxColumn)),
+            new NativeProcedure("syntax-position", new NativeUnary<Syntax>(SyntaxOps.SyntaxPosition)),
+            new NativeProcedure("syntax-span", new NativeUnary<Syntax>(SyntaxOps.SyntaxSpan)),
+            new NativeProcedure("syntax-original", new NativeUnary<Syntax>(SyntaxOps.SyntaxOriginal)),
 
-            new NativeProcedure("syntax-e", new NativeUnary<Syntax>(Syntaxes.SyntaxE)),
-            new NativeProcedure("syntax->list", new NativeUnary<Syntax>(Syntaxes.SyntaxToList)),
-            new NativeProcedure("syntax->datum", new NativeUnary<Syntax>(Syntaxes.SyntaxToDatum)),
-            new NativeProcedure("datum->syntax", new NativeBinary<Syntax, Term>(Syntaxes.DatumToSyntax)),
+            new NativeProcedure("syntax-e", new NativeUnary<Syntax>(SyntaxOps.SyntaxE)),
+            new NativeProcedure("syntax->list", new NativeUnary<Syntax>(SyntaxOps.SyntaxToList)),
+            new NativeProcedure("syntax->datum", new NativeUnary<Syntax>(SyntaxOps.SyntaxToDatum)),
+            new NativeProcedure("datum->syntax", new NativeBinary<Syntax, Term>(SyntaxOps.DatumToSyntax)),
 
 
             //Arithmetic
             new NativeProcedure("+")
             {
-                new NativeBinary<Number, Number>(Math.Add),
-                new NativeVariadic<Number>(Math.AddVar)
+                new NativeBinary<Number, Number>(MathOps.Add),
+                new NativeVariadic<Number>(MathOps.AddVar)
             },
             new NativeProcedure("-")
             {
-                new NativeUnary<Number>(Math.Negate),
-                new NativeBinary<Number, Number>(Math.Subtract),
-                new NativeVariadic<Number>(Math.SubtractVar)
+                new NativeUnary<Number>(MathOps.Negate),
+                new NativeBinary<Number, Number>(MathOps.Subtract),
+                new NativeVariadic<Number>(MathOps.SubtractVar)
             },
             new NativeProcedure("*")
             {
-                new NativeBinary<Number, Number>(Math.Multiply),
-                new NativeVariadic<Number>(Math.MultiplyVar)
+                new NativeBinary<Number, Number>(MathOps.Multiply),
+                new NativeVariadic<Number>(MathOps.MultiplyVar)
             },
             new NativeProcedure("/")
             {
-                new NativeUnary<Number>(Math.Invert),
-                new NativeBinary<Number, Number>(Math.Divide),
-                new NativeVariadic<Number>(Math.DivideVar)
-            },
-
-            //IO
-            new SystemProcedure("display", new SystemVariadic<Term>(IO.Display)),
-            //new SystemProcedure("import", new SystemUnary<CharString>(IO.Import))
+                new NativeUnary<Number>(MathOps.Invert),
+                new NativeBinary<Number, Number>(MathOps.Divide),
+                new NativeVariadic<Number>(MathOps.DivideVar)
+            }
         };
 
+        #region Module Cache
+
+        private static Dictionary<string, Module> _loadedModules = new Dictionary<string, Module>();
+
+        public static bool TryUncacheModule(string moduleName, out Module? mdl)
+        {
+            return _loadedModules.TryGetValue(moduleName, out mdl);
+        }
+
+        public static void CacheModule(Module mdl)
+        {
+            if (_loadedModules.ContainsKey(mdl.Name))
+            {
+                throw new ClaspGeneralException("Cannot cache duplicate module '{0}'.", mdl.Name);
+            }
+
+            _loadedModules[mdl.Name] = mdl;
+        }
+
+        #endregion
     }
 }

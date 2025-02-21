@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Clasp.Binding.Modules
+namespace Clasp.Modules
 {
     /// <summary>
     /// Represents a module being dynamically constructed via input at the REPL

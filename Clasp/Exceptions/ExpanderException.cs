@@ -5,6 +5,7 @@ using System.Linq;
 using Clasp.Binding;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;

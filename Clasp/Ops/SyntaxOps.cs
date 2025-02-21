@@ -5,7 +5,7 @@ using Clasp.Data.Terms.SyntaxValues;
 
 namespace Clasp.Ops
 {
-    internal class Syntaxes
+    internal class SyntaxOps
     {
         public static CharString SyntaxSource(Syntax stx) => new CharString(stx.LexContext.Location.Source);
         public static IntegralNumeric SyntaxLine(Syntax stx) => new Integer(stx.LexContext.Location.LineNumber);

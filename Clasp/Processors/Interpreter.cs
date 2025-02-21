@@ -17,6 +17,8 @@ namespace Clasp.Process
             return machine.ReturningValue;
         }
 
+        public static Term InterpretInVacuum(CoreForm program) => InterpretProgram(program, new RootEnv());
+
         public static Term InterpretProgram(MacroApplication macroApp) => InterpretProgram(macroApp, macroApp.Macro.CapturedEnv);
 
         public static Term Interpret(CoreForm program, ClaspEnvironment env, System.Action<int, MachineState> postStepHook)

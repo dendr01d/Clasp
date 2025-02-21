@@ -11,7 +11,7 @@ namespace Clasp.Data.VirtualMachine
     internal class MachineState
     {
         public Term ReturningValue;
-        public ClaspEnvironment CurrentEnv;
+        public MutableEnv CurrentEnv;
         public Stack<VmInstruction> Continuation;
 
         public bool Complete => Continuation.Count == 0;

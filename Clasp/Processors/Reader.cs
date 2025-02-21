@@ -44,7 +44,7 @@ namespace Clasp.Process
                 
                 if (terms[0] is not Identifier id || id.Name != Keyword.MODULE)
                 {
-                    syntax.Push(new Identifier(Implicit.Sp_Begin, terms[0]));
+                    syntax.Push(new Identifier(ReservedSymbol.Sp_Begin, terms[0]));
                 }
 
                 return syntax;
@@ -144,15 +144,15 @@ namespace Clasp.Process
                 TokenType.OpenListParen => ReadList(current, tokens),
                 TokenType.OpenVecParen => ReadVector(current, tokens),
 
-                TokenType.Quote => NativelyExpand(current, Symbol.Quote, tokens),
-                TokenType.Quasiquote => NativelyExpand(current, Symbol.Quasiquote, tokens),
-                TokenType.Unquote => NativelyExpand(current, Symbol.Unquote, tokens),
-                TokenType.UnquoteSplice => NativelyExpand(current, Symbol.UnquoteSplicing, tokens),
+                TokenType.Quote => NativelyExpand(current, Symbols.Quote, tokens),
+                TokenType.Quasiquote => NativelyExpand(current, Symbols.Quasiquote, tokens),
+                TokenType.Unquote => NativelyExpand(current, Symbols.Unquote, tokens),
+                TokenType.UnquoteSplice => NativelyExpand(current, Symbols.UnquoteSplicing, tokens),
 
-                TokenType.Syntax => NativelyExpand(current, Symbol.Syntax, tokens),
-                TokenType.QuasiSyntax => NativelyExpand(current, Symbol.Quasisyntax, tokens),
-                TokenType.Unsyntax => NativelyExpand(current, Symbol.Unsyntax, tokens),
-                TokenType.UnsyntaxSplice => NativelyExpand(current, Symbol.UnsyntaxSplicing, tokens),
+                TokenType.Syntax => NativelyExpand(current, Symbols.Syntax, tokens),
+                TokenType.QuasiSyntax => NativelyExpand(current, Symbols.Quasisyntax, tokens),
+                TokenType.Unsyntax => NativelyExpand(current, Symbols.Unsyntax, tokens),
+                TokenType.UnsyntaxSplice => NativelyExpand(current, Symbols.UnsyntaxSplicing, tokens),
 
                 TokenType.ModuleFlag => new Identifier(Keyword.MODULE, new LexInfo(current.Location)),
                 TokenType.Symbol => new Identifier(current),

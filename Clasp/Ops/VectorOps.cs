@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Clasp.Ops
 {
-    internal class Vectors
+    internal class VectorOps
     {
     }
 }

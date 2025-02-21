@@ -3,10 +3,10 @@ using Clasp.Data.Terms;
 
 namespace Clasp.Ops
 {
-    internal static class Characters
+    internal static class CharacterOps
     {
         // I'm interning all my characters to begin with, so this is a little redundant...
-        public static Term CharEq(Character c1, Character c2) => Equality.Eq(c1, c2);
+        public static Term CharEq(Character c1, Character c2) => EqualityOps.Eq(c1, c2);
 
         public static Term CharLT(Character c1, Character c2) => c1.AsInteger < c2.AsInteger;
         public static Term CharLTE(Character c1, Character c2) => c1.AsInteger <= c2.AsInteger;

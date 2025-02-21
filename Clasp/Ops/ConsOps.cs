@@ -4,7 +4,7 @@ using Clasp.Data.Terms.ProductValues;
 
 namespace Clasp.Ops
 {
-    internal static class Conses
+    internal static class ConsOps
     {
         public static Term Cons(Term t1, Term t2) => Clasp.Data.Terms.ProductValues.Cons.Truct(t1, t2);
         public static Term Car(Cons p) => p.Car;

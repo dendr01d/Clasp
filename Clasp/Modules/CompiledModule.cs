@@ -4,23 +4,23 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Terms.SyntaxValues;
 
-namespace Clasp.Binding.Modules
+namespace Clasp.Modules
 {
-    internal sealed class CompiledModule : Module
+    internal sealed class CompiledModule : InstantiatedModule
     {
-        public readonly CoreForm ModuleForm;
-        public readonly Syntax ParsedSyntax;
-        public readonly string[] ExportedNames;
+        public readonly RootEnv RuntimeEnvironment;
 
-        private CompiledModule(ModuleEnv env, Syntax stx, CoreForm form, string[] names) : base(env)
+        private CompiledModule(string name, Scope outerEdge, Syntax stx, CoreForm form,
+            Identifier[] exports)
+            : base(name, outerEdge, exports)
         {
             ModuleForm = form;
             ParsedSyntax = stx;
-            ExportedNames = names;
         }
 
         public static CompiledModule InvokePartial(PartialModule partial)

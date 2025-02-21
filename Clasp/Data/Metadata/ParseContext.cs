@@ -8,31 +8,49 @@ using System.Threading.Tasks;
 using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Procedures;
 
 namespace Clasp.Data.Metadata
 {
+    /// <summary>
+    /// Manages state information of a program expansion either ongoing or completed.
+    /// </summary>
     internal class ParseContext
     {
         /// <summary>
         /// Records compile-time bindings of identifiers in the current lexical scope.
         /// Closures are used to ensure the locality of bound values.
         /// </summary>
-        public readonly ClaspEnvironment CompileTimeEnv;
+        public readonly Dictionary<int, Closure> CompileTimeEnvironments;
 
-        /// <summary>The current phase of expansion.</summary>
-        public readonly int Phase;
+        private readonly RootEnv _rootEnv;
     
-        public ParseContext(ClaspEnvironment env, int phase)
+        public ParseContext(RootEnv env)
         {
-            CompileTimeEnv = env;
-            Phase = phase;
+            CompileTimeEnvironments = new Dictionary<int, Closure>();
+            _rootEnv = env;
         }
 
-        public bool TryLookupMacro(CompileTimeBinding binding,
+        protected ParseContext(ParseContext pCtx)
+        {
+            CompileTimeEnvironments = pCtx.CompileTimeEnvironments;
+            _rootEnv = pCtx._rootEnv;
+        }
+
+        public Closure EnvByPhase(int phase)
+        {
+            if (!CompileTimeEnvironments.ContainsKey(phase))
+            {
+                CompileTimeEnvironments[phase] = _rootEnv.Enclose();
+            }
+            return CompileTimeEnvironments[phase];
+        }
+
+        public bool TryLookupMacro(int phase, CompileTimeBinding binding,
             [NotNullWhen(true)] out MacroProcedure? macro)
         {
             if (binding.BoundType == BindingType.Transformer
-                && CompileTimeEnv.TryGetValue(binding.Name, out Term? maybeMacro)
+                && EnvByPhase(phase).TryGetValue(binding.Name, out Term? maybeMacro)
                 && maybeMacro is MacroProcedure definitelyMacro)
             {
                 macro = definitelyMacro;

@@ -7,52 +7,47 @@ using System.Threading.Tasks;
 namespace Clasp.Data.Static
 {
     /// <summary>
-    /// The default keywords used for special forms within the language.
+    /// The default keywords used for special forms (or implicit macros) within the language.
     /// </summary>
     internal static class Keyword
     {
-        public const string DEFINE = "define";
-        public const string DEFINE_SYNTAX = "define-syntax";
-        public const string SET = "set!";
-
-        public const string BEGIN = "begin";
-        public const string IF = "if";
-        public const string LAMBDA = "lambda";
-
         public const string QUOTE = "quote";
+        public const string STATIC_QUOTE = "σquote";
         public const string QUASIQUOTE = "quasiquote";
         public const string UNQUOTE = "unquote";
         public const string UNQUOTE_SPLICING = "unquote-splicing";
 
         public const string QUOTE_SYNTAX = "quote-syntax";
-        public const string LET_SYNTAX = "let-syntax";
-
-        public const string SYNTAX = "syntax";
         public const string QUASISYNTAX = "quasisyntax";
         public const string UNSYNTAX = "unsyntax";
         public const string UNSYNTAX_SPLICING = "unsyntax-splicing";
 
-        public const string ELLIPSIS = "...";
-
         public const string APPLY = "apply";
+        public const string STATIC_APPLY = "σapp";
 
-        public const string IMP_APP = "#%app";
-        public const string IMP_DATUM = "#%datum";
-        public const string IMP_TOP = "#%top";
-        public const string IMP_LAMBDA = "#%lambda";
-        public const string IMP_VAR = "#%var";
-        public const string IMP_BEGIN = "#%begin";
+        public const string DEFINE = "define";
+        public const string STATIC_PARDEF = "σpart-define";
+        public const string SET = "set!";
 
-        public const string IMP_PARDEF = "#%part-define";
+        public const string LAMBDA = "lambda";
+        public const string STATIC_LAMBDA = "σlambda";
 
-        public const string EXPORT = "export";
-        public const string IMPORT = "import";
-        public const string IMPORT_FOR_SYNTAX = "import-for-syntax";
-        public const string BEGIN_FOR_SYNTAX = "begin-for-syntax";
+        public const string IF = "if";
+
+        public const string BEGIN = "begin";
+        public const string STATIC_BEGIN = "σbegin";
 
         public const string MODULE = "module";
         public const string MARK_MODULE = "#module";
+        public const string STATIC_PARMOD = "σpart-module";
+        public const string IMPORT = "import";
+        public const string EXPORT = "export";
 
-        public const string IMP_MODULE_BEGIN = "#%module-begin";
+        public const string DEFINE_SYNTAX = "define-syntax";
+        public const string BEGIN_FOR_SYNTAX = "begin-for-syntax";
+        public const string IMPORT_FOR_SYNTAX = "import-for-syntax";
+
+        public const string SYNTAX = "syntax";
+        public const string ELLIPSIS = "...";
     }
 }

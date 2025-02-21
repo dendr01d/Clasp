@@ -3,7 +3,7 @@ using Clasp.Data.Terms;
 
 namespace Clasp.Ops
 {
-    internal static class Symbols
+    internal static class SymbolOps
     {
         public static Term SymbolToString(Symbol sym) => new CharString(sym.Name);
 

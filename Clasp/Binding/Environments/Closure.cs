@@ -6,18 +6,17 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Clasp.Data.Terms;
+using Clasp.Exceptions;
 
 namespace Clasp.Binding.Environments
 {
     internal class Closure : MutableEnv
     {
-        public override ClaspEnvironment Predecessor { get; }
-        public override RuntimeEnv Runtime { get; }
+        public override RootEnv Root { get; }
 
-        public Closure(MutableEnv predecessor) : base()
+        public Closure(DynamicEnv pred) : base(pred)
         {
-            Predecessor = predecessor;
-            Runtime = predecessor.Runtime;
+            Root = pred.Root;
         }
     }
 }

@@ -29,20 +29,20 @@ namespace Clasp.Data.Terms
 
         public static Character Intern(Token token)
         {
-            if (token.Text.Length == 3
-                && token.Text[0] == '#'
+            if (token.Text[0] == '#'
                 && token.Text[1] == '\\')
             {
-                return Intern(token.Text[2]);
-            }
-            else
-            {
-                if (CharacterMap.NameToChar.TryGetValue(token.Text[2..], out char value))
+                if (token.Text.Length == 3)
+                {
+                    return Intern(token.Text[2]);
+                }
+                else if (CharacterMap.NameToChar.TryGetValue(token.Text[2..], out char value))
                 {
                     return Intern(value);
                 }
-                throw new ClaspGeneralException(string.Format("Unknown character: '{0}'", token.Text));
             }
+
+            throw new ClaspGeneralException(string.Format("Unknown character literal: '{0}'", token.Text));
         }
 
         public override string ToString()

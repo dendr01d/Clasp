@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Clasp.Binding.Environments;
 using Clasp.Data.Terms.SyntaxValues;
 
-namespace Clasp.Binding.Modules
+namespace Clasp.Modules
 {
     /// <summary>
     /// The syntax of a freshly-imported module form, without any processing work done.
@@ -16,7 +16,7 @@ namespace Clasp.Binding.Modules
     {
         public readonly Syntax FreshSyntax;
 
-        public FreshModule(ModuleEnv env, Syntax stx) : base(env)
+        public FreshModule(string name, Syntax stx) : base(name)
         {
             FreshSyntax = stx;
         }

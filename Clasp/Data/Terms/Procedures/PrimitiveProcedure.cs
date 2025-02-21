@@ -1,20 +1,17 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Xml.Linq;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-using Clasp.Binding.Environments;
-using Clasp.Data.AbstractSyntax;
 using Clasp.Data.VirtualMachine;
 using Clasp.Exceptions;
+
 using Clasp.Ops.Functions;
 
-namespace Clasp.Data.Terms
+namespace Clasp.Data.Terms.Procedures
 {
-    internal abstract class Procedure : Atom
-    {
-    }
-
     internal abstract class PrimitiveProcedure : Procedure
     {
         public readonly Symbol OpSymbol;
@@ -58,6 +55,7 @@ namespace Clasp.Data.Terms
         internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(NativeProcedure), nameof(PrimitiveProcedure), OpSymbol);
     }
 
+
     internal sealed class SystemProcedure : PrimitiveProcedure, IEnumerable<SystemFunction>
     {
         private readonly List<SystemFunction> _systemOps;
@@ -90,65 +88,5 @@ namespace Clasp.Data.Terms
 
         protected override string FormatType() => string.Format("Sys-Prim({0}:{1})", OpSymbol, _systemOps.Count);
         internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(SystemProcedure), nameof(PrimitiveProcedure), OpSymbol);
-    }
-
-    internal class CompoundProcedure : Procedure
-    {
-        public readonly string[] Parameters;
-        public readonly string? VariadicParameter;
-        public readonly string[] InformalParameters;
-        public readonly ClaspEnvironment CapturedEnv;
-        public readonly SequentialForm Body;
-
-        public readonly int Arity;
-        public readonly bool IsVariadic;
-
-        public CompoundProcedure(string[] parameters, string? finalParameter, string[] informals, ClaspEnvironment enclosing, SequentialForm body)
-        {
-            Parameters = parameters;
-            VariadicParameter = null;
-            InformalParameters = informals;
-
-            CapturedEnv = enclosing.Enclose();
-            Body = body;
-
-            Arity = parameters.Length;
-            VariadicParameter = finalParameter;
-            IsVariadic = VariadicParameter is not null;
-        }
-
-        public CompoundProcedure(string[] parameters, string[] informals, ClaspEnvironment enclosing, SequentialForm body)
-            : this(parameters, null, informals, enclosing, body)
-        { }
-
-        public bool TryCoerceMacro([NotNullWhen(true)] out MacroProcedure? macro)
-        {
-            if (Arity == 1 && !IsVariadic)
-            {
-                macro = new MacroProcedure(Parameters[0], CapturedEnv, Body);
-                return true;
-            }
-
-            macro = null;
-            return false;
-        }
-
-        public override string ToString() => string.Format(
-            "#<lambda({0}{1})>",
-            string.Join(' ', Parameters),
-            VariadicParameter is null ? string.Empty : string.Format(" . {0}", VariadicParameter));
-        protected override string FormatType() => string.Format("Lambda({0}{1})", Arity, IsVariadic ? "+" : string.Empty);
-        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(CompoundProcedure), ToString());
-    }
-
-    internal sealed class MacroProcedure : CompoundProcedure
-    {
-        public MacroProcedure(string parameter, ClaspEnvironment enclosing, SequentialForm body)
-            : base([parameter], [], enclosing, body)
-        { }
-
-        public override string ToString() => string.Format("#<macro({0})>", Parameters[0]);
-
-        protected override string FormatType() => "Macro";
     }
 }

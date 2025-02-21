@@ -7,6 +7,7 @@ using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Static;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Exceptions;
@@ -121,15 +122,15 @@ namespace Clasp.Process
                     Keyword.QUOTE_SYNTAX => ParseQuoteSyntax(args, info, context),
 
                     Keyword.APPLY => ParseApplication(stl.PopFront(), context),
-                    Keyword.IMP_APP => ParseApplication(stl.PopFront(), context),
+                    Keyword.STATIC_APPLY => ParseApplication(stl.PopFront(), context),
 
-                    Keyword.IMP_PARDEF => ParseDefinition(args, info, context),
+                    Keyword.STATIC_PARDEF => ParseDefinition(args, info, context),
                     Keyword.DEFINE => ParseDefinition(args, info, context),
                     Keyword.DEFINE_SYNTAX => ParseDefinition(args, info, context),
                     Keyword.SET => ParseSet(args, info, context),
 
                     Keyword.LAMBDA => ParseLambda(args, info, context),
-                    Keyword.IMP_LAMBDA => ParseLambda(args, info, context),
+                    Keyword.STATIC_LAMBDA => ParseLambda(args, info, context),
 
                     Keyword.IF => ParseIf(args, info, context),
 

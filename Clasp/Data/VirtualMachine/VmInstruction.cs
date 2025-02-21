@@ -2,7 +2,9 @@
 using System.Linq;
 
 using Clasp.Binding.Environments;
+using Clasp.Binding.MutableEnvs;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.VirtualMachine;
 using Clasp.Exceptions;
@@ -20,7 +22,7 @@ namespace Clasp.Data.AbstractSyntax
 
         protected virtual void RunOnMachine(
             Stack<VmInstruction> continuation,
-            ref ClaspEnvironment currentEnv,
+            ref MutableEnv currentEnv,
             ref Term currentValue)
         { }
 
@@ -41,7 +43,7 @@ namespace Clasp.Data.AbstractSyntax
     #region Binding Operations
 
     /// <summary>
-    /// Bind the return value to the given name in the current environment.
+    /// Bind the return value to the given name in the current MutableEnv.
     /// </summary>
     internal sealed class BindFresh : VmInstruction
     {
@@ -53,7 +55,7 @@ namespace Clasp.Data.AbstractSyntax
 
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             if (!currentEnv.TryGetValue(VarName, out Term? def) || def is Undefined)
             {
@@ -70,7 +72,7 @@ namespace Clasp.Data.AbstractSyntax
     }
 
     /// <summary>
-    /// Rebind the return value to the given name in the current environment.
+    /// Rebind the return value to the given name in the current MutableEnv.
     /// </summary>
     internal sealed class RebindExisting : VmInstruction
     {
@@ -81,7 +83,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             if (currentEnv.ContainsKey(VarName))
             {
@@ -116,7 +118,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             if (currentValue == Boolean.False)
             {
@@ -146,7 +148,7 @@ namespace Clasp.Data.AbstractSyntax
         public FunctionVerification(CoreForm[] arguments) => Arguments = arguments;
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             if (currentValue is not Procedure proc)
             {
@@ -220,7 +222,7 @@ namespace Clasp.Data.AbstractSyntax
 
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             if (CurrentIndex >= 0)
             {
@@ -339,7 +341,7 @@ namespace Clasp.Data.AbstractSyntax
                         : new ConstValue(Nil.Value));
                 }
 
-                machine.Continuation.Push(new ChangeCurrentEnvironment(cp.CapturedEnv));
+                machine.Continuation.Push(new ChangeCurrentMutableEnv(cp.CapturedEnv));
             }
             else 
             {
@@ -367,12 +369,12 @@ namespace Clasp.Data.AbstractSyntax
 
         public override void RunOnMachine(MachineState machine)
         {
-            ClaspEnvironment moduleEnv = machine.CurrentEnv.Runtime.InstallModule(Name);
-            ClaspEnvironment defEnv = machine.CurrentEnv;
+            MutableEnv moduleEnv = machine.CurrentEnv.GlobalEnv.InstallNewModuleEnv(Name);
+            MutableEnv defEnv = machine.CurrentEnv;
 
             machine.Continuation.Push(new ConstValue(VoidTerm.Value));
 
-            // look up the exported value from the definition environment, then bind it in the module environment
+            // look up the exported value from the definition MutableEnv, then bind it in the module MutableEnv
             foreach(string export in ExportedNames)
             {
                 machine.Continuation.Push(new BindFresh(export));
@@ -389,18 +391,20 @@ namespace Clasp.Data.AbstractSyntax
 
     internal sealed class ChangeCurrentEnvironment : VmInstruction
     {
-        public readonly ClaspEnvironment NewEnvironment;
-        public ChangeCurrentEnvironment(ClaspEnvironment newEnv)
+        public readonly string Prompter;
+        public readonly MutableEnv NewEnv;
+        public ChangeCurrentEnvironment(string prompter, MutableEnv newEnv)
         {
-            NewEnvironment = newEnv;
+            Prompter = prompter;
+            NewEnv = newEnv;
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
-            currentEnv = NewEnvironment;
+            currentEnv = NewEnv;
         }
-        public override VmInstruction CopyContinuation() => new ChangeCurrentEnvironment(NewEnvironment);
-        public override string ToString() => string.Format("MOD-ENV()");
+        public override VmInstruction CopyContinuation() => new ChangeCurrentEnvironment(Prompter, NewEnv);
+        public override string ToString() => string.Format("MOD-ENV({0})", Prompter);
     }
 }

@@ -4,7 +4,9 @@ using System.Linq;
 using System.Xml.Linq;
 
 using Clasp.Binding.Environments;
+using Clasp.Data.Static;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
@@ -43,14 +45,14 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             continuation.Push(new BindFresh(VarName));
             continuation.Push(BoundValue);
         }
         public override VmInstruction CopyContinuation() => new BindingDefinition(VarName, BoundValue);
         public override string ToString() => string.Format("DEF({0}, {1})", VarName, BoundValue);
-        public override Term ToTerm() => Cons.ProperList(Symbol.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
+        public override Term ToTerm() => Cons.ProperList(Symbols.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
 
     internal sealed class BindingMutation : CoreForm
@@ -66,92 +68,92 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             continuation.Push(new RebindExisting(VarName));
             continuation.Push(BoundValue);
         }
         public override VmInstruction CopyContinuation() => new BindingMutation(VarName, BoundValue);
         public override string ToString() => string.Format("SET({0}, {1})", VarName, BoundValue);
-        public override Term ToTerm() => Cons.ProperList(Symbol.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
+        public override Term ToTerm() => Cons.ProperList(Symbols.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
     }
 
-    internal sealed class Importation : CoreForm
-    {
-        public readonly string FilePath;
-        public override bool IsImperative => true;
-        public override string FormName => nameof(Importation);
-        public Importation(string path) : base()
-        {
-            FilePath = path;
-        }
-        public override void RunOnMachine(MachineState machine)
-        {
-            CoreForm importedProgram;
+    //internal sealed class Importation : CoreForm
+    //{
+    //    public readonly string FilePath;
+    //    public override bool IsImperative => true;
+    //    public override string FormName => nameof(Importation);
+    //    public Importation(string path) : base()
+    //    {
+    //        FilePath = path;
+    //    }
+    //    public override void RunOnMachine(MachineState machine)
+    //    {
+    //        CoreForm importedProgram;
 
-            try
-            {
-                Processor pross = machine.CurrentEnv.Runtime.ParentProcess.CreateSubProcess();
-                importedProgram = pross.ProcessProgram(FilePath);
-            }
-            catch (System.Exception ex)
-            {
-                throw new InterpreterException.ExceptionalSubProcess(this, machine.Continuation, ex);
-            }
+    //        try
+    //        {
+    //            Processor pross = machine.CurrentEnv.GlobalEnv.ParentProcess.CreateSubProcess();
+    //            importedProgram = pross.ProcessProgram(FilePath);
+    //        }
+    //        catch (System.Exception ex)
+    //        {
+    //            throw new InterpreterException.ExceptionalSubProcess(this, machine.Continuation, ex);
+    //        }
 
-            if (importedProgram is not ModuleForm)
-            {
-                throw new InterpreterException(machine.Continuation,
-                    "Imported file failed to yield '{0}' program as expected.",
-                    nameof(ModuleForm));
-            }
+    //        if (importedProgram is not ModuleForm)
+    //        {
+    //            throw new InterpreterException(machine.Continuation,
+    //                "Imported file failed to yield '{0}' program as expected.",
+    //                nameof(ModuleForm));
+    //        }
 
-            machine.Continuation.Push(importedProgram);
-        }
-        public override Importation CopyContinuation() => new Importation(FilePath);
-        public override string ToString() => string.Format("IMPRT(\"{0}\")", FilePath);
-        public override Term ToTerm() => Cons.ProperList<Term>(Symbol.Import, new CharString(FilePath));
-    }
+    //        machine.Continuation.Push(importedProgram);
+    //    }
+    //    public override Importation CopyContinuation() => new Importation(FilePath);
+    //    public override string ToString() => string.Format("IMPRT(\"{0}\")", FilePath);
+    //    public override Term ToTerm() => Cons.ProperList<Term>(Symbols.Import, new CharString(FilePath));
+    //}
 
-    internal sealed class ModuleForm : CoreForm
-    {
-        public readonly string Name;
-        public readonly string[] ExportedNames;
-        public readonly SequentialForm Body;
+    //internal sealed class ModuleForm : CoreForm
+    //{
+    //    public readonly string Name;
+    //    public readonly string[] ExportedNames;
+    //    public readonly SequentialForm Body;
 
-        // to run this form, the entire body is run in a pocket environment
-        // then the exportations are gathered up and placed in a module-env in the super from beforehand
-        public override bool IsImperative => true;
-        public override string FormName => nameof(ModuleForm);
-        public ModuleForm(string name, string[] exportedNames, SequentialForm body) : base()
-        {
-            Name = name;
-            ExportedNames = exportedNames;
-            Body = body;
-        }
-        public override void RunOnMachine(MachineState machine)
-        {
-            machine.Continuation.Push(new ChangeCurrentEnvironment(machine.CurrentEnv)); // switch back to current env
-            machine.Continuation.Push(new ModuleInstallation(Name, ExportedNames)); // pluck exported defs out into module
-            machine.Continuation.Push(Body); // enrich subEnv with definitions
-            machine.Continuation.Push(new ChangeCurrentEnvironment(machine.CurrentEnv.Enclose())); // switch to subEnv
-        }
-        public override ModuleForm CopyContinuation() => new ModuleForm(Name, ExportedNames, Body.CopyContinuation());
-        public override string ToString() => string.Format("MDL({0}: {1})", Name, Body);
-        public override Term ToTerm() => Cons.ImproperList(Symbol.Module, Symbol.Intern(Name), Body.ToImplicitTerm());
-    }
+    //    // to run this form, the entire body is run in a pocket environment
+    //    // then the exportations are gathered up and placed in a module-env in the super from beforehand
+    //    public override bool IsImperative => true;
+    //    public override string FormName => nameof(ModuleForm);
+    //    public ModuleForm(string name, string[] exportedNames, SequentialForm body) : base()
+    //    {
+    //        Name = name;
+    //        ExportedNames = exportedNames;
+    //        Body = body;
+    //    }
+    //    public override void RunOnMachine(MachineState machine)
+    //    {
+    //        machine.Continuation.Push(new ChangeCurrentEnvironment(machine.CurrentEnv)); // switch back to current env
+    //        machine.Continuation.Push(new ModuleInstallation(Name, ExportedNames)); // pluck exported defs out into module
+    //        machine.Continuation.Push(Body); // enrich subEnv with definitions
+    //        machine.Continuation.Push(new ChangeCurrentEnvironment(machine.CurrentEnv.Enclose())); // switch to subEnv
+    //    }
+    //    public override ModuleForm CopyContinuation() => new ModuleForm(Name, ExportedNames, Body.CopyContinuation());
+    //    public override string ToString() => string.Format("MDL({0}: {1})", Name, Body);
+    //    public override Term ToTerm() => Cons.ImproperList(Symbols.Module, Symbol.Intern(Name), Body.ToImplicitTerm());
+    //}
 
-    internal sealed class Exportation : CoreForm
-    {
-        public readonly string Name;
-        public override bool IsImperative => false;
-        public override string FormName => nameof(Importation);
-        public Exportation(string name) => Name = name;
-        public override void RunOnMachine(MachineState machine) { }
-        public override Exportation CopyContinuation() => new Exportation(Name);
-        public override string ToString() => string.Format("EXPRT({0})", Name);
-        public override Term ToTerm() => Cons.ProperList<Term>(Symbol.Export, new CharString(Name));
-    }
+    //internal sealed class Exportation : CoreForm
+    //{
+    //    public readonly string Name;
+    //    public override bool IsImperative => false;
+    //    public override string FormName => nameof(Importation);
+    //    public Exportation(string name) => Name = name;
+    //    public override void RunOnMachine(MachineState machine) { }
+    //    public override Exportation CopyContinuation() => new Exportation(Name);
+    //    public override string ToString() => string.Format("EXPRT({0})", Name);
+    //    public override Term ToTerm() => Cons.ProperList<Term>(Symbols.Export, new CharString(Name));
+    //}
 
     #endregion
 
@@ -167,7 +169,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             if (currentEnv.TryGetValue(VarName, out Term? boundValue))
             {
@@ -194,7 +196,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             currentValue = Value;
         }
@@ -202,7 +204,7 @@ namespace Clasp.Data.AbstractSyntax
         public override string ToString() => Value is Terms.Atom
             ? Value.ToString()
             : string.Format("QUOTE({0})", Value);
-        public override Term ToTerm() => Cons.ProperList(Symbol.Quote, Value);
+        public override Term ToTerm() => Cons.ProperList(Symbols.Quote, Value);
     }
 
     #endregion
@@ -223,16 +225,16 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             continuation.Push(new DispatchOnCondition(Consequent, Alternate));
-            continuation.Push(new ChangeCurrentEnvironment(currentEnv));
+            continuation.Push(new ChangeCurrentEnvironment(Keyword.IF, currentEnv));
             continuation.Push(Test);
         }
         public override VmInstruction CopyContinuation() => new ConditionalForm(Test, Consequent, Alternate);
         public override string ToString() => string.Format("BRANCH({0}, {1}, {2})", Test, Consequent, Alternate);
 
-        public override Term ToTerm() => Cons.ProperList(Symbol.If,
+        public override Term ToTerm() => Cons.ProperList(Symbols.If,
             Test.ToTerm(), Consequent.ToTerm(), Alternate.ToTerm());
     }
 
@@ -246,18 +248,18 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             foreach (CoreForm node in Sequence.Reverse())
             {
-                continuation.Push(new ChangeCurrentEnvironment(currentEnv));
+                continuation.Push(new ChangeCurrentEnvironment("SEQ", currentEnv));
                 continuation.Push(node);
             }
         }
         public override SequentialForm CopyContinuation() => new SequentialForm(Sequence);
         public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToArray<object>()));
 
-        public override Term ToTerm() => Cons.Truct(Symbol.Begin, ToImplicitTerm());
+        public override Term ToTerm() => Cons.Truct(Symbols.Begin, ToImplicitTerm());
         public Term ToImplicitTerm() => Cons.ProperList(Sequence.Select(x => x.ToTerm()).ToArray());
     }
 
@@ -269,7 +271,7 @@ namespace Clasp.Data.AbstractSyntax
     //    {
     //        Sequence = series;
     //    }
-    //    protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.Environment currentEnv, ref Term currentValue)
+    //    protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
     //    {
     //        if (Sequence.Length > 1)
     //        {
@@ -280,7 +282,7 @@ namespace Clasp.Data.AbstractSyntax
     //    public override VmInstruction CopyContinuation() => new TopLevelSequentialForm(Sequence);
     //    public override string ToString() => string.Format("SEQ-D({0})", string.Join(", ", Sequence.ToArray<object>()));
 
-    //    public override Term ToTerm() => Pair.Cons(Symbol.Begin,
+    //    public override Term ToTerm() => Pair.Cons(Symbols.Begin,
     //        Cons.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
     //}
 
@@ -308,11 +310,11 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             continuation.Push(new FunctionVerification(Arguments));
             //continuation.Push(new RollUpArguments(Arguments));
-            continuation.Push(new ChangeCurrentEnvironment(currentEnv));
+            continuation.Push(new ChangeCurrentEnvironment(Keyword.APPLY, currentEnv));
             continuation.Push(Operator);
         }
 
@@ -345,7 +347,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             currentValue = new CompoundProcedure(Formals, DottedFormal, Informals, currentEnv, Body);
         }
@@ -362,7 +364,7 @@ namespace Clasp.Data.AbstractSyntax
                 .Select<string?, Term>(x => x is null ? Nil.Value : Symbol.Intern(x))
                 .ToArray();
 
-            return Cons.ImproperList(Symbol.Lambda, Cons.ImproperList(parameters), Body.ToImplicitTerm());
+            return Cons.ImproperList(Symbols.Lambda, Cons.ImproperList(parameters), Body.ToImplicitTerm());
         }
     }
 
@@ -383,7 +385,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
             => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref Binding.Environments.ClaspEnvironment currentEnv, ref Term currentValue)
+        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             continuation.Push(new FunctionDispatch(Macro, Argument));
         }
