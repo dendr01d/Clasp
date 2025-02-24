@@ -83,7 +83,7 @@ namespace Clasp.Data.Metadata
 
         #region Binding as a Set of Scopes
 
-        public bool TryBind(int phase, string symbolicName, CompileTimeBinding binding)
+        public bool TryBind(int phase, string symbolicName, ExpansionVarNameBinding binding)
         {
             if (_phasedScopeSets[phase].MaxBy(x => x.Id) is Scope scp
                 && !scp.Binds(symbolicName))
@@ -95,20 +95,20 @@ namespace Clasp.Data.Metadata
             return false;
         }
 
-        public CompileTimeBinding? ResolveBindings(int phase, string symbolicName)
+        public ExpansionVarNameBinding? ResolveBindings(int phase, string symbolicName)
         {
             if (_phasedScopeSets.TryGetValue(phase, out HashSet<Scope>? scopes))
             {
                 foreach (Scope scp in scopes.OrderByDescending(x => x.Id))
                 {
-                    if (scp.TryResolve(symbolicName, out CompileTimeBinding? binding))
+                    if (scp.TryResolve(symbolicName, out ExpansionVarNameBinding? binding))
                     {
                         return binding;
                     }
                 }
             }
 
-            if (StaticEnv.StaticScope.TryResolve(symbolicName, out CompileTimeBinding? staticBinding))
+            if (StaticEnv.StaticScope.TryResolve(symbolicName, out ExpansionVarNameBinding? staticBinding))
             {
                 return staticBinding;
             }

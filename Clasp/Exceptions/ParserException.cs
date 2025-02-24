@@ -62,7 +62,7 @@ namespace Clasp.Exceptions
         }
         public class AmbiguousIdentifier : ParserException
         {
-            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<CompileTimeBinding> matches) : base(
+            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<ExpansionVarNameBinding> matches) : base(
                 ambId.Location,
                 "The variable name '{0}' ambiguously refers to multiple bindings within the given context: {1}",
                 ambId.Name,

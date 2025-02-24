@@ -54,7 +54,7 @@ namespace Clasp.Exceptions
         }
         public class AmbiguousIdentifier : ExpanderException
         {
-            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<CompileTimeBinding> matches) : base(
+            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<ExpansionVarNameBinding> matches) : base(
                 ambId.Location,
                 "The variable name '{0}' ambiguously refers to multiple bindings within the given context: {1}",
                 ambId.Name,
@@ -73,7 +73,7 @@ namespace Clasp.Exceptions
 
         public class InvalidBindingOperation : ExpanderException
         {
-            internal InvalidBindingOperation(Identifier unboundId, ExpansionContext context) : base(
+            internal InvalidBindingOperation(Identifier unboundId, CompilationContext context) : base(
                 unboundId.Location,
                 "Failed to bind '{0}' in phase {1} in scope ({2}).",
                 unboundId.Name,

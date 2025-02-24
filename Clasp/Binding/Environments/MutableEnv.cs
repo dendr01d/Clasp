@@ -13,9 +13,11 @@ namespace Clasp.Binding.Environments
     {
         protected MutableEnv(ClaspEnvironment pred) : base(pred) { }
 
+        public bool ContainsKey(string key) => _definitions.ContainsKey(key);
+
         public Closure Enclose() => new Closure(this);
 
-        public virtual void Define(string key, Term value)
+        public void Define(string key, Term value)
         {
             if (_definitions.ContainsKey(key))
             {
@@ -26,7 +28,7 @@ namespace Clasp.Binding.Environments
             _definitions[key] = value;
         }
 
-        public virtual void Mutate(string key, Term value)
+        public void Mutate(string key, Term value)
         {
             if (!_definitions.ContainsKey(key))
             {

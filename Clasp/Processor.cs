@@ -81,7 +81,7 @@ namespace Clasp
         {
             Syntax inputSyntax = Reader.ReadTokens(Lexer.LexLines(inputFilePath, Piper.PipeInFileContents(inputFilePath)));
 
-            ExpansionContext context = new ExpansionContext(CompileTimeEnv, 1);
+            CompilationContext context = new ExpansionContext(CompileTimeEnv, 1);
             Syntax expandedSyntax = Expander.ExpandSyntax(inputSyntax, context);
             CoreForm program = Parser.ParseSyntax(expandedSyntax, context);
 

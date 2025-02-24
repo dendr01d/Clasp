@@ -26,14 +26,14 @@ namespace Clasp.Data.Terms.SyntaxValues
         public bool TryRenameAsVariable(int phase, out Identifier bindingId)
         {
             bindingId = new Identifier(new GenSym(Name), LexContext);
-            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Variable);
+            ExpansionVarNameBinding binding = new ExpansionVarNameBinding(bindingId, BindingType.Variable);
             return LexContext.TryBind(phase, Name, binding);
         }
 
         public bool TryRenameAsMacro(int phase, out Identifier bindingId)
         {
             bindingId = new Identifier(new GenSym(Name), LexContext);
-            CompileTimeBinding binding = new CompileTimeBinding(bindingId, BindingType.Transformer);
+            ExpansionVarNameBinding binding = new ExpansionVarNameBinding(bindingId, BindingType.Transformer);
             return LexContext.TryBind(phase, Name, binding);
         }
 
@@ -44,7 +44,7 @@ namespace Clasp.Data.Terms.SyntaxValues
         //}
 
         public bool TryResolveBinding(int phase,
-            [NotNullWhen(true)] out CompileTimeBinding? binding)
+            [NotNullWhen(true)] out ExpansionVarNameBinding? binding)
         {
             binding = LexContext.ResolveBindings(phase, Name);
             return binding is not null;

@@ -19,10 +19,10 @@ namespace Clasp.Modules
         public readonly Syntax PartiallyExpandedSyntax;
         private readonly Scope _insideEdge;
 
-        private readonly ExpansionContext _context;
+        private readonly CompilationContext _context;
 
         private PartialModule(string name, Syntax stx, Identifier[] exports,
-            Scope outerEdge, Scope innerEdge, ExpansionContext context)
+            Scope outerEdge, Scope innerEdge, CompilationContext context)
             : base(name, outerEdge, exports)
         {
             PartiallyExpandedSyntax = stx;

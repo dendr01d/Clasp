@@ -84,6 +84,9 @@ namespace Clasp.Binding.Environments
 
         private static readonly PrimitiveProcedure[] PrimProcs = new PrimitiveProcedure[]
         {
+            // Process Ops
+
+
             // List Ops
             new NativeProcedure("cons", new NativeBinary<Term, Term>(ConsOps.Cons)),
             new NativeProcedure("car", new NativeUnary<Cons>(ConsOps.Car)),

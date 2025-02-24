@@ -9,6 +9,9 @@ using Clasp.Modules;
 
 namespace Clasp.Binding.Environments
 {
+    /// <summary>
+    /// Represents the "top level" environment of a program or module
+    /// </summary>
     internal sealed class RootEnv : MutableEnv
     {
         private readonly Dictionary<string, ImportedEnv> _modules;
@@ -20,6 +23,12 @@ namespace Clasp.Binding.Environments
         {
             _modules = new Dictionary<string, ImportedEnv>();
             ImplicitScopes = new List<Scope>() { StaticEnv.Instance.ImplicitScope };
+        }
+
+        public RootEnv(RootEnv original) : base(original.Predecessor)
+        {
+            _modules = original._modules.ToDictionary(x => x.Key, x => x.Value);
+            ImplicitScopes = original.ImplicitScopes.ToList();
         }
 
         public void InstallModule(CompiledModule mdl)

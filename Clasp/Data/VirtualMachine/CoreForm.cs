@@ -43,13 +43,13 @@ namespace Clasp.Data.AbstractSyntax
             VarName = key;
             BoundValue = value;
         }
+
         public override void RunOnMachine(MachineState machine)
-            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
-            continuation.Push(new BindFresh(VarName));
-            continuation.Push(BoundValue);
+            machine.Continuation.Push(new BindFresh(VarName));
+            machine.Continuation.Push(BoundValue);
         }
+
         public override VmInstruction CopyContinuation() => new BindingDefinition(VarName, BoundValue);
         public override string ToString() => string.Format("DEF({0}, {1})", VarName, BoundValue);
         public override Term ToTerm() => Cons.ProperList(Symbols.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
@@ -67,12 +67,11 @@ namespace Clasp.Data.AbstractSyntax
             BoundValue = bound;
         }
         public override void RunOnMachine(MachineState machine)
-            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
-            continuation.Push(new RebindExisting(VarName));
-            continuation.Push(BoundValue);
+            machine.Continuation.Push(new RebindExisting(VarName));
+            machine.Continuation.Push(BoundValue);
         }
+
         public override VmInstruction CopyContinuation() => new BindingMutation(VarName, BoundValue);
         public override string ToString() => string.Format("SET({0}, {1})", VarName, BoundValue);
         public override Term ToTerm() => Cons.ProperList(Symbols.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
@@ -168,18 +167,17 @@ namespace Clasp.Data.AbstractSyntax
             VarName = key;
         }
         public override void RunOnMachine(MachineState machine)
-            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
-            if (currentEnv.TryGetValue(VarName, out Term? boundValue))
+            if (machine.CurrentEnv.TryGetValue(VarName, out Term? value))
             {
-                currentValue = boundValue;
+                machine.ReturningValue = value;
             }
             else
             {
-                throw new InterpreterException.InvalidBinding(VarName, continuation);
+                throw new InterpreterException.InvalidBinding(VarName, machine);
             }
         }
+
         public override VmInstruction CopyContinuation() => new VariableLookup(VarName);
         public override string ToString() => string.Format("VAR({0})", VarName);
         public override Term ToTerm() => Symbol.Intern(VarName);
@@ -195,10 +193,8 @@ namespace Clasp.Data.AbstractSyntax
             Value = value;
         }
         public override void RunOnMachine(MachineState machine)
-            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
-            currentValue = Value;
+            machine.ReturningValue = Value;
         }
         public override VmInstruction CopyContinuation() => new ConstValue(Value);
         public override string ToString() => Value is Terms.Atom
@@ -224,13 +220,12 @@ namespace Clasp.Data.AbstractSyntax
             Alternate = alternate;
         }
         public override void RunOnMachine(MachineState machine)
-            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
-            continuation.Push(new DispatchOnCondition(Consequent, Alternate));
-            continuation.Push(new ChangeCurrentEnvironment(Keyword.IF, currentEnv));
-            continuation.Push(Test);
+            machine.Continuation.Push(new DispatchOnCondition(Consequent, Alternate));
+            machine.Continuation.Push(new ChangeCurrentEnvironment(nameof(ConditionalForm), machine.CurrentEnv));
+            machine.Continuation.Push(Test);
         }
+
         public override VmInstruction CopyContinuation() => new ConditionalForm(Test, Consequent, Alternate);
         public override string ToString() => string.Format("BRANCH({0}, {1}, {2})", Test, Consequent, Alternate);
 
@@ -247,15 +242,14 @@ namespace Clasp.Data.AbstractSyntax
             Sequence = series;
         }
         public override void RunOnMachine(MachineState machine)
-            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
             foreach (CoreForm node in Sequence.Reverse())
             {
-                continuation.Push(new ChangeCurrentEnvironment("SEQ", currentEnv));
-                continuation.Push(node);
+                machine.Continuation.Push(new ChangeCurrentEnvironment(nameof(SequentialForm), machine.CurrentEnv));
+                machine.Continuation.Push(node);
             }
         }
+
         public override SequentialForm CopyContinuation() => new SequentialForm(Sequence);
         public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToArray<object>()));
 
@@ -309,13 +303,10 @@ namespace Clasp.Data.AbstractSyntax
             Arguments = args;
         }
         public override void RunOnMachine(MachineState machine)
-            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
-            continuation.Push(new FunctionVerification(Arguments));
-            //continuation.Push(new RollUpArguments(Arguments));
-            continuation.Push(new ChangeCurrentEnvironment(Keyword.APPLY, currentEnv));
-            continuation.Push(Operator);
+            machine.Continuation.Push(new FunctionVerification(Arguments));
+            machine.Continuation.Push(new ChangeCurrentEnvironment(Keyword.APPLY, machine.CurrentEnv));
+            machine.Continuation.Push(Operator);
         }
 
         public override VmInstruction CopyContinuation() => new FunctionApplication(Operator, Arguments);
@@ -346,11 +337,10 @@ namespace Clasp.Data.AbstractSyntax
             Body = body;
         }
         public override void RunOnMachine(MachineState machine)
-            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
-            currentValue = new CompoundProcedure(Formals, DottedFormal, Informals, currentEnv, Body);
+            machine.ReturningValue = new CompoundProcedure(Formals, DottedFormal, Informals, machine.CurrentEnv, Body);
         }
+
         public override VmInstruction CopyContinuation() => new FunctionCreation(Formals, DottedFormal, Informals, Body);
 
         public override string ToString() => string.Format("FUN({0}{1}; {2})",
@@ -384,11 +374,10 @@ namespace Clasp.Data.AbstractSyntax
             Argument = arg;
         }
         public override void RunOnMachine(MachineState machine)
-            => RunOnMachine(machine.Continuation, ref machine.CurrentEnv, ref machine.ReturningValue);
-        protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
         {
-            continuation.Push(new FunctionDispatch(Macro, Argument));
+            machine.Continuation.Push(new FunctionDispatch(Macro, Argument));
         }
+
         public override VmInstruction CopyContinuation() => new MacroApplication(Macro, Argument);
         public override string ToString() => string.Format("MACRO-APPL({0}; {1})", Macro, Argument);
 

@@ -18,7 +18,7 @@ namespace Clasp.Binding
         Module
     }
 
-    internal class CompileTimeBinding
+    internal class ExpansionVarNameBinding
     {
         public Identifier Id { get; private set; }
         public BindingType BoundType { get; private set; }
@@ -26,7 +26,7 @@ namespace Clasp.Binding
         public Symbol BindingSymbol => Id.Expose();
         public string Name => Id.Name;
 
-        public CompileTimeBinding(Identifier id, BindingType type)
+        public ExpansionVarNameBinding(Identifier id, BindingType type)
         {
             Id = id;
             BoundType = type;

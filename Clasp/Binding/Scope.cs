@@ -17,7 +17,7 @@ namespace Clasp.Binding
 
         public SourceCode Location { get; private set; }
 
-        public readonly Dictionary<string, CompileTimeBinding> _bindingStore;
+        public readonly Dictionary<string, ExpansionVarNameBinding> _bindingStore;
 
         public Scope(SourceCode loc)
         {
@@ -31,23 +31,23 @@ namespace Clasp.Binding
         public bool Binds(string symbolicName) => _bindingStore.ContainsKey(symbolicName);
 
         /// <summary>
-        /// Create a <paramref name="type"/> <see cref="CompileTimeBinding"/> on
+        /// Create a <paramref name="type"/> <see cref="ExpansionVarNameBinding"/> on
         /// <paramref name="symbolicName"/> that binds to itself as an <see cref="Identifier"/>.
         /// </summary>
         public void AddStaticBinding(string symbolicName, BindingType type)
         {
             Identifier newId = new Identifier(symbolicName, LexInfo.StaticInfo);
-            CompileTimeBinding newBinding = new CompileTimeBinding(newId, type);
+            ExpansionVarNameBinding newBinding = new ExpansionVarNameBinding(newId, type);
             AddBinding(symbolicName, newBinding);
         }
 
-        public void AddBinding(string symbolicName, CompileTimeBinding binding)
+        public void AddBinding(string symbolicName, ExpansionVarNameBinding binding)
         {
             _bindingStore.Add(symbolicName, binding);
         }
 
         public bool TryResolve(string symbolicName,
-            [NotNullWhen(true)] out CompileTimeBinding? bindingId)
+            [NotNullWhen(true)] out ExpansionVarNameBinding? bindingId)
         {
             return _bindingStore.TryGetValue(symbolicName, out bindingId);
         }

@@ -17,13 +17,13 @@ namespace Clasp.Data.Terms.Procedures
         public readonly string[] Parameters;
         public readonly string? VariadicParameter;
         public readonly string[] InformalParameters;
-        public readonly ClaspEnvironment CapturedEnv;
+        public readonly Closure CapturedEnv;
         public readonly SequentialForm Body;
 
         public readonly int Arity;
         public readonly bool IsVariadic;
 
-        public CompoundProcedure(string[] parameters, string? finalParameter, string[] informals, ClaspEnvironment enclosing, SequentialForm body)
+        public CompoundProcedure(string[] parameters, string? finalParameter, string[] informals, MutableEnv enclosing, SequentialForm body)
         {
             Parameters = parameters;
             VariadicParameter = null;
@@ -37,7 +37,7 @@ namespace Clasp.Data.Terms.Procedures
             IsVariadic = VariadicParameter is not null;
         }
 
-        public CompoundProcedure(string[] parameters, string[] informals, ClaspEnvironment enclosing, SequentialForm body)
+        public CompoundProcedure(string[] parameters, string[] informals, MutableEnv enclosing, SequentialForm body)
             : this(parameters, null, informals, enclosing, body)
         { }
 

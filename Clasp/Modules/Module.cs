@@ -6,6 +6,7 @@ namespace Clasp.Modules
     internal abstract class Module
     {
         public readonly string Name;
+        public readonly string? FilePath;
 
         protected Module(string name) => Name = name;
     }

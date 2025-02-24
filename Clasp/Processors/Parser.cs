@@ -22,24 +22,24 @@ namespace Clasp.Process
         // the MOST IMPORTANT thing to remember here is that every syntactic form must break down
         // into ONLY core forms
 
-        public static CoreForm ParseSyntax(Syntax stx, ParseContext context)
+        public static CoreForm ParseSyntax(Syntax stx, CompilationContext context)
         {
             return Parse(stx, context);
         }
 
         public static CoreForm ParseSyntax(Syntax stx, ClaspEnvironment env, int phase)
         {
-            ParseContext ctx = new ParseContext(env, phase);
+            CompilationContext ctx = new ParseContext(env, phase);
             return Parse(stx, ctx);
         }
 
-        private static CoreForm Parse(Syntax stx, ParseContext context)
+        private static CoreForm Parse(Syntax stx, CompilationContext context)
         {
             try
             {
                 if (stx is Identifier id)
                 {
-                    CompileTimeBinding binding = ResolveBinding(id, context);
+                    ExpansionVarNameBinding binding = ResolveBinding(id, context);
 
                     if (binding.BoundType == BindingType.Variable)
                     {
@@ -73,7 +73,7 @@ namespace Clasp.Process
 
         }
 
-        private static CoreForm ParseApplication(SyntaxList stl, ParseContext context)
+        private static CoreForm ParseApplication(SyntaxList stl, CompilationContext context)
         {
             if (stl.Expose().Car is Identifier op
                 && ResolveBinding(op, context).BoundType == BindingType.Special)
@@ -98,7 +98,7 @@ namespace Clasp.Process
             return new FunctionApplication(parsedOp, argTerms);
         }
 
-        private static CoreForm ParseSpecial(string formName, SyntaxList stl, ParseContext context)
+        private static CoreForm ParseSpecial(string formName, SyntaxList stl, CompilationContext context)
         {
             // all special forms have at least one argument
             if (stl.Expose().Cdr is not Cons args)
@@ -152,11 +152,11 @@ namespace Clasp.Process
 
         #region Special Forms
 
-        private static CoreForm ParseVariableLookup(Cons cns, LexInfo info, ParseContext context)
+        private static CoreForm ParseVariableLookup(Cons cns, LexInfo info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Identifier? id))
             {
-                CompileTimeBinding binding = ResolveBinding(id, context);
+                ExpansionVarNameBinding binding = ResolveBinding(id, context);
 
                 return new VariableLookup(binding.Name);
             }
@@ -174,7 +174,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
         }
 
-        private static ConstValue ParseQuoteSyntax(Cons cns, LexInfo info, ParseContext context)
+        private static ConstValue ParseQuoteSyntax(Cons cns, LexInfo info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Syntax? stx))
             {
@@ -184,11 +184,11 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
         }
 
-        private static BindingDefinition ParseDefinition(Cons cns, LexInfo info, ParseContext context)
+        private static BindingDefinition ParseDefinition(Cons cns, LexInfo info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Identifier? key, out Syntax? value))
             {
-                CompileTimeBinding binding = ResolveBinding(key, context);
+                ExpansionVarNameBinding binding = ResolveBinding(key, context);
                 CoreForm parsedValue = Parse(value, context);
 
                 return new BindingDefinition(binding.Name, parsedValue);
@@ -197,11 +197,11 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 2, info);
         }
 
-        private static BindingMutation ParseSet(Cons cns, LexInfo info, ParseContext context)
+        private static BindingMutation ParseSet(Cons cns, LexInfo info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Identifier? key, out Syntax? value))
             {
-                CompileTimeBinding binding = ResolveBinding(key, context);
+                ExpansionVarNameBinding binding = ResolveBinding(key, context);
                 CoreForm parsedValue = Parse(value, context);
 
                 return new BindingMutation(binding.Name, parsedValue);
@@ -210,7 +210,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 2, info);
         }
 
-        private static FunctionCreation ParseLambda(Cons cns, LexInfo info, ParseContext context)
+        private static FunctionCreation ParseLambda(Cons cns, LexInfo info, CompilationContext context)
         {
             if (cns.TryMatchLeading(out Syntax? formals, out Term maybeBody)
                 && maybeBody is Cons body)
@@ -228,7 +228,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "at least", 2, info);
         }
 
-        private static ConditionalForm ParseIf(Cons cns, LexInfo info, ParseContext context)
+        private static ConditionalForm ParseIf(Cons cns, LexInfo info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Syntax? condStx, out Syntax? thenStx, out Syntax? elseStx))
             {
@@ -242,13 +242,13 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 3, info);
         }
 
-        private static SequentialForm ParseBegin(Cons stp, LexInfo info, ParseContext context)
+        private static SequentialForm ParseBegin(Cons stp, LexInfo info, CompilationContext context)
         {
             IEnumerable<CoreForm> sequence = ParseSequence(stp, info, context);
             return new SequentialForm(sequence.ToArray());
         }
 
-        private static Importation ParseImport(Cons cns, LexInfo info, ParseContext context)
+        private static Importation ParseImport(Cons cns, LexInfo info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Datum? maybePath)
                 && maybePath.Expose() is CharString path)
@@ -259,7 +259,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, info);
         }
 
-        private static CoreForm ParseModule(Cons cns, LexInfo info, ParseContext context)
+        private static CoreForm ParseModule(Cons cns, LexInfo info, CompilationContext context)
         {
             if (cns.TryMatchLeading(out Identifier? id, out Term maybeBody)
                 && maybeBody is Cons body)
@@ -289,7 +289,7 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of argument expressions.
         /// </summary>
-        private static IEnumerable<CoreForm> ParseArguments(Cons cns, LexInfo info, ParseContext context)
+        private static IEnumerable<CoreForm> ParseArguments(Cons cns, LexInfo info, CompilationContext context)
         {
             Term current = cns;
 
@@ -317,7 +317,7 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the identifiers in a list of parameter values.
         /// </summary>
-        private static System.Tuple<string[], string?> ParseParameters(Term t, LexInfo info, ParseContext context)
+        private static System.Tuple<string[], string?> ParseParameters(Term t, LexInfo info, CompilationContext context)
         {
             List<string> ids = [];
             string? dotted = null;
@@ -333,7 +333,7 @@ namespace Clasp.Process
             {
                 if (stp.Car is Identifier nextParam)
                 {
-                    CompileTimeBinding binding = ResolveBinding(nextParam, context);
+                    ExpansionVarNameBinding binding = ResolveBinding(nextParam, context);
                     ids.Add(binding.Name);
                 }
                 else
@@ -346,7 +346,7 @@ namespace Clasp.Process
 
             if (current is Identifier lastParam)
             {
-                CompileTimeBinding binding = ResolveBinding(lastParam, context);
+                ExpansionVarNameBinding binding = ResolveBinding(lastParam, context);
                 dotted = binding.Name;
             }
 
@@ -356,7 +356,7 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of body terms, where the last must be an expression.
         /// </summary>
-        private static IEnumerable<CoreForm> ParseSequence(Cons stp, LexInfo info, ParseContext context)
+        private static IEnumerable<CoreForm> ParseSequence(Cons stp, LexInfo info, CompilationContext context)
         {
             Term current = stp;
 
@@ -394,10 +394,10 @@ namespace Clasp.Process
         #endregion
 
         #region Helpers
-        private static CompileTimeBinding ResolveBinding(Identifier id, ParseContext context)
+        private static ExpansionVarNameBinding ResolveBinding(Identifier id, CompilationContext context)
         {
             if (id.TryResolveBinding(context.Phase,
-                out CompileTimeBinding? binding))
+                out ExpansionVarNameBinding? binding))
             {
                 return binding;
             }
