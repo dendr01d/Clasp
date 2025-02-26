@@ -22,40 +22,39 @@ namespace Clasp.Process
         // the MOST IMPORTANT thing to remember here is that every syntactic form must break down
         // into ONLY core forms
 
-        public static CoreForm ParseSyntax(Syntax stx, CompilationContext context)
+        public static CoreForm ParseSyntax(Syntax stx, int phase) => Parse(stx, phase);
+
+        public static CoreForm ParseModuleSyntax(Syntax expandedBody)
         {
-            return Parse(stx, context);
+
         }
 
-        public static CoreForm ParseSyntax(Syntax stx, ClaspEnvironment env, int phase)
-        {
-            CompilationContext ctx = new ParseContext(env, phase);
-            return Parse(stx, ctx);
-        }
-
-        private static CoreForm Parse(Syntax stx, CompilationContext context)
+        private static CoreForm Parse(Syntax stx, int phase)
         {
             try
             {
                 if (stx is Identifier id)
                 {
-                    ExpansionVarNameBinding binding = ResolveBinding(id, context);
-
-                    if (binding.BoundType == BindingType.Variable)
+                    if (id.TryResolveBinding(phase, out ExpansionVarNameBinding? binding))
                     {
-                        return new VariableLookup(binding.Name);
-                    }
-                    else if (binding.BoundType == BindingType.Transformer)
-                    {
-                        if (context.TryLookupMacro(binding, out MacroProcedure? macro))
+                        if (binding.BoundType == BindingType.Variable)
                         {
-                            return new ConstValue(macro);
+                            return new VariableLookup(binding.Name);
+                        }
+                        else if (binding.BoundType == BindingType.Transformer)
+                        {
+                            if (context.TryLookupMacro(binding, out MacroProcedure? macro))
+                            {
+                                return new ConstValue(macro);
+                            }
+
+                            throw new ParserException.UnboundMacro(binding.Id);
                         }
 
-                        throw new ParserException.UnboundMacro(binding.Id);
+                        throw new ParserException.InvalidForm(id.Name, stx);
                     }
 
-                    throw new ParserException.InvalidForm(id.Name, stx);
+                    throw new ParserException.UnboundIdentifier(id);
                 }
                 else if (stx is SyntaxList stl)
                 {
@@ -113,31 +112,31 @@ namespace Clasp.Process
             {
                 result = formName switch
                 {
-                    Keyword.IMP_TOP => ParseVariableLookup(args, info, context),
-                    Keyword.IMP_VAR => ParseVariableLookup(args, info, context),
+                    Keywords.IMP_TOP => ParseVariableLookup(args, info, context),
+                    Keywords.IMP_VAR => ParseVariableLookup(args, info, context),
 
-                    Keyword.QUOTE => ParseQuote(args, info),
-                    Keyword.IMP_DATUM => ParseQuote(args, info),
+                    Keywords.QUOTE => ParseQuote(args, info),
+                    Keywords.IMP_DATUM => ParseQuote(args, info),
 
-                    Keyword.QUOTE_SYNTAX => ParseQuoteSyntax(args, info, context),
+                    Keywords.QUOTE_SYNTAX => ParseQuoteSyntax(args, info, context),
 
-                    Keyword.APPLY => ParseApplication(stl.PopFront(), context),
-                    Keyword.STATIC_APPLY => ParseApplication(stl.PopFront(), context),
+                    Keywords.APPLY => ParseApplication(stl.PopFront(), context),
+                    Keywords.STATIC_APPLY => ParseApplication(stl.PopFront(), context),
 
-                    Keyword.STATIC_PARDEF => ParseDefinition(args, info, context),
-                    Keyword.DEFINE => ParseDefinition(args, info, context),
-                    Keyword.DEFINE_SYNTAX => ParseDefinition(args, info, context),
-                    Keyword.SET => ParseSet(args, info, context),
+                    Keywords.STATIC_PARDEF => ParseDefinition(args, info, context),
+                    Keywords.DEFINE => ParseDefinition(args, info, context),
+                    Keywords.DEFINE_SYNTAX => ParseDefinition(args, info, context),
+                    Keywords.SET => ParseSet(args, info, context),
 
-                    Keyword.LAMBDA => ParseLambda(args, info, context),
-                    Keyword.STATIC_LAMBDA => ParseLambda(args, info, context),
+                    Keywords.LAMBDA => ParseLambda(args, info, context),
+                    Keywords.STATIC_LAMBDA => ParseLambda(args, info, context),
 
-                    Keyword.IF => ParseIf(args, info, context),
+                    Keywords.IF => ParseIf(args, info, context),
 
-                    Keyword.BEGIN => ParseBegin(args, info, context),
+                    Keywords.BEGIN => ParseBegin(args, info, context),
 
-                    Keyword.MODULE => ParseModule(args, info, context),
-                    Keyword.IMPORT => ParseImport(args, info, context),
+                    Keywords.MODULE => ParseModule(args, info, context),
+                    Keywords.IMPORT => ParseImport(args, info, context),
 
                     _ => throw new ParserException.InvalidSyntax(stl)
                 };

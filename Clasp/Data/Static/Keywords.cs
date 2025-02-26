@@ -9,8 +9,11 @@ namespace Clasp.Data.Static
     /// <summary>
     /// The default keywords used for special forms (or implicit macros) within the language.
     /// </summary>
-    internal static class Keyword
+    internal static class Keywords
     {
+        public const string STATIC_TOP = "σtop";
+        public const string STATIC_VAR = "σvar";
+
         public const string QUOTE = "quote";
         public const string STATIC_QUOTE = "σquote";
         public const string QUASIQUOTE = "quasiquote";
@@ -38,10 +41,12 @@ namespace Clasp.Data.Static
         public const string STATIC_BEGIN = "σbegin";
 
         public const string MODULE = "module";
-        public const string MARK_MODULE = "#module";
+        public const string IMPLICIT_MODULE = "#clasp";
         public const string STATIC_PARMOD = "σpart-module";
         public const string IMPORT = "import";
         public const string EXPORT = "export";
+
+        public const string STATIC_MODULE_BEGIN = "σmodule-body-begin";
 
         public const string DEFINE_SYNTAX = "define-syntax";
         public const string BEGIN_FOR_SYNTAX = "begin-for-syntax";

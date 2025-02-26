@@ -1,6 +1,10 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Linq;
 
 using Clasp.Binding;
+using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Static;
@@ -10,6 +14,7 @@ using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Exceptions;
 using Clasp.ExtensionMethods;
+using Clasp.Modules;
 
 namespace Clasp.Process
 {
@@ -19,6 +24,40 @@ namespace Clasp.Process
         {
             return Expand(input, context);
         }
+
+        public static Syntax ExpandModuleSyntax(Syntax fullInput, out Identifier[] ids)
+        {
+            ids = [];
+            
+            if (fullInput is not SyntaxList stl
+                || stl.Expose() is not Cons cns
+                || cns.Car is not Identifier moduleId
+                || cns.Cdr is not Cons<Syntax, Term> args)
+            {
+                throw new ExpanderException.InvalidSyntax(fullInput);
+            }
+
+            if (moduleId.Name != Keywords.IMPLICIT_MODULE
+                || moduleId.Name != Keywords.MODULE)
+            {
+                throw new ExpanderException.InvalidForm(Keywords.MODULE, fullInput);
+            }
+
+            // so we're positive it's a module form, and we have the body contents
+            Scope outsideEdge = new Scope(fullInput);
+            Scope insideEdge = new Scope(fullInput);
+
+            CompilationContext ctx = new CompilationContext(new RootEnv()).InModuleBody(insideEdge);
+            List<Identifier> exportedKeys = new List<Identifier>();
+            
+            Cons<Syntax, Term> partialBody = PartiallyExpandModuleBody(args, fullInput.LexContext, ctx, exportedKeys);
+            Cons<Syntax, Term> expandedBody = ExpandSequence(partialBody, fullInput.LexContext, ctx);
+            SyntaxList finalBody = new SyntaxList(expandedBody, fullInput.LexContext);
+
+            ids = exportedKeys.ToArray();
+            return ExpandImplicit(Symbols.StaticModuleBody, finalBody, ctx);
+        }
+
 
         private static Syntax Expand(Syntax stx, CompilationContext context)
         {
@@ -38,7 +77,7 @@ namespace Clasp.Process
                 }
                 else
                 {
-                    return ExpandImplicit(Symbols.StaticQuote, AsArg(stx), context);
+                    return ExpandImplicit(Symbols.StaticQuote, stx, context);
                 }
             }
             catch (ClaspException cex)
@@ -64,11 +103,12 @@ namespace Clasp.Process
                 {
                     throw new ExpanderException.InvalidForm(binding.Name, id);
                 }
-                else
-                {
-                    // TODO review what I want to happen with IDs in different contexts
-                    return id;
-                }
+
+                throw new ExpanderException.UnboundIdentifier(id);
+            }
+            else if (context.Mode == ExpansionMode.TopLevel)
+            {
+                return ExpandImplicit(Symbols.StaticTop, id, context);
             }
 
             throw new ExpanderException.InvalidSyntax(id);
@@ -107,23 +147,25 @@ namespace Clasp.Process
             }
             catch (ExpanderException ee)
             {
-                throw new ExpanderException.InvalidForm(Keyword.STATIC_APPLY, stl, ee);
+                throw new ExpanderException.InvalidForm(Keywords.STATIC_APPLY, stl, ee);
             }
-        }
-
-        private static SyntaxList AsArg(Syntax stx)
-        {
-            return new SyntaxList(stx, stx.LexContext);
         }
 
         /// <summary>
         /// Prepend <paramref name="stl"/> with a special <see cref="Identifier"/> that shares its
         /// <see cref="LexInfo"/>, indicating how it should be handled by the <see cref="Parser"/>.
         /// </summary>
-        private static SyntaxList ExpandImplicit(ReservedSymbol formSym, SyntaxList stl, CompilationContext context)
+        private static SyntaxList ExpandImplicit(ReservedSymbol formSym, Syntax stx, CompilationContext context)
         {
-            Identifier op = new Identifier(formSym, stl);
-            return stl.Push(op);
+            Identifier op = new Identifier(formSym, stx);
+            if (stx is SyntaxList stl)
+            {
+                return stl.Push(op);
+            }
+            else
+            {
+                return new SyntaxList(stx, stx.LexContext).Push(op);
+            }
         }
 
         /// <summary>
@@ -148,14 +190,11 @@ namespace Clasp.Process
                 // certain meta-syntactic forms need to be expanded and returned all at once
                 Syntax? metaSyntax = formName switch
                 {
-                    Keyword.STATIC_APPLY => stl, // must have already been expanded? (TODO check this?)
+                    Keywords.MODULE => ExpandModuleForm(stl),
 
-                    Keyword.MODULE => ExpandModule(stl, context),
-                    Keyword.STATIC_PARMOD => throw new ClaspGeneralException("Shouldn't ever see this?"),
-
-                    Keyword.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(args, info, context),
-                    Keyword.BEGIN_FOR_SYNTAX => null, //interpret in context of next phase?
-                    Keyword.IMPORT_FOR_SYNTAX => null, //check exists, else spin up VN and run on next phase
+                    Keywords.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(args, info, context),
+                    Keywords.BEGIN_FOR_SYNTAX => BeginForSyntax(stl, context),
+                    Keywords.IMPORT_FOR_SYNTAX => ImportForSyntax(stl, context),
 
                     _ => null
                 };
@@ -168,23 +207,23 @@ namespace Clasp.Process
                 // else it must be a "normal" special form where we expand the arguments and rebuild the form
                 Cons<Syntax, Term> expandedTail = formName switch
                 {
-                    Keyword.QUOTE => args, // just leave them alone for now
-                    Keyword.STATIC_QUOTE => args,
-                    Keyword.QUOTE_SYNTAX => args,
+                    Keywords.QUOTE => args, // just leave them alone for now
+                    Keywords.STATIC_QUOTE => args,
+                    Keywords.QUOTE_SYNTAX => args,
 
-                    Keyword.APPLY => ExpandExpressionList(args, info, context),
+                    Keywords.APPLY => ExpandExpressionList(args, info, context),
 
-                    Keyword.DEFINE => ExpandDefineArgs(args, info, context),
-                    Keyword.STATIC_PARDEF => ExpandPartialDefineArgs(args, info, context),
-                    Keyword.SET => ExpandSetArgs(args, info, context),
+                    Keywords.DEFINE => ExpandDefineArgs(args, info, context),
+                    Keywords.STATIC_PARDEF => ExpandPartialDefineArgs(args, info, context),
+                    Keywords.SET => ExpandSetArgs(args, info, context),
 
-                    Keyword.LAMBDA => ExpandLambdaArgs(args, info, context),
-                    Keyword.STATIC_LAMBDA => ExpandLambdaArgs(args, info, context),
+                    Keywords.LAMBDA => ExpandLambdaArgs(args, info, context),
+                    Keywords.STATIC_LAMBDA => ExpandLambdaArgs(args, info, context),
 
-                    Keyword.IF => ExpandIfArgs(args, info, context),
+                    Keywords.IF => ExpandIfArgs(args, info, context),
 
-                    Keyword.BEGIN => ExpandSequence(args, info, context),
-                    Keyword.STATIC_BEGIN => ExpandSequence(args, info, context),
+                    Keywords.BEGIN => ExpandSequence(args, info, context),
+                    Keywords.STATIC_BEGIN => ExpandSequence(args, info, context),
 
                     _ => throw new ExpanderException.InvalidSyntax(stl)
                 };
@@ -200,8 +239,8 @@ namespace Clasp.Process
         /// <summary>
         /// Partially expand <paramref name="stx"/> as a term in the body of a sequential form.
         /// </summary>
-        /// <remarks>i.e. a <see cref="Keyword.LAMBDA"/>, <see cref="Keyword.BEGIN"/>, or <see cref="Keyword.MODULE"/></remarks>
-        private static Syntax? PartiallyExpandBodyTerm(Syntax stx, CompilationContext context)
+        /// <remarks>i.e. a <see cref="Keywords.LAMBDA"/>, <see cref="Keywords.BEGIN"/>, or <see cref="Keywords.MODULE"/></remarks>
+        private static Syntax? PartiallyExpandSeqBodyTerm(Syntax stx, CompilationContext context)
         {
             // essentially just check the path to special forms and disregard otherwise
             if (stx is SyntaxList stp
@@ -211,13 +250,13 @@ namespace Clasp.Process
             {
                 Cons<Syntax, Term> args = stp.Expose();
 
-                if (binding.Name == Keyword.DEFINE_SYNTAX)
+                if (binding.Name == Keywords.DEFINE_SYNTAX)
                 {
                     // expand and bind the macro, then discard the syntax
                     ExpandDefineSyntaxArgs(args, stx.LexContext, context);
                     return null;
                 }
-                else if (binding.Name == Keyword.DEFINE)
+                else if (binding.Name == Keywords.DEFINE)
                 {
                     // extract and rename the key, then rewrite the form to indicate we did so
 
@@ -236,7 +275,7 @@ namespace Clasp.Process
                     }
                     else
                     {
-                        throw new ExpanderException.InvalidForm(Keyword.DEFINE, stx);
+                        throw new ExpanderException.InvalidForm(Keywords.DEFINE, stx);
                     }
                 }
 
@@ -245,9 +284,101 @@ namespace Clasp.Process
             return stx;
         }
 
+        private static Syntax? PartiallyExpandModuleBodyTerm(Syntax stx, CompilationContext context, out Identifier[] exportations)
+        {
+            exportations = [];
+
+            if (stx is SyntaxList stp
+                && stp.Expose().Car is Identifier op
+                && op.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding)
+                && binding.BoundType == BindingType.Special)
+            {
+                Cons<Syntax, Term> args = stp.Expose();
+
+                if (binding.Name == Keywords.DEFINE_SYNTAX)
+                {
+                    // expand and bind the macro AND return the syntax
+                    return new SyntaxList(ExpandDefineSyntaxArgs(args, stx.LexContext, context), stx.LexContext)
+                        .Push(op);
+                }
+                else if (binding.Name == Keywords.DEFINE)
+                {
+                    // extract and rename the key, then rewrite the form to indicate we did so
+
+                    if (TryRewriteDefineArgs(args, out Identifier? key, out Syntax? value))
+                    {
+                        if (!key.TryRenameAsVariable(context.Phase, out _))
+                        {
+                            throw new ExpanderException.InvalidBindingOperation(key, context);
+                        }
+
+                        Identifier newOp = new Identifier(Symbols.StaticParDef, op);
+
+                        return new SyntaxList(value, op.LexContext)
+                            .Push(key)
+                            .Push(newOp);
+                    }
+                    else
+                    {
+                        throw new ExpanderException.InvalidForm(Keywords.DEFINE, stx);
+                    }
+                }
+                else if (binding.Name == Keywords.EXPORT)
+                {
+                    List<Identifier> ids = new List<Identifier>();
+                    Term cdr = args;
+
+                    while (args.TryMatchLeading(out Identifier? id, out cdr))
+                    {
+                        ids.Add(id);
+                    }
+
+                    if (cdr is not Nil)
+                    {
+                        throw new ExpanderException.ExpectedProperList(nameof(Identifier), args, stx.LexContext);
+                    }
+
+                    exportations = ids.ToArray();
+                    return null;
+                }
+            }
+            return stx;
+        }
+
         #endregion
 
-        #region Macro-Related
+        #region Meta-Syntax Related
+
+
+        private static Syntax ExpandDefineSyntaxArgs(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        {
+            if (context.Mode == ExpansionMode.Expression)
+            {
+                throw new ExpanderException.InvalidContext(Keywords.DEFINE_SYNTAX, context.Mode, stp, info);
+            }
+            else if (TryRewriteDefineSyntaxArgs(stp, context, out Identifier? key, out Syntax? value))
+            {
+                context.SanitizeBindingKey(key);
+
+                MacroProcedure macro = ExpandAndEvalMacro(value, context);
+                if (!key.TryRenameAsMacro(context.Phase, out Identifier? bindingId))
+                {
+                    throw new ExpanderException.InvalidBindingOperation(key, context);
+                }
+                else
+                {
+                    context.CompileTimeEnv.Define(bindingId.Name, macro);
+                }
+
+                Syntax evaluatedMacro = ExpandImplicit(Symbols.StaticQuote, new Datum(macro, value), context);
+
+                return Datum.FromDatum(VoidTerm.Value, info);
+            }
+            else
+            {
+                throw new ExpanderException.InvalidArguments(stp, info);
+            }
+        }
 
         private static Syntax ExpandSyntaxTransformation(ExpansionVarNameBinding binding, Syntax input, CompilationContext context)
         {
@@ -303,7 +434,7 @@ namespace Clasp.Process
             try
             {
                 Syntax expandedInput = ExpandSyntax(input, subState);
-                CoreForm parsedInput = Parser.ParseSyntax(expandedInput, subState);
+                CoreForm parsedInput = Parser.ParseSyntax(expandedInput, subState.Phase);
                 output = Interpreter.InterpretInVacuum(parsedInput);
             }
             catch (System.Exception e)
@@ -320,7 +451,7 @@ namespace Clasp.Process
             throw new ExpanderException.InvalidTransformer(output, input);
         }
 
-        private static void BeginForSyntax(SyntaxList form, CompilationContext context)
+        private static Syntax BeginForSyntax(SyntaxList form, CompilationContext context)
         {
             Cons<Syntax, Term> terms = form.Expose();
             LexInfo info = form.LexContext;
@@ -331,6 +462,7 @@ namespace Clasp.Process
             try
             {
                 // Treat the sequent terms like a regular Begin form, but in the substate
+
                 Cons<Syntax, Term> expandedSequence = ExpandSequence(terms, info, subState);
                 SyntaxList stxSequence = new SyntaxList(expandedSequence, info);
                 SyntaxList beginStx = ExpandImplicit(Symbols.StaticBegin, stxSequence, subState);
@@ -341,23 +473,43 @@ namespace Clasp.Process
                 nestedStx = ExpandImplicit(Symbols.StaticBegin, nestedStx, subState);
 
                 // Parse (still in the substate), which will de-nest the final list of terms
-                CoreForm parsedInput = Parser.ParseSyntax(beginStx, subState);
+                CoreForm parsedInput = Parser.ParseSyntax(beginStx, subState.Phase);
 
                 // Now interpret the parse, but back in THIS expansion's context
                 // Which allows for mutation of the current compile-time environment
-                output = Interpreter.InterpretInVacuum(parsedInput);
+                output = Interpreter.InterpretProgram(parsedInput, subState.CompileTimeEnv.Root);
             }
             catch (System.Exception e)
             {
-                throw new ExpanderException.EvaluationError(Keyword.BEGIN_FOR_SYNTAX, form, e);
+                throw new ExpanderException.EvaluationError(Keywords.BEGIN_FOR_SYNTAX, form, e);
             }
 
             // Check that the interpretation returned #t as expected
             if (output is not Boolean b || b != Boolean.True)
             {
-                throw new ExpanderException.EvaluationError(Keyword.BEGIN_FOR_SYNTAX, form,
+                throw new ExpanderException.EvaluationError(Keywords.BEGIN_FOR_SYNTAX, form,
                     string.Format("Compile-Time Interpretation yielded an unexpected value: {0}", output));
             }
+
+            return Datum.FromDatum(VoidTerm.Value, form);
+        }
+
+        private static Syntax ImportForSyntax(SyntaxList form, CompilationContext context)
+        {
+            Term ls = form.Expose().Cdr;
+
+            while (ls is Cons<Syntax, Term> remaining
+                && remaining.TryMatchLeading(out Identifier? id, out ls))
+            {
+                context.CompileTimeEnv.Root.InstallModule(Module.InterpretModule(id.Name));
+            }
+
+            if (ls is not null)
+            {
+                throw new ExpanderException.InvalidSyntax(form);
+            }
+
+            return Datum.FromDatum(VoidTerm.Value, form);
         }
 
         #endregion
@@ -436,7 +588,7 @@ namespace Clasp.Process
         /// </summary>
         private static Cons<Syntax, Term> PartiallyExpandBody(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
         {
-            Syntax? partiallyExpandedBodyTerm = PartiallyExpandBodyTerm(stp.Car, context);
+            Syntax? partiallyExpandedBodyTerm = PartiallyExpandSeqBodyTerm(stp.Car, context);
 
             if (partiallyExpandedBodyTerm is null)
             {
@@ -521,9 +673,38 @@ namespace Clasp.Process
         /// <summary>
         /// Partially expand the sequence of terms as the body elements of a module.
         /// </summary>
-        private static Syntax ExpandModuleBody(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        private static Cons<Syntax, Term> PartiallyExpandModuleBody(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context, List<Identifier> exportations)
         {
+            Syntax? partiallyExpandedBodyTerm = PartiallyExpandModuleBodyTerm(stp.Car, context, out Identifier[] exports);
+            exportations.AddRange(exports);
 
+            if (partiallyExpandedBodyTerm is null)
+            {
+                // export forms are discarded after being partially evaluated
+
+                if (stp.Cdr is Nil n)
+                {
+                    return new Cons<Syntax, Term>(Datum.FromDatum(VoidTerm.Value, info), Nil.Value);
+                }
+                else if (stp.Cdr is Cons<Syntax, Term> cdr)
+                {
+                    return PartiallyExpandModuleBody(cdr, info, context, exportations);
+                }
+            }
+            else
+            {
+                if (stp.Cdr is Nil n)
+                {
+                    return Cons.Truct<Syntax, Term>(partiallyExpandedBodyTerm, n);
+                }
+                else if (stp.Cdr is Cons<Syntax, Term> cdr)
+                {
+                    Cons<Syntax, Term> partiallyExpandedTail = PartiallyExpandBody(cdr, info, context);
+                    return Cons.Truct<Syntax, Term>(partiallyExpandedBodyTerm, partiallyExpandedTail);
+                }
+            }
+
+            throw new ExpanderException.ExpectedProperList(nameof(Syntax), stp, info);
         }
 
         #endregion
@@ -531,7 +712,7 @@ namespace Clasp.Process
         #region Native Rewriting Methods
 
         /// <summary>
-        /// Given the arguments to a <see cref="Keyword.DEFINE"/> form,
+        /// Given the arguments to a <see cref="Keywords.DEFINE"/> form,
         /// rewrite them explicitly into the standard key/value pair format.
         /// </summary>
         private static bool TryRewriteDefineArgs(Cons<Syntax, Term> stp,
@@ -559,7 +740,7 @@ namespace Clasp.Process
         }
 
         /// <summary>
-        /// Given the arguments to a <see cref="Keyword.DEFINE_SYNTAX"/> form,
+        /// Given the arguments to a <see cref="Keywords.DEFINE_SYNTAX"/> form,
         /// rewrite them explicitly into the standard key/lambda pair format.
         /// </summary>
         private static bool TryRewriteDefineSyntaxArgs(Cons<Syntax, Term> stp, CompilationContext context,
@@ -657,11 +838,11 @@ namespace Clasp.Process
                 && value.Expose() is Cons<Syntax, Term> maybeLambda
                 && maybeLambda.Car is Identifier maybeOp
                 && maybeOp.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding)
-                && (binding.Name == Keyword.LAMBDA || binding.Name == Keyword.STATIC_LAMBDA);
+                && (binding.Name == Keywords.LAMBDA || binding.Name == Keywords.STATIC_LAMBDA);
         }
 
         /// <summary>
-        /// Given the arguments to a <see cref="Keyword.IF"/> form,
+        /// Given the arguments to a <see cref="Keywords.IF"/> form,
         /// rewrite them explicitly into the standard cond/then/else format.
         /// </summary>
         private static bool TryRewriteIfArgs(Cons<Syntax, Term> stp,
@@ -700,7 +881,7 @@ namespace Clasp.Process
         {
             if (context.Mode != ExpansionMode.InternalDefinition)
             {
-                throw new ExpanderException.InvalidContext(Keyword.STATIC_PARDEF, context.Mode, stp, info);
+                throw new ExpanderException.InvalidContext(Keywords.STATIC_PARDEF, context.Mode, stp, info);
             }
             else if (TryRewriteDefineArgs(stp, out Identifier? key, out Syntax? value))
             {
@@ -720,7 +901,7 @@ namespace Clasp.Process
         {
             if (context.Mode == ExpansionMode.Expression)
             {
-                throw new ExpanderException.InvalidContext(Keyword.DEFINE, context.Mode, stp, info);
+                throw new ExpanderException.InvalidContext(Keywords.DEFINE, context.Mode, stp, info);
             }
             else if (TryRewriteDefineArgs(stp, out Identifier? key, out Syntax? value))
             {
@@ -742,41 +923,11 @@ namespace Clasp.Process
             }
         }
 
-        private static Cons<Syntax, Term> ExpandDefineSyntaxArgs(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
-        {
-            if (context.Mode == ExpansionMode.Expression)
-            {
-                throw new ExpanderException.InvalidContext(Keyword.DEFINE_SYNTAX, context.Mode, stp, info);
-            }
-            else if (TryRewriteDefineSyntaxArgs(stp, context, out Identifier? key, out Syntax? value))
-            {
-                context.SanitizeBindingKey(key);
-
-                MacroProcedure macro = ExpandAndEvalMacro(value, context);
-                if (!key.TryRenameAsMacro(context.Phase, out Identifier? bindingId))
-                {
-                    throw new ExpanderException.InvalidBindingOperation(key, context);
-                }
-                else
-                {
-                    context.Env.Define(bindingId.Name, macro);
-                }
-
-                Syntax evaluatedMacro = ExpandImplicit(Symbols.StaticQuote, AsArg(new Datum(macro, value)), context);
-
-                return new Cons<Syntax, Term>(key, Cons.Truct(evaluatedMacro, Nil.Value));
-            }
-            else
-            {
-                throw new ExpanderException.InvalidArguments(stp, info);
-            }
-        }
-
         private static Cons<Syntax, Term> ExpandSetArgs(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
         {
             if (context.Mode == ExpansionMode.Expression)
             {
-                throw new ExpanderException.InvalidContext(Keyword.SET, context.Mode, stp, info);
+                throw new ExpanderException.InvalidContext(Keywords.SET, context.Mode, stp, info);
             }
             else if (TryRewriteDefineArgs(stp, out Identifier? key, out Syntax? value))
             {
@@ -838,44 +989,22 @@ namespace Clasp.Process
             }
         }
 
-        //private static Cons<Syntax, Term> ExpandModuleArgs(Cons<Syntax, Term> cns, LexInfo info, ExpansionContext context)
-        //{
-        //    if (cns.TryMatchLeading(out Identifier? id, out Term rest)
-        //        && rest is Cons<Syntax, Term> body)
-        //    {
-        //        ExpansionContext moduleContext = context.InModule();
-        //        Cons<Syntax, Term> expandedBody = ExpandBody(body, info, moduleContext);
-
-        //        return Cons.Truct<Syntax, Term>(id, expandedBody);
-        //    }
-
-        //    throw new ExpanderException.InvalidArguments(cns, info);
-        //}
-
         #endregion
 
-        #region Module Shenanigans
-
-        private static Syntax ExpandModule(SyntaxList stl, CompilationContext context)
+        private static Syntax ExpandModuleForm(SyntaxList stl)
         {
-            // first extract this module's name
-            // if a fresh module already exists with that name, it means we're in a circularity
+            if (stl.Expose() is Cons cns
+                && cns.Car is Identifier id
+                && stl.PopFront() is SyntaxList body)
+            {
+                FreshModule fm = FreshModule.FromSyntax(id, body);
+                ExpandedModule em = ExpandedModule.Expand(fm);
 
-            // with the name, we do need to try and install a fresh module... somewhere?
+                return Datum.FromDatum(new ModuleTerm(em), stl.LexContext);
+            }
 
-            // then attempt to run through the body and partially expand everything
-            // this acts as a subroutine in the current phase
-            // which means it can recurrently expand other modules, maybe
-            // hence the need to check for circularities
-
-            // once partial expansion is complete, go back and fully expand the module
-            // then update the definition as an expanded module
-
-
+            throw new ExpanderException.InvalidForm(Keywords.MODULE, stl);
         }
-
-        #endregion
-
 
         #region Helpers
         private static ExpansionVarNameBinding ResolveBinding(Identifier id, CompilationContext context)

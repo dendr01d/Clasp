@@ -39,7 +39,7 @@ namespace Clasp.Data.Metadata
         /// The inside edge of the most immediate scoped sequential form, if one exists.
         /// </summary>
         /// <remarks>
-        /// The sequential form in question could represent either a <see cref="Keyword.LAMBDA"/> or <see cref="Keyword.MODULE"/> body.
+        /// The sequential form in question could represent either a <see cref="Keywords.LAMBDA"/> or <see cref="Keywords.MODULE"/> body.
         /// </remarks>
         public readonly Scope? InsideEdge;
 
@@ -73,7 +73,7 @@ namespace Clasp.Data.Metadata
         }
 
         /// <summary>
-        /// Contextualize a <see cref="Keyword.LAMBDA"/> body form within the current context,
+        /// Contextualize a <see cref="Keywords.LAMBDA"/> body form within the current context,
         /// characterized by the given <paramref name="insideEdge"/>.
         /// </summary>
         public CompilationContext InLambdaBody(Scope insideEdge)
@@ -85,6 +85,17 @@ namespace Clasp.Data.Metadata
                 edge: insideEdge,
                 site: null,
                 mode: ExpansionMode.InternalDefinition);
+        }
+
+        public CompilationContext InModuleBody(Scope insideEdge)
+        {
+            return new CompilationContext(
+                meta: _metaEnvironments,
+                env: CompileTimeEnv.Enclose(),
+                phase: Phase,
+                edge: insideEdge,
+                site: null,
+                mode: ExpansionMode.Module);
         }
 
         /// <summary>
@@ -189,7 +200,7 @@ namespace Clasp.Data.Metadata
         /// <see langword="true" /> iff the meta-environment at the given phase exists, it contains
         /// a value defined with <paramref name="binding"/>, and that value is a <see cref="MacroProcedure"/>.
         /// </returns>
-        public bool TryLookupMacro(int phase, ExpansionVarNameBinding binding,
+        public bool TryLookupMacro(ExpansionVarNameBinding binding,
             [NotNullWhen(true)] out MacroProcedure? macro)
         {
             if (binding.BoundType == BindingType.Transformer

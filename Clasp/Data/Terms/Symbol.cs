@@ -72,50 +72,53 @@ namespace Clasp.Data.Terms
     internal static class Symbols
     {
 
-        public static readonly Symbol Define = Symbol.Intern(Keyword.DEFINE);
-        public static readonly Symbol DefineSyntax = Symbol.Intern(Keyword.DEFINE_SYNTAX);
-        public static readonly Symbol Set = Symbol.Intern(Keyword.SET);
+        public static readonly Symbol Define = Symbol.Intern(Keywords.DEFINE);
+        public static readonly Symbol DefineSyntax = Symbol.Intern(Keywords.DEFINE_SYNTAX);
+        public static readonly Symbol Set = Symbol.Intern(Keywords.SET);
 
-        public static readonly Symbol Begin = Symbol.Intern(Keyword.BEGIN);
-        public static readonly Symbol If = Symbol.Intern(Keyword.IF);
-        public static readonly Symbol Lambda = Symbol.Intern(Keyword.LAMBDA);
+        public static readonly Symbol Begin = Symbol.Intern(Keywords.BEGIN);
+        public static readonly Symbol If = Symbol.Intern(Keywords.IF);
+        public static readonly Symbol Lambda = Symbol.Intern(Keywords.LAMBDA);
 
-        public static readonly Symbol Quote = Symbol.Intern(Keyword.QUOTE);
-        public static readonly Symbol Quasiquote = Symbol.Intern(Keyword.QUASIQUOTE);
-        public static readonly Symbol Unquote = Symbol.Intern(Keyword.UNQUOTE);
-        public static readonly Symbol UnquoteSplicing = Symbol.Intern(Keyword.UNQUOTE_SPLICING);
+        public static readonly Symbol Quote = Symbol.Intern(Keywords.QUOTE);
+        public static readonly Symbol Quasiquote = Symbol.Intern(Keywords.QUASIQUOTE);
+        public static readonly Symbol Unquote = Symbol.Intern(Keywords.UNQUOTE);
+        public static readonly Symbol UnquoteSplicing = Symbol.Intern(Keywords.UNQUOTE_SPLICING);
 
-        public static readonly Symbol QuoteSyntax = Symbol.Intern(Keyword.QUOTE_SYNTAX);
-        public static readonly Symbol Quasisyntax = Symbol.Intern(Keyword.QUASISYNTAX);
-        public static readonly Symbol Unsyntax = Symbol.Intern(Keyword.UNSYNTAX);
-        public static readonly Symbol UnsyntaxSplicing = Symbol.Intern(Keyword.UNSYNTAX_SPLICING);
+        public static readonly Symbol QuoteSyntax = Symbol.Intern(Keywords.QUOTE_SYNTAX);
+        public static readonly Symbol Quasisyntax = Symbol.Intern(Keywords.QUASISYNTAX);
+        public static readonly Symbol Unsyntax = Symbol.Intern(Keywords.UNSYNTAX);
+        public static readonly Symbol UnsyntaxSplicing = Symbol.Intern(Keywords.UNSYNTAX_SPLICING);
 
-        public static readonly Symbol Syntax = Symbol.Intern(Keyword.SYNTAX);
-        public static readonly Symbol Ellipsis = Symbol.Intern(Keyword.ELLIPSIS);
+        public static readonly Symbol Syntax = Symbol.Intern(Keywords.SYNTAX);
+        public static readonly Symbol Ellipsis = Symbol.Intern(Keywords.ELLIPSIS);
 
-        public static readonly Symbol Apply = Symbol.Intern(Keyword.APPLY);
+        public static readonly Symbol Apply = Symbol.Intern(Keywords.APPLY);
 
-        public static readonly Symbol Export = Symbol.Intern(Keyword.EXPORT);
-        public static readonly Symbol Import = Symbol.Intern(Keyword.IMPORT);
-        public static readonly Symbol ImportForSyntax = Symbol.Intern(Keyword.IMPORT_FOR_SYNTAX);
-        public static readonly Symbol BeginForSyntax = Symbol.Intern(Keyword.BEGIN_FOR_SYNTAX);
+        public static readonly Symbol Export = Symbol.Intern(Keywords.EXPORT);
+        public static readonly Symbol Import = Symbol.Intern(Keywords.IMPORT);
+        public static readonly Symbol ImportForSyntax = Symbol.Intern(Keywords.IMPORT_FOR_SYNTAX);
+        public static readonly Symbol BeginForSyntax = Symbol.Intern(Keywords.BEGIN_FOR_SYNTAX);
 
-        public static readonly Symbol Module = Symbol.Intern(Keyword.MODULE);
+        public static readonly Symbol Module = Symbol.Intern(Keywords.MODULE);
 
+        public static readonly ReservedSymbol StaticTop = new(Keywords.STATIC_TOP);
+        public static readonly ReservedSymbol StaticVar = new(Keywords.STATIC_VAR);
 
-        public static readonly ReservedSymbol StaticApply = new(Keyword.STATIC_APPLY);
+        public static readonly ReservedSymbol StaticApply = new(Keywords.STATIC_APPLY);
         //public static readonly Implicit Sp_Datum = new(Keyword.IMP_DATUM);
         //public static readonly Implicit Sp_Top = new(Keyword.IMP_TOP);
-        public static readonly ReservedSymbol StaticLambda = new(Keyword.STATIC_LAMBDA);
+        public static readonly ReservedSymbol StaticLambda = new(Keywords.STATIC_LAMBDA);
         //public static readonly Implicit Sp_Var = new(Keyword.IMP_VAR);
-        public static readonly ReservedSymbol StaticParDef = new(Keyword.STATIC_PARDEF);
+        public static readonly ReservedSymbol StaticParDef = new(Keywords.STATIC_PARDEF);
         //public static readonly Implicit Sp_Begin = new(Keyword.IMP_BEGIN);
         //public static readonly Implicit Sp_Module_Begin = new(Keyword.IMP_MODULE_BEGIN);
+        public static readonly ReservedSymbol StaticModuleBody = new(Keywords.STATIC_MODULE_BEGIN);
 
-        public static readonly ReservedSymbol StaticParMod = new(Keyword.STATIC_PARMOD);
+        public static readonly ReservedSymbol StaticParMod = new(Keywords.STATIC_PARMOD);
 
-        public static readonly ReservedSymbol StaticQuote = new(Keyword.STATIC_QUOTE);
+        public static readonly ReservedSymbol StaticQuote = new(Keywords.STATIC_QUOTE);
 
-        public static readonly ReservedSymbol StaticBegin = new(Keyword.STATIC_BEGIN);
+        public static readonly ReservedSymbol StaticBegin = new(Keywords.STATIC_BEGIN);
     }
 }

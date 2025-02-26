@@ -31,13 +31,12 @@ namespace Clasp.Binding.Environments
             ImplicitScopes = original.ImplicitScopes.ToList();
         }
 
-        public void InstallModule(CompiledModule mdl)
+        public void InstallModule(InterpretedModule mdl)
         {
             if (!_modules.ContainsKey(mdl.Name))
             {
                 ImportedEnv mEnv = new ImportedEnv(this, mdl);
                 Predecessor = mEnv; // insert at base of linked list
-                ImplicitScopes.Add(mdl.OutsideEdge);
             }
         }
 

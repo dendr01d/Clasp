@@ -42,7 +42,7 @@ namespace Clasp.Process
             {
                 SyntaxList syntax = SyntaxList.ProperList(terms[0].LexContext, terms[0], terms[1..]);
                 
-                if (terms[0] is not Identifier id || id.Name != Keyword.MODULE)
+                if (terms[0] is not Identifier id || id.Name != Keywords.MODULE)
                 {
                     syntax.Push(new Identifier(ReservedSymbol.Sp_Begin, terms[0]));
                 }
@@ -154,7 +154,7 @@ namespace Clasp.Process
                 TokenType.Unsyntax => NativelyExpand(current, Symbols.Unsyntax, tokens),
                 TokenType.UnsyntaxSplice => NativelyExpand(current, Symbols.UnsyntaxSplicing, tokens),
 
-                TokenType.ModuleFlag => new Identifier(Keyword.MODULE, new LexInfo(current.Location)),
+                TokenType.ModuleFlag => new Identifier(Keywords.MODULE, new LexInfo(current.Location)),
                 TokenType.Symbol => new Identifier(current),
                 TokenType.Character => new Datum(Character.Intern(current), current),
                 TokenType.String => ReadCharString(current),

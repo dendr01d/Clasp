@@ -175,7 +175,7 @@ namespace Clasp.Binding.Environments
 
         private static Dictionary<string, Module> _loadedModules = new Dictionary<string, Module>();
 
-        public static bool TryUncacheModule(string moduleName, out Module? mdl)
+        public static bool TryUncacheModule(string moduleName, [NotNullWhen(true)] out Module? mdl)
         {
             return _loadedModules.TryGetValue(moduleName, out mdl);
         }
@@ -188,6 +188,16 @@ namespace Clasp.Binding.Environments
             }
 
             _loadedModules[mdl.Name] = mdl;
+        }
+
+        public static void UpgradeModule(Module mdl)
+        {
+            if (_loadedModules.ContainsKey(mdl.Name))
+            {
+                _loadedModules[mdl.Name] = mdl;
+            }
+
+            throw new ClaspGeneralException("Cannot upgrade unidentified module '{0}'.", mdl.Name);
         }
 
         #endregion

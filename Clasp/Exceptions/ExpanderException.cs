@@ -10,6 +10,7 @@ using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
 using Clasp.Interfaces;
+using Clasp.Modules;
 
 namespace Clasp.Exceptions
 {
@@ -196,6 +197,15 @@ namespace Clasp.Exceptions
                 invalidType,
                 mode.ToString(),
                 wrongTerm)
+            { }
+        }
+
+        public class CircularModuleReference : ExpanderException
+        {
+            internal CircularModuleReference(FreshModule pendingModule, LexInfo info) : base(
+                info.Location,
+                "A circular module reference occurred -- the expander prompted expansion of module '{0}', which is already pending.",
+                pendingModule.Name)
             { }
         }
     }

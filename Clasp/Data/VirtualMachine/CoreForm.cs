@@ -305,7 +305,7 @@ namespace Clasp.Data.AbstractSyntax
         public override void RunOnMachine(MachineState machine)
         {
             machine.Continuation.Push(new FunctionVerification(Arguments));
-            machine.Continuation.Push(new ChangeCurrentEnvironment(Keyword.APPLY, machine.CurrentEnv));
+            machine.Continuation.Push(new ChangeCurrentEnvironment(Keywords.APPLY, machine.CurrentEnv));
             machine.Continuation.Push(Operator);
         }
 
@@ -385,4 +385,28 @@ namespace Clasp.Data.AbstractSyntax
     }
 
     #endregion
+
+    internal sealed class ModularProgram : CoreForm
+    {
+        public readonly string Name;
+        public readonly SequentialForm Program;
+
+        public override string FormName => nameof(ModularProgram);
+
+        public ModularProgram(string name, SequentialForm program)
+        {
+            Name = name;
+            Program = program;
+        }
+
+        public override void RunOnMachine(MachineState machine)
+        {
+            machine.Continuation.Push(Program);
+        }
+
+        public override VmInstruction CopyContinuation() => new ModularProgram(Name, Program);
+        public override string ToString() => string.Format("MODULE({0}: {1})", Name, Program.ToString());
+
+        public override Term ToTerm() => Cons.ImproperList(Symbols.Module, Symbol.Intern(Name), Program.ToTerm());
+    }
 }
