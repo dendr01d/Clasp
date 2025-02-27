@@ -94,7 +94,7 @@ namespace Clasp.Process
                 _ => throw new ParserException.InvalidSyntax(stl)
             };
 
-            return new FunctionApplication(parsedOp, argTerms);
+            return new Application(parsedOp, argTerms);
         }
 
         private static CoreForm ParseSpecial(string formName, SyntaxList stl, CompilationContext context)
@@ -209,7 +209,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 2, info);
         }
 
-        private static FunctionCreation ParseLambda(Cons cns, LexInfo info, CompilationContext context)
+        private static Procedural ParseLambda(Cons cns, LexInfo info, CompilationContext context)
         {
             if (cns.TryMatchLeading(out Syntax? formals, out Term maybeBody)
                 && maybeBody is Cons body)
@@ -219,15 +219,15 @@ namespace Clasp.Process
                 IEnumerable<CoreForm> bodyTerms = ParseSequence(body, info, context);
                 AggregateKeyTerms(bodyTerms, out string[] informals, out CoreForm[] moddedBodyTerms);
 
-                SequentialForm bodyForm = new(moddedBodyTerms);
+                Sequential bodyForm = new(moddedBodyTerms);
 
-                return new FunctionCreation(parameters.Item1, parameters.Item2, informals, bodyForm);
+                return new Procedural(parameters.Item1, parameters.Item2, informals, bodyForm);
             }
 
             throw new ParserException.InvalidArguments(cns, "at least", 2, info);
         }
 
-        private static ConditionalForm ParseIf(Cons cns, LexInfo info, CompilationContext context)
+        private static Conditional ParseIf(Cons cns, LexInfo info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Syntax? condStx, out Syntax? thenStx, out Syntax? elseStx))
             {
@@ -235,16 +235,16 @@ namespace Clasp.Process
                 CoreForm parsedThen = Parse(condStx, context);
                 CoreForm parsedElse = Parse(condStx, context);
 
-                return new ConditionalForm(parsedCond, parsedThen, parsedElse);
+                return new Conditional(parsedCond, parsedThen, parsedElse);
             }
 
             throw new ParserException.InvalidArguments(cns, "exactly", 3, info);
         }
 
-        private static SequentialForm ParseBegin(Cons stp, LexInfo info, CompilationContext context)
+        private static Sequential ParseBegin(Cons stp, LexInfo info, CompilationContext context)
         {
             IEnumerable<CoreForm> sequence = ParseSequence(stp, info, context);
-            return new SequentialForm(sequence.ToArray());
+            return new Sequential(sequence.ToArray());
         }
 
         private static Importation ParseImport(Cons cns, LexInfo info, CompilationContext context)
@@ -273,7 +273,7 @@ namespace Clasp.Process
                 IEnumerable<CoreForm> bodyTerms = ParseSequence(body, info, context);
                 AggregateExportedNames(bodyTerms, out string[] exportedNames, out CoreForm[] filteredBodyTerms);
 
-                SequentialForm moduleBody = new SequentialForm(filteredBodyTerms);
+                Sequential moduleBody = new Sequential(filteredBodyTerms);
 
                 return new ModuleForm(id.Name, exportedNames, moduleBody);
             }
@@ -367,7 +367,7 @@ namespace Clasp.Process
                 {
                     throw new ParserException.ExpectedExpression(nextForm, info);
                 }
-                else if (nextForm is SequentialForm sf)
+                else if (nextForm is Sequential sf)
                 {
                     foreach(CoreForm form in sf.Sequence)
                     {

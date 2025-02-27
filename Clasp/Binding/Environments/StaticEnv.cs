@@ -1,22 +1,21 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
-using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
+using Clasp.Exceptions;
 using Clasp.Ops;
 using Clasp.Ops.Functions;
-
-using Clasp.Exceptions;
-using Clasp.Data.Terms.Procedures;
-using System.Collections.Generic;
-using Clasp.Modules;
 
 namespace Clasp.Binding.Environments
 {
     internal sealed class StaticEnv : ClaspEnvironment
     {
+        private static readonly Dictionary<string, Term> _definitions = new Dictionary<string, Term>();
+
         public static readonly StaticEnv Instance = new StaticEnv();
         public readonly Scope ImplicitScope;
 
@@ -33,7 +32,7 @@ namespace Clasp.Binding.Environments
                 _definitions.Add(sym.Name, sym);
             }
 
-            foreach(PrimitiveProcedure pp in PrimProcs)
+            foreach (PrimitiveProcedure pp in PrimProcs)
             {
                 ImplicitScope.AddStaticBinding(pp.OpSymbol.Name, BindingType.Primitive);
                 _definitions.Add(pp.OpSymbol.Name, pp);
@@ -54,26 +53,20 @@ namespace Clasp.Binding.Environments
         private static readonly Symbol[] CoreKeywords = new Symbol[]
         {
             Symbols.Quote,
-            Symbols.StaticQuote,
             Symbols.QuoteSyntax,
 
             Symbols.Apply,
-            Symbols.StaticApply,
 
             Symbols.Define,
-            Symbols.StaticParDef,
             Symbols.Set,
 
             Symbols.Lambda,
-            Symbols.StaticLambda,
 
             Symbols.If,
 
             Symbols.Begin,
-            Symbols.StaticBegin,
 
             Symbols.Module,
-            Symbols.StaticParMod,
             Symbols.Import,
             Symbols.Export,
 
@@ -175,7 +168,7 @@ namespace Clasp.Binding.Environments
 
         private static Dictionary<string, Module> _loadedModules = new Dictionary<string, Module>();
 
-        public static bool TryUncacheModule(string moduleName, [NotNullWhen(true)] out Module? mdl)
+        public static bool TryGetModule(string moduleName, [NotNullWhen(true)] out Module? mdl)
         {
             return _loadedModules.TryGetValue(moduleName, out mdl);
         }
@@ -188,16 +181,6 @@ namespace Clasp.Binding.Environments
             }
 
             _loadedModules[mdl.Name] = mdl;
-        }
-
-        public static void UpgradeModule(Module mdl)
-        {
-            if (_loadedModules.ContainsKey(mdl.Name))
-            {
-                _loadedModules[mdl.Name] = mdl;
-            }
-
-            throw new ClaspGeneralException("Cannot upgrade unidentified module '{0}'.", mdl.Name);
         }
 
         #endregion

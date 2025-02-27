@@ -11,11 +11,10 @@ namespace Clasp.Data.Static
     /// </summary>
     internal static class Keywords
     {
-        public const string STATIC_TOP = "σtop";
-        public const string STATIC_VAR = "σvar";
-
+        //------------------------
+        // Surface-Level Keywords
+        //------------------------
         public const string QUOTE = "quote";
-        public const string STATIC_QUOTE = "σquote";
         public const string QUASIQUOTE = "quasiquote";
         public const string UNQUOTE = "unquote";
         public const string UNQUOTE_SPLICING = "unquote-splicing";
@@ -25,28 +24,18 @@ namespace Clasp.Data.Static
         public const string UNSYNTAX = "unsyntax";
         public const string UNSYNTAX_SPLICING = "unsyntax-splicing";
 
-        public const string APPLY = "apply";
-        public const string STATIC_APPLY = "σapp";
-
         public const string DEFINE = "define";
-        public const string STATIC_PARDEF = "σpart-define";
         public const string SET = "set!";
 
-        public const string LAMBDA = "lambda";
-        public const string STATIC_LAMBDA = "σlambda";
-
         public const string IF = "if";
-
         public const string BEGIN = "begin";
-        public const string STATIC_BEGIN = "σbegin";
+        public const string APPLY = "apply";
+        public const string LAMBDA = "lambda";
 
         public const string MODULE = "module";
         public const string IMPLICIT_MODULE = "#clasp";
-        public const string STATIC_PARMOD = "σpart-module";
         public const string IMPORT = "import";
         public const string EXPORT = "export";
-
-        public const string STATIC_MODULE_BEGIN = "σmodule-body-begin";
 
         public const string DEFINE_SYNTAX = "define-syntax";
         public const string BEGIN_FOR_SYNTAX = "begin-for-syntax";
@@ -54,5 +43,26 @@ namespace Clasp.Data.Static
 
         public const string SYNTAX = "syntax";
         public const string ELLIPSIS = "...";
+
+        //-----------------
+        // Secret Keywords
+        //-----------------
+        public const string S_TOP_BEGIN = "σ-top-begin";
+        public const string S_TOP_DEFINE = "σ-top-define";
+        public const string S_MODULE = "σ-module";
+        public const string S_IMPORT = "σ-import";
+        public const string S_SET = "σ-set!";
+        public const string S_IF = "σ-if";
+        public const string S_BEGIN = "σ-begin";
+        public const string S_APPLY = "σ-apply";
+        public const string S_LAMBDA = "σ-lambda";
+        public const string S_VAR = "σ-var";
+        public const string S_CONST = "σ-const";
+
+        // These don't represent core forms, just hints for the expander/parser
+        public const string S_META = "σ-meta";
+        public const string S_MODULE_BODY_BEGIN = "σ-module-body-begin";
+        public const string S_TOP_VAR = "σ-top-var";
+        public const string S_PARTIAL_DEFINE = "σ-partial-define";
     }
 }

@@ -12,7 +12,7 @@ namespace Clasp.Data.Terms.Procedures
 
     internal sealed class MacroProcedure : CompoundProcedure
     {
-        public MacroProcedure(string parameter, ClaspEnvironment enclosing, SequentialForm body)
+        public MacroProcedure(string parameter, ClaspEnvironment enclosing, Sequential body)
             : base([parameter], [], enclosing, body)
         { }
 

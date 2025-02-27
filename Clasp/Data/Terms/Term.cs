@@ -9,8 +9,6 @@ using Clasp.Data.AbstractSyntax;
 
 namespace Clasp.Data.Terms
 {
-
-    [DebuggerDisplay("{DisplayDebug()}")]
     internal abstract class Term
     {
         private Lazy<string> _typeName;
@@ -24,7 +22,6 @@ namespace Clasp.Data.Terms
         public abstract override string ToString();
         public virtual string ToTermString() => ToString();
         protected abstract string FormatType();
-        internal abstract string DisplayDebug();
 
         #region Implicit Booleans
 

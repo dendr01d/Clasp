@@ -1,18 +1,14 @@
 ﻿using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Xml.Linq;
 
+using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;
-using Clasp.Data.Terms.SyntaxValues;
-using Clasp.Data.Text;
 using Clasp.Data.VirtualMachine;
 using Clasp.Exceptions;
-using Clasp.Process;
 
 namespace Clasp.Data.AbstractSyntax
 {
@@ -26,387 +22,270 @@ namespace Clasp.Data.AbstractSyntax
 
         public virtual bool IsImperative { get; } = false;
 
-        public abstract string FormName { get; }
+        public abstract string ImplicitKeyword { get; }
+
         public abstract Term ToTerm();
     }
 
-    #region Imperative Effects
-
-    internal sealed class BindingDefinition : CoreForm
+    internal sealed class TopBegin : CoreForm
     {
-        public string VarName { get; private init; }
-        public CoreForm BoundValue { get; private init; }
-        public override bool IsImperative => true;
-        public override string FormName => nameof(BindingDefinition);
-        public BindingDefinition(string key, CoreForm value) : base()
+        private readonly CoreForm[] _bodyForms;
+        public override string AppCode => "T-SEQ";
+        public override string ImplicitKeyword => Keywords.S_TOP_DEFINE;
+        public TopBegin(IEnumerable<CoreForm> bodyForms)
         {
-            VarName = key;
-            BoundValue = value;
+            _bodyForms = bodyForms.ToArray();
         }
-
         public override void RunOnMachine(MachineState machine)
         {
-            machine.Continuation.Push(new BindFresh(VarName));
-            machine.Continuation.Push(BoundValue);
+            if (_bodyForms.Length > 1)
+            {
+                machine.Continuation.Push(new TopBegin(_bodyForms[1..]));
+            }
+            machine.Continuation.Push(_bodyForms[0]);
         }
-
-        public override VmInstruction CopyContinuation() => new BindingDefinition(VarName, BoundValue);
-        public override string ToString() => string.Format("DEF({0}, {1})", VarName, BoundValue);
-        public override Term ToTerm() => Cons.ProperList(Symbols.Define, Symbol.Intern(VarName), BoundValue.ToTerm());
+        public override VmInstruction CopyContinuation()
+        {
+            // The continuation can't contain any of the other forms in the sequence
+            // Act as if it were ONLY the next form to be evaluated
+            return _bodyForms[0];
+        }
+        protected override string FormatArgs() => string.Join(", ", _bodyForms.Select(x => x.ToString()));
+        public override Term ToTerm() => Cons.Truct(Symbols.Begin, Cons.ProperList(_bodyForms.Select(x => x.ToTerm())));
     }
 
-    internal sealed class BindingMutation : CoreForm
+    internal sealed class TopDefine : CoreForm
     {
-        public string VarName { get; private init; }
-        public CoreForm BoundValue { get; private init; }
-        public override bool IsImperative => true;
-        public override string FormName => nameof(BindingMutation);
-        public BindingMutation(string name, CoreForm bound) : base()
+        private readonly Symbol _key;
+        private readonly CoreForm _value;
+        public override string AppCode => "T-DEF";
+        public override string ImplicitKeyword => Keywords.S_TOP_DEFINE;
+        public TopDefine(Symbol key, CoreForm value)
         {
-            VarName = name;
-            BoundValue = bound;
+            _key = key;
+            _value = value;
         }
         public override void RunOnMachine(MachineState machine)
         {
-            machine.Continuation.Push(new RebindExisting(VarName));
-            machine.Continuation.Push(BoundValue);
+            machine.Continuation.Push(new BindFresh(_key.Name));
+            machine.Continuation.Push(_value);
         }
-
-        public override VmInstruction CopyContinuation() => new BindingMutation(VarName, BoundValue);
-        public override string ToString() => string.Format("SET({0}, {1})", VarName, BoundValue);
-        public override Term ToTerm() => Cons.ProperList(Symbols.Set, Symbol.Intern(VarName), BoundValue.ToTerm());
+        public override VmInstruction CopyContinuation() => new TopDefine(_key, _value);
+        protected override string FormatArgs() => string.Format("{0}, {1}", _key, _value.ToString());
+        public override Term ToTerm() => Cons.ProperList(Symbols.Define, _key, _value.ToTerm());
     }
 
-    //internal sealed class Importation : CoreForm
-    //{
-    //    public readonly string FilePath;
-    //    public override bool IsImperative => true;
-    //    public override string FormName => nameof(Importation);
-    //    public Importation(string path) : base()
-    //    {
-    //        FilePath = path;
-    //    }
-    //    public override void RunOnMachine(MachineState machine)
-    //    {
-    //        CoreForm importedProgram;
-
-    //        try
-    //        {
-    //            Processor pross = machine.CurrentEnv.GlobalEnv.ParentProcess.CreateSubProcess();
-    //            importedProgram = pross.ProcessProgram(FilePath);
-    //        }
-    //        catch (System.Exception ex)
-    //        {
-    //            throw new InterpreterException.ExceptionalSubProcess(this, machine.Continuation, ex);
-    //        }
-
-    //        if (importedProgram is not ModuleForm)
-    //        {
-    //            throw new InterpreterException(machine.Continuation,
-    //                "Imported file failed to yield '{0}' program as expected.",
-    //                nameof(ModuleForm));
-    //        }
-
-    //        machine.Continuation.Push(importedProgram);
-    //    }
-    //    public override Importation CopyContinuation() => new Importation(FilePath);
-    //    public override string ToString() => string.Format("IMPRT(\"{0}\")", FilePath);
-    //    public override Term ToTerm() => Cons.ProperList<Term>(Symbols.Import, new CharString(FilePath));
-    //}
-
-    //internal sealed class ModuleForm : CoreForm
-    //{
-    //    public readonly string Name;
-    //    public readonly string[] ExportedNames;
-    //    public readonly SequentialForm Body;
-
-    //    // to run this form, the entire body is run in a pocket environment
-    //    // then the exportations are gathered up and placed in a module-env in the super from beforehand
-    //    public override bool IsImperative => true;
-    //    public override string FormName => nameof(ModuleForm);
-    //    public ModuleForm(string name, string[] exportedNames, SequentialForm body) : base()
-    //    {
-    //        Name = name;
-    //        ExportedNames = exportedNames;
-    //        Body = body;
-    //    }
-    //    public override void RunOnMachine(MachineState machine)
-    //    {
-    //        machine.Continuation.Push(new ChangeCurrentEnvironment(machine.CurrentEnv)); // switch back to current env
-    //        machine.Continuation.Push(new ModuleInstallation(Name, ExportedNames)); // pluck exported defs out into module
-    //        machine.Continuation.Push(Body); // enrich subEnv with definitions
-    //        machine.Continuation.Push(new ChangeCurrentEnvironment(machine.CurrentEnv.Enclose())); // switch to subEnv
-    //    }
-    //    public override ModuleForm CopyContinuation() => new ModuleForm(Name, ExportedNames, Body.CopyContinuation());
-    //    public override string ToString() => string.Format("MDL({0}: {1})", Name, Body);
-    //    public override Term ToTerm() => Cons.ImproperList(Symbols.Module, Symbol.Intern(Name), Body.ToImplicitTerm());
-    //}
-
-    //internal sealed class Exportation : CoreForm
-    //{
-    //    public readonly string Name;
-    //    public override bool IsImperative => false;
-    //    public override string FormName => nameof(Importation);
-    //    public Exportation(string name) => Name = name;
-    //    public override void RunOnMachine(MachineState machine) { }
-    //    public override Exportation CopyContinuation() => new Exportation(Name);
-    //    public override string ToString() => string.Format("EXPRT({0})", Name);
-    //    public override Term ToTerm() => Cons.ProperList<Term>(Symbols.Export, new CharString(Name));
-    //}
-
-    #endregion
-
-    #region Expression Types
-
-    internal sealed class VariableLookup : CoreForm
+    internal sealed class ModuleForm : CoreForm
     {
-        public string VarName { get; private init; }
-        public override string FormName => nameof(VariableLookup);
-        public VariableLookup(string key) : base()
+        private readonly Symbol _key;
+        private readonly Symbol[] _exportedKeys;
+        private readonly CoreForm[] _bodyForms;
+        public override string AppCode => "MODL";
+        public override string ImplicitKeyword => Keywords.S_MODULE;
+        public ModuleForm(Symbol key, Symbol[] exports, IEnumerable<CoreForm> bodyForms)
         {
-            VarName = key;
+            _key = key;
+            _exportedKeys = exports;
+            _bodyForms = bodyForms.ToArray();
         }
         public override void RunOnMachine(MachineState machine)
         {
-            if (machine.CurrentEnv.TryGetValue(VarName, out Term? value))
+            machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
+
+            machine.Continuation.Push(new CacheEnvAsModule(_key, _exportedKeys.Select(x => x.Name).ToArray()));
+
+            foreach (CoreForm form in _bodyForms.Reverse())
+            {
+                machine.Continuation.Push(form);
+            }
+
+            machine.Continuation.Push(new ChangeEnv(this, new RootEnv()));
+        }
+        public override VmInstruction CopyContinuation() => new ModuleForm(_key, _exportedKeys, _bodyForms);
+        protected override string FormatArgs() => string.Format("{0}, {1}", _key, string.Join(", ", _bodyForms.Select(x => x.ToString())));
+        public override Term ToTerm() => Cons.Truct(Symbols.Module, Cons.Truct(_key, Cons.ImproperList(_bodyForms.Select(x => x.ToTerm()))));
+    }
+
+    internal sealed class Importation : CoreForm
+    {
+        private readonly Symbol[] _keys;
+        public override string AppCode => "IMPRT";
+        public override string ImplicitKeyword => Keywords.S_IMPORT;
+        public Importation(Symbol[] keys) => _keys = keys;
+        public override void RunOnMachine(MachineState machine)
+        {
+            machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
+
+            foreach (Symbol key in _keys)
+            {
+                if (!StaticEnv.TryGetModule(key.Name, out Module? module))
+                {
+                    throw new InterpreterException(machine, "Unable to uncache module '{0}'.", key.Name);
+                }
+
+                machine.Continuation.Push(new InstallModule(module));
+            }
+        }
+        public override VmInstruction CopyContinuation() => new Importation(_keys);
+        protected override string FormatArgs() => string.Join(", ", _keys.Select(x => x.ToString()));
+        public override Term ToTerm() => Cons.Truct(Symbols.Import, Cons.ProperList(_keys));
+    }
+
+    internal sealed class Mutation : CoreForm
+    {
+        private readonly Symbol _key;
+        private readonly CoreForm _value;
+        public override string AppCode => "SET";
+        public override string ImplicitKeyword => Keywords.S_SET;
+        public Mutation(Symbol key, CoreForm value)
+        {
+            _key = key;
+            _value = value;
+        }
+        public override void RunOnMachine(MachineState machine)
+        {
+            machine.Continuation.Push(new RebindExisting(_key.Name));
+            machine.Continuation.Push(_value);
+        }
+        public override VmInstruction CopyContinuation() => new Mutation(_key, _value);
+        protected override string FormatArgs() => string.Format("{0}, {1}", _key, _value.ToString());
+        public override Term ToTerm() => Cons.ProperList(Symbols.Set, _key, _value.ToTerm());
+    }
+
+    internal sealed class Conditional : CoreForm
+    {
+        private readonly CoreForm _test;
+        private readonly CoreForm _consequent;
+        private readonly CoreForm _alternative;
+        public override string AppCode => "IF";
+        public override string ImplicitKeyword => Keywords.S_IF;
+        public Conditional(CoreForm test, CoreForm consequent, CoreForm alternate)
+        {
+            _test = test;
+            _consequent = consequent;
+            _alternative = alternate;
+        }
+        public override void RunOnMachine(MachineState machine)
+        {
+            machine.Continuation.Push(new DispatchOnCondition(_consequent, _alternative));
+            machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
+            machine.Continuation.Push(_test);
+        }
+        public override VmInstruction CopyContinuation() => new Conditional(_test, _consequent, _alternative);
+        protected override string FormatArgs() => string.Join(", ", _test, _consequent, _alternative);
+        public override Term ToTerm() => Cons.ProperList(Symbols.If,
+            _test.ToTerm(), _consequent.ToTerm(), _alternative.ToTerm());
+    }
+
+    internal sealed class Sequential : CoreForm
+    {
+        private readonly CoreForm[] _bodyForms;
+        public override string AppCode => "SEQ";
+        public override string ImplicitKeyword => Keywords.S_BEGIN;
+        public Sequential(CoreForm[] bodyForms)
+        {
+            _bodyForms = bodyForms;
+        }
+        public override void RunOnMachine(MachineState machine)
+        {
+            foreach (CoreForm form in _bodyForms.Reverse())
+            {
+                machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
+                machine.Continuation.Push(form);
+            }
+        }
+        public override Sequential CopyContinuation() => new Sequential(_bodyForms);
+        protected override string FormatArgs() => string.Join(", ", _bodyForms.Select(x => x.ToString()));
+        public override Term ToTerm() => Cons.Truct(Symbols.Begin, Cons.ProperList(_bodyForms.Select(x => x.ToTerm())));
+    }
+
+    internal sealed class Application : CoreForm
+    {
+        private readonly CoreForm _operator;
+        private readonly CoreForm[] _arguments;
+        public override string AppCode => "APPL";
+        public override string ImplicitKeyword => Keywords.S_APPLY;
+        public Application(CoreForm op, CoreForm[] args) : base()
+        {
+            _operator = op;
+            _arguments = args;
+        }
+        public override void RunOnMachine(MachineState machine)
+        {
+            machine.Continuation.Push(new FunctionVerification(_arguments));
+            machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
+            machine.Continuation.Push(_operator);
+        }
+        public override Application CopyContinuation() => new Application(_operator, _arguments);
+        protected override string FormatArgs() => string.Join(", ", _operator, string.Join(", ", _arguments.Select(x => x.ToString())));
+        public override Term ToTerm() => Cons.ImproperList(Symbols.Apply, _operator.ToTerm(), Cons.ProperList(_arguments.Select(x => x.ToTerm())));
+    }
+
+    internal sealed class Procedural : CoreForm
+    {
+        private readonly Symbol[] _formals;
+        private readonly Symbol? _formalVariad;
+        private readonly Symbol[] _informals;
+        private readonly Sequential _body;
+        public override string AppCode => "FUNC";
+        public override string ImplicitKeyword => Keywords.S_LAMBDA;
+        public Procedural(Symbol[] formalParams, Symbol? variadicParam, Symbol[] informalParams, Sequential body)
+        {
+            _formals = formalParams;
+            _formalVariad = variadicParam;
+            _informals = informalParams;
+            _body = body;
+        }
+        public override void RunOnMachine(MachineState machine)
+        {
+            machine.ReturningValue = new CompoundProcedure(
+                _formals.Select(x => x.Name).ToArray(),
+                _formalVariad?.Name,
+                _informals.Select(x => x.Name).ToArray(),
+                machine.CurrentEnv, _body);
+        }
+        public override Procedural CopyContinuation() => new Procedural(_formals, _formalVariad, _informals, _body);
+        protected override string FormatArgs() => string.Join(", ",
+            string.Format("({0})", string.Join(", ", _formals.Select(x => x.Name))),
+            string.Format("({0})", _formalVariad?.Name ?? string.Empty),
+            string.Format("({0})", string.Join(", ", _informals.Select(x => x.Name))),
+            _body.ToString());
+        public override Term ToTerm() => Cons.ImproperList(Symbols.Lambda, Cons.ImproperList(_formals.Append((Term?)_formalVariad ?? Nil.Value)), _body.ToTerm());
+    }
+
+    internal sealed class VariableReference : CoreForm
+    {
+        private readonly Symbol _key;
+        public override string AppCode => "VAR";
+        public override string ImplicitKeyword => Keywords.S_VAR;
+        public VariableReference(Symbol key) => _key = key;
+        public override void RunOnMachine(MachineState machine)
+        {
+            if (machine.CurrentEnv.TryGetValue(_key.Name, out Term? value))
             {
                 machine.ReturningValue = value;
             }
-            else
-            {
-                throw new InterpreterException.InvalidBinding(VarName, machine);
-            }
+            throw new InterpreterException.InvalidBinding(_key.Name, machine);
         }
-
-        public override VmInstruction CopyContinuation() => new VariableLookup(VarName);
-        public override string ToString() => string.Format("VAR({0})", VarName);
-        public override Term ToTerm() => Symbol.Intern(VarName);
+        public override VariableReference CopyContinuation() => new VariableReference(_key);
+        protected override string FormatArgs() => _key.Name;
+        public override Term ToTerm() => _key;
     }
 
     internal sealed class ConstValue : CoreForm
     {
-        public Term Value { get; private init; }
-        public override string FormName => nameof(ConstValue);
-
-        public ConstValue(Term value) : base()
-        {
-            Value = value;
-        }
+        private readonly Term _value;
+        public override string AppCode => "CONST";
+        public override string ImplicitKeyword => Keywords.S_CONST;
+        public ConstValue(Term value) => _value = value;
         public override void RunOnMachine(MachineState machine)
         {
-            machine.ReturningValue = Value;
+            machine.ReturningValue = _value;
         }
-        public override VmInstruction CopyContinuation() => new ConstValue(Value);
-        public override string ToString() => Value is Terms.Atom
-            ? Value.ToString()
-            : string.Format("QUOTE({0})", Value);
-        public override Term ToTerm() => Cons.ProperList(Symbols.Quote, Value);
-    }
-
-    #endregion
-
-    #region Execution Path
-
-    internal sealed class ConditionalForm : CoreForm
-    {
-        public readonly CoreForm Test;
-        public readonly CoreForm Consequent;
-        public readonly CoreForm Alternate;
-        public override string FormName => nameof(ConditionalForm);
-        public ConditionalForm(CoreForm test, CoreForm consequent, CoreForm alternate)
-        {
-            Test = test;
-            Consequent = consequent;
-            Alternate = alternate;
-        }
-        public override void RunOnMachine(MachineState machine)
-        {
-            machine.Continuation.Push(new DispatchOnCondition(Consequent, Alternate));
-            machine.Continuation.Push(new ChangeCurrentEnvironment(nameof(ConditionalForm), machine.CurrentEnv));
-            machine.Continuation.Push(Test);
-        }
-
-        public override VmInstruction CopyContinuation() => new ConditionalForm(Test, Consequent, Alternate);
-        public override string ToString() => string.Format("BRANCH({0}, {1}, {2})", Test, Consequent, Alternate);
-
-        public override Term ToTerm() => Cons.ProperList(Symbols.If,
-            Test.ToTerm(), Consequent.ToTerm(), Alternate.ToTerm());
-    }
-
-    internal sealed class SequentialForm : CoreForm
-    {
-        public readonly CoreForm[] Sequence;
-        public override string FormName => nameof(Sequence);
-        public SequentialForm(CoreForm[] series)
-        {
-            Sequence = series;
-        }
-        public override void RunOnMachine(MachineState machine)
-        {
-            foreach (CoreForm node in Sequence.Reverse())
-            {
-                machine.Continuation.Push(new ChangeCurrentEnvironment(nameof(SequentialForm), machine.CurrentEnv));
-                machine.Continuation.Push(node);
-            }
-        }
-
-        public override SequentialForm CopyContinuation() => new SequentialForm(Sequence);
-        public override string ToString() => string.Format("SEQ({0})", string.Join(", ", Sequence.ToArray<object>()));
-
-        public override Term ToTerm() => Cons.Truct(Symbols.Begin, ToImplicitTerm());
-        public Term ToImplicitTerm() => Cons.ProperList(Sequence.Select(x => x.ToTerm()).ToArray());
-    }
-
-    //internal sealed class TopLevelSequentialForm : CoreForm
-    //{
-    //    public readonly CoreForm[] Sequence;
-    //    public override string FormName => nameof(TopLevelSequentialForm);
-    //    public TopLevelSequentialForm(CoreForm[] series)
-    //    {
-    //        Sequence = series;
-    //    }
-    //    protected override void RunOnMachine(Stack<VmInstruction> continuation, ref MutableEnv currentEnv, ref Term currentValue)
-    //    {
-    //        if (Sequence.Length > 1)
-    //        {
-    //            continuation.Push(new TopLevelSequentialForm(Sequence[1..]));
-    //        }
-    //        continuation.Push(Sequence[0]);
-    //    }
-    //    public override VmInstruction CopyContinuation() => new TopLevelSequentialForm(Sequence);
-    //    public override string ToString() => string.Format("SEQ-D({0})", string.Join(", ", Sequence.ToArray<object>()));
-
-    //    public override Term ToTerm() => Pair.Cons(Symbols.Begin,
-    //        Cons.ProperList(Sequence.Select(x => x.ToTerm()).ToArray()));
-    //}
-
-    //internal sealed class CallWithCurrentContinuation : AstNode
-    //{
-    //    // needs to copy the continuation of the runtime
-    //    // but skipping over any top-level forms at the bottom of the stack
-    //}
-
-    #endregion
-
-    #region Functional Expressions
-
-    internal sealed class FunctionApplication : CoreForm
-    {
-        public readonly CoreForm Operator;
-        public readonly CoreForm[] Arguments;
-
-        public override string FormName => nameof(FunctionApplication);
-
-        public FunctionApplication(CoreForm op, CoreForm[] args) : base()
-        {
-            Operator = op;
-            Arguments = args;
-        }
-        public override void RunOnMachine(MachineState machine)
-        {
-            machine.Continuation.Push(new FunctionVerification(Arguments));
-            machine.Continuation.Push(new ChangeCurrentEnvironment(Keywords.APPLY, machine.CurrentEnv));
-            machine.Continuation.Push(Operator);
-        }
-
-        public override VmInstruction CopyContinuation() => new FunctionApplication(Operator, Arguments);
-
-        public override string ToString() => string.Format(
-            "APPL({0}; {1})",
-            Operator,
-            string.Join(", ", Arguments.ToArray<object>()));
-
-        public override Term ToTerm() => Cons.Truct(
-            Operator.ToTerm(),
-            Cons.ProperList(Arguments.Select(x => x.ToTerm()).ToArray()));
-    }
-
-    internal sealed class FunctionCreation : CoreForm
-    {
-        public readonly string[] Formals;
-        public readonly string? DottedFormal;
-        public readonly string[] Informals;
-        public readonly SequentialForm Body;
-        public override string FormName => nameof(FunctionCreation);
-
-        public FunctionCreation(string[] parameters, string? dottedParameter, string[] internalKeys, SequentialForm body)
-        {
-            Formals = parameters;
-            DottedFormal = dottedParameter;
-            Informals = internalKeys;
-            Body = body;
-        }
-        public override void RunOnMachine(MachineState machine)
-        {
-            machine.ReturningValue = new CompoundProcedure(Formals, DottedFormal, Informals, machine.CurrentEnv, Body);
-        }
-
-        public override VmInstruction CopyContinuation() => new FunctionCreation(Formals, DottedFormal, Informals, Body);
-
-        public override string ToString() => string.Format("FUN({0}{1}; {2})",
-            string.Join(", ", Formals.ToArray<object>()),
-            DottedFormal is null ? string.Empty : string.Format("; {0}", DottedFormal),
-            string.Join(", ", Body.Sequence.ToArray<object>()));
-
-        public override Term ToTerm()
-        {
-            Term[] parameters = Formals.Append(DottedFormal)
-                .Select<string?, Term>(x => x is null ? Nil.Value : Symbol.Intern(x))
-                .ToArray();
-
-            return Cons.ImproperList(Symbols.Lambda, Cons.ImproperList(parameters), Body.ToImplicitTerm());
-        }
-    }
-
-    #endregion
-
-    #region Macro Expressions
-
-    internal sealed class MacroApplication : CoreForm
-    {
-        public readonly MacroProcedure Macro;
-        public readonly Syntax Argument;
-        public override string FormName => nameof(MacroApplication);
-
-        public MacroApplication(MacroProcedure macro, Syntax arg)
-        {
-            Macro = macro;
-            Argument = arg;
-        }
-        public override void RunOnMachine(MachineState machine)
-        {
-            machine.Continuation.Push(new FunctionDispatch(Macro, Argument));
-        }
-
-        public override VmInstruction CopyContinuation() => new MacroApplication(Macro, Argument);
-        public override string ToString() => string.Format("MACRO-APPL({0}; {1})", Macro, Argument);
-
-        public override Term ToTerm() => Cons.ProperList<Term>(Macro, Argument);
-    }
-
-    #endregion
-
-    internal sealed class ModularProgram : CoreForm
-    {
-        public readonly string Name;
-        public readonly SequentialForm Program;
-
-        public override string FormName => nameof(ModularProgram);
-
-        public ModularProgram(string name, SequentialForm program)
-        {
-            Name = name;
-            Program = program;
-        }
-
-        public override void RunOnMachine(MachineState machine)
-        {
-            machine.Continuation.Push(Program);
-        }
-
-        public override VmInstruction CopyContinuation() => new ModularProgram(Name, Program);
-        public override string ToString() => string.Format("MODULE({0}: {1})", Name, Program.ToString());
-
-        public override Term ToTerm() => Cons.ImproperList(Symbols.Module, Symbol.Intern(Name), Program.ToTerm());
+        public override ConstValue CopyContinuation() => new ConstValue(_value);
+        protected override string FormatArgs() => _value.ToString();
+        public override Term ToTerm() => _value is Atom
+            ? _value
+            : Cons.ProperList(Symbols.Quote, _value);
     }
 }

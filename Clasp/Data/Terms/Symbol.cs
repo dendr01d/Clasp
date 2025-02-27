@@ -8,7 +8,7 @@ namespace Clasp.Data.Terms
 {
     internal class Symbol : Atom
     {
-        public string Name { get; protected init; }
+        public readonly string Name;
         protected Symbol(string name)
         {
             Name = name;
@@ -29,13 +29,12 @@ namespace Clasp.Data.Terms
 
         public override string ToString() => Name;
         protected override string FormatType() => "Symbol";
-        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(Symbol), Name);
     }
 
     internal class GenSym : Symbol
     {
         // Gamma, for "GenSym"
-        private const string _SEP = "Γ";
+        private const string _SEP = "-Γ";
 
         private static string GenerateUniqueName(string partial)
         {
@@ -53,7 +52,6 @@ namespace Clasp.Data.Terms
         public GenSym() : this("GenSym") { }
 
         protected override string FormatType() => "GenSym";
-        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(GenSym), nameof(Symbol), Name);
     }
 
     /// <summary>
@@ -64,22 +62,11 @@ namespace Clasp.Data.Terms
     internal sealed class ReservedSymbol : Symbol
     {
         public ReservedSymbol(string name) : base(name) { }
-
-        protected override string FormatType() => "ImpSymbol";
-        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(ReservedSymbol), nameof(Symbol), Name);
+        protected override string FormatType() => "ReservedSymbol";
     }
 
     internal static class Symbols
     {
-
-        public static readonly Symbol Define = Symbol.Intern(Keywords.DEFINE);
-        public static readonly Symbol DefineSyntax = Symbol.Intern(Keywords.DEFINE_SYNTAX);
-        public static readonly Symbol Set = Symbol.Intern(Keywords.SET);
-
-        public static readonly Symbol Begin = Symbol.Intern(Keywords.BEGIN);
-        public static readonly Symbol If = Symbol.Intern(Keywords.IF);
-        public static readonly Symbol Lambda = Symbol.Intern(Keywords.LAMBDA);
-
         public static readonly Symbol Quote = Symbol.Intern(Keywords.QUOTE);
         public static readonly Symbol Quasiquote = Symbol.Intern(Keywords.QUASIQUOTE);
         public static readonly Symbol Unquote = Symbol.Intern(Keywords.UNQUOTE);
@@ -90,35 +77,49 @@ namespace Clasp.Data.Terms
         public static readonly Symbol Unsyntax = Symbol.Intern(Keywords.UNSYNTAX);
         public static readonly Symbol UnsyntaxSplicing = Symbol.Intern(Keywords.UNSYNTAX_SPLICING);
 
-        public static readonly Symbol Syntax = Symbol.Intern(Keywords.SYNTAX);
-        public static readonly Symbol Ellipsis = Symbol.Intern(Keywords.ELLIPSIS);
+        public static readonly Symbol Define = Symbol.Intern(Keywords.DEFINE);
+        public static readonly Symbol Set = Symbol.Intern(Keywords.SET);
 
+        public static readonly Symbol If = Symbol.Intern(Keywords.IF);
+        public static readonly Symbol Begin = Symbol.Intern(Keywords.BEGIN);
         public static readonly Symbol Apply = Symbol.Intern(Keywords.APPLY);
+        public static readonly Symbol Lambda = Symbol.Intern(Keywords.LAMBDA);
 
-        public static readonly Symbol Export = Symbol.Intern(Keywords.EXPORT);
+        public static readonly Symbol Module = Symbol.Intern(Keywords.MODULE);
         public static readonly Symbol Import = Symbol.Intern(Keywords.IMPORT);
+        public static readonly Symbol Export = Symbol.Intern(Keywords.EXPORT);
+
+        public static readonly Symbol DefineSyntax = Symbol.Intern(Keywords.DEFINE_SYNTAX);
         public static readonly Symbol ImportForSyntax = Symbol.Intern(Keywords.IMPORT_FOR_SYNTAX);
         public static readonly Symbol BeginForSyntax = Symbol.Intern(Keywords.BEGIN_FOR_SYNTAX);
 
-        public static readonly Symbol Module = Symbol.Intern(Keywords.MODULE);
+        public static readonly Symbol Syntax = Symbol.Intern(Keywords.SYNTAX);
+        public static readonly Symbol Ellipsis = Symbol.Intern(Keywords.ELLIPSIS);
 
-        public static readonly ReservedSymbol StaticTop = new(Keywords.STATIC_TOP);
-        public static readonly ReservedSymbol StaticVar = new(Keywords.STATIC_VAR);
+        //---
 
-        public static readonly ReservedSymbol StaticApply = new(Keywords.STATIC_APPLY);
-        //public static readonly Implicit Sp_Datum = new(Keyword.IMP_DATUM);
-        //public static readonly Implicit Sp_Top = new(Keyword.IMP_TOP);
-        public static readonly ReservedSymbol StaticLambda = new(Keywords.STATIC_LAMBDA);
-        //public static readonly Implicit Sp_Var = new(Keyword.IMP_VAR);
-        public static readonly ReservedSymbol StaticParDef = new(Keywords.STATIC_PARDEF);
-        //public static readonly Implicit Sp_Begin = new(Keyword.IMP_BEGIN);
-        //public static readonly Implicit Sp_Module_Begin = new(Keyword.IMP_MODULE_BEGIN);
-        public static readonly ReservedSymbol StaticModuleBody = new(Keywords.STATIC_MODULE_BEGIN);
+        public static readonly ReservedSymbol S_TopBegin = new(Keywords.S_TOP_BEGIN);
+        public static readonly ReservedSymbol S_TopDefine = new(Keywords.S_TOP_DEFINE);
+        public static readonly ReservedSymbol S_TopVar = new(Keywords.S_TOP_VAR);
 
-        public static readonly ReservedSymbol StaticParMod = new(Keywords.STATIC_PARMOD);
+        public static readonly ReservedSymbol S_Module = new(Keywords.S_MODULE);
+        public static readonly ReservedSymbol S_ModuleBodyBegin = new(Keywords.S_MODULE_BODY_BEGIN);
+        public static readonly ReservedSymbol S_Import = new(Keywords.S_IMPORT);
 
-        public static readonly ReservedSymbol StaticQuote = new(Keywords.STATIC_QUOTE);
+        public static readonly ReservedSymbol S_Set = new(Keywords.S_SET);
 
-        public static readonly ReservedSymbol StaticBegin = new(Keywords.STATIC_BEGIN);
+        public static readonly ReservedSymbol S_Meta = new(Keywords.S_META);
+
+        public static readonly ReservedSymbol S_If = new(Keywords.S_IF);
+        public static readonly ReservedSymbol S_Begin = new(Keywords.S_BEGIN);
+        public static readonly ReservedSymbol S_Apply = new(Keywords.S_APPLY);
+        public static readonly ReservedSymbol S_Lambda = new(Keywords.S_LAMBDA);
+
+        public static readonly ReservedSymbol S_Var = new(Keywords.S_VAR);
+        public static readonly ReservedSymbol S_Const = new(Keywords.S_CONST);
+
+        //---
+
+        public static readonly ReservedSymbol S_PartialDefine = new(Keywords.S_PARTIAL_DEFINE);
     }
 }

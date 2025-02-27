@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
+using Clasp.Binding;
 using Clasp.Binding.Environments;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
@@ -17,14 +18,13 @@ namespace Clasp.Data.AbstractSyntax
     /// </summary>
     internal abstract class VmInstruction
     {
-        protected const string HOLE = "[_]";
+        protected const string HOLE = "░░░";
 
+        public abstract string AppCode { get; }
         public abstract void RunOnMachine(MachineState machine);
-
         public abstract VmInstruction CopyContinuation();
-
-        public abstract override string ToString();
-
+        public sealed override string ToString() => string.Format("{0}({1})", AppCode, FormatArgs());
+        protected abstract string FormatArgs();
         public void PrintAsStackFrame(System.IO.StreamWriter sw) => sw.WriteLine(ToString());
         public void PrintAsStackFrame(System.IO.StreamWriter sw, int i)
         {
@@ -36,59 +36,54 @@ namespace Clasp.Data.AbstractSyntax
     #region Binding Operations
 
     /// <summary>
-    /// Bind the return value to the given name in the current environment.
+    /// Bind the returning value to the given name in the current environment.
     /// </summary>
     internal sealed class BindFresh : VmInstruction
     {
-        public string VarName { get; private init; }
+        private string _key;
+        public override string AppCode => "BIND";
         public BindFresh(string key) : base()
         {
-            VarName = key;
+            _key = key;
         }
-
         public override void RunOnMachine(MachineState machine)
         {
-            if (!machine.CurrentEnv.TryGetValue(VarName, out Term? def) || def is Undefined)
+            if (!machine.CurrentEnv.TryGetValue(_key, out Term? def) || def is Undefined)
             {
-                machine.CurrentEnv.Define(VarName, machine.ReturningValue);
+                machine.CurrentEnv.Define(_key, machine.ReturningValue);
                 machine.ReturningValue = VoidTerm.Value;
             }
             else
             {
-                throw new InterpreterException(machine, "Attempted to re-define existing binding of identifier '{0}'.", VarName);
+                throw new InterpreterException(machine, "Attempted to re-define existing binding of identifier '{0}'.", _key);
             }
         }
-
-        public override VmInstruction CopyContinuation() => new BindFresh(VarName);
-        public override string ToString() => string.Format("*DEF({0}, {1})", VarName, HOLE);
+        public override VmInstruction CopyContinuation() => new BindFresh(_key);
+        protected override string FormatArgs() => _key.ToString();
     }
 
     /// <summary>
-    /// Rebind the return value to the given name in the current environment.
+    /// Rebind the returning value to the given name in the current environment.
     /// </summary>
     internal sealed class RebindExisting : VmInstruction
     {
-        public string VarName { get; private init; }
-        public RebindExisting(string key) : base()
-        {
-            VarName = key;
-        }
-
+        private string _key;
+        public override string AppCode => "MUT8";
+        public RebindExisting(string key) => _key = key;
         public override void RunOnMachine(MachineState machine)
         {
-            if (machine.CurrentEnv.ContainsKey(VarName))
+            if (machine.CurrentEnv.ContainsKey(_key))
             {
-                machine.CurrentEnv.Mutate(VarName, machine.ReturningValue);
+                machine.CurrentEnv.Mutate(_key, machine.ReturningValue);
                 machine.ReturningValue = VoidTerm.Value;
             }
             else
             {
-                throw new InterpreterException(machine, "Attempted to mutate non-existent binding of identifier '{0}'.", VarName);
+                throw new InterpreterException(machine, "Attempted to mutate non-existent binding of identifier '{0}'.", _key);
             }
         }
-
-        public override VmInstruction CopyContinuation() => new RebindExisting(VarName);
-        public override string ToString() => string.Format("*SET({0}, {1})", VarName, HOLE);
+        public override VmInstruction CopyContinuation() => new RebindExisting(_key);
+        protected override string FormatArgs() => _key.ToString();
     }
 
     #endregion
@@ -100,27 +95,28 @@ namespace Clasp.Data.AbstractSyntax
     /// </summary>
     internal sealed class DispatchOnCondition : VmInstruction
     {
-        public readonly CoreForm Consequent;
-        public readonly CoreForm Alternate;
+        private readonly CoreForm _consequent;
+        private readonly CoreForm _alternative;
+        public override string AppCode => "DECIDE";
         public DispatchOnCondition(CoreForm consequent, CoreForm alternate) : base()
         {
-            Consequent = consequent;
-            Alternate = alternate;
+            _consequent = consequent;
+            _alternative = alternate;
         }
         public override void RunOnMachine(MachineState machine)
         {
             if (machine.ReturningValue == Boolean.False)
             {
-                machine.Continuation.Push(Alternate);
+                machine.Continuation.Push(_alternative);
             }
             else
             {
-                machine.Continuation.Push(Consequent);
+                machine.Continuation.Push(_consequent);
             }
         }
 
-        public override VmInstruction CopyContinuation() => new DispatchOnCondition(Consequent, Alternate);
-        public override string ToString() => string.Format("*BRANCH({0}, {1}, {2})", HOLE, Consequent, Alternate);
+        public override VmInstruction CopyContinuation() => new DispatchOnCondition(_consequent, _alternative);
+        protected override string FormatArgs() => string.Join(", ", _consequent, _alternative);
     }
 
     #endregion
@@ -133,9 +129,9 @@ namespace Clasp.Data.AbstractSyntax
     /// </summary>
     internal sealed class FunctionVerification : VmInstruction
     {
-        public readonly CoreForm[] Arguments;
-
-        public FunctionVerification(CoreForm[] arguments) => Arguments = arguments;
+        private readonly CoreForm[] _arguments;
+        public override string AppCode => "FUN-CHK";
+        public FunctionVerification(CoreForm[] arguments) => _arguments = arguments;
         public override void RunOnMachine(MachineState machine)
         {
             if (machine.ReturningValue is not Procedure proc)
@@ -146,30 +142,30 @@ namespace Clasp.Data.AbstractSyntax
             {
                 throw new InterpreterException(machine, "Tried to invoke macro at runtime: {0}", macro);
             }
-            else if (proc is CompoundProcedure cp1 && Arguments.Length > cp1.Arity && !cp1.IsVariadic)
+            else if (proc is CompoundProcedure cp1 && _arguments.Length > cp1.Arity && !cp1.IsVariadic)
             {
                 throw new InterpreterException(machine,
                     "Tried to invoke non-variadic compound procedure {0} with too many arguments: {1}",
-                    cp1, string.Join(", ", Arguments.AsEnumerable()));
+                    cp1, string.Join(", ", _arguments.AsEnumerable()));
             }
-            else if (proc is CompoundProcedure cp2 && Arguments.Length < cp2.Arity)
+            else if (proc is CompoundProcedure cp2 && _arguments.Length < cp2.Arity)
             {
                 throw new InterpreterException(machine,
                     "Tried to invoke compound procedure {0} with invalid number ({1}) of argument/s: {2}",
-                    cp2, Arguments.Length, string.Join(", ", Arguments.AsEnumerable()));
+                    cp2, _arguments.Length, string.Join(", ", _arguments.AsEnumerable()));
             }
-            else if (Arguments.Length == 0)
+            else if (_arguments.Length == 0)
             {
                 machine.Continuation.Push(new FunctionDispatch(proc, []));
             }
             else
             {
-                machine.Continuation.Push(new FunctionArgs(proc, Arguments));
+                machine.Continuation.Push(new FunctionArgs(proc, _arguments));
             }
         }
 
-        public override VmInstruction CopyContinuation() => new FunctionVerification(Arguments.ToArray());
-        public override string ToString() => string.Format("APPL-VERIF({0}; {1})", HOLE, string.Join(", ", Arguments.AsEnumerable()));
+        public override VmInstruction CopyContinuation() => new FunctionVerification(_arguments.ToArray());
+        protected override string FormatArgs() => string.Join(", ", _arguments.Select(x => x.ToString()));
     }
 
     /// <summary>
@@ -186,6 +182,7 @@ namespace Clasp.Data.AbstractSyntax
 
         private readonly int[] EvaluationOrder; // The index order in which to evaluate arguments
         private int CurrentIndex; // The index^2 of the evaluated argument we expect to receive
+        public override string AppCode => "FUN-ARGS";
 
         public FunctionArgs(Procedure op, CoreForm[] arguments)
         {
@@ -228,7 +225,7 @@ namespace Clasp.Data.AbstractSyntax
                 }
 
                 machine.Continuation.Push(this); // TODO verify it's safe to reuse the frame this way multiple times
-                machine.Continuation.Push(new ChangeCurrentEnvironment(nameof(FunctionArgs), machine.CurrentEnv));
+                machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
                 machine.Continuation.Push(nextArg);
             }
             else
@@ -239,9 +236,7 @@ namespace Clasp.Data.AbstractSyntax
 
         public override VmInstruction CopyContinuation() => new FunctionArgs(Op, RawArguments, EvaluatedArguments, EvaluationOrder, CurrentIndex);
 
-        public override string ToString() => string.Format("APPL-ARGS({0}; {1})", Op, string.Join(", ", BuildArgsList()));
-
-        private string[] BuildArgsList()
+        protected override string FormatArgs()
         {
             string[] output = new string[RawArguments.Length];
 
@@ -263,46 +258,45 @@ namespace Clasp.Data.AbstractSyntax
                 }
             }
 
-            return output;
+            return string.Join(", ", output);
         }
     }
 
     internal sealed class FunctionDispatch : VmInstruction
     {
-        public readonly Procedure Op;
-        public readonly Term[] Arguments;
-
+        private readonly Procedure _op;
+        private readonly Term[] _arguments;
+        public override string AppCode => "FUN-DISP";
         public FunctionDispatch(Procedure op, params Term[] args)
         {
-            Op = op;
-            Arguments = args;
+            _op = op;
+            _arguments = args;
         }
-
         public override void RunOnMachine(MachineState machine)
         {
-            if (Op is SystemProcedure sp)
+            if (_op is SystemProcedure sp)
             {
                 try
                 {
-                    machine.ReturningValue = sp.Operate(machine, Arguments);
+                    machine.ReturningValue = sp.Operate(machine, _arguments);
                 }
                 catch (System.Exception ex)
                 {
                     throw new InterpreterException.InvalidOperation(this, machine, ex);
                 }
             }
-            else if (Op is NativeProcedure pp)
+            else if (_op is NativeProcedure pp)
             {
                 try
                 {
-                    machine.ReturningValue = pp.Operate(Arguments);
+                    machine.ReturningValue = pp.Operate(_arguments);
                 }
                 catch (System.Exception ex)
                 {
                     throw new InterpreterException.InvalidOperation(this, machine, ex);
                 }
             }
-            else if (Op is CompoundProcedure cp)
+            else if (_op is CompoundProcedure cp)
             {
                 machine.Continuation.Push(cp.Body);
 
@@ -316,70 +310,37 @@ namespace Clasp.Data.AbstractSyntax
                 for (; i < cp.Parameters.Length; ++i )
                 {
                     machine.Continuation.Push(new BindFresh(cp.Parameters[i]));
-                    machine.Continuation.Push(new ConstValue(Arguments[i]));
+                    machine.Continuation.Push(new ConstValue(_arguments[i]));
                 }
 
                 if (cp.VariadicParameter is not null)
                 {
                     machine.Continuation.Push(new BindFresh(cp.VariadicParameter));
-                    machine.Continuation.Push(Arguments.Length > cp.Parameters.Length
-                        ? new ConstValue(Cons.ProperList(Arguments[i..]))
+                    machine.Continuation.Push(_arguments.Length > cp.Parameters.Length
+                        ? new ConstValue(Cons.ProperList(_arguments[i..]))
                         : new ConstValue(Nil.Value));
                 }
 
-                machine.Continuation.Push(new ChangeCurrentEnvironment(nameof(FunctionDispatch), cp.CapturedEnv));
+                machine.Continuation.Push(new ChangeEnv(this, cp.CapturedEnv));
             }
             else 
             {
-                throw new InterpreterException(machine, "Tried to dispatch on unknown procedure type(!?): {0}", Op);
+                throw new InterpreterException(machine, "Tried to dispatch on unknown procedure type(!?): {0}", _op);
             }
         }
-        public override VmInstruction CopyContinuation() => new FunctionDispatch(Op, Arguments.ToArray());
-        public override string ToString() => string.Format("APPL-DSPX({0}; {1})", Op, string.Join(", ", Arguments.ToArray<object>()));
+        public override VmInstruction CopyContinuation() => new FunctionDispatch(_op, _arguments.ToArray());
+        protected override string FormatArgs() => string.Join(", ", _op.ToString(), string.Join(", ", _arguments.Select(x => x.ToString())));
     }
 
     #endregion
 
-    #region Module Operations
-
-    //internal sealed class ModuleInstallation : VmInstruction
-    //{
-    //    public readonly string Name;
-    //    public readonly string[] ExportedNames;
-
-    //    public ModuleInstallation(string name, string[] exportedNames)
-    //    {
-    //        Name = name;
-    //        ExportedNames = exportedNames;
-    //    }
-
-    //    public override void RunOnMachine(MachineState machine)
-    //    {
-    //        MutableEnv moduleEnv = machine.CurrentEnv.Root.InstallNewModuleEnv(Name);
-    //        MutableEnv defEnv = machine.CurrentEnv;
-
-    //        machine.Continuation.Push(new ConstValue(VoidTerm.Value));
-
-    //        // look up the exported value from the definition MutableEnv, then bind it in the module MutableEnv
-    //        foreach(string export in ExportedNames)
-    //        {
-    //            machine.Continuation.Push(new BindFresh(export));
-    //            machine.Continuation.Push(new ChangeCurrentEnvironment(moduleEnv));
-    //            machine.Continuation.Push(new VariableLookup(export));
-    //            machine.Continuation.Push(new ChangeCurrentEnvironment(defEnv));
-    //        }
-    //    }
-    //    public override ModuleInstallation CopyContinuation() => new ModuleInstallation(Name, ExportedNames);
-    //    public override string ToString() => string.Format("MDL-INSTL({0}; {1})", Name, string.Join(", ", ExportedNames));
-    //}
-
-    #endregion
-
-    internal sealed class ChangeCurrentEnvironment : VmInstruction
+    internal sealed class ChangeEnv : VmInstruction
     {
         public readonly string Prompter;
         public readonly MutableEnv NewEnv;
-        public ChangeCurrentEnvironment(string prompter, MutableEnv newEnv)
+        public override string AppCode => "ENV";
+        public ChangeEnv(VmInstruction prompter, MutableEnv newEnv) : this(prompter.AppCode, newEnv) { }
+        private ChangeEnv(string prompter, MutableEnv newEnv)
         {
             Prompter = prompter;
             NewEnv = newEnv;
@@ -388,7 +349,40 @@ namespace Clasp.Data.AbstractSyntax
         {
             machine.CurrentEnv = NewEnv;
         }
-        public override VmInstruction CopyContinuation() => new ChangeCurrentEnvironment(Prompter, NewEnv);
-        public override string ToString() => string.Format("MOD-ENV({0})", Prompter);
+        public override VmInstruction CopyContinuation() => new ChangeEnv(Prompter, NewEnv);
+        protected override string FormatArgs() => Prompter;
+    }
+
+    internal sealed class CacheEnvAsModule : VmInstruction
+    {
+        private readonly Symbol _key;
+        private readonly string[] _exportedNames;
+        public override string AppCode => "INSTL";
+        public CacheEnvAsModule(Symbol key, string[] exportedNames)
+        {
+            _key = key;
+            _exportedNames = exportedNames;
+        }
+        public override void RunOnMachine(MachineState machine)
+        {
+            StaticEnv.CacheModule(new Binding.Module(_key.Name, machine.CurrentEnv.Root, _exportedNames));
+            machine.ReturningValue = VoidTerm.Value;
+        }
+        public override CacheEnvAsModule CopyContinuation() => new CacheEnvAsModule(_key, _exportedNames);
+        protected override string FormatArgs() => string.Join(", ", _key, string.Join(", ", _exportedNames));
+    }
+
+    internal sealed class InstallModule : VmInstruction
+    {
+        private readonly Module _target;
+        public override string AppCode => "INSTALL";
+        public InstallModule(Module target) => _target = target;
+        public override void RunOnMachine(MachineState machine)
+        {
+            machine.CurrentEnv.Root.InstallModule(_target);
+            machine.ReturningValue = VoidTerm.Value;
+        }
+        public override InstallModule CopyContinuation() => new InstallModule(_target);
+        protected override string FormatArgs() => _target.Name;
     }
 }
