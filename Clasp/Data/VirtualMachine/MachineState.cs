@@ -10,6 +10,7 @@ namespace Clasp.Data.VirtualMachine
 {
     internal class MachineState
     {
+        public int Phase;
         public Term ReturningValue;
         public MutableEnv CurrentEnv;
         public Stack<VmInstruction> Continuation;
@@ -28,7 +29,7 @@ namespace Clasp.Data.VirtualMachine
             return new Stack<VmInstruction>(copiedInstructions);
         }
 
-        public MachineState(CoreForm program, ClaspEnvironment env)
+        public MachineState(CoreForm program, MutableEnv env)
         {
             ReturningValue = VoidTerm.Value;
             CurrentEnv = env;

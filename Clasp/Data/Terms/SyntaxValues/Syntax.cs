@@ -66,6 +66,7 @@ namespace Clasp.Data.Terms.SyntaxValues
             return FromDatum(ToDatum(), strippedContext);
         }
 
+
         /// <summary>
         /// Strip all the syntactic info from this syntax's wrapped value. Recurs upon nested terms.
         /// </summary>

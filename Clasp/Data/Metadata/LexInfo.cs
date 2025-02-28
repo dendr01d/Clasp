@@ -44,6 +44,19 @@ namespace Clasp.Data.Metadata
                 : [];
         }
 
+        public bool SameScopes(LexInfo other)
+        {
+            foreach(var entry in _phasedScopeSets)
+            {
+                if (!entry.Value.SetEquals(other._phasedScopeSets[entry.Key]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         #region Scope Manipulation
 
         public void AddScope(int phase, params Scope[] scopes)
@@ -108,7 +121,7 @@ namespace Clasp.Data.Metadata
                 }
             }
 
-            if (StaticEnv.StaticScope.TryResolve(symbolicName, out ExpansionVarNameBinding? staticBinding))
+            if (StaticEnv.ImplicitScope.TryResolve(symbolicName, out ExpansionVarNameBinding? staticBinding))
             {
                 return staticBinding;
             }

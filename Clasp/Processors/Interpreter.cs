@@ -4,13 +4,14 @@ using System.Linq;
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Procedures;
 using Clasp.Data.VirtualMachine;
 
 namespace Clasp.Process
 {
     internal static class Interpreter
     {
-        public static Term InterpretProgram(CoreForm program, ClaspEnvironment env)
+        public static Term InterpretProgram(CoreForm program, MutableEnv env)
         {
             MachineState machine = new MachineState(program, env);
             RunToCompletion(machine);
@@ -19,16 +20,11 @@ namespace Clasp.Process
 
         public static Term InterpretInVacuum(CoreForm program) => InterpretProgram(program, new RootEnv());
 
-        public static Term InterpretProgram(MacroApplication macroApp) => InterpretProgram(macroApp, macroApp.Macro.CapturedEnv);
-
-        public static Term Interpret(CoreForm program, ClaspEnvironment env, System.Action<int, MachineState> postStepHook)
+        public static Term InterpretApplication(Procedure proc, Term[] args, RootEnv env)
         {
-            MachineState machine = new MachineState(program, env);
-            RunToCompletion(machine, postStepHook);
-            return machine.ReturningValue;
+            Application program = new Application(new ConstValue(proc), args.Select(x => new ConstValue(x)).ToArray());
+            return InterpretProgram(program, env);
         }
-
-        public static Term Interpret(MacroApplication macroAppl) => InterpretProgram(macroAppl, macroAppl.Macro.CapturedEnv);
 
         public static MachineState InterpretToCompletion(MachineState machine)
         {

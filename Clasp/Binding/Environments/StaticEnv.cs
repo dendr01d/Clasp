@@ -17,15 +17,12 @@ namespace Clasp.Binding.Environments
         private static readonly Dictionary<string, Term> _definitions = new Dictionary<string, Term>();
 
         public static readonly StaticEnv Instance = new StaticEnv();
-        public readonly Scope ImplicitScope;
+        public static readonly Scope ImplicitScope = new Scope(SourceCode.StaticSource);
 
         public static string ClaspSourceDir = string.Empty;
 
-        #region Instance Data
-        private StaticEnv()
+        static StaticEnv()
         {
-            ImplicitScope = new Scope(SourceCode.StaticSource);
-
             foreach (Symbol sym in CoreKeywords)
             {
                 ImplicitScope.AddStaticBinding(sym.Name, BindingType.Special);
@@ -48,7 +45,6 @@ namespace Clasp.Binding.Environments
             // end of the line
             throw new ClaspGeneralException("Could not find definition of '{0}' in environment chain.", key);
         }
-        #endregion
 
         private static readonly Symbol[] CoreKeywords = new Symbol[]
         {
@@ -81,86 +77,89 @@ namespace Clasp.Binding.Environments
 
 
             // List Ops
-            new NativeProcedure("cons", new NativeBinary<Term, Term>(ConsOps.Cons)),
-            new NativeProcedure("car", new NativeUnary<Cons>(ConsOps.Car)),
-            new NativeProcedure("cdr", new NativeUnary<Cons>(ConsOps.Cdr)),
-            new NativeProcedure("set-car", new NativeBinary<Cons<Term, Term>, Term>(ConsOps.SetCar)),
-            new NativeProcedure("set-cdr", new NativeBinary<Cons<Term, Term>, Term>(ConsOps.SetCdr)),
+            new("cons", new BinaryFn<Term, Term>(ConsOps.Cons)),
+            new("car", new UnaryFn<Cons>(ConsOps.Car)),
+            new("cdr", new UnaryFn<Cons>(ConsOps.Cdr)),
+            new("set-car", new BinaryFn<Cons<Term, Term>, Term>(ConsOps.SetCar)),
+            new("set-cdr", new BinaryFn<Cons<Term, Term>, Term>(ConsOps.SetCdr)),
 
             // Value Equality
-            new NativeProcedure("eq", new NativeBinary<Term, Term>(EqualityOps.Eq)),
-            new NativeProcedure("eqv", new NativeBinary<Term, Term>(EqualityOps.Eqv)),
-            new NativeProcedure("equal", new NativeBinary<Term, Term>(EqualityOps.Equal)),
+            new("eq", new BinaryFn<Term, Term>(EqualityOps.Eq)),
+            new("eqv", new BinaryFn<Term, Term>(EqualityOps.Eqv)),
+            new("equal", new BinaryFn<Term, Term>(EqualityOps.Equal)),
 
             // Type Predicates
-            new NativeProcedure("pair?", new NativeUnary<Term>(PredicateOps.IsType<Cons>)),
-            new NativeProcedure("null?", new NativeUnary<Term>(PredicateOps.IsType<Nil>)),
+            new("pair?", new UnaryFn<Term>(PredicateOps.IsType<Cons>)),
+            new("null?", new UnaryFn<Term>(PredicateOps.IsType<Nil>)),
 
-            new NativeProcedure("symbol?", new NativeUnary<Term>(PredicateOps.IsType<Symbol>)),
-            new NativeProcedure("character?", new NativeUnary<Term>(PredicateOps.IsType<Character>)),
-            new NativeProcedure("string?", new NativeUnary<Term>(PredicateOps.IsType<CharString>)),
-            new NativeProcedure("vector?", new NativeUnary<Term>(PredicateOps.IsType<Vector>)),
-            new NativeProcedure("boolean?", new NativeUnary<Term>(PredicateOps.IsType<Boolean>)),
+            new("symbol?", new UnaryFn<Term>(PredicateOps.IsType<Symbol>)),
+            new("character?", new UnaryFn<Term>(PredicateOps.IsType<Character>)),
+            new("string?", new UnaryFn<Term>(PredicateOps.IsType<CharString>)),
+            new("vector?", new UnaryFn<Term>(PredicateOps.IsType<Vector>)),
+            new("boolean?", new UnaryFn<Term>(PredicateOps.IsType<Boolean>)),
 
-            new NativeProcedure("number?", new NativeUnary<Term>(PredicateOps.IsType<Number>)),
-            new NativeProcedure("complex?", new NativeUnary<Term>(PredicateOps.IsType<ComplexNumeric>)),
-            new NativeProcedure("real?", new NativeUnary<Term>(PredicateOps.IsType<RealNumeric>)),
-            new NativeProcedure("rational?", new NativeUnary<Term>(PredicateOps.IsType<RationalNumeric>)),
-            new NativeProcedure("integer?", new NativeUnary<Term>(PredicateOps.IsType<IntegralNumeric>)),
+            new("number?", new UnaryFn<Term>(PredicateOps.IsType<Number>)),
+            new("complex?", new UnaryFn<Term>(PredicateOps.IsType<ComplexNumeric>)),
+            new("real?", new UnaryFn<Term>(PredicateOps.IsType<RealNumeric>)),
+            new("rational?", new UnaryFn<Term>(PredicateOps.IsType<RationalNumeric>)),
+            new("integer?", new UnaryFn<Term>(PredicateOps.IsType<IntegralNumeric>)),
 
-            new NativeProcedure("syntax?", new NativeUnary<Term>(PredicateOps.IsType<Syntax>)),
-            new NativeProcedure("identifier?", new NativeUnary<Term>(PredicateOps.IsType<Identifier>)),
+            new("syntax?", new UnaryFn<Term>(PredicateOps.IsType<Syntax>)),
+            new("identifier?", new UnaryFn<Term>(PredicateOps.IsType<Identifier>)),
 
             // Symbol Ops
-            new NativeProcedure("symbol->string", new NativeUnary<Symbol>(SymbolOps.SymbolToString)),
-            new NativeProcedure("string->symbol", new NativeUnary<CharString>(SymbolOps.StringToSymbol)),
+            new("symbol->string", new UnaryFn<Symbol>(SymbolOps.SymbolToString)),
+            new("string->symbol", new UnaryFn<CharString>(SymbolOps.StringToSymbol)),
 
             // Character Ops
-            new NativeProcedure("char=", new NativeBinary<Character, Character>(CharacterOps.CharEq)),
-            new NativeProcedure("char<", new NativeBinary<Character, Character>(CharacterOps.CharLT)),
-            new NativeProcedure("char<=", new NativeBinary<Character, Character>(CharacterOps.CharLTE)),
-            new NativeProcedure("char>", new NativeBinary<Character, Character>(CharacterOps.CharGT)),
-            new NativeProcedure("char>=", new NativeBinary<Character, Character>(CharacterOps.CharGTE)),
+            new("char=", new BinaryFn<Character, Character>(CharacterOps.CharEq)),
+            new("char<", new BinaryFn<Character, Character>(CharacterOps.CharLT)),
+            new("char<=", new BinaryFn<Character, Character>(CharacterOps.CharLTE)),
+            new("char>", new BinaryFn<Character, Character>(CharacterOps.CharGT)),
+            new("char>=", new BinaryFn<Character, Character>(CharacterOps.CharGTE)),
 
-            new NativeProcedure("char->integer", new NativeUnary<Character>(CharacterOps.CharacterToInteger)),
-            new NativeProcedure("integer->char", new NativeUnary<IntegralNumeric>(CharacterOps.IntegerToCharacter)),
+            new("char->integer", new UnaryFn<Character>(CharacterOps.CharacterToInteger)),
+            new("integer->char", new UnaryFn<IntegralNumeric>(CharacterOps.IntegerToCharacter)),
 
             // Syntax Ops
-            new NativeProcedure("syntax-source", new NativeUnary<Syntax>(SyntaxOps.SyntaxSource)),
-            new NativeProcedure("syntax-line", new NativeUnary<Syntax>(SyntaxOps.SyntaxLine)),
-            new NativeProcedure("syntax-column", new NativeUnary<Syntax>(SyntaxOps.SyntaxColumn)),
-            new NativeProcedure("syntax-position", new NativeUnary<Syntax>(SyntaxOps.SyntaxPosition)),
-            new NativeProcedure("syntax-span", new NativeUnary<Syntax>(SyntaxOps.SyntaxSpan)),
-            new NativeProcedure("syntax-original", new NativeUnary<Syntax>(SyntaxOps.SyntaxOriginal)),
+            new("syntax-source", new UnaryFn<Syntax>(SyntaxOps.SyntaxSource)),
+            new("syntax-line", new UnaryFn<Syntax>(SyntaxOps.SyntaxLine)),
+            new("syntax-column", new UnaryFn<Syntax>(SyntaxOps.SyntaxColumn)),
+            new("syntax-position", new UnaryFn<Syntax>(SyntaxOps.SyntaxPosition)),
+            new("syntax-span", new UnaryFn<Syntax>(SyntaxOps.SyntaxSpan)),
+            new("syntax-original", new UnaryFn<Syntax>(SyntaxOps.SyntaxOriginal)),
 
-            new NativeProcedure("syntax-e", new NativeUnary<Syntax>(SyntaxOps.SyntaxE)),
-            new NativeProcedure("syntax->list", new NativeUnary<Syntax>(SyntaxOps.SyntaxToList)),
-            new NativeProcedure("syntax->datum", new NativeUnary<Syntax>(SyntaxOps.SyntaxToDatum)),
-            new NativeProcedure("datum->syntax", new NativeBinary<Syntax, Term>(SyntaxOps.DatumToSyntax)),
+            new("free-identifier=?", new BinaryMxFn<Identifier, Identifier>(SyntaxOps.FreeIdentifierEq)),
+            new("bound-identifier=?", new BinaryFn<Identifier, Identifier>(SyntaxOps.BoundIdentifierEq)),
+
+            new("syntax-e", new UnaryFn<Syntax>(SyntaxOps.SyntaxE)),
+            new("syntax->list", new UnaryFn<Syntax>(SyntaxOps.SyntaxToList)),
+            new("syntax->datum", new UnaryFn<Syntax>(SyntaxOps.SyntaxToDatum)),
+            new("datum->syntax", new BinaryFn<Syntax, Term>(SyntaxOps.DatumToSyntax)),
 
 
             //Arithmetic
-            new NativeProcedure("+")
+            new("+")
             {
-                new NativeBinary<Number, Number>(MathOps.Add),
-                new NativeVariadic<Number>(MathOps.AddVar)
+                new BinaryFn<Number, Number>(MathOps.Add),
+                new VariadicFn<Number>(MathOps.AddVar)
             },
-            new NativeProcedure("-")
+            new("-")
             {
-                new NativeUnary<Number>(MathOps.Negate),
-                new NativeBinary<Number, Number>(MathOps.Subtract),
-                new NativeVariadic<Number>(MathOps.SubtractVar)
+                new UnaryFn<Number>(MathOps.Negate),
+                new BinaryFn<Number, Number>(MathOps.Subtract),
+                new VariadicFn<Number>(MathOps.SubtractVar)
             },
-            new NativeProcedure("*")
+            new("*")
             {
-                new NativeBinary<Number, Number>(MathOps.Multiply),
-                new NativeVariadic<Number>(MathOps.MultiplyVar)
+                new BinaryFn<Number, Number>(MathOps.Multiply),
+                new VariadicFn<Number>(MathOps.MultiplyVar)
             },
-            new NativeProcedure("/")
+            new("/")
             {
-                new NativeUnary<Number>(MathOps.Invert),
-                new NativeBinary<Number, Number>(MathOps.Divide),
-                new NativeVariadic<Number>(MathOps.DivideVar)
+                new UnaryFn<Number>(MathOps.Invert),
+                new BinaryFn<Number, Number>(MathOps.Divide),
+                new VariadicFn<Number>(MathOps.DivideVar)
             }
         };
 

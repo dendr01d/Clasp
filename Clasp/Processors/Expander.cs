@@ -1,7 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-using System.Linq;
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
@@ -14,7 +12,6 @@ using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Exceptions;
 using Clasp.ExtensionMethods;
-using Clasp.Modules;
 
 namespace Clasp.Process
 {
@@ -28,7 +25,7 @@ namespace Clasp.Process
         public static Syntax ExpandModuleSyntax(Syntax fullInput, out Identifier[] ids)
         {
             ids = [];
-            
+
             if (fullInput is not SyntaxList stl
                 || stl.Expose() is not Cons cns
                 || cns.Car is not Identifier moduleId
@@ -49,7 +46,7 @@ namespace Clasp.Process
 
             CompilationContext ctx = new CompilationContext(new RootEnv()).InModuleBody(insideEdge);
             List<Identifier> exportedKeys = new List<Identifier>();
-            
+
             Cons<Syntax, Term> partialBody = PartiallyExpandModuleBody(args, fullInput.LexContext, ctx, exportedKeys);
             Cons<Syntax, Term> expandedBody = ExpandSequence(partialBody, fullInput.LexContext, ctx);
             SyntaxList finalBody = new SyntaxList(expandedBody, fullInput.LexContext);

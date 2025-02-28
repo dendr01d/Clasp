@@ -17,15 +17,6 @@ namespace Clasp
     {
         internal StreamWriter OutputStream { get; private set; }
 
-        public Processor(StreamWriter outputStream)
-        {
-            OutputStream = outputStream;
-            RuntimeEnv = StaticEnv.CreateNew(this);
-            CompileTimeEnv = StaticEnv.CreateNew(this);
-        }
-
-        public Processor CreateSubProcess() => new Processor(OutputStream);
-
         /// <summary>
         /// Read the contents of the file at the given path line-by-line.
         /// </summary>

@@ -12,68 +12,26 @@ using Clasp.Ops.Functions;
 
 namespace Clasp.Data.Terms.Procedures
 {
-    internal abstract class PrimitiveProcedure : Procedure
+    internal sealed class PrimitiveProcedure : Procedure, IEnumerable<PrimitiveOperation>
     {
         public readonly Symbol OpSymbol;
+        private readonly List<PrimitiveOperation> _ops;
 
-        public PrimitiveProcedure(Symbol opSym) => OpSymbol = opSym;
-
-        public override string ToString() => string.Format("#<{0}>", OpSymbol);
-    }
-
-    internal sealed class NativeProcedure : PrimitiveProcedure, IEnumerable<NativeFunction>
-    {
-        private readonly List<NativeFunction> _nativeOps;
-
-        public NativeProcedure(Symbol opSym, params NativeFunction[] nativeOps) : base(opSym)
+        public PrimitiveProcedure(Symbol opSym, params PrimitiveOperation[] ops)
         {
-            _nativeOps = new List<NativeFunction>(nativeOps);
+            OpSymbol = opSym;
+            _ops = ops.ToList();
         }
 
-        public NativeProcedure(string opName, params NativeFunction[] nativeOps)
-            : this(Symbol.Intern(opName), nativeOps)
-        { }
-
-        public Term Operate(Term[] args)
-        {
-            foreach (NativeFunction fun in _nativeOps)
-            {
-                if (fun.TryOperate(args, out Term? result))
-                {
-                    return result;
-                }
-            }
-
-            throw new ProcessingException.InvalidPrimitiveArgumentsException(args);
-        }
-
-        public IEnumerator<NativeFunction> GetEnumerator() => ((IEnumerable<NativeFunction>)_nativeOps).GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_nativeOps).GetEnumerator();
-        public void Add(NativeFunction nativeOp) => _nativeOps.Add(nativeOp);
-
-        protected override string FormatType() => string.Format("Nat-Prim({0}:{1})", OpSymbol, _nativeOps.Count);
-        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(NativeProcedure), nameof(PrimitiveProcedure), OpSymbol);
-    }
-
-
-    internal sealed class SystemProcedure : PrimitiveProcedure, IEnumerable<SystemFunction>
-    {
-        private readonly List<SystemFunction> _systemOps;
-
-        public SystemProcedure(Symbol opSym, params SystemFunction[] systemOps) : base(opSym)
-        {
-            _systemOps = new List<SystemFunction>(systemOps);
-        }
-
-        public SystemProcedure(string opName, params SystemFunction[] systemOps)
-            : this(Symbol.Intern(opName), systemOps)
+        public PrimitiveProcedure(string opName, params PrimitiveOperation[] ops)
+            : this(Symbol.Intern(opName), ops)
         { }
 
         public Term Operate(MachineState mx, Term[] args)
         {
-            foreach (SystemFunction fun in _systemOps)
+            foreach (PrimitiveOperation fun in _ops)
             {
-                if (fun.TryOperate([mx, args], out Term? result))
+                if (fun.TryOperate(mx, args, out Term? result))
                 {
                     return result;
                 }
@@ -82,11 +40,11 @@ namespace Clasp.Data.Terms.Procedures
             throw new ProcessingException.InvalidPrimitiveArgumentsException(args);
         }
 
-        public IEnumerator<SystemFunction> GetEnumerator() => ((IEnumerable<SystemFunction>)_systemOps).GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_systemOps).GetEnumerator();
-        public void Add(SystemFunction systemOp) => _systemOps.Add(systemOp);
+        public IEnumerator<PrimitiveOperation> GetEnumerator() => ((IEnumerable<PrimitiveOperation>)_ops).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_ops).GetEnumerator();
+        public void Add(PrimitiveOperation nativeOp) => _ops.Add(nativeOp);
 
-        protected override string FormatType() => string.Format("Sys-Prim({0}:{1})", OpSymbol, _systemOps.Count);
-        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(SystemProcedure), nameof(PrimitiveProcedure), OpSymbol);
+        protected override string FormatType() => string.Format("Prim({0}:{1})", OpSymbol, _ops.Count);
+        public override string ToString() => string.Format("#<{0}>", OpSymbol);
     }
 }

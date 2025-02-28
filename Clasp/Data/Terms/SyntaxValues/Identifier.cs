@@ -58,6 +58,5 @@ namespace Clasp.Data.Terms.SyntaxValues
 
         //public override string ToString() => string.Format("#'{0}", _sym);
         protected override string FormatType() => "StxId";
-        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(Identifier), nameof(Syntax), _sym.ToString());
     }
 }
