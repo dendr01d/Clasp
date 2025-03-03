@@ -133,13 +133,13 @@ namespace Clasp.Exceptions
 
         public class ExpectedProperList : ExpanderException
         {
-            internal ExpectedProperList(Term notAProperList, LexInfo info) : base(
+            internal ExpectedProperList(Term notAProperList, ScopeSet info) : base(
                 info.Location,
                 "Expected proper list:\n\t{0}",
                 notAProperList)
             { }
 
-            internal ExpectedProperList(string expectedType, Term notAProperList, LexInfo info) : base(
+            internal ExpectedProperList(string expectedType, Term notAProperList, ScopeSet info) : base(
                 info.Location,
                 "Expected proper list with '{0}' elements:\n\t{1}",
                 expectedType,
@@ -174,7 +174,7 @@ namespace Clasp.Exceptions
                 invalid)
             { }
 
-            internal InvalidArguments(Cons invalid, LexInfo info) : base(
+            internal InvalidArguments(Cons invalid, ScopeSet info) : base(
                 info.Location,
                 "Arguments have the wrong shape:\n\t{0}",
                 invalid)
@@ -191,7 +191,7 @@ namespace Clasp.Exceptions
                 wrongSyntax)
             { }
 
-            internal InvalidContext(string invalidType, ExpansionMode mode, Term wrongTerm, LexInfo info) : base(
+            internal InvalidContext(string invalidType, ExpansionMode mode, Term wrongTerm, ScopeSet info) : base(
                 info.Location,
                 "Input of type '{0}' is invalid in '{1}' expansion context:\n\t{2}",
                 invalidType,
@@ -202,7 +202,7 @@ namespace Clasp.Exceptions
 
         public class CircularModuleReference : ExpanderException
         {
-            internal CircularModuleReference(FreshModule pendingModule, LexInfo info) : base(
+            internal CircularModuleReference(FreshModule pendingModule, ScopeSet info) : base(
                 info.Location,
                 "A circular module reference occurred -- the expander prompted expansion of module '{0}', which is already pending.",
                 pendingModule.Name)

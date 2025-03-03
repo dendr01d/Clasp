@@ -19,10 +19,31 @@ namespace Clasp.Process
     internal static class Reader
     {
         /// <summary>
-        /// Reads the given tokens into the syntactic representation of a program.
-        /// The given sequence is assumed not to be empty.
+        /// Read a series of tokens into a series of syntactic terms, as elements of an implicit
+        /// <see cref="Keywords.BEGIN"/> form.
         /// </summary>
-        public static Syntax ReadTokens(IEnumerable<Token> tokens)
+        public static Syntax ReadBeginForm(IEnumerable<Token> tokens)
+        {
+            return ReadTokens(Symbols.S_Begin, tokens);
+        }
+
+        /// <summary>
+        /// Read a series of tokens into a series of syntactic terms, as elements of an
+        /// (implicit or otherwise) <see cref="Keywords.MODULE"/> form.
+        /// </summary>
+        public static Syntax ReadModuleForm(IEnumerable<Token> tokens)
+        {
+            IEnumerable<Token> checkedTokens = tokens.First().TType == TokenType.ModuleFlag
+                ? tokens.Skip(1)
+                : tokens;
+
+            return ReadTokens(Symbols.S_Module, checkedTokens);
+        }
+
+        /// <summary>
+        /// Reads the given tokens into a series of syntax objects
+        /// </summary>
+        private static Syntax ReadTokens(Symbol implicitOperator, IEnumerable<Token> tokens)
         {
             // First, do a quick check to make sure the parentheses all match up
             CheckParentheses(tokens);
@@ -32,23 +53,13 @@ namespace Clasp.Process
                 throw new ReaderException.EmptyTokenStream();
             }
 
-            Syntax[] terms = ReadMultipleSyntaxes(new Stack<Token>(tokens.Reverse())).ToArray();
+            ScopeSet info = new ScopeSet(tokens.First().Location);
 
-            if (terms.Length == 1)
-            {
-                return terms.First();
-            }
-            else 
-            {
-                SyntaxList syntax = SyntaxList.ProperList(terms[0].LexContext, terms[0], terms[1..]);
-                
-                if (terms[0] is not Identifier id || id.Name != Keywords.MODULE)
-                {
-                    syntax.Push(new Identifier(ReservedSymbol.Sp_Begin, terms[0]));
-                }
+            Identifier opStx = new Identifier(implicitOperator, info);
 
-                return syntax;
-            }
+            Syntax[] syntaxes = ReadMultipleSyntaxes(new Stack<Token>(tokens.Reverse())).ToArray();
+
+            return SyntaxPair.ProperList(info, opStx, syntaxes);
         }
 
         #region Parentheses-Checking
@@ -111,7 +122,7 @@ namespace Clasp.Process
 
         private static IEnumerable<Syntax> ReadMultipleSyntaxes(Stack<Token> tokens)
         {
-            while (tokens.Peek().TType != TokenType.EOF)
+            while (tokens.Peek().TType != TokenType.Terminator)
             {
                 yield return ReadSyntax(tokens);
             }
@@ -119,7 +130,7 @@ namespace Clasp.Process
 
         private static Syntax ReadSyntax(Stack<Token> tokens)
         {
-            if (tokens.Peek().TType == TokenType.EOF)
+            if (tokens.Peek().TType == TokenType.Terminator)
             {
                 throw new ReaderException.UnexpectedToken(tokens.Peek());
             }
@@ -154,9 +165,8 @@ namespace Clasp.Process
                 TokenType.Unsyntax => NativelyExpand(current, Symbols.Unsyntax, tokens),
                 TokenType.UnsyntaxSplice => NativelyExpand(current, Symbols.UnsyntaxSplicing, tokens),
 
-                TokenType.ModuleFlag => new Identifier(Keywords.MODULE, new LexInfo(current.Location)),
                 TokenType.Symbol => new Identifier(current),
-                TokenType.Character => new Datum(Character.Intern(current), current),
+                TokenType.Character => new Datum(Character.Intern(current), current.Location),
                 TokenType.String => ReadCharString(current),
                 TokenType.Boolean => ReadBoolean(current),
 
@@ -178,7 +188,7 @@ namespace Clasp.Process
                 ? Data.Terms.Boolean.True
                 : Data.Terms.Boolean.False;
 
-            return new Datum(value, current);
+            return new Datum(value, current.Location);
         }
 
         private static Datum ReadInteger(Token current, int baseSystem)
@@ -187,7 +197,7 @@ namespace Clasp.Process
                 ? new string(current.Text.AsSpan()[2..])
                 : current.Text;
 
-            return new Datum(new Integer(Convert.ToInt64(num, baseSystem)), current);
+            return new Datum(new Integer(Convert.ToInt64(num, baseSystem)), current.Location);
         }
 
         private static Datum ReadReal(Token current)
@@ -196,22 +206,22 @@ namespace Clasp.Process
                 ? new string(current.Text.AsSpan()[2..])
                 : current.Text;
 
-            return new Datum(new Real(double.Parse(num)), current);
+            return new Datum(new Real(double.Parse(num)), current.Location);
         }
 
         private static Datum ReadCharString(Token current)
         {
             string sansQuotes = current.Text.Trim('\"');
-            return new Datum(new CharString(sansQuotes), current);
+            return new Datum(new CharString(sansQuotes), current.Location);
         }
 
-        private static SyntaxList NativelyExpand(Token opToken, Symbol opSym, Stack<Token> tokens)
+        private static SyntaxPair NativelyExpand(Token opToken, Symbol opSym, Stack<Token> tokens)
         {
             Syntax arg = ReadSyntax(tokens);
 
-            LexInfo info = SynthesizeLexicalSource(opToken, arg);
+            ScopeSet info = SynthesizeLexicalSource(opToken, arg);
 
-            Identifier op = new Identifier(opSym, arg.LexContext);
+            Identifier op = new Identifier(opSym, arg.Location);
 
             return new SyntaxList(arg, info)
                 .Push(op);
@@ -229,7 +239,7 @@ namespace Clasp.Process
 
             Token close = tokens.Pop(); // remove closing paren
 
-            LexInfo info = SynthesizeLexicalSource(lead, close);
+            ScopeSet info = SynthesizeLexicalSource(lead, close);
 
             return new Datum(new Vector(contents.ToArray()), info);
         }
@@ -243,7 +253,7 @@ namespace Clasp.Process
             else if (tokens.Peek().TType == TokenType.ClosingParen)
             {
                 Token close = tokens.Pop(); // remove closing paren
-                LexInfo info = SynthesizeLexicalSource(lead, close);
+                ScopeSet info = SynthesizeLexicalSource(lead, close);
                 return new Datum(Nil.Value, info);
             }
 
@@ -284,19 +294,19 @@ namespace Clasp.Process
             }
 
             // pop off the closing paren while also synthesizing the aggregate lexical info
-            LexInfo listContext = SynthesizeLexicalSource(lead, tokens.Pop());
+            ScopeSet listContext = SynthesizeLexicalSource(lead, tokens.Pop());
 
             if (dottedList)
             {
-                return SyntaxList.ImproperList(listContext, contents[0], contents[1], contents[2..].ToArray());
+                return SyntaxPair.ImproperList(listContext, contents[0], contents[1], contents[2..].ToArray());
             }
             else
             {
-                return SyntaxList.ProperList(listContext, contents[0], contents[1..].ToArray());
+                return SyntaxPair.ProperList(listContext, contents[0], contents[1..].ToArray());
             }
         }
 
-        private static LexInfo SynthesizeLexicalSource(ISourceTraceable first, ISourceTraceable rest)
+        private static ScopeSet SynthesizeLexicalSource(ISourceTraceable first, ISourceTraceable rest)
         {
             SourceCode sc = new SourceCode(
                 first.Location.Source,
@@ -307,7 +317,7 @@ namespace Clasp.Process
                 first.Location.SourceText,
                 true);
 
-            return new LexInfo(sc);
+            return new ScopeSet(sc);
         }
 
     }

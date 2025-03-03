@@ -8,6 +8,7 @@ using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Static;
+using System.Numerics;
 
 namespace Clasp.Data.Metadata
 {
@@ -28,12 +29,18 @@ namespace Clasp.Data.Metadata
         /// This is necessarily a <see cref="Closure"/> of the <see cref="RootEnv"/> in <see cref="_metaEnvironments"/>
         /// indexed at <see cref="Phase"/>.
         /// </remarks>
-        public Closure CompileTimeEnv;
+        public MutableEnv CompileTimeEnv;
 
         /// <summary>
         /// The current phase of expansion.
         /// </summary>
         public readonly int Phase;
+
+        /// <summary>
+        /// Holds identifiers that need to be aggregated over the lifetime of this particular context instance.
+        /// For example, partially-defined keys in a lambda body, or exported keys in a module.
+        /// </summary>
+        public readonly List<Identifier> CollectedIdentifiers;
 
         /// <summary>
         /// The inside edge of the most immediate scoped sequential form, if one exists.
@@ -56,21 +63,28 @@ namespace Clasp.Data.Metadata
 
         #region Constructors
 
-        private CompilationContext(Dictionary<int, RootEnv> meta, Closure env, int phase, Scope? edge, Scope? site, ExpansionMode mode)
+        private CompilationContext(Dictionary<int, RootEnv> meta, MutableEnv env, int phase, Scope? edge, Scope? site, ExpansionMode mode)
         {
             _metaEnvironments = meta;
             CompileTimeEnv = env;
             Phase = phase;
+            CollectedIdentifiers = new List<Identifier>();
             InsideEdge = edge;
             MacroUseSite = site;
             Mode = mode;
         }
 
-        public CompilationContext(RootEnv rootEnv)
-            : this(new(), rootEnv.Enclose(), 1, null, null, ExpansionMode.TopLevel)
+        private static CompilationContext BuildNew(ExpansionMode mode)
         {
-            _metaEnvironments[1] = rootEnv;
+            RootEnv phase1Env = new RootEnv();
+            Dictionary<int, RootEnv> meta = new Dictionary<int, RootEnv>() { { 1, phase1Env } };
+
+            return new CompilationContext(meta, phase1Env, 1, null, null, mode);
         }
+
+        public static CompilationContext ForTopLevel() => BuildNew(ExpansionMode.TopLevel);
+
+        public static CompilationContext ForModule() => BuildNew(ExpansionMode.Module);
 
         /// <summary>
         /// Contextualize a <see cref="Keywords.LAMBDA"/> body form within the current context,
@@ -112,16 +126,6 @@ namespace Clasp.Data.Metadata
                 site: macroUseSite,
                 mode: Mode);
         }
-
-        //public ExpansionContext InModule()
-        //{
-        //    return new ExpansionContext(
-        //        env: CompileTimeEnv.Enclose(),
-        //        phase: Phase + 1,
-        //        edge: null,
-        //        site: null,
-        //        mode: ExpansionMode.Module);
-        //}
 
         /// <summary>
         /// Contextualize the meta-expansion of a form in the next phase up from the current one.
@@ -191,6 +195,8 @@ namespace Clasp.Data.Metadata
         }
 
         #endregion
+
+        public void CollectIdentifier(Identifier id) => CollectedIdentifiers.Add(id);
 
         /// <summary>
         /// Attempt to dereference a <see cref="MacroProcedure"/> defined using <paramref name="binding"/>

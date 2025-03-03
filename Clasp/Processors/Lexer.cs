@@ -19,17 +19,19 @@ namespace Clasp.Process
             BuildRgx(TokenType.Whitespace     , @"\s+"),
             BuildRgx(TokenType.Comment        , @"(?>\;.*$)"),
 
+            BuildRgx(TokenType.ModuleFlag     , @"\#[Cc][Ll][Aa][Ss][Pp]"),
+
             BuildRgx(TokenType.Symbol         , @"(?>([a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^_\~][a-zA-Z0-9\!\$\%\&\*\/\:\<\=\>\?\^_\~\+\-\.\@]*)|\+|\-|\.\.\.)"),
             BuildRgx(TokenType.Boolean        , @"(?>(#(?:[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee]|[Tt]|[Ff])))"),
 
             BuildRgx(TokenType.BinInteger     , @"(?>(?:#[Bb])(?:\+)?(\-?[01]+))"),
             BuildRgx(TokenType.OctInteger     , @"(?>(?:#[Oo])(?:\+)?(\-?[0-7]+))"),
             BuildRgx(TokenType.HexInteger     , @"(?>(?:#[Xx])(?:\+)?(\-?[0-9a-fA-F]+))"),
-            BuildRgx(TokenType.DecInteger     , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+))"), //radix flag is optional for decimals
-            BuildRgx(TokenType.DecReal        , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+\.[0-9]+))"), //ditto
+            BuildRgx(TokenType.DecInteger     , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+))"), // radix flag is optional for decimals
+            BuildRgx(TokenType.DecReal        , @"(?>(?:#[Dd])?(?:\+)?(\-?[0-9]+\.[0-9]+))"), // ditto
 
-            BuildRgx(TokenType.Character      , @"(?>#\\(?:(?:[^\s\(\)\-]+)|.))"),
-            BuildRgx(TokenType.String         , @"(?>\""((?:[^\""|^\\]|\\""|\\\\)*)\"")"),
+            BuildRgx(TokenType.Character      , @"(?>#\\(?:(?:[^\s\(\)\-]+)|.))"), // #\ followed by a single character, or alias with no spaces or parens
+            BuildRgx(TokenType.String         , @"(?>\""((?:[^\""|^\\]|\\""|\\\\)*)\"")"), // exclude double-quotes and backslashes unless escaped
 
             BuildRgx(TokenType.OpenListParen  , @"\("),
             BuildRgx(TokenType.ClosingParen   , @"\)"),
@@ -44,8 +46,6 @@ namespace Clasp.Process
             BuildRgx(TokenType.QuasiSyntax    , @"\#\`"),
             BuildRgx(TokenType.Unsyntax       , @"\#\,"),
             BuildRgx(TokenType.UnsyntaxSplice , @"\#\@\,"),
-
-            BuildRgx(TokenType.ModuleFlag     , @"\#[Mm]odule"),
 
             BuildRgx(TokenType.DotOperator    , @"\."),
             BuildRgx(TokenType.Undefined      , @"\#undefined"),
@@ -78,19 +78,18 @@ namespace Clasp.Process
 
         /// <summary>
         /// Parse a sequence of tokens out of the aggregate text formed from the provided lines of input.
-        /// The line divisions are used to record the relative position of each token.
+        /// Line divisions are used to more specifically record the relative positions of each token within the text.
         /// </summary>
-        /// <exception cref="LexerException"></exception>
-        public static IEnumerable<Token> LexLines(string sourceName, IEnumerable<string> inputLines)
+        private static List<Token> LexLines(string sourceName, IEnumerable<string> inputLines)
         {
             if (!inputLines.Any())
             {
-                return Array.Empty<Token>();
+                return [];
             }
 
             Blob sourceText = new Blob(sourceName, inputLines);
-            List<Token> output = new List<Token>();
-            List<LexerException> malformedInputs = new List<LexerException>();
+            List<Token> output = [];
+            List<LexerException> malformedInputs = [];
 
             int lineNo = 1; //line numbers in source text are 1-indexed
             int charNo = 1; //ditto with character index
@@ -118,12 +117,13 @@ namespace Clasp.Process
                 throw new AggregateException("Malformed lexemes found in input.", malformedInputs);
             }
 
-            output.Add(Token.Tokenize(TokenType.EOF, string.Empty, sourceText, SourceCode.StaticSource));
+            // add a terminator token to indicate the end of the sequence
+            output.Add(Token.Tokenize(TokenType.Terminator, string.Empty, sourceText, SourceCode.StaticSource));
 
             return output;
         }
 
-        public static IEnumerable<Token> LexSingleLine(Blob sourceText, string text, int lineNo, int charNo)
+        private static IEnumerable<Token> LexSingleLine(Blob sourceText, string text, int lineNo, int charNo)
         {
             List<Token> output = new List<Token>();
             List<LexerException> malformedInputs = new List<LexerException>();
@@ -170,6 +170,7 @@ namespace Clasp.Process
             string name = regexMatch.Groups.Values
                 .Skip(regexMatch.Groups.Count - _regexes.Length)
                 .First(x => x.Success).Name;
+
             return Enum.TryParse(name, out TokenType matchedType)
                 ? matchedType
                 : TokenType.Malformed;

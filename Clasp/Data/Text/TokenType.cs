@@ -40,7 +40,7 @@ namespace Clasp.Data.Text
 
         ModuleFlag,
 
-        EOF,
+        Terminator,
         DotOperator,
         Undefined,
 

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Clasp.Binding.Modules;
 using Clasp.Data.Terms;
 
 namespace Clasp.Binding.Environments

@@ -36,7 +36,7 @@ namespace Clasp.Binding
         /// </summary>
         public void AddStaticBinding(string symbolicName, BindingType type)
         {
-            Identifier newId = new Identifier(symbolicName, LexInfo.StaticInfo);
+            Identifier newId = new Identifier(symbolicName, ScopeSet.StaticInfo);
             ExpansionVarNameBinding newBinding = new ExpansionVarNameBinding(newId, type);
             AddBinding(symbolicName, newBinding);
         }

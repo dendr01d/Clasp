@@ -17,25 +17,20 @@ namespace Clasp.Data.Metadata
     /// Represents the lexical context of a <see cref="Syntax"/>, including
     /// its source location and effective scope within the program.
     /// </summary>
-    internal class LexInfo : ISourceTraceable
+    internal class ScopeSet
     {
-        public SourceCode Location { get; private set; }
-
         private readonly Dictionary<int, HashSet<Scope>> _phasedScopeSets;
 
-        public static readonly LexInfo StaticInfo = new LexInfo(SourceCode.StaticSource);
+        public static readonly ScopeSet Empty = new ScopeSet();
 
-        private LexInfo(SourceCode loc, IEnumerable<KeyValuePair<int, HashSet<Scope>>> dict)
+        private ScopeSet(IEnumerable<KeyValuePair<int, HashSet<Scope>>> dict)
         {
-            Location = loc;
             _phasedScopeSets = new Dictionary<int, HashSet<Scope>>(dict);
         }
 
-        public LexInfo(SourceCode source) : this(source, []) { }
+        public ScopeSet() : this([]) { }
 
-        public LexInfo(LexInfo original)
-            : this(original.Location, original._phasedScopeSets)
-        { }
+        public ScopeSet(ScopeSet original) : this(original._phasedScopeSets) { }
 
         public IEnumerable<Scope> this[int i]
         {
@@ -44,7 +39,7 @@ namespace Clasp.Data.Metadata
                 : [];
         }
 
-        public bool SameScopes(LexInfo other)
+        public bool SameScopes(ScopeSet other)
         {
             foreach(var entry in _phasedScopeSets)
             {
@@ -87,9 +82,9 @@ namespace Clasp.Data.Metadata
             _phasedScopeSets[phase].ExceptWith(scopes);
         }
 
-        public LexInfo RestrictPhaseUpTo(int phase)
+        public ScopeSet RestrictPhaseUpTo(int phase)
         {
-            return new LexInfo(Location, _phasedScopeSets.Where(x => x.Key < phase));
+            return new ScopeSet(Location, _phasedScopeSets.Where(x => x.Key < phase));
         }
 
         #endregion

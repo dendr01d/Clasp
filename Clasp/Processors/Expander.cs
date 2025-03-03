@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
+using Clasp.Binding.Modules;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Static;
@@ -17,46 +18,7 @@ namespace Clasp.Process
 {
     internal static class Expander
     {
-        public static Syntax ExpandSyntax(Syntax input, CompilationContext context)
-        {
-            return Expand(input, context);
-        }
-
-        public static Syntax ExpandModuleSyntax(Syntax fullInput, out Identifier[] ids)
-        {
-            ids = [];
-
-            if (fullInput is not SyntaxList stl
-                || stl.Expose() is not Cons cns
-                || cns.Car is not Identifier moduleId
-                || cns.Cdr is not Cons<Syntax, Term> args)
-            {
-                throw new ExpanderException.InvalidSyntax(fullInput);
-            }
-
-            if (moduleId.Name != Keywords.IMPLICIT_MODULE
-                || moduleId.Name != Keywords.MODULE)
-            {
-                throw new ExpanderException.InvalidForm(Keywords.MODULE, fullInput);
-            }
-
-            // so we're positive it's a module form, and we have the body contents
-            Scope outsideEdge = new Scope(fullInput);
-            Scope insideEdge = new Scope(fullInput);
-
-            CompilationContext ctx = new CompilationContext(new RootEnv()).InModuleBody(insideEdge);
-            List<Identifier> exportedKeys = new List<Identifier>();
-
-            Cons<Syntax, Term> partialBody = PartiallyExpandModuleBody(args, fullInput.LexContext, ctx, exportedKeys);
-            Cons<Syntax, Term> expandedBody = ExpandSequence(partialBody, fullInput.LexContext, ctx);
-            SyntaxList finalBody = new SyntaxList(expandedBody, fullInput.LexContext);
-
-            ids = exportedKeys.ToArray();
-            return ExpandImplicit(Symbols.StaticModuleBody, finalBody, ctx);
-        }
-
-
-        private static Syntax Expand(Syntax stx, CompilationContext context)
+        public static Syntax Expand(Syntax stx, CompilationContext context)
         {
             try
             {
@@ -64,23 +26,35 @@ namespace Clasp.Process
                 {
                     return ExpandIdentifier(id, context);
                 }
-                else if (stx is SyntaxList idApp && idApp.Expose().Car is Identifier op)
+                else if (stx is SyntaxPair idApp && idApp.Expose().Car is Identifier op)
                 {
                     return ExpandIdApplication(op, idApp, context);
                 }
-                else if (stx is SyntaxList app)
+                else if (stx is SyntaxPair app)
                 {
                     return ExpandApplication(app, context);
                 }
                 else
                 {
-                    return ExpandImplicit(Symbols.StaticQuote, stx, context);
+                    return ExpandImplicit(Symbols.S_Const, stx, context);
                 }
             }
             catch (ClaspException cex)
             {
                 throw new ExpanderException.InvalidSyntax(stx, cex);
             }
+        }
+
+        public static Syntax ExpandAnticipatedForm(string keyword, Syntax stx, CompilationContext context)
+        {
+            if (stx is SyntaxPair idApp
+                && idApp.Expose().Car is Identifier op
+                && op.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding)
+                && binding.Name == keyword)
+            {
+                return ExpandSpecialForm(keyword, idApp, context);
+            }
+            throw new ExpanderException.InvalidForm(keyword, stx);
         }
 
         #region Basic Expansion
@@ -103,9 +77,9 @@ namespace Clasp.Process
 
                 throw new ExpanderException.UnboundIdentifier(id);
             }
-            else if (context.Mode == ExpansionMode.TopLevel)
+            else if (context.Mode != ExpansionMode.Module)
             {
-                return ExpandImplicit(Symbols.StaticTop, id, context);
+                return ExpandImplicit(Symbols.S_TopVar, id, context);
             }
 
             throw new ExpanderException.InvalidSyntax(id);
@@ -114,7 +88,7 @@ namespace Clasp.Process
         /// <summary>
         /// Expand a function application form containing an identifier in the operator position.
         /// </summary>
-        private static Syntax ExpandIdApplication(Identifier op, SyntaxList stl, CompilationContext context)
+        private static Syntax ExpandIdApplication(Identifier op, SyntaxPair stl, CompilationContext context)
         {
             if (op.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding))
             {
@@ -134,13 +108,13 @@ namespace Clasp.Process
         /// <summary>
         /// Expand a function application form containing an arbitrary expression in the operator position.
         /// </summary>
-        private static Syntax ExpandApplication(SyntaxList stl, CompilationContext context)
+        private static Syntax ExpandApplication(SyntaxPair stl, CompilationContext context)
         {
             try
             {
                 Cons<Syntax, Term> args = ExpandExpressionList(stl.Expose(), stl.LexContext, context);
-                SyntaxList stp = new SyntaxList(args, stl.LexContext);
-                return ExpandImplicit(Symbols.StaticApply, stp, context);
+                SyntaxPair stp = new SyntaxList(args, stl.LexContext);
+                return ExpandImplicit(Symbols.S_Apply, stp, context);
             }
             catch (ExpanderException ee)
             {
@@ -150,12 +124,12 @@ namespace Clasp.Process
 
         /// <summary>
         /// Prepend <paramref name="stl"/> with a special <see cref="Identifier"/> that shares its
-        /// <see cref="LexInfo"/>, indicating how it should be handled by the <see cref="Parser"/>.
+        /// <see cref="ScopeSet"/>, indicating how it should be handled by the <see cref="Parser"/>.
         /// </summary>
-        private static SyntaxList ExpandImplicit(ReservedSymbol formSym, Syntax stx, CompilationContext context)
+        private static SyntaxPair ExpandImplicit(ReservedSymbol formSym, Syntax stx, CompilationContext context)
         {
             Identifier op = new Identifier(formSym, stx);
-            if (stx is SyntaxList stl)
+            if (stx is SyntaxPair stl)
             {
                 return stl.Push(op);
             }
@@ -170,7 +144,7 @@ namespace Clasp.Process
         /// </summary>
         /// <param name="formName">The the form's default keyword within the surface language.</param>
         /// <param name="stl">The entirety of the form's application expression.</param>
-        private static Syntax ExpandSpecialForm(string formName, SyntaxList stl, CompilationContext context)
+        private static Syntax ExpandSpecialForm(string formName, SyntaxPair stl, CompilationContext context)
         {
             if (stl.Expose() is not Cons<Syntax, Term> cns
                 || cns.Car is not Identifier op
@@ -180,7 +154,7 @@ namespace Clasp.Process
                 throw new ExpanderException.InvalidSyntax(stl);
             }
 
-            LexInfo info = stl.LexContext;
+            ScopeSet info = stl.LexContext;
 
             try
             {
@@ -240,7 +214,7 @@ namespace Clasp.Process
         private static Syntax? PartiallyExpandSeqBodyTerm(Syntax stx, CompilationContext context)
         {
             // essentially just check the path to special forms and disregard otherwise
-            if (stx is SyntaxList stp
+            if (stx is SyntaxPair stp
                 && stp.Expose().Car is Identifier op
                 && op.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding)
                 && binding.BoundType == BindingType.Special)
@@ -285,7 +259,7 @@ namespace Clasp.Process
         {
             exportations = [];
 
-            if (stx is SyntaxList stp
+            if (stx is SyntaxPair stp
                 && stp.Expose().Car is Identifier op
                 && op.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding)
                 && binding.BoundType == BindingType.Special)
@@ -347,7 +321,7 @@ namespace Clasp.Process
         #region Meta-Syntax Related
 
 
-        private static Syntax ExpandDefineSyntaxArgs(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        private static Syntax ExpandDefineSyntaxArgs(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context)
         {
             if (context.Mode == ExpansionMode.Expression)
             {
@@ -448,10 +422,10 @@ namespace Clasp.Process
             throw new ExpanderException.InvalidTransformer(output, input);
         }
 
-        private static Syntax BeginForSyntax(SyntaxList form, CompilationContext context)
+        private static Syntax BeginForSyntax(SyntaxPair form, CompilationContext context)
         {
             Cons<Syntax, Term> terms = form.Expose();
-            LexInfo info = form.LexContext;
+            ScopeSet info = form.LexContext;
             CompilationContext subState = context.InNextPhase();
 
             Term output;
@@ -461,11 +435,11 @@ namespace Clasp.Process
                 // Treat the sequent terms like a regular Begin form, but in the substate
 
                 Cons<Syntax, Term> expandedSequence = ExpandSequence(terms, info, subState);
-                SyntaxList stxSequence = new SyntaxList(expandedSequence, info);
-                SyntaxList beginStx = ExpandImplicit(Symbols.StaticBegin, stxSequence, subState);
+                SyntaxPair stxSequence = new SyntaxList(expandedSequence, info);
+                SyntaxPair beginStx = ExpandImplicit(Symbols.StaticBegin, stxSequence, subState);
 
                 // Nest the first Begin form inside a second, to add an implicit return value (#t)
-                SyntaxList nestedStx = new SyntaxList(new Datum(Boolean.True, info), info)
+                SyntaxPair nestedStx = new SyntaxList(new Datum(Boolean.True, info), info)
                     .Push(beginStx);
                 nestedStx = ExpandImplicit(Symbols.StaticBegin, nestedStx, subState);
 
@@ -491,7 +465,7 @@ namespace Clasp.Process
             return Datum.FromDatum(VoidTerm.Value, form);
         }
 
-        private static Syntax ImportForSyntax(SyntaxList form, CompilationContext context)
+        private static Syntax ImportForSyntax(SyntaxPair form, CompilationContext context)
         {
             Term ls = form.Expose().Cdr;
 
@@ -516,7 +490,7 @@ namespace Clasp.Process
         /// <summary>
         /// Expand a proper list of expressions.
         /// </summary>
-        private static Cons<Syntax, Term> ExpandExpressionList(Cons<Syntax, Term> stp, LexInfo ctx, CompilationContext context)
+        private static Cons<Syntax, Term> ExpandExpressionList(Cons<Syntax, Term> stp, ScopeSet ctx, CompilationContext context)
         {
             Syntax expandedCar = Expand(stp.Car, context.AsExpression());
 
@@ -536,7 +510,7 @@ namespace Clasp.Process
         /// <summary>
         /// Expand and bind renames for a list of Identifier terms. No mutation takes place, so nothing is returned.
         /// </summary>
-        private static void ExpandParameterList(Term t, LexInfo info, CompilationContext context)
+        private static void ExpandParameterList(Term t, ScopeSet info, CompilationContext context)
         {
             if (t is Nil || (t is Datum dat && dat.Expose() is Nil))
             {
@@ -558,7 +532,7 @@ namespace Clasp.Process
                 }
                 ExpandParameterList(cns.Cdr, info, context);
             }
-            else if (t is SyntaxList stl)
+            else if (t is SyntaxPair stl)
             {
                 ExpandParameterList(stl.Expose(), info, context);
             }
@@ -572,7 +546,7 @@ namespace Clasp.Process
         /// Partially expand a sequence of terms to capture any requisite bindings,
         /// then properly run through and expand each term in sequence.
         /// </summary>
-        private static Cons<Syntax, Term> ExpandBody(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        private static Cons<Syntax, Term> ExpandBody(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context)
         {
             Cons<Syntax, Term> partiallyExpandedBody = PartiallyExpandBody(stp, info, context);
 
@@ -583,7 +557,7 @@ namespace Clasp.Process
         /// Recur through a sequence of terms, recording bindings for any definitions,
         /// (and discarding those definitions if they bind macros)
         /// </summary>
-        private static Cons<Syntax, Term> PartiallyExpandBody(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        private static Cons<Syntax, Term> PartiallyExpandBody(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context)
         {
             Syntax? partiallyExpandedBodyTerm = PartiallyExpandSeqBodyTerm(stp.Car, context);
 
@@ -621,7 +595,7 @@ namespace Clasp.Process
         /// Recur through a sequence of terms, expanding and replacing each one.
         /// The final term is expected to be a <see cref="ExpansionMode.Expression"/>.
         /// </summary>
-        private static Cons<Syntax, Term> ExpandSequence(Cons<Syntax, Term> stxList, LexInfo info, CompilationContext context)
+        private static Cons<Syntax, Term> ExpandSequence(Cons<Syntax, Term> stxList, ScopeSet info, CompilationContext context)
         {
             if (stxList.Car is Syntax stx)
             {
@@ -648,9 +622,9 @@ namespace Clasp.Process
         /// <summary>
         /// Recur through a sequence of terms, where each is expected to be a let-syntax binding pair.
         /// </summary>
-        private static void ExpandLetSyntaxBindingList(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        private static void ExpandLetSyntaxBindingList(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context)
         {
-            if (stp.Car is SyntaxList stl)
+            if (stp.Car is SyntaxPair stl)
             {
                 ExpandDefineSyntaxArgs(stl.Expose(), info, context);
 
@@ -664,13 +638,13 @@ namespace Clasp.Process
                 }
             }
 
-            throw new ExpanderException.ExpectedProperList(nameof(SyntaxList), stp, info);
+            throw new ExpanderException.ExpectedProperList(nameof(SyntaxPair), stp, info);
         }
 
         /// <summary>
         /// Partially expand the sequence of terms as the body elements of a module.
         /// </summary>
-        private static Cons<Syntax, Term> PartiallyExpandModuleBody(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context, List<Identifier> exportations)
+        private static Cons<Syntax, Term> PartiallyExpandModuleBody(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context, List<Identifier> exportations)
         {
             Syntax? partiallyExpandedBodyTerm = PartiallyExpandModuleBodyTerm(stp.Car, context, out Identifier[] exports);
             exportations.AddRange(exports);
@@ -774,7 +748,7 @@ namespace Clasp.Process
             }
         }
 
-        private static SyntaxList BuildLambda(Syntax formals, Cons<Syntax, Term> body)
+        private static SyntaxPair BuildLambda(Syntax formals, Cons<Syntax, Term> body)
         {
             Cons<Syntax, Term> args = Cons.Truct<Syntax, Term>(formals, body);
             Identifier op = new Identifier(Symbols.StaticLambda, formals);
@@ -789,7 +763,7 @@ namespace Clasp.Process
             [NotNullWhen(true)] out Syntax? formals,
             [NotNullWhen(true)] out Cons<Syntax, Term>? body)
         {
-            if (stp.TryMatchLeading(out SyntaxList? nameAndFormals, out Term? tail)
+            if (stp.TryMatchLeading(out SyntaxPair? nameAndFormals, out Term? tail)
                 && nameAndFormals.Expose().TryMatchLeading(out key, out Term? maybeFormals)
                 && (tail is Cons<Syntax, Term> outBody))
             {
@@ -874,7 +848,7 @@ namespace Clasp.Process
 
         #region Syntactic Special Forms
 
-        private static Cons<Syntax, Term> ExpandPartialDefineArgs(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        private static Cons<Syntax, Term> ExpandPartialDefineArgs(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context)
         {
             if (context.Mode != ExpansionMode.InternalDefinition)
             {
@@ -894,7 +868,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Cons<Syntax, Term> ExpandDefineArgs(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        private static Cons<Syntax, Term> ExpandDefineArgs(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context)
         {
             if (context.Mode == ExpansionMode.Expression)
             {
@@ -920,7 +894,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Cons<Syntax, Term> ExpandSetArgs(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        private static Cons<Syntax, Term> ExpandSetArgs(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context)
         {
             if (context.Mode == ExpansionMode.Expression)
             {
@@ -941,7 +915,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Cons<Syntax, Term> ExpandIfArgs(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        private static Cons<Syntax, Term> ExpandIfArgs(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context)
         {
             if (TryRewriteIfArgs(stp,
                 out Syntax? condValue,
@@ -960,7 +934,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Cons<Syntax, Term> ExpandLambdaArgs(Cons<Syntax, Term> stp, LexInfo info, CompilationContext context)
+        private static Cons<Syntax, Term> ExpandLambdaArgs(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context)
         {
             if (stp.TryMatchLeading(out Syntax? formals, out Term? cdr)
                 && (formals.Expose() is Nil or Cons<Syntax, Term> || formals is Identifier)
@@ -988,11 +962,11 @@ namespace Clasp.Process
 
         #endregion
 
-        private static Syntax ExpandModuleForm(SyntaxList stl)
+        private static Syntax ExpandModuleForm(SyntaxPair stl)
         {
             if (stl.Expose() is Cons cns
                 && cns.Car is Identifier id
-                && stl.PopFront() is SyntaxList body)
+                && stl.PopFront() is SyntaxPair body)
             {
                 FreshModule fm = FreshModule.FromSyntax(id, body);
                 ExpandedModule em = ExpandedModule.Expand(fm);

@@ -105,13 +105,13 @@ namespace Clasp.Exceptions
                 invalid)
             { }
 
-            internal InvalidArguments(Cons invalid, LexInfo info) : base(
+            internal InvalidArguments(Cons invalid, ScopeSet info) : base(
                 info.Location,
                 "Arguments have the wrong shape:\n\t{0}",
                 invalid)
             { }
 
-            internal InvalidArguments(Cons invalid, string preQualifier, int expectedNumber, LexInfo info) : base(
+            internal InvalidArguments(Cons invalid, string preQualifier, int expectedNumber, ScopeSet info) : base(
                 info.Location,
                 "The form requires{0} {1} argument{2}:\n\t{3}",
                 string.IsNullOrWhiteSpace(preQualifier) ? string.Empty : " " + preQualifier,
@@ -124,7 +124,7 @@ namespace Clasp.Exceptions
 
         public class ExpectedExpression : ParserException
         {
-            internal ExpectedExpression(CoreForm wrongInput, LexInfo info) : base(
+            internal ExpectedExpression(CoreForm wrongInput, ScopeSet info) : base(
                 info.Location,
                 "Expected expression form, but received imperative '{0}' form instead:\n\t{1}",
                 wrongInput.FormName,
@@ -134,13 +134,13 @@ namespace Clasp.Exceptions
 
         public class ExpectedProperList : ParserException
         {
-            internal ExpectedProperList(Term notAProperList, LexInfo info) : base(
+            internal ExpectedProperList(Term notAProperList, ScopeSet info) : base(
                 info.Location,
                 "Expected to parse proper list:\n\t{0}",
                 notAProperList)
             { }
 
-            internal ExpectedProperList(string expectedType, Term notAProperList, LexInfo info) : base(
+            internal ExpectedProperList(string expectedType, Term notAProperList, ScopeSet info) : base(
                 info.Location,
                 "Expected proper list with '{0}' elements:\n\t{1}",
                 expectedType,

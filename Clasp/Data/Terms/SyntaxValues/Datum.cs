@@ -1,4 +1,8 @@
-﻿using Clasp.Data.Metadata;
+﻿using System.Collections.Generic;
+
+using Clasp.Binding;
+using Clasp.Data.Metadata;
+using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Text;
 
 namespace Clasp.Data.Terms.SyntaxValues
@@ -8,14 +12,18 @@ namespace Clasp.Data.Terms.SyntaxValues
         private readonly Term _datum;
         public override Term Expose() => _datum;
 
-        public Datum(Term t, LexInfo ctx) : base(ctx) => _datum = t;
+        public static Datum NilDatum => new Datum(Nil.Value, SourceCode.StaticSource);
 
-        public Datum(Term t, Syntax copy) : this(t, copy.LexContext) { }
+        public Datum(Term t, SourceCode loc) : base(loc) => _datum = t;
 
-        public Datum(Term t, Token source) : this(t, new LexInfo(source.Location)) { }
+        public override void AddScope(int phase, params Scope[] scopes) { }
+        public override void FlipScope(int phase, params Scope[] scopes) { }
+        public override void RemoveScope(int phase, params Scope[] scopes) { }
+        public override Syntax StripScopes(int inclusivePhaseThreshold) => this;
+        public override ScopeSet GetScopes() => ScopeSet.Empty;
 
-        //public override string ToString() => string.Format("#'{0}", _datum);
-        protected override string FormatType() => "Stx";
-        internal override string DisplayDebug() => string.Format("{0} ({1}): {2}", nameof(Datum), nameof(Syntax), _datum.ToString());
+        public override SyntaxPair ListPrepend(Syntax stx) => new SyntaxPair(stx, this, Location, new ScopeSet());
+
+        protected override string FormatType() => string.Format("StxDatum<{0}, {1}>", _datum.TypeName);
     }
 }

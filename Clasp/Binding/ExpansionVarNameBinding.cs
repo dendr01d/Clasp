@@ -14,7 +14,8 @@ namespace Clasp.Binding
         Variable,
         Transformer,
         Special,
-        Primitive
+        Primitive,
+        Module
     }
 
     internal class ExpansionVarNameBinding

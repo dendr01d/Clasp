@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
-using Clasp.Binding;
 using Clasp.Binding.Environments;
+using Clasp.Binding.Modules;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;

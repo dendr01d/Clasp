@@ -56,7 +56,7 @@ namespace Clasp.Process
 
                     throw new ParserException.UnboundIdentifier(id);
                 }
-                else if (stx is SyntaxList stl)
+                else if (stx is SyntaxPair stl)
                 {
                     return ParseApplication(stl, context);
                 }
@@ -72,7 +72,7 @@ namespace Clasp.Process
 
         }
 
-        private static CoreForm ParseApplication(SyntaxList stl, CompilationContext context)
+        private static CoreForm ParseApplication(SyntaxPair stl, CompilationContext context)
         {
             if (stl.Expose().Car is Identifier op
                 && ResolveBinding(op, context).BoundType == BindingType.Special)
@@ -97,7 +97,7 @@ namespace Clasp.Process
             return new Application(parsedOp, argTerms);
         }
 
-        private static CoreForm ParseSpecial(string formName, SyntaxList stl, CompilationContext context)
+        private static CoreForm ParseSpecial(string formName, SyntaxPair stl, CompilationContext context)
         {
             // all special forms have at least one argument
             if (stl.Expose().Cdr is not Cons args)
@@ -105,7 +105,7 @@ namespace Clasp.Process
                 throw new ParserException.InvalidForm(formName, stl);
             }
 
-            LexInfo info = stl.LexContext;
+            ScopeSet info = stl.LexContext;
             CoreForm result;
 
             try
@@ -151,7 +151,7 @@ namespace Clasp.Process
 
         #region Special Forms
 
-        private static CoreForm ParseVariableLookup(Cons cns, LexInfo info, CompilationContext context)
+        private static CoreForm ParseVariableLookup(Cons cns, ScopeSet info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Identifier? id))
             {
@@ -163,7 +163,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
         }
 
-        private static ConstValue ParseQuote(Cons cns, LexInfo info)
+        private static ConstValue ParseQuote(Cons cns, ScopeSet info)
         {
             if (cns.TryMatchOnly(out Syntax? stx))
             {
@@ -173,7 +173,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
         }
 
-        private static ConstValue ParseQuoteSyntax(Cons cns, LexInfo info, CompilationContext context)
+        private static ConstValue ParseQuoteSyntax(Cons cns, ScopeSet info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Syntax? stx))
             {
@@ -183,7 +183,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
         }
 
-        private static BindingDefinition ParseDefinition(Cons cns, LexInfo info, CompilationContext context)
+        private static BindingDefinition ParseDefinition(Cons cns, ScopeSet info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Identifier? key, out Syntax? value))
             {
@@ -196,7 +196,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 2, info);
         }
 
-        private static BindingMutation ParseSet(Cons cns, LexInfo info, CompilationContext context)
+        private static BindingMutation ParseSet(Cons cns, ScopeSet info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Identifier? key, out Syntax? value))
             {
@@ -209,7 +209,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 2, info);
         }
 
-        private static Procedural ParseLambda(Cons cns, LexInfo info, CompilationContext context)
+        private static Procedural ParseLambda(Cons cns, ScopeSet info, CompilationContext context)
         {
             if (cns.TryMatchLeading(out Syntax? formals, out Term maybeBody)
                 && maybeBody is Cons body)
@@ -227,7 +227,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "at least", 2, info);
         }
 
-        private static Conditional ParseIf(Cons cns, LexInfo info, CompilationContext context)
+        private static Conditional ParseIf(Cons cns, ScopeSet info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Syntax? condStx, out Syntax? thenStx, out Syntax? elseStx))
             {
@@ -241,13 +241,13 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, "exactly", 3, info);
         }
 
-        private static Sequential ParseBegin(Cons stp, LexInfo info, CompilationContext context)
+        private static Sequential ParseBegin(Cons stp, ScopeSet info, CompilationContext context)
         {
             IEnumerable<CoreForm> sequence = ParseSequence(stp, info, context);
             return new Sequential(sequence.ToArray());
         }
 
-        private static Importation ParseImport(Cons cns, LexInfo info, CompilationContext context)
+        private static Importation ParseImport(Cons cns, ScopeSet info, CompilationContext context)
         {
             if (cns.TryMatchOnly(out Datum? maybePath)
                 && maybePath.Expose() is CharString path)
@@ -258,7 +258,7 @@ namespace Clasp.Process
             throw new ParserException.InvalidArguments(cns, info);
         }
 
-        private static CoreForm ParseModule(Cons cns, LexInfo info, CompilationContext context)
+        private static CoreForm ParseModule(Cons cns, ScopeSet info, CompilationContext context)
         {
             if (cns.TryMatchLeading(out Identifier? id, out Term maybeBody)
                 && maybeBody is Cons body)
@@ -288,7 +288,7 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of argument expressions.
         /// </summary>
-        private static IEnumerable<CoreForm> ParseArguments(Cons cns, LexInfo info, CompilationContext context)
+        private static IEnumerable<CoreForm> ParseArguments(Cons cns, ScopeSet info, CompilationContext context)
         {
             Term current = cns;
 
@@ -316,14 +316,14 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the identifiers in a list of parameter values.
         /// </summary>
-        private static System.Tuple<string[], string?> ParseParameters(Term t, LexInfo info, CompilationContext context)
+        private static System.Tuple<string[], string?> ParseParameters(Term t, ScopeSet info, CompilationContext context)
         {
             List<string> ids = [];
             string? dotted = null;
 
             Term current = t;
 
-            if (current is SyntaxList stl)
+            if (current is SyntaxPair stl)
             {
                 current = stl.Expose();
             }
@@ -355,7 +355,7 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of body terms, where the last must be an expression.
         /// </summary>
-        private static IEnumerable<CoreForm> ParseSequence(Cons stp, LexInfo info, CompilationContext context)
+        private static IEnumerable<CoreForm> ParseSequence(Cons stp, ScopeSet info, CompilationContext context)
         {
             Term current = stp;
 
