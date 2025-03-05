@@ -39,6 +39,11 @@ namespace Clasp.Data.Metadata
                 : [];
         }
 
+        public IEnumerable<KeyValuePair<int, Scope[]>> Enumerate()
+        {
+            return _phasedScopeSets.Select<KeyValuePair<int, HashSet<Scope>>, KeyValuePair<int, Scope[]>>(x => new(x.Key, x.Value.ToArray()));
+        }
+
         public bool SameScopes(ScopeSet other)
         {
             foreach(var entry in _phasedScopeSets)
@@ -82,16 +87,16 @@ namespace Clasp.Data.Metadata
             _phasedScopeSets[phase].ExceptWith(scopes);
         }
 
-        public ScopeSet RestrictPhaseUpTo(int phase)
+        public ScopeSet RestrictPhaseUpTo(int inclusivePhaseThreshold)
         {
-            return new ScopeSet(Location, _phasedScopeSets.Where(x => x.Key < phase));
+            return new ScopeSet(_phasedScopeSets.Where(x => x.Key < inclusivePhaseThreshold));
         }
 
         #endregion
 
         #region Binding as a Set of Scopes
 
-        public bool TryBind(int phase, string symbolicName, ExpansionVarNameBinding binding)
+        public bool TryBind(int phase, string symbolicName, RenameBinding binding)
         {
             if (_phasedScopeSets[phase].MaxBy(x => x.Id) is Scope scp
                 && !scp.Binds(symbolicName))
@@ -103,20 +108,20 @@ namespace Clasp.Data.Metadata
             return false;
         }
 
-        public ExpansionVarNameBinding? ResolveBindings(int phase, string symbolicName)
+        public RenameBinding? ResolveBindings(int phase, string symbolicName)
         {
             if (_phasedScopeSets.TryGetValue(phase, out HashSet<Scope>? scopes))
             {
                 foreach (Scope scp in scopes.OrderByDescending(x => x.Id))
                 {
-                    if (scp.TryResolve(symbolicName, out ExpansionVarNameBinding? binding))
+                    if (scp.TryResolve(symbolicName, out RenameBinding? binding))
                     {
                         return binding;
                     }
                 }
             }
 
-            if (StaticEnv.ImplicitScope.TryResolve(symbolicName, out ExpansionVarNameBinding? staticBinding))
+            if (StaticEnv.ImplicitScope.TryResolve(symbolicName, out RenameBinding? staticBinding))
             {
                 return staticBinding;
             }

@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 
 using Clasp.Binding.Modules;
+using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;
@@ -36,7 +37,7 @@ namespace Clasp.Binding.Environments
                 _definitions.Add(sym.Name, sym);
             }
 
-            foreach (PrimitiveProcedure pp in PrimProcs)
+            foreach (PrimitiveProcedure pp in Primitives.PrimitiveProcs)
             {
                 ImplicitScope.AddStaticBinding(pp.OpSymbol.Name, BindingType.Primitive);
                 _definitions.Add(pp.OpSymbol.Name, pp);

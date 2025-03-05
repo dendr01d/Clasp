@@ -11,6 +11,11 @@ namespace Clasp.Data.Static
     /// </summary>
     internal static class Keywords
     {
+        //--------------
+        // Misc Keyword
+        //--------------
+        public const string IMPLICIT_MODULE = "#clasp";
+
         //------------------------
         // Surface-Level Keywords
         //------------------------
@@ -33,7 +38,6 @@ namespace Clasp.Data.Static
         public const string LAMBDA = "lambda";
 
         public const string MODULE = "module";
-        public const string IMPLICIT_MODULE = "#clasp";
         public const string IMPORT = "import";
         public const string EXPORT = "export";
 
@@ -47,9 +51,11 @@ namespace Clasp.Data.Static
         //-----------------
         // Secret Keywords
         //-----------------
+        public const string S_TOP_VAR = "σ-top-var";
         public const string S_TOP_BEGIN = "σ-top-begin";
         public const string S_TOP_DEFINE = "σ-top-define";
         public const string S_MODULE = "σ-module";
+        public const string S_MODULE_BEGIN = "σ-module-begin";
         public const string S_IMPORT = "σ-import";
         public const string S_SET = "σ-set!";
         public const string S_IF = "σ-if";
@@ -58,11 +64,13 @@ namespace Clasp.Data.Static
         public const string S_LAMBDA = "σ-lambda";
         public const string S_VAR = "σ-var";
         public const string S_CONST = "σ-const";
+        public const string S_CONST_SYNTAX = "σ-const-syntax";
+
+        public static readonly string[] SecretKeywords = [S_TOP_VAR, S_TOP_BEGIN, S_TOP_DEFINE, S_MODULE, S_IMPORT, S_SET, S_IF, S_BEGIN, S_APPLY, S_LAMBDA, S_VAR, S_CONST];
 
         // These don't represent core forms, just hints for the expander/parser
         public const string S_META = "σ-meta";
-        public const string S_MODULE_BODY_BEGIN = "σ-module-body-begin";
-        public const string S_TOP_VAR = "σ-top-var";
+
         public const string S_PARTIAL_DEFINE = "σ-partial-define";
     }
 }

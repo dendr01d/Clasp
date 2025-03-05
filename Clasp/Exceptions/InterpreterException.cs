@@ -31,6 +31,15 @@ namespace Clasp.Exceptions
             { }
         }
 
+        public class InvalidTopBinding : InterpreterException
+        {
+            internal InvalidTopBinding(string varName, MachineState machine) : base(
+                machine,
+                "Unable to dereference identifier '{0}' that hasn't yet been defined.",
+                varName)
+            { }
+        }
+
         public class InvalidOperation : InterpreterException
         {
             internal InvalidOperation(VmInstruction operation, MachineState machine, Exception innerException) : base(

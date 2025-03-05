@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.Tracing;
+using System.Linq;
 
 using Clasp.Binding;
 using Clasp.Binding.Environments;
@@ -49,7 +51,7 @@ namespace Clasp.Process
         {
             if (stx is SyntaxPair idApp
                 && idApp.Expose().Car is Identifier op
-                && op.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding)
+                && op.TryResolveBinding(context.Phase, out RenameBinding? binding)
                 && binding.Name == keyword)
             {
                 return ExpandSpecialForm(keyword, idApp, context);
@@ -64,7 +66,7 @@ namespace Clasp.Process
         /// </summary>
         private static Syntax ExpandIdentifier(Identifier id, CompilationContext context)
         {
-            if (id.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding))
+            if (id.TryResolveBinding(context.Phase, out RenameBinding? binding))
             {
                 if (binding.BoundType == BindingType.Transformer)
                 {
@@ -90,7 +92,7 @@ namespace Clasp.Process
         /// </summary>
         private static Syntax ExpandIdApplication(Identifier op, SyntaxPair stl, CompilationContext context)
         {
-            if (op.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding))
+            if (op.TryResolveBinding(context.Phase, out RenameBinding? binding))
             {
                 if (binding.BoundType == BindingType.Transformer)
                 {
@@ -108,17 +110,16 @@ namespace Clasp.Process
         /// <summary>
         /// Expand a function application form containing an arbitrary expression in the operator position.
         /// </summary>
-        private static Syntax ExpandApplication(SyntaxPair stl, CompilationContext context)
+        private static Syntax ExpandApplication(SyntaxPair stp, CompilationContext context)
         {
             try
             {
-                Cons<Syntax, Term> args = ExpandExpressionList(stl.Expose(), stl.LexContext, context);
-                SyntaxPair stp = new SyntaxList(args, stl.LexContext);
+                stp = ExpandExpressionList(stp, context);
                 return ExpandImplicit(Symbols.S_Apply, stp, context);
             }
             catch (ExpanderException ee)
             {
-                throw new ExpanderException.InvalidForm(Keywords.STATIC_APPLY, stl, ee);
+                throw new ExpanderException.InvalidForm(Keywords.S_APPLY, stp, ee);
             }
         }
 
@@ -128,44 +129,36 @@ namespace Clasp.Process
         /// </summary>
         private static SyntaxPair ExpandImplicit(ReservedSymbol formSym, Syntax stx, CompilationContext context)
         {
-            Identifier op = new Identifier(formSym, stx);
-            if (stx is SyntaxPair stl)
-            {
-                return stl.Push(op);
-            }
-            else
-            {
-                return new SyntaxList(stx, stx.LexContext).Push(op);
-            }
+            Syntax implicitOp = Syntax.WrapWithRef(formSym, stx);
+            return stx.ListPrepend(implicitOp);
         }
 
         /// <summary>
-        /// Expand the invocation of a special syntactic form.
+        /// Expand the invocation of a special syntactic form (an IdApplication with a special form operator)
         /// </summary>
-        /// <param name="formName">The the form's default keyword within the surface language.</param>
-        /// <param name="stl">The entirety of the form's application expression.</param>
-        private static Syntax ExpandSpecialForm(string formName, SyntaxPair stl, CompilationContext context)
+        /// <param name="boundName">The binding name of the operator for the form.</param>
+        /// <param name="stp">The entirety of the form's application expression.</param>
+        private static Syntax ExpandSpecialForm(string boundName, SyntaxPair stp, CompilationContext context)
         {
-            if (stl.Expose() is not Cons<Syntax, Term> cns
-                || cns.Car is not Identifier op
-                || cns.Cdr is not Cons<Syntax, Term> args)
+            if (Keywords.SecretKeywords.Contains(boundName))
             {
-                // all special forms require arguments
-                throw new ExpanderException.InvalidSyntax(stl);
+                // These keywords can ONLY appear as a result of expansion,
+                // ergo a form starting with one must already have been expanded
+                return stp;
             }
 
-            ScopeSet info = stl.LexContext;
+            stp.Expose(out Syntax op, out Syntax args);
 
             try
             {
                 // certain meta-syntactic forms need to be expanded and returned all at once
-                Syntax? metaSyntax = formName switch
+                Syntax? metaSyntax = boundName switch
                 {
-                    Keywords.MODULE => ExpandModuleForm(stl),
+                    Keywords.MODULE => ExpandModuleForm(stp),
 
-                    Keywords.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(args, info, context),
-                    Keywords.BEGIN_FOR_SYNTAX => BeginForSyntax(stl, context),
-                    Keywords.IMPORT_FOR_SYNTAX => ImportForSyntax(stl, context),
+                    Keywords.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(args, context),
+                    Keywords.BEGIN_FOR_SYNTAX => BeginForSyntax(stp, context),
+                    Keywords.IMPORT_FOR_SYNTAX => ImportForSyntax(stp, context),
 
                     _ => null
                 };
@@ -176,34 +169,33 @@ namespace Clasp.Process
                 }
 
                 // else it must be a "normal" special form where we expand the arguments and rebuild the form
-                Cons<Syntax, Term> expandedTail = formName switch
+                Syntax expandedTail = boundName switch
                 {
-                    Keywords.QUOTE => args, // just leave them alone for now
-                    Keywords.STATIC_QUOTE => args,
+                    Keywords.QUOTE => args,
                     Keywords.QUOTE_SYNTAX => args,
 
-                    Keywords.APPLY => ExpandExpressionList(args, info, context),
+                    Keywords.DEFINE => ExpandDefineArgs(args, context),
+                    Keywords.S_PARTIAL_DEFINE => ExpandPartialDefineArgs(args, context),
 
-                    Keywords.DEFINE => ExpandDefineArgs(args, info, context),
-                    Keywords.STATIC_PARDEF => ExpandPartialDefineArgs(args, info, context),
-                    Keywords.SET => ExpandSetArgs(args, info, context),
-
-                    Keywords.LAMBDA => ExpandLambdaArgs(args, info, context),
-                    Keywords.STATIC_LAMBDA => ExpandLambdaArgs(args, info, context),
+                    Keywords.SET => ExpandSetArgs(args, context),
 
                     Keywords.IF => ExpandIfArgs(args, info, context),
-
                     Keywords.BEGIN => ExpandSequence(args, info, context),
-                    Keywords.STATIC_BEGIN => ExpandSequence(args, info, context),
+                    Keywords.APPLY => ExpandExpressionList(args, info, context),
 
-                    _ => throw new ExpanderException.InvalidSyntax(stl)
+                    Keywords.LAMBDA => ExpandLambdaArgs(args, info, context),
+                    Keywords.MODULE => ExpandModuleForm(args, context),
+
+
+
+                    _ => throw new ExpanderException.InvalidSyntax(stp)
                 };
 
-                return new SyntaxList(Cons.Truct<Syntax, Term>(op, expandedTail), info);
+                return expandedTail.ListPrepend(op);
             }
             catch (System.Exception ex)
             {
-                throw new ExpanderException.InvalidForm(formName, stl, ex);
+                throw new ExpanderException.InvalidForm(boundName, stp, ex);
             }
         }
 
@@ -216,7 +208,7 @@ namespace Clasp.Process
             // essentially just check the path to special forms and disregard otherwise
             if (stx is SyntaxPair stp
                 && stp.Expose().Car is Identifier op
-                && op.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding)
+                && op.TryResolveBinding(context.Phase, out RenameBinding? binding)
                 && binding.BoundType == BindingType.Special)
             {
                 Cons<Syntax, Term> args = stp.Expose();
@@ -261,7 +253,7 @@ namespace Clasp.Process
 
             if (stx is SyntaxPair stp
                 && stp.Expose().Car is Identifier op
-                && op.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding)
+                && op.TryResolveBinding(context.Phase, out RenameBinding? binding)
                 && binding.BoundType == BindingType.Special)
             {
                 Cons<Syntax, Term> args = stp.Expose();
@@ -351,7 +343,7 @@ namespace Clasp.Process
             }
         }
 
-        private static Syntax ExpandSyntaxTransformation(ExpansionVarNameBinding binding, Syntax input, CompilationContext context)
+        private static Syntax ExpandSyntaxTransformation(RenameBinding binding, Syntax input, CompilationContext context)
         {
             if (context.TryLookupMacro(binding, out MacroProcedure? macro))
             {
@@ -490,13 +482,13 @@ namespace Clasp.Process
         /// <summary>
         /// Expand a proper list of expressions.
         /// </summary>
-        private static Cons<Syntax, Term> ExpandExpressionList(Cons<Syntax, Term> stp, ScopeSet ctx, CompilationContext context)
+        private static SyntaxPair ExpandExpressionList(Syntax stx, CompilationContext context)
         {
             Syntax expandedCar = Expand(stp.Car, context.AsExpression());
 
-            if (stp.Cdr is Nil n)
+            if (stp.Cdr == Datum.NilDatum)
             {
-                return Cons.Truct<Syntax, Term>(expandedCar, n);
+                return new (expandedCar, stp.Cdr);
             }
             else if (stp.Cdr is Cons<Syntax, Term> cdr)
             {
@@ -808,7 +800,7 @@ namespace Clasp.Process
             return TryDestructKeyValuePair(stp, out key, out value)
                 && value.Expose() is Cons<Syntax, Term> maybeLambda
                 && maybeLambda.Car is Identifier maybeOp
-                && maybeOp.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding)
+                && maybeOp.TryResolveBinding(context.Phase, out RenameBinding? binding)
                 && (binding.Name == Keywords.LAMBDA || binding.Name == Keywords.STATIC_LAMBDA);
         }
 
@@ -904,7 +896,7 @@ namespace Clasp.Process
             {
                 context.SanitizeBindingKey(key);
 
-                ExpansionVarNameBinding binding = ResolveBinding(key, context);
+                RenameBinding binding = ResolveBinding(key, context);
                 Syntax expandedValue = Expand(value, context.AsExpression());
 
                 return new Cons<Syntax, Term>(key, Cons.Truct(expandedValue, Nil.Value));
@@ -978,9 +970,9 @@ namespace Clasp.Process
         }
 
         #region Helpers
-        private static ExpansionVarNameBinding ResolveBinding(Identifier id, CompilationContext context)
+        private static RenameBinding ResolveBinding(Identifier id, CompilationContext context)
         {
-            if (id.TryResolveBinding(context.Phase, out ExpansionVarNameBinding? binding))
+            if (id.TryResolveBinding(context.Phase, out RenameBinding? binding))
             {
                 return binding;
             }

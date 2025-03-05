@@ -7,6 +7,9 @@ using Clasp.Data.Text;
 
 namespace Clasp.Data.Terms.SyntaxValues
 {
+    /// <summary>
+    /// A syntactic value representing an arbitrary Clasp object.
+    /// </summary>
     internal class Datum : Syntax
     {
         private readonly Term _datum;
@@ -20,9 +23,9 @@ namespace Clasp.Data.Terms.SyntaxValues
         public override void FlipScope(int phase, params Scope[] scopes) { }
         public override void RemoveScope(int phase, params Scope[] scopes) { }
         public override Syntax StripScopes(int inclusivePhaseThreshold) => this;
-        public override ScopeSet GetScopes() => ScopeSet.Empty;
+        public override ScopeSet GetScopeSet() => ScopeSet.Empty;
 
-        public override SyntaxPair ListPrepend(Syntax stx) => new SyntaxPair(stx, this, Location, new ScopeSet());
+        public override SyntaxPair ListPrepend(Syntax stx) => new SyntaxPair(stx, this, Location);
 
         protected override string FormatType() => string.Format("StxDatum<{0}, {1}>", _datum.TypeName);
     }

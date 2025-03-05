@@ -1,4 +1,7 @@
-﻿namespace Clasp.Data.Terms
+﻿using Clasp.Binding.Modules;
+using Clasp.Data.Terms.SyntaxValues;
+
+namespace Clasp.Data.Terms
 {
     /// <summary>
     /// Represents an irreducible value. 
@@ -12,6 +15,8 @@
         protected Nil() { }
         public override string ToString() => "()";
         protected override string FormatType() => "Nil";
+
+        public static implicit operator Syntax(Nil n) => Datum.NilDatum;
     }
 
     internal sealed class Undefined : Atom
@@ -28,5 +33,13 @@
         private VoidTerm() { }
         public override string ToString() => "#<void>";
         protected override string FormatType() => "Void";
+    }
+
+    internal sealed class ModuleHandle : Atom
+    {
+        public readonly Module Handle;
+        public ModuleHandle(Module mdl) => Handle = mdl;
+        public override string ToString() => string.Format("*{0}", Handle.Name);
+        protected override string FormatType() => "ModuleHandle";
     }
 }

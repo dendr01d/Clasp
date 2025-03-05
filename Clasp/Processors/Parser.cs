@@ -2,67 +2,25 @@
 using System.Linq;
 
 using Clasp.Binding;
-using Clasp.Binding.Environments;
+using Clasp.Binding.Modules;
 using Clasp.Data.AbstractSyntax;
-using Clasp.Data.Metadata;
 using Clasp.Data.Static;
 using Clasp.Data.Terms;
-using Clasp.Data.Terms.Procedures;
-using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Exceptions;
 using Clasp.ExtensionMethods;
-
-using static System.Net.WebRequestMethods;
 
 namespace Clasp.Process
 {
     internal static class Parser
     {
-        // the MOST IMPORTANT thing to remember here is that every syntactic form must break down
-        // into ONLY core forms
-
-        public static CoreForm ParseSyntax(Syntax stx, int phase) => Parse(stx, phase);
-
-        public static CoreForm ParseModuleSyntax(Syntax expandedBody)
-        {
-
-        }
-
-        private static CoreForm Parse(Syntax stx, int phase)
+        public static CoreForm ParseSyntax(Syntax stx, int phase)
         {
             try
             {
-                if (stx is Identifier id)
+                if (stx is SyntaxPair stl)
                 {
-                    if (id.TryResolveBinding(phase, out ExpansionVarNameBinding? binding))
-                    {
-                        if (binding.BoundType == BindingType.Variable)
-                        {
-                            return new VariableLookup(binding.Name);
-                        }
-                        else if (binding.BoundType == BindingType.Transformer)
-                        {
-                            if (context.TryLookupMacro(binding, out MacroProcedure? macro))
-                            {
-                                return new ConstValue(macro);
-                            }
-
-                            throw new ParserException.UnboundMacro(binding.Id);
-                        }
-
-                        throw new ParserException.InvalidForm(id.Name, stx);
-                    }
-
-                    throw new ParserException.UnboundIdentifier(id);
-                }
-                else if (stx is SyntaxPair stl)
-                {
-                    return ParseApplication(stl, context);
-                }
-                else
-                {
-                    return new ConstValue(stx.ToDatum());
+                    return ParseApplication(stl, phase);
                 }
             }
             catch (ClaspException cex)
@@ -70,215 +28,291 @@ namespace Clasp.Process
                 throw new ParserException.InvalidSyntax(stx, cex);
             }
 
+            throw new ParserException.ExpectedCoreKeywordForm(stx);
         }
 
-        private static CoreForm ParseApplication(SyntaxPair stl, CompilationContext context)
+        //private static CoreForm ParseIdentifier(Identifier id, int phase)
+        //{
+        //    RenameBinding? binding;
+
+        //    if (id.TryResolveBinding(phase, BindingType.Variable, out binding)
+        //        || id.TryResolveBinding(phase, BindingType.Module, out binding)
+        //        || id.TryResolveBinding(phase, BindingType.Primitive, out binding))
+        //    {
+        //        return new VariableReference(binding.BindingSymbol, false);
+        //    }
+
+        //    throw new ParserException.UnboundIdentifier(id);
+        //}
+
+        private static CoreForm ParseApplication(SyntaxPair stp, int phase)
         {
-            if (stl.Expose().Car is Identifier op
-                && ResolveBinding(op, context).BoundType == BindingType.Special)
+            stp.Expose(out Syntax op, out Syntax args);
+
+            if (op is Identifier id
+                && id.TryResolveBinding(phase, BindingType.Special, out RenameBinding? binding))
             {
-                return ParseSpecial(op.Name, stl, context);
+                return ParseSpecialArgs(binding.Name, args, phase);
             }
 
-            CoreForm parsedOp = Parse(stl.Expose().Car, context);
+            CoreForm parsedOp = ParseSyntax(op, phase);
 
             if (parsedOp.IsImperative)
             {
-                throw new ParserException.InvalidOperator(parsedOp, stl);
+                throw new ParserException.InvalidOperator(parsedOp, stp);
             }
 
-            CoreForm[] argTerms = stl.Expose().Cdr switch
-            {
-                Nil => [],
-                Cons cns => ParseArguments(cns, stl.LexContext, context).ToArray(),
-                _ => throw new ParserException.InvalidSyntax(stl)
-            };
+            CoreForm[] parsedArgs = ParseArguments(args, phase).ToArray();
 
-            return new Application(parsedOp, argTerms);
+            return new Application(parsedOp, parsedArgs);
         }
 
-        private static CoreForm ParseSpecial(string formName, SyntaxPair stl, CompilationContext context)
+        private static CoreForm ParseSpecialArgs(string formName, Syntax args, int phase)
         {
-            // all special forms have at least one argument
-            if (stl.Expose().Cdr is not Cons args)
-            {
-                throw new ParserException.InvalidForm(formName, stl);
-            }
-
-            ScopeSet info = stl.LexContext;
-            CoreForm result;
-
             try
             {
-                result = formName switch
+                return formName switch
                 {
-                    Keywords.IMP_TOP => ParseVariableLookup(args, info, context),
-                    Keywords.IMP_VAR => ParseVariableLookup(args, info, context),
+                    Keywords.S_TOP_VAR => ParseTopVar(args, phase),
+                    Keywords.S_TOP_BEGIN => ParseTopBegin(args, phase),
+                    Keywords.S_TOP_DEFINE => ParseTopDefine(args, phase),
+                    Keywords.S_MODULE_BEGIN => ParseModuleBegin(args, phase),
+                    Keywords.S_IMPORT => ParseImport(args, phase),
+                    Keywords.S_SET => ParseSet(args, phase),
+                    Keywords.S_IF => ParseIf(args, phase),
+                    Keywords.S_BEGIN => ParseBegin(args, phase),
+                    Keywords.S_APPLY => ParseApply(args, phase),
+                    Keywords.S_LAMBDA => ParseLambda(args, phase),
+                    Keywords.S_VAR => ParseVar(args, phase),
+                    Keywords.S_CONST => ParseConst(args, phase),
+                    Keywords.S_CONST_SYNTAX => ParseConstSyntax(args, phase),
 
-                    Keywords.QUOTE => ParseQuote(args, info),
-                    Keywords.IMP_DATUM => ParseQuote(args, info),
-
-                    Keywords.QUOTE_SYNTAX => ParseQuoteSyntax(args, info, context),
-
-                    Keywords.APPLY => ParseApplication(stl.PopFront(), context),
-                    Keywords.STATIC_APPLY => ParseApplication(stl.PopFront(), context),
-
-                    Keywords.STATIC_PARDEF => ParseDefinition(args, info, context),
-                    Keywords.DEFINE => ParseDefinition(args, info, context),
-                    Keywords.DEFINE_SYNTAX => ParseDefinition(args, info, context),
-                    Keywords.SET => ParseSet(args, info, context),
-
-                    Keywords.LAMBDA => ParseLambda(args, info, context),
-                    Keywords.STATIC_LAMBDA => ParseLambda(args, info, context),
-
-                    Keywords.IF => ParseIf(args, info, context),
-
-                    Keywords.BEGIN => ParseBegin(args, info, context),
-
-                    Keywords.MODULE => ParseModule(args, info, context),
-                    Keywords.IMPORT => ParseImport(args, info, context),
-
-                    _ => throw new ParserException.InvalidSyntax(stl)
+                    _ => throw new ParserException.InvalidArguments(formName, args)
                 };
             }
             catch (ParserException pe)
             {
-                throw new ParserException.InvalidForm(formName, stl, pe);
+                throw new ParserException.InvalidForm(formName, args, pe);
             }
-
-            return result;
         }
 
         #region Special Forms
 
-        private static CoreForm ParseVariableLookup(Cons cns, ScopeSet info, CompilationContext context)
+        private static VariableReference ParseTopVar(Syntax args, int phase)
         {
-            if (cns.TryMatchOnly(out Identifier? id))
+            if (args is not Identifier id)
             {
-                ExpansionVarNameBinding binding = ResolveBinding(id, context);
-
-                return new VariableLookup(binding.Name);
+                throw new ParserException.InvalidArguments(Keywords.S_TOP_VAR, args);
             }
 
-            throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
-        }
-
-        private static ConstValue ParseQuote(Cons cns, ScopeSet info)
-        {
-            if (cns.TryMatchOnly(out Syntax? stx))
+            if (!id.TryResolveBinding(phase, BindingType.Variable, out RenameBinding? binding))
             {
-                return new ConstValue(stx.ToDatum());
+                throw new ParserException.UnboundIdentifier(id);
             }
 
-            throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
+            return new VariableReference(binding.BindingSymbol, true);
         }
 
-        private static ConstValue ParseQuoteSyntax(Cons cns, ScopeSet info, CompilationContext context)
+        private static TopBegin ParseTopBegin(Syntax args, int phase)
         {
-            if (cns.TryMatchOnly(out Syntax? stx))
+            Syntax stx = args;
+            List<CoreForm> forms = new List<CoreForm>();
+
+            while (stx is SyntaxPair stp)
             {
-                return new ConstValue(stx.StripScopes(context.Phase));
+                stp.Expose(out Syntax nextForm, out stx);
+
+                CoreForm outForm = ParseSyntax(nextForm, phase);
+                forms.Add(outForm);
             }
 
-            throw new ParserException.InvalidArguments(cns, "exactly", 1, info);
-        }
-
-        private static BindingDefinition ParseDefinition(Cons cns, ScopeSet info, CompilationContext context)
-        {
-            if (cns.TryMatchOnly(out Identifier? key, out Syntax? value))
+            if (stx != Datum.NilDatum)
             {
-                ExpansionVarNameBinding binding = ResolveBinding(key, context);
-                CoreForm parsedValue = Parse(value, context);
-
-                return new BindingDefinition(binding.Name, parsedValue);
+                throw new ParserException.ExpectedProperList(args);
             }
 
-            throw new ParserException.InvalidArguments(cns, "exactly", 2, info);
+            return new TopBegin(forms);
         }
 
-        private static BindingMutation ParseSet(Cons cns, ScopeSet info, CompilationContext context)
+        private static TopDefine ParseTopDefine(Syntax args, int phase)
         {
-            if (cns.TryMatchOnly(out Identifier? key, out Syntax? value))
+            if (args is not SyntaxPair stp
+                || !stp.TryMatchOnly(out Identifier? key, out Syntax? value))
             {
-                ExpansionVarNameBinding binding = ResolveBinding(key, context);
-                CoreForm parsedValue = Parse(value, context);
-
-                return new BindingMutation(binding.Name, parsedValue);
+                throw new ParserException.InvalidArguments(Keywords.S_TOP_DEFINE, args);
             }
 
-            throw new ParserException.InvalidArguments(cns, "exactly", 2, info);
-        }
-
-        private static Procedural ParseLambda(Cons cns, ScopeSet info, CompilationContext context)
-        {
-            if (cns.TryMatchLeading(out Syntax? formals, out Term maybeBody)
-                && maybeBody is Cons body)
+            if (!key.TryResolveBinding(phase, BindingType.Variable, out RenameBinding? binding))
             {
-                System.Tuple<string[], string?> parameters = ParseParameters(formals, info, context);
-
-                IEnumerable<CoreForm> bodyTerms = ParseSequence(body, info, context);
-                AggregateKeyTerms(bodyTerms, out string[] informals, out CoreForm[] moddedBodyTerms);
-
-                Sequential bodyForm = new(moddedBodyTerms);
-
-                return new Procedural(parameters.Item1, parameters.Item2, informals, bodyForm);
+                throw new ParserException.UnboundIdentifier(key);
             }
 
-            throw new ParserException.InvalidArguments(cns, "at least", 2, info);
+            CoreForm parsedValue = ParseSyntax(value, phase);
+
+            return new TopDefine(binding.BindingSymbol, parsedValue);
         }
 
-        private static Conditional ParseIf(Cons cns, ScopeSet info, CompilationContext context)
+        private static Sequential ParseModuleBegin(Syntax args, int phase)
         {
-            if (cns.TryMatchOnly(out Syntax? condStx, out Syntax? thenStx, out Syntax? elseStx))
-            {
-                CoreForm parsedCond = Parse(condStx, context);
-                CoreForm parsedThen = Parse(condStx, context);
-                CoreForm parsedElse = Parse(condStx, context);
+            Syntax stx = args;
+            List<CoreForm> forms = new List<CoreForm>();
 
-                return new Conditional(parsedCond, parsedThen, parsedElse);
+            while (stx is SyntaxPair stp)
+            {
+                stp.Expose(out Syntax nextForm, out stx);
+
+                CoreForm outForm = ParseSyntax(nextForm, phase);
+                forms.Add(outForm);
             }
 
-            throw new ParserException.InvalidArguments(cns, "exactly", 3, info);
-        }
-
-        private static Sequential ParseBegin(Cons stp, ScopeSet info, CompilationContext context)
-        {
-            IEnumerable<CoreForm> sequence = ParseSequence(stp, info, context);
-            return new Sequential(sequence.ToArray());
-        }
-
-        private static Importation ParseImport(Cons cns, ScopeSet info, CompilationContext context)
-        {
-            if (cns.TryMatchOnly(out Datum? maybePath)
-                && maybePath.Expose() is CharString path)
+            if (stx != Datum.NilDatum)
             {
-                return new Importation(path.Value);
+                throw new ParserException.ExpectedProperList(args);
             }
 
-            throw new ParserException.InvalidArguments(cns, info);
+            return new Sequential(forms);
         }
 
-        private static CoreForm ParseModule(Cons cns, ScopeSet info, CompilationContext context)
+        private static Importation ParseImport(Syntax args, int phase)
         {
-            if (cns.TryMatchLeading(out Identifier? id, out Term maybeBody)
-                && maybeBody is Cons body)
+            Syntax stx = args;
+            List<Symbol> mdlSymbols = new List<Symbol>();
+
+            while (stx is SyntaxPair stp)
             {
-                if (context.Phase == 1)
+                stp.Expose(out Syntax nextForm, out stx);
+
+                if (nextForm is not Identifier outForm)
                 {
-                    // if running at phase 1, then this is the content of the current execution
-                    // therefore we just switch to evaluating its contents directly
-                    return ParseBegin(body, info, context);
+                    throw new ParserException.InvalidArguments(Keywords.S_IMPORT, args);
                 }
 
-                IEnumerable<CoreForm> bodyTerms = ParseSequence(body, info, context);
-                AggregateExportedNames(bodyTerms, out string[] exportedNames, out CoreForm[] filteredBodyTerms);
+                if (!outForm.TryResolveBinding(phase, BindingType.Module, out RenameBinding? binding))
+                {
+                    throw new ParserException.UnboundIdentifier(outForm, BindingType.Module);
+                }
 
-                Sequential moduleBody = new Sequential(filteredBodyTerms);
-
-                return new ModuleForm(id.Name, exportedNames, moduleBody);
+                Module.Visit(binding.Name);
+                mdlSymbols.Add(binding.BindingSymbol);
             }
 
-            throw new ParserException.InvalidArguments(cns, "at least", 2, info);
+            if (stx != Datum.NilDatum)
+            {
+                throw new ParserException.ExpectedProperList(args);
+            }
+
+            return new Importation(mdlSymbols);
+        }
+
+        private static Mutation ParseSet(Syntax args, int phase)
+        {
+            if (args is not SyntaxPair stp
+                || !stp.TryMatchOnly(out Identifier? key, out Syntax? value))
+            {
+                throw new ParserException.InvalidArguments(Keywords.S_SET, args);
+            }
+
+            if (!key.TryResolveBinding(phase, BindingType.Variable, out RenameBinding? binding))
+            {
+                throw new ParserException.UnboundIdentifier(key);
+            }
+
+            CoreForm parsedValue = ParseSyntax(value, phase);
+
+            return new Mutation(binding.BindingSymbol, parsedValue);
+        }
+
+        private static Conditional ParseIf(Syntax args, int phase)
+        {
+            if (args is not SyntaxPair stp
+                || !stp.TryMatchOnly(out Syntax? arg1, out Syntax? arg2, out Syntax? arg3))
+            {
+                throw new ParserException.InvalidArguments(Keywords.S_IF, args);
+            }
+
+            CoreForm parsedIf = ParseSyntax(arg1, phase);
+            CoreForm parsedThen = ParseSyntax(arg2, phase);
+            CoreForm parsedElse = ParseSyntax(arg3, phase);
+
+            return new Conditional(parsedIf, parsedThen, parsedElse);
+        }
+
+        private static Sequential ParseBegin(Syntax args, int phase)
+        {
+            Syntax stx = args;
+            List<CoreForm> forms = new List<CoreForm>();
+
+            while (stx is SyntaxPair stp)
+            {
+                stp.Expose(out Syntax nextForm, out stx);
+
+                CoreForm outForm = ParseSyntax(nextForm, phase);
+                forms.Add(outForm);
+            }
+
+            if (stx != Datum.NilDatum)
+            {
+                throw new ParserException.ExpectedProperList(args);
+            }
+
+            if (forms.Last().IsImperative)
+            {
+                throw new ParserException.InvalidArguments(Keywords.S_BEGIN, args);
+            }
+
+            return new Sequential(forms);
+        }
+
+        private static CoreForm ParseApply(Syntax args, int phase)
+        {
+            if (args is not SyntaxPair stp)
+            {
+                throw new ParserException.InvalidArguments(Keywords.S_APPLY, args);
+            }
+
+            return ParseApplication(stp, phase);
+        }
+
+        private static Procedural ParseLambda(Syntax args, int phase)
+        {
+            if (args is not SyntaxPair stp
+                || !stp.TryMatchLeading(out Syntax? p1, out Syntax? pv, out Syntax? p2, out Term? rest)
+                || rest is not SyntaxPair body)
+            {
+                throw new ParserException.InvalidArguments(Keywords.S_LAMBDA, args);
+            }
+
+            IEnumerable<Symbol> formals = ParseParameterList(p1, phase);
+            Symbol? variad = ParseMaybeParameter(pv, phase);
+            IEnumerable<Symbol> informals = ParseParameterList(p2, phase);
+            Sequential parsedBody = ParseBegin(body, phase);
+
+            return new Procedural(formals, variad, informals, parsedBody);
+        }
+
+        private static VariableReference ParseVar(Syntax args, int phase)
+        {
+            if (args is not Identifier id)
+            {
+                throw new ParserException.InvalidArguments(Keywords.S_VAR, args);
+            }
+
+            if (!id.TryResolveBinding(phase, BindingType.Variable, out RenameBinding? binding))
+            {
+                throw new ParserException.UnboundIdentifier(id);
+            }
+
+            return new VariableReference(binding.BindingSymbol, false);
+        }
+
+        private static ConstValue ParseConst(Syntax args, int phase)
+        {
+            return new ConstValue(args.StripScopes(1));
+        }
+
+        private static ConstValue ParseConstSyntax(Syntax args, int phase)
+        {
+            return new ConstValue(args.StripScopes(phase));
         }
 
         #endregion
@@ -288,179 +322,80 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of argument expressions.
         /// </summary>
-        private static IEnumerable<CoreForm> ParseArguments(Cons cns, ScopeSet info, CompilationContext context)
+        private static IEnumerable<CoreForm> ParseArguments(Syntax stx, int phase)
         {
-            Term current = cns;
-
-            while (current is Cons currentCons && currentCons.Car is Syntax nextStx)
+            while (stx is SyntaxPair stp)
             {
-                CoreForm nextArg = Parse(nextStx, context);
+                stp.Expose(out Syntax nextArg, out stx);
 
-                if (nextArg.IsImperative)
+                CoreForm outArg = ParseSyntax(nextArg, phase);
+
+                if (outArg.IsImperative)
                 {
-                    throw new ParserException.ExpectedExpression(nextArg, info);
+                    throw new ParserException.ExpectedExpression(outArg, nextArg.Location);
                 }
 
-                yield return nextArg;
-                current = currentCons.Cdr;
+                yield return outArg;
             }
 
-            if (current is not Nil)
+            if (stx != Datum.NilDatum)
             {
-                throw new ParserException.ExpectedProperList(cns, info);
+                throw new ParserException.ExpectedProperList(stx);
             }
 
             yield break;
         }
 
-        /// <summary>
-        /// Enumerate all the identifiers in a list of parameter values.
-        /// </summary>
-        private static System.Tuple<string[], string?> ParseParameters(Term t, ScopeSet info, CompilationContext context)
+        private static IEnumerable<Symbol> ParseParameterList(Syntax stx, int phase)
         {
-            List<string> ids = [];
-            string? dotted = null;
+            Syntax target = stx;
 
-            Term current = t;
-
-            if (current is SyntaxPair stl)
+            while (target is SyntaxPair stp)
             {
-                current = stl.Expose();
-            }
+                stp.Expose(out Syntax? nextParam, out target);
 
-            while(current is Cons stp)
-            {
-                if (stp.Car is Identifier nextParam)
+                if (nextParam is not Identifier outParam)
                 {
-                    ExpansionVarNameBinding binding = ResolveBinding(nextParam, context);
-                    ids.Add(binding.Name);
+                    throw new ParserException.InvalidArguments("Parameter List", stx);
+                }
+                else if (!outParam.TryResolveBinding(phase, BindingType.Variable, out RenameBinding? binding))
+                {
+                    throw new ParserException.UnboundIdentifier(outParam, BindingType.Variable);
                 }
                 else
                 {
-                    throw new ParserException.ExpectedProperList(nameof(Identifier), t, info);
+                    yield return binding.BindingSymbol;
                 }
-
-                current = stp.Cdr;
             }
 
-            if (current is Identifier lastParam)
+            if (target != Datum.NilDatum)
             {
-                ExpansionVarNameBinding binding = ResolveBinding(lastParam, context);
-                dotted = binding.Name;
+                throw new ParserException.ExpectedProperList(stx);
             }
-
-            return new System.Tuple<string[], string?>(ids.ToArray(), dotted);
-        }
-
-        /// <summary>
-        /// Enumerate all the forms in a (proper) list of body terms, where the last must be an expression.
-        /// </summary>
-        private static IEnumerable<CoreForm> ParseSequence(Cons stp, ScopeSet info, CompilationContext context)
-        {
-            Term current = stp;
-
-            while (current is Cons nextSequent && nextSequent.Car is Syntax nextStx)
-            {
-                CoreForm nextForm = Parse(nextStx, context);
-
-                if (nextSequent.Cdr is Nil && nextForm.IsImperative)
-                {
-                    throw new ParserException.ExpectedExpression(nextForm, info);
-                }
-                else if (nextForm is Sequential sf)
-                {
-                    foreach(CoreForm form in sf.Sequence)
-                    {
-                        yield return form;
-                    }
-                }
-                else
-                {
-                    yield return nextForm;
-                }
-
-                current = nextSequent.Cdr;
-            }
-
-            if (current is not Nil)
-            {
-                throw new ParserException.ExpectedProperList(stp, info);
-            }
-
             yield break;
         }
 
-        #endregion
-
-        #region Helpers
-        private static ExpansionVarNameBinding ResolveBinding(Identifier id, CompilationContext context)
+        private static Symbol? ParseMaybeParameter(Syntax stx, int phase)
         {
-            if (id.TryResolveBinding(context.Phase,
-                out ExpansionVarNameBinding? binding))
+            if (stx is Identifier id)
             {
-                return binding;
-            }
-            //else if (candidates.Length > 1)
-            //{
-            //    throw new ParserException.AmbiguousIdentifier(id, candidates);
-            //}
-            else
-            {
+                if (id.TryResolveBinding(phase, BindingType.Variable, out RenameBinding? binding))
+                {
+                    return binding.BindingSymbol;
+                }
                 throw new ParserException.UnboundIdentifier(id);
             }
-        }
-
-        /// <summary>
-        /// Iterate through a list of body terms, aggregating the key variables from each
-        /// <see cref="BindingDefinition"/> form and transforming them into <see cref="BindingMutation"/> forms.
-        /// </summary>
-        private static void AggregateKeyTerms(IEnumerable<CoreForm> initialForms,
-            out string[] keyTerms,
-            out CoreForm[] adjustedForms)
-        {
-            List<string> keys = [];
-            List<CoreForm> adjustments = [];
-
-            foreach (CoreForm form in initialForms)
+            else if (stx == Datum.NilDatum)
             {
-                if (form is BindingDefinition bd)
-                {
-                    keys.Add(bd.VarName);
-                    adjustments.Add(new BindingMutation(bd.VarName, bd.BoundValue));
-                }
-                else
-                {
-                    adjustments.Add(form);
-                }
+                return null;
             }
-
-            keyTerms = keys.ToArray();
-            adjustedForms = adjustments.ToArray();
-        }
-
-        private static void AggregateExportedNames(IEnumerable<CoreForm> initialBody,
-            out string[] exportedNames,
-            out CoreForm[] filteredBody)
-        {
-            List<string> names = new List<string>();
-            List<CoreForm> filtered = new List<CoreForm>();
-
-            foreach(CoreForm form in initialBody)
+            else
             {
-                if (form is Exportation exprt)
-                {
-                    names.Add(exprt.Name);
-                }
-                else
-                {
-                    filtered.Add(form);
-                }
+                throw new ParserException.InvalidArguments("Variadic Parameter", stx);
             }
-
-            exportedNames = names.ToArray();
-            filteredBody = filtered.ToArray();
         }
 
         #endregion
+
     }
 }

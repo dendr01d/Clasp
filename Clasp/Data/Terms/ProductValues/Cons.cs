@@ -11,28 +11,28 @@ namespace Clasp.Data.Terms.ProductValues
         public Term Car { get; private set; }
         public Term Cdr { get; private set; }
 
+        public static Cons Truct(Term car, Term cdr)
+        {
+            return new Cons(car, cdr);
+        }
+
         private Cons(Term car, Term cdr)
         {
             Car = car;
             Cdr = cdr;
         }
 
-        public static Cons Truct<T1, T2>(T1 car, T2 cdr)
-            where T1 : Term
-            where T2 : Term
-        {
-            return new Cons(car, cdr);
-        }
+        public void SetCar(Term t) => Car = t;
+        public void SetCdr(Term t) => Cdr = t;
 
-        public static Term ProperList<T>(params T[] terms)
-            where T : Term
-            => ProperList(terms.AsEnumerable());
-        public static Term ProperList<T>(IEnumerable<T> terms)
-            where T : Term
+        #region Aggregate Construction
+
+        public static Term ProperList(params Term[] terms) => ProperList(terms.AsEnumerable());
+        public static Term ProperList(IEnumerable<Term> terms)
         {
             Term output = Nil.Value;
 
-            foreach (T t in terms.Reverse())
+            foreach (Term t in terms.Reverse())
             {
                 output = Truct(t, output);
             }
@@ -40,11 +40,8 @@ namespace Clasp.Data.Terms.ProductValues
             return output;
         }
 
-        public static Term ImproperList<T>(IEnumerable<T> terms)
-            where T : Term
-            => ImproperList(terms.ToArray());
-        public static Term ImproperList<T>(params T[] terms)
-            where T : Term
+        public static Term ImproperList(IEnumerable<Term> terms) => ImproperList(terms.ToArray());
+        public static Term ImproperList(params Term[] terms)
         {
             Term output = terms[^1];
 
@@ -55,6 +52,8 @@ namespace Clasp.Data.Terms.ProductValues
 
             return output;
         }
+
+        #endregion
 
         public override string ToString() => string.Format("({0}{1})", Car, PrintAsTail(Cdr));
 

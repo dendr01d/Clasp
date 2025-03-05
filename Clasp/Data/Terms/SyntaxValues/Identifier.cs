@@ -6,6 +6,9 @@ using Clasp.Data.Text;
 
 namespace Clasp.Data.Terms.SyntaxValues
 {
+    /// <summary>
+    /// A syntactic Symbol within the program representing some kind of variable.
+    /// </summary>
     internal sealed class Identifier : Syntax
     {
         private readonly ScopeSet _scopes;
@@ -14,13 +17,16 @@ namespace Clasp.Data.Terms.SyntaxValues
 
         public string Name => _sym.Name;
 
-        public Identifier(Symbol sym, SourceCode loc, ScopeSet scopes) : base(loc)
+        private Identifier(Symbol sym, SourceCode loc, ScopeSet scopes) : base(loc)
         {
-            _sym = sym;
             _scopes = scopes;
+            _sym = sym;
         }
-        public Identifier(string name, SourceCode loc, ScopeSet scopes) : this(Symbol.Intern(name), loc, scopes) { }
-        public Identifier(Token token) : this(token.Text, token.Location, new ScopeSet()) { }
+        public Identifier(Symbol sym, SourceCode loc) : this(sym, loc, new ScopeSet()) { }
+        public Identifier(string name, SourceCode loc) : this(Symbol.Intern(name), loc) { }
+        public Identifier(Token token) : this(token.Text, token.Location) { }
+
+        public bool SameScopes(Identifier other) => _scopes.SameScopes(other._scopes);
 
         #region Scope-Adjustment
 
@@ -28,19 +34,23 @@ namespace Clasp.Data.Terms.SyntaxValues
         public override void FlipScope(int phase, params Scope[] scopes) => _scopes.FlipScope(phase, scopes);
         public override void RemoveScope(int phase, params Scope[] scopes) => _scopes.RemoveScope(phase, scopes);
         public override Syntax StripScopes(int inclusivePhaseThreshold)
-            => new Identifier(_sym, Location, _scopes.RestrictPhaseUpTo(inclusivePhaseThreshold));
-        public override ScopeSet GetScopes() => new ScopeSet(_scopes);
+        {
+            Identifier strippedCopy = new Identifier(_sym, Location);
+            strippedCopy._scopes.RestrictPhaseUpTo(inclusivePhaseThreshold);
+            return strippedCopy;
+        }
+        public override ScopeSet GetScopeSet() => new ScopeSet(_scopes);
 
         #endregion
 
-        public override SyntaxPair ListPrepend(Syntax stx) => new SyntaxPair(stx, this, Location, _scopes);
+        public override SyntaxPair ListPrepend(Syntax stx) => new SyntaxPair(stx, this, Location);
 
         #region Rename-Binding
 
         private bool TryRenameAsType(int phase, BindingType type, out Identifier bindingId)
         {
-            bindingId = new Identifier(new GenSym(Name), Location, );
-            ExpansionVarNameBinding binding = new ExpansionVarNameBinding(bindingId, BindingType.Variable);
+            bindingId = new Identifier(new GenSym(Name), Location, _scopes);
+            RenameBinding binding = new RenameBinding(bindingId, BindingType.Variable);
             return _scopes.TryBind(phase, Name, binding);
         }
 
@@ -61,10 +71,17 @@ namespace Clasp.Data.Terms.SyntaxValues
         //    return TryResolveBinding(phase, out binding, out _);
         //}
 
-        public bool TryResolveBinding(int phase, [NotNullWhen(true)] out ExpansionVarNameBinding? binding)
+        public bool TryResolveBinding(int phase, [NotNullWhen(true)] out RenameBinding? binding)
         {
             binding = _scopes.ResolveBindings(phase, Name);
             return binding is not null;
+        }
+
+        public bool TryResolveBinding(int phase, BindingType expectedType,
+            [NotNullWhen(true)] out RenameBinding? binding)
+        {
+            binding = _scopes.ResolveBindings(phase, Name);
+            return binding is not null && binding.BoundType == expectedType;
         }
 
         protected override string FormatType() => "StxIdentifier";

@@ -19,11 +19,8 @@ namespace Clasp.Data.AbstractSyntax
     internal abstract class CoreForm : VmInstruction
     {
         protected CoreForm() : base() { }
-
         public virtual bool IsImperative { get; } = false;
-
         public abstract string ImplicitKeyword { get; }
-
         public abstract Term ToTerm();
     }
 
@@ -67,7 +64,11 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
         {
-            machine.Continuation.Push(new BindFresh(_key.Name));
+            VmInstruction setOrDefine = machine.CurrentEnv.ContainsKey(_key.Name)
+                ? new RebindExisting(_key.Name)
+                : new BindFresh(_key.Name);
+
+            machine.Continuation.Push(setOrDefine);
             machine.Continuation.Push(_value);
         }
         public override VmInstruction CopyContinuation() => new TopDefine(_key, _value);
@@ -75,50 +76,19 @@ namespace Clasp.Data.AbstractSyntax
         public override Term ToTerm() => Cons.ProperList(Symbols.Define, _key, _value.ToTerm());
     }
 
-    internal sealed class ModuleForm : CoreForm
-    {
-        private readonly Symbol _key;
-        private readonly Symbol[] _exportedKeys;
-        private readonly CoreForm[] _bodyForms;
-        public override string AppCode => "MODL";
-        public override string ImplicitKeyword => Keywords.S_MODULE;
-        public ModuleForm(Symbol key, Symbol[] exports, IEnumerable<CoreForm> bodyForms)
-        {
-            _key = key;
-            _exportedKeys = exports;
-            _bodyForms = bodyForms.ToArray();
-        }
-        public override void RunOnMachine(MachineState machine)
-        {
-            machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
-
-            machine.Continuation.Push(new CacheEnvAsModule(_key, _exportedKeys.Select(x => x.Name).ToArray()));
-
-            foreach (CoreForm form in _bodyForms.Reverse())
-            {
-                machine.Continuation.Push(form);
-            }
-
-            machine.Continuation.Push(new ChangeEnv(this, new RootEnv()));
-        }
-        public override VmInstruction CopyContinuation() => new ModuleForm(_key, _exportedKeys, _bodyForms);
-        protected override string FormatArgs() => string.Format("{0}, {1}", _key, string.Join(", ", _bodyForms.Select(x => x.ToString())));
-        public override Term ToTerm() => Cons.Truct(Symbols.Module, Cons.Truct(_key, Cons.ImproperList(_bodyForms.Select(x => x.ToTerm()))));
-    }
-
     internal sealed class Importation : CoreForm
     {
         private readonly Symbol[] _keys;
         public override string AppCode => "IMPRT";
         public override string ImplicitKeyword => Keywords.S_IMPORT;
-        public Importation(Symbol[] keys) => _keys = keys;
+        public Importation(IEnumerable<Symbol> keys) => _keys = keys.ToArray();
         public override void RunOnMachine(MachineState machine)
         {
             machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
 
             foreach (Symbol key in _keys)
             {
-                if (!StaticEnv.TryGetModule(key.Name, out Module? module))
+                if (!ModuleCache.TryGet(key.Name, out Module? module))
                 {
                     throw new InterpreterException(machine, "Unable to uncache module '{0}'.", key.Name);
                 }
@@ -182,9 +152,9 @@ namespace Clasp.Data.AbstractSyntax
         private readonly CoreForm[] _bodyForms;
         public override string AppCode => "SEQ";
         public override string ImplicitKeyword => Keywords.S_BEGIN;
-        public Sequential(CoreForm[] bodyForms)
+        public Sequential(IEnumerable<CoreForm> bodyForms)
         {
-            _bodyForms = bodyForms;
+            _bodyForms = bodyForms.ToArray();
         }
         public override void RunOnMachine(MachineState machine)
         {
@@ -229,11 +199,11 @@ namespace Clasp.Data.AbstractSyntax
         private readonly Sequential _body;
         public override string AppCode => "FUNC";
         public override string ImplicitKeyword => Keywords.S_LAMBDA;
-        public Procedural(Symbol[] formalParams, Symbol? variadicParam, Symbol[] informalParams, Sequential body)
+        public Procedural(IEnumerable<Symbol> formalParams, Symbol? variadicParam, IEnumerable<Symbol> informalParams, Sequential body)
         {
-            _formals = formalParams;
+            _formals = formalParams.ToArray();
             _formalVariad = variadicParam;
-            _informals = informalParams;
+            _informals = informalParams.ToArray();
             _body = body;
         }
         public override void RunOnMachine(MachineState machine)
@@ -256,18 +226,30 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class VariableReference : CoreForm
     {
         private readonly Symbol _key;
+        private readonly bool _top;
         public override string AppCode => "VAR";
         public override string ImplicitKeyword => Keywords.S_VAR;
-        public VariableReference(Symbol key) => _key = key;
+        public VariableReference(Symbol key, bool top)
+        {
+            _key = key;
+            _top = top;
+        }
         public override void RunOnMachine(MachineState machine)
         {
             if (machine.CurrentEnv.TryGetValue(_key.Name, out Term? value))
             {
                 machine.ReturningValue = value;
             }
-            throw new InterpreterException.InvalidBinding(_key.Name, machine);
+            else if (_top)
+            {
+                throw new InterpreterException.InvalidTopBinding(_key.Name, machine);
+            }
+            else
+            {
+                throw new InterpreterException.InvalidBinding(_key.Name, machine);
+            }
         }
-        public override VariableReference CopyContinuation() => new VariableReference(_key);
+        public override VariableReference CopyContinuation() => new VariableReference(_key, _top);
         protected override string FormatArgs() => _key.Name;
         public override Term ToTerm() => _key;
     }

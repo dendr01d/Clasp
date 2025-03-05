@@ -59,10 +59,18 @@ namespace Clasp.Exceptions
                 "The variable name '{0}' is free (unbound) within the given context.",
                 id.Name)
             { }
+
+            internal UnboundIdentifier(Identifier id, BindingType expectedType) : base(
+                id.Location,
+                "The variable name '{0}' (expected to bind a {1}) is unbound within the given context.",
+                id.Name,
+                expectedType.ToString())
+            { }
         }
+
         public class AmbiguousIdentifier : ParserException
         {
-            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<ExpansionVarNameBinding> matches) : base(
+            internal AmbiguousIdentifier(Identifier ambId, IEnumerable<RenameBinding> matches) : base(
                 ambId.Location,
                 "The variable name '{0}' ambiguously refers to multiple bindings within the given context: {1}",
                 ambId.Name,
@@ -75,73 +83,66 @@ namespace Clasp.Exceptions
             internal InvalidOperator(CoreForm badOperator, Syntax badApplication) : base(
                 badApplication.Location,
                 "Form of type '{0}' can't be used as the operator of a function application:\n\t{1}",
-                badOperator.FormName,
+                badOperator.ImplicitKeyword,
                 badApplication)
             { }
         }
 
         public class InvalidForm : ParserException
         {
-            internal InvalidForm(string formName, Syntax invalidForm) : base(
-                invalidForm.Location,
-                "Error parsing '{0}' form:\n\t{1}",
+            internal InvalidForm(string formName, Syntax invalidArgs) : base(
+                invalidArgs.Location,
+                "Error parsing '{0}' form with args:\n\t{1}",
                 formName,
-                invalidForm)
+                invalidArgs)
             { }
 
-            internal InvalidForm(string formName, Syntax invalidForm, Exception innerException) : base(
-                invalidForm.Location,
+            internal InvalidForm(string formName, Syntax invalidArgs, Exception innerException) : base(
+                invalidArgs.Location,
                 innerException,
-                "Error parsing '{0}' form:\n\t{1}",
+                "Error parsing '{0}' form with args:\n\t{1}",
                 formName,
-                invalidForm)
+                invalidArgs)
             { }
         }
         public class InvalidArguments : ParserException
         {
-            internal InvalidArguments(Syntax invalid) : base(
+            internal InvalidArguments(string formName, Syntax invalid) : base(
                 invalid.Location,
-                "Argument has the wrong shape:\n\t{1}",
+                "Wrong argument/s shape for core form '{0}':\n\t{1}",
                 invalid)
-            { }
-
-            internal InvalidArguments(Cons invalid, ScopeSet info) : base(
-                info.Location,
-                "Arguments have the wrong shape:\n\t{0}",
-                invalid)
-            { }
-
-            internal InvalidArguments(Cons invalid, string preQualifier, int expectedNumber, ScopeSet info) : base(
-                info.Location,
-                "The form requires{0} {1} argument{2}:\n\t{3}",
-                string.IsNullOrWhiteSpace(preQualifier) ? string.Empty : " " + preQualifier,
-                expectedNumber.ToString(),
-                expectedNumber == 1 ? string.Empty : "s",
-                invalid
-                )
             { }
         }
 
         public class ExpectedExpression : ParserException
         {
-            internal ExpectedExpression(CoreForm wrongInput, ScopeSet info) : base(
-                info.Location,
+            internal ExpectedExpression(CoreForm wrongInput, SourceCode location) : base(
+                location,
                 "Expected expression form, but received imperative '{0}' form instead:\n\t{1}",
-                wrongInput.FormName,
+                wrongInput.ImplicitKeyword,
                 wrongInput)
+            { }
+        }
+
+        public class ExpectedCoreKeywordForm : ParserException
+        {
+            internal ExpectedCoreKeywordForm(Syntax notAKeywordForm) : base(
+                notAKeywordForm.Location,
+                "Expected core form application, but received: {0}",
+                notAKeywordForm)
             { }
         }
 
         public class ExpectedProperList : ParserException
         {
-            internal ExpectedProperList(Term notAProperList, ScopeSet info) : base(
-                info.Location,
+            internal ExpectedProperList(Syntax notAProperList) : base(
+                notAProperList.Location,
                 "Expected to parse proper list:\n\t{0}",
                 notAProperList)
             { }
 
-            internal ExpectedProperList(string expectedType, Term notAProperList, ScopeSet info) : base(
-                info.Location,
+            internal ExpectedProperList(string expectedType, Term notAProperList, SourceCode location) : base(
+                location,
                 "Expected proper list with '{0}' elements:\n\t{1}",
                 expectedType,
                 notAProperList)

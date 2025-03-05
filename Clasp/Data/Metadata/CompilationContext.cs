@@ -206,7 +206,7 @@ namespace Clasp.Data.Metadata
         /// <see langword="true" /> iff the meta-environment at the given phase exists, it contains
         /// a value defined with <paramref name="binding"/>, and that value is a <see cref="MacroProcedure"/>.
         /// </returns>
-        public bool TryLookupMacro(ExpansionVarNameBinding binding,
+        public bool TryLookupMacro(RenameBinding binding,
             [NotNullWhen(true)] out MacroProcedure? macro)
         {
             if (binding.BoundType == BindingType.Transformer
