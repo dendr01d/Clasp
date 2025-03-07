@@ -70,8 +70,6 @@ namespace Clasp.Data.Terms.SyntaxValues
 
         #endregion
 
-        public abstract SyntaxPair ListPrepend(Syntax stx);
-
         public override string ToString() => string.Format("#'{0}", Expose().ToString());
         public string ToSyntaxString()
         {

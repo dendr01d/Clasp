@@ -68,9 +68,7 @@ namespace Clasp.Data.Static
 
         public static readonly string[] SecretKeywords = [S_TOP_VAR, S_TOP_BEGIN, S_TOP_DEFINE, S_MODULE, S_IMPORT, S_SET, S_IF, S_BEGIN, S_APPLY, S_LAMBDA, S_VAR, S_CONST];
 
-        // These don't represent core forms, just hints for the expander/parser
-        public const string S_META = "σ-meta";
-
+        // These don't represent core forms, just interstitial transformations for the expander/parser
         public const string S_PARTIAL_DEFINE = "σ-partial-define";
     }
 }

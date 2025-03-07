@@ -18,7 +18,7 @@ namespace Clasp.ExtensionMethods
         /// Attempt to deconstruct <paramref name="t"/> as a Cons-list
         /// structured as (<typeparamref name="T1"/> . <typeparamref name="T2"/>)
         /// </summary>
-        public static bool TryDeconstruct<T1, T2>(this Term t,
+        public static bool TryUnpair<T1, T2>(this Term t,
             [NotNullWhen(true)] out T1? car,
             [NotNullWhen(true)] out T2? cdr)
             where T1 : Term
@@ -36,7 +36,7 @@ namespace Clasp.ExtensionMethods
         /// Attempt to deconstruct <paramref name="t"/> as a Cons-list
         /// structured as (<typeparamref name="T1"/> <typeparamref name="T2"/> . <typeparamref name="T3"/>)
         /// </summary>
-        public static bool TryDeconstruct<T1, T2, T3>(this Term t,
+        public static bool TryUnpair<T1, T2, T3>(this Term t,
             [NotNullWhen(true)] out T1? car,
             [NotNullWhen(true)] out T2? cadr,
             [NotNullWhen(true)] out T3? cddr)
@@ -59,7 +59,7 @@ namespace Clasp.ExtensionMethods
         /// Attempt to deconstruct <paramref name="t"/> as a Cons-list
         /// structured as (<typeparamref name="T1"/> <typeparamref name="T2"/> <typeparamref name="T3"/> . <typeparamref name="T4"/>)
         /// </summary>
-        public static bool TryDeconstruct<T1, T2, T3, T4>(this Term t,
+        public static bool TryUnpair<T1, T2, T3, T4>(this Term t,
             [NotNullWhen(true)] out T1? car,
             [NotNullWhen(true)] out T2? cadr,
             [NotNullWhen(true)] out T3? caddr,
@@ -81,6 +81,47 @@ namespace Clasp.ExtensionMethods
             cdddr = cddr?.Cdr as T4;
 
             return (car is not null && cadr is not null && cddr is not null);
+        }
+
+        // ---
+        
+        /// <summary>
+        /// Attempt to deconstruct <paramref name="t"/> as a Cons-list
+        /// structured as (<typeparamref name="T1"/> . <typeparamref name="T2"/>)
+        /// </summary>
+        public static bool TryDelist<T1>(this Term t,
+            [NotNullWhen(true)] out T1? car)
+            where T1 : Term
+        {
+            return t.TryUnpair(out car, out Term? cdr) && Nil.Is(cdr);
+        }
+
+        /// <summary>
+        /// Attempt to deconstruct <paramref name="t"/> as a Cons-list
+        /// structured as (<typeparamref name="T1"/> <typeparamref name="T2"/> . <typeparamref name="T3"/>)
+        /// </summary>
+        public static bool TryDelist<T1, T2>(this Term t,
+            [NotNullWhen(true)] out T1? car,
+            [NotNullWhen(true)] out T2? cadr)
+            where T1 : Term
+            where T2 : Term
+        {
+            return t.TryUnpair(out car, out cadr, out Term? cddr) && Nil.Is(cddr);
+        }
+
+        /// <summary>
+        /// Attempt to deconstruct <paramref name="t"/> as a Cons-list
+        /// structured as (<typeparamref name="T1"/> <typeparamref name="T2"/> <typeparamref name="T3"/> . <typeparamref name="T4"/>)
+        /// </summary>
+        public static bool TryDelist<T1, T2, T3>(this Term t,
+            [NotNullWhen(true)] out T1? car,
+            [NotNullWhen(true)] out T2? cadr,
+            [NotNullWhen(true)] out T3? caddr)
+            where T1 : Term
+            where T2 : Term
+            where T3 : Term
+        {
+            return t.TryUnpair(out car, out cadr, out caddr, out Term? cdddr) && Nil.Is(cdddr);
         }
 
     }

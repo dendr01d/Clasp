@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Clasp.Binding;
+using Clasp.Binding.Modules;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
@@ -78,7 +79,7 @@ namespace Clasp.Exceptions
                 "Failed to bind '{0}' in phase {1} in scope ({2}).",
                 unboundId.Name,
                 context.Phase,
-                string.Join(", ", unboundId.LexContext[context.Phase].Select(x => x.Id)))
+                string.Join(", ", unboundId.GetScopeSet()[context.Phase].Select(x => x.Id)))
             { }
         }
 
@@ -132,14 +133,14 @@ namespace Clasp.Exceptions
 
         public class ExpectedProperList : ExpanderException
         {
-            internal ExpectedProperList(Term notAProperList, ScopeSet info) : base(
-                info.Location,
+            internal ExpectedProperList(Syntax notAProperList) : base(
+                notAProperList.Location,
                 "Expected proper list:\n\t{0}",
                 notAProperList)
             { }
 
-            internal ExpectedProperList(string expectedType, Term notAProperList, ScopeSet info) : base(
-                info.Location,
+            internal ExpectedProperList(string expectedType, Syntax notAProperList) : base(
+                notAProperList.Location,
                 "Expected proper list with '{0}' elements:\n\t{1}",
                 expectedType,
                 notAProperList)
@@ -169,13 +170,7 @@ namespace Clasp.Exceptions
         {
             internal InvalidArguments(Syntax invalid) : base(
                 invalid.Location,
-                "Argument has the wrong shape:\n\t{1}",
-                invalid)
-            { }
-
-            internal InvalidArguments(Cons invalid, ScopeSet info) : base(
-                info.Location,
-                "Arguments have the wrong shape:\n\t{0}",
+                "Wrong argument shape for form:\n\t{1}",
                 invalid)
             { }
         }
@@ -189,22 +184,15 @@ namespace Clasp.Exceptions
                 mode.ToString(),
                 wrongSyntax)
             { }
-
-            internal InvalidContext(string invalidType, ExpansionMode mode, Term wrongTerm, ScopeSet info) : base(
-                info.Location,
-                "Input of type '{0}' is invalid in '{1}' expansion context:\n\t{2}",
-                invalidType,
-                mode.ToString(),
-                wrongTerm)
-            { }
         }
 
         public class CircularModuleReference : ExpanderException
         {
-            internal CircularModuleReference(FreshModule pendingModule, ScopeSet info) : base(
-                info.Location,
-                "A circular module reference occurred -- the expander prompted expansion of module '{0}', which is already pending.",
-                pendingModule.Name)
+            internal CircularModuleReference(DeclaredModule pendingModule, Syntax offendingStx) : base(
+                offendingStx.Location,
+                "A circular module reference occurred -- the expander prompted expansion of module '{0}', which is already pending:\n\t{1}",
+                pendingModule.Name,
+                offendingStx.ToSyntaxString())
             { }
         }
     }

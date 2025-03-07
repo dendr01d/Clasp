@@ -43,8 +43,6 @@ namespace Clasp.Data.Terms.SyntaxValues
 
         #endregion
 
-        public override SyntaxPair ListPrepend(Syntax stx) => new SyntaxPair(stx, this, Location);
-
         #region Rename-Binding
 
         private bool TryRenameAsType(int phase, BindingType type, out Identifier bindingId)

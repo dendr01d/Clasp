@@ -53,13 +53,11 @@ namespace Clasp.Process
                 throw new ReaderException.EmptyTokenStream();
             }
 
-            ScopeSet info = new ScopeSet(tokens.First().Location);
-
-            Identifier opStx = new Identifier(implicitOperator, info);
+            Identifier opStx = new Identifier(implicitOperator, tokens.First().Location);
 
             Syntax[] syntaxes = ReadMultipleSyntaxes(new Stack<Token>(tokens.Reverse())).ToArray();
 
-            return SyntaxPair.ProperList(info, opStx, syntaxes);
+            return new SyntaxPair(opStx, Cons.ProperList(syntaxes), opStx.Location);
         }
 
         #region Parentheses-Checking
@@ -219,12 +217,11 @@ namespace Clasp.Process
         {
             Syntax arg = ReadSyntax(tokens);
 
-            ScopeSet info = SynthesizeLexicalSource(opToken, arg);
+            SourceCode info = SynthesizeLexicalSource(opToken, arg);
 
             Identifier op = new Identifier(opSym, arg.Location);
 
-            return new SyntaxList(arg, info)
-                .Push(op);
+            return new SyntaxPair(op, Cons.Truct(arg, Datum.NullSyntax()), info);
         }
 
         private static Datum ReadVector(Token lead, Stack<Token> tokens)
@@ -239,7 +236,7 @@ namespace Clasp.Process
 
             Token close = tokens.Pop(); // remove closing paren
 
-            ScopeSet info = SynthesizeLexicalSource(lead, close);
+            SourceCode info = SynthesizeLexicalSource(lead, close);
 
             return new Datum(new Vector(contents.ToArray()), info);
         }
@@ -253,7 +250,7 @@ namespace Clasp.Process
             else if (tokens.Peek().TType == TokenType.ClosingParen)
             {
                 Token close = tokens.Pop(); // remove closing paren
-                ScopeSet info = SynthesizeLexicalSource(lead, close);
+                SourceCode info = SynthesizeLexicalSource(lead, close);
                 return new Datum(Nil.Value, info);
             }
 
@@ -294,21 +291,18 @@ namespace Clasp.Process
             }
 
             // pop off the closing paren while also synthesizing the aggregate lexical info
-            ScopeSet listContext = SynthesizeLexicalSource(lead, tokens.Pop());
+            SourceCode listContext = SynthesizeLexicalSource(lead, tokens.Pop());
 
-            if (dottedList)
-            {
-                return SyntaxPair.ImproperList(listContext, contents[0], contents[1], contents[2..].ToArray());
-            }
-            else
-            {
-                return SyntaxPair.ProperList(listContext, contents[0], contents[1..].ToArray());
-            }
+            Term maybeList = dottedList
+                ? Cons.ImproperList(contents)
+                : Cons.ProperList(contents);
+
+            return Syntax.WrapRaw(maybeList, listContext);
         }
 
-        private static ScopeSet SynthesizeLexicalSource(ISourceTraceable first, ISourceTraceable rest)
+        private static SourceCode SynthesizeLexicalSource(ISourceTraceable first, ISourceTraceable rest)
         {
-            SourceCode sc = new SourceCode(
+            return new SourceCode(
                 first.Location.Source,
                 first.Location.LineNumber,
                 first.Location.Column,
@@ -316,8 +310,6 @@ namespace Clasp.Process
                 rest.Location.StartingPosition + rest.Location.Length - first.Location.StartingPosition,
                 first.Location.SourceText,
                 true);
-
-            return new ScopeSet(sc);
         }
 
     }

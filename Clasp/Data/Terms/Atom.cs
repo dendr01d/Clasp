@@ -20,7 +20,7 @@ namespace Clasp.Data.Terms
 
         public static implicit operator Syntax(Nil n) => Datum.NullSyntax();
 
-        public static bool Is(Term t) => t == Value || (t is Datum dat && dat.Expose() == Value);
+        public static bool Is(Term? t) => t == Value || (t is Datum dat && dat.Expose() == Value);
     }
 
     internal sealed class Undefined : Atom
@@ -29,6 +29,8 @@ namespace Clasp.Data.Terms
         private Undefined() { }
         public override string ToString() => "#<undefined>";
         protected override string FormatType() => "Undefined";
+
+        public static bool Is(Term? t) => t == Value || (t is Datum dat && dat.Expose() == Value);
     }
 
     internal sealed class VoidTerm : Atom
@@ -37,6 +39,8 @@ namespace Clasp.Data.Terms
         private VoidTerm() { }
         public override string ToString() => "#<void>";
         protected override string FormatType() => "Void";
+
+        public static bool Is(Term? t) => t == Value || (t is Datum dat && dat.Expose() == Value);
     }
 
     internal sealed class ModuleHandle : Atom

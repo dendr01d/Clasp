@@ -11,7 +11,6 @@ namespace Clasp.Data.Metadata
         Expression,
         InternalDefinition,
         Module,
-        TopLevel,
-        Partial
+        TopLevel
     }
 }

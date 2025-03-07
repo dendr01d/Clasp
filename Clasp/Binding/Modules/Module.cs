@@ -67,7 +67,7 @@ namespace Clasp.Binding.Modules
                 CompilationContext ctx = CompilationContext.ForModule();
 
                 Syntax expandedStx = Expander.ExpandAnticipatedForm(Keywords.MODULE, dMdl.FreshSyntax, ctx);
-                CoreForm parsedStx = Parser.ParseModuleSyntax(expandedStx);
+                CoreForm parsedStx = Parser.ParseSyntax(expandedStx, 1);
 
                 VisitedModule vMdl = new VisitedModule(moduleName, parsedStx, ctx.CollectedIdentifiers.ToArray());
                 ModuleCache.Update(vMdl);

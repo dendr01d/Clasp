@@ -26,8 +26,6 @@ namespace Clasp.Data.Terms.SyntaxValues
         public override Syntax StripScopes(int inclusivePhaseThreshold) => this;
         public override ScopeSet GetScopeSet() => ScopeSet.Empty;
 
-        public override SyntaxPair ListPrepend(Syntax stx) => new SyntaxPair(stx, this, Location);
-
         protected override string FormatType() => string.Format("StxDatum<{0}, {1}>", _datum.TypeName);
     }
 }

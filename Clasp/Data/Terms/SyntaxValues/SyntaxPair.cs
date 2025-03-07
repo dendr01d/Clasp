@@ -33,6 +33,8 @@ namespace Clasp.Data.Terms.SyntaxValues
             _cons = Cons.Truct(_car, _cdr);
         }
 
+        public SyntaxPair(Cons cns, SourceCode loc) : this(cns.Car, cns.Cdr, loc) { }
+
         public override Cons Expose()
         {
             LazilyOperate();
@@ -82,8 +84,6 @@ namespace Clasp.Data.Terms.SyntaxValues
         public override ScopeSet GetScopeSet() => new ScopeSet(_scopes);
 
         #endregion
-
-        public override SyntaxPair ListPrepend(Syntax stx) => new SyntaxPair(stx, this, Location);
 
         protected override string FormatType() => string.Format("StxPair<{0}>", _cons.TypeName);
 
