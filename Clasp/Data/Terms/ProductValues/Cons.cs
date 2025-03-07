@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Interfaces;
 
 namespace Clasp.Data.Terms.ProductValues
 {

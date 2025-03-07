@@ -10,7 +10,6 @@ using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
 using Clasp.Interfaces;
-using Clasp.Modules;
 
 namespace Clasp.Exceptions
 {

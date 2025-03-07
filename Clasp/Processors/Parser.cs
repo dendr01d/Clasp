@@ -126,7 +126,7 @@ namespace Clasp.Process
                 forms.Add(outForm);
             }
 
-            if (stx != Datum.NilDatum)
+            if (stx != Datum.NullSyntax)
             {
                 throw new ParserException.ExpectedProperList(args);
             }
@@ -165,7 +165,7 @@ namespace Clasp.Process
                 forms.Add(outForm);
             }
 
-            if (stx != Datum.NilDatum)
+            if (stx != Datum.NullSyntax)
             {
                 throw new ParserException.ExpectedProperList(args);
             }
@@ -196,7 +196,7 @@ namespace Clasp.Process
                 mdlSymbols.Add(binding.BindingSymbol);
             }
 
-            if (stx != Datum.NilDatum)
+            if (stx != Datum.NullSyntax)
             {
                 throw new ParserException.ExpectedProperList(args);
             }
@@ -250,7 +250,7 @@ namespace Clasp.Process
                 forms.Add(outForm);
             }
 
-            if (stx != Datum.NilDatum)
+            if (stx != Datum.NullSyntax)
             {
                 throw new ParserException.ExpectedProperList(args);
             }
@@ -338,7 +338,7 @@ namespace Clasp.Process
                 yield return outArg;
             }
 
-            if (stx != Datum.NilDatum)
+            if (stx != Datum.NullSyntax)
             {
                 throw new ParserException.ExpectedProperList(stx);
             }
@@ -368,7 +368,7 @@ namespace Clasp.Process
                 }
             }
 
-            if (target != Datum.NilDatum)
+            if (target != Datum.NullSyntax)
             {
                 throw new ParserException.ExpectedProperList(stx);
             }
@@ -385,7 +385,7 @@ namespace Clasp.Process
                 }
                 throw new ParserException.UnboundIdentifier(id);
             }
-            else if (stx == Datum.NilDatum)
+            else if (stx == Datum.NullSyntax)
             {
                 return null;
             }

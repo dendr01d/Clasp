@@ -1,5 +1,7 @@
 ﻿using Clasp.Binding.Modules;
 using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Data.Text;
+using Clasp.Interfaces;
 
 namespace Clasp.Data.Terms
 {
@@ -16,7 +18,9 @@ namespace Clasp.Data.Terms
         public override string ToString() => "()";
         protected override string FormatType() => "Nil";
 
-        public static implicit operator Syntax(Nil n) => Datum.NilDatum;
+        public static implicit operator Syntax(Nil n) => Datum.NullSyntax();
+
+        public static bool Is(Term t) => t == Value || (t is Datum dat && dat.Expose() == Value);
     }
 
     internal sealed class Undefined : Atom

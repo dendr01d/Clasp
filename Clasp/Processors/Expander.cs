@@ -45,6 +45,7 @@ namespace Clasp.Process
             {
                 throw new ExpanderException.InvalidSyntax(stx, cex);
             }
+            throw new ExpanderException.InvalidSyntax(stx);
         }
 
         public static Syntax ExpandAnticipatedForm(string keyword, Syntax stx, CompilationContext context)
@@ -90,21 +91,21 @@ namespace Clasp.Process
         /// <summary>
         /// Expand a function application form containing an identifier in the operator position.
         /// </summary>
-        private static Syntax ExpandIdApplication(Identifier op, SyntaxPair stl, CompilationContext context)
+        private static Syntax ExpandIdApplication(Identifier op, SyntaxPair stp, CompilationContext context)
         {
             if (op.TryResolveBinding(context.Phase, out RenameBinding? binding))
             {
                 if (binding.BoundType == BindingType.Transformer)
                 {
-                    return ExpandSyntaxTransformation(binding, stl, context);
+                    return ExpandSyntaxTransformation(binding, stp, context);
                 }
                 else if (binding.BoundType == BindingType.Special)
                 {
-                    return ExpandSpecialForm(binding.Name, stl, context);
+                    return ExpandSpecialForm(binding.Name, stp, context);
                 }
             }
 
-            return ExpandApplication(stl, context);
+            return ExpandApplication(stp, context);
         }
 
         /// <summary>
@@ -147,7 +148,10 @@ namespace Clasp.Process
                 return stp;
             }
 
-            stp.Expose(out Syntax op, out Syntax args);
+            if (!stp.TryDeconstruct(out Identifier? op, out SyntaxPair? args))
+            {
+                throw new ExpanderException.InvalidArguments(stp);
+            }
 
             try
             {
@@ -155,10 +159,8 @@ namespace Clasp.Process
                 Syntax? metaSyntax = boundName switch
                 {
                     Keywords.MODULE => ExpandModuleForm(stp),
-
-                    Keywords.DEFINE_SYNTAX => ExpandDefineSyntaxArgs(args, context),
-                    Keywords.BEGIN_FOR_SYNTAX => BeginForSyntax(stp, context),
-                    Keywords.IMPORT_FOR_SYNTAX => ImportForSyntax(stp, context),
+                    Keywords.DEFINE_SYNTAX => DefineTransformer(args, context),
+                    Keywords.S_META => MetaExpand(args, context),
 
                     _ => null
                 };
@@ -181,12 +183,13 @@ namespace Clasp.Process
 
                     Keywords.IF => ExpandIfArgs(args, info, context),
                     Keywords.BEGIN => ExpandSequence(args, info, context),
+
                     Keywords.APPLY => ExpandExpressionList(args, info, context),
-
                     Keywords.LAMBDA => ExpandLambdaArgs(args, info, context),
+
                     Keywords.MODULE => ExpandModuleForm(args, context),
-
-
+                    Keywords.IMPORT => ExpandImportForm(args, context),
+                    Keywords.EXPORT => ExpandExportForm(args, context),
 
                     _ => throw new ExpanderException.InvalidSyntax(stp)
                 };
@@ -199,114 +202,116 @@ namespace Clasp.Process
             }
         }
 
-        /// <summary>
-        /// Partially expand <paramref name="stx"/> as a term in the body of a sequential form.
-        /// </summary>
-        /// <remarks>i.e. a <see cref="Keywords.LAMBDA"/>, <see cref="Keywords.BEGIN"/>, or <see cref="Keywords.MODULE"/></remarks>
-        private static Syntax? PartiallyExpandSeqBodyTerm(Syntax stx, CompilationContext context)
-        {
-            // essentially just check the path to special forms and disregard otherwise
-            if (stx is SyntaxPair stp
-                && stp.Expose().Car is Identifier op
-                && op.TryResolveBinding(context.Phase, out RenameBinding? binding)
-                && binding.BoundType == BindingType.Special)
-            {
-                Cons<Syntax, Term> args = stp.Expose();
+        private static Syntax MetaExpand()
 
-                if (binding.Name == Keywords.DEFINE_SYNTAX)
-                {
-                    // expand and bind the macro, then discard the syntax
-                    ExpandDefineSyntaxArgs(args, stx.LexContext, context);
-                    return null;
-                }
-                else if (binding.Name == Keywords.DEFINE)
-                {
-                    // extract and rename the key, then rewrite the form to indicate we did so
+        ///// <summary>
+        ///// Partially expand <paramref name="stx"/> as a term in the body of a sequential form.
+        ///// </summary>
+        ///// <remarks>i.e. a <see cref="Keywords.LAMBDA"/>, <see cref="Keywords.BEGIN"/>, or <see cref="Keywords.MODULE"/></remarks>
+        //private static Syntax? PartiallyExpandSeqBodyTerm(Syntax stx, CompilationContext context)
+        //{
+        //    // essentially just check the path to special forms and disregard otherwise
+        //    if (stx is SyntaxPair stp
+        //        && stp.Expose().Car is Identifier op
+        //        && op.TryResolveBinding(context.Phase, out RenameBinding? binding)
+        //        && binding.BoundType == BindingType.Special)
+        //    {
+        //        Cons<Syntax, Term> args = stp.Expose();
 
-                    if (TryRewriteDefineArgs(args, out Identifier? key, out Syntax? value))
-                    {
-                        if (!key.TryRenameAsVariable(context.Phase, out _))
-                        {
-                            throw new ExpanderException.InvalidBindingOperation(key, context);
-                        }
+        //        if (binding.Name == Keywords.DEFINE_SYNTAX)
+        //        {
+        //            // expand and bind the macro, then discard the syntax
+        //            ExpandDefineSyntaxArgs(args, stx.LexContext, context);
+        //            return null;
+        //        }
+        //        else if (binding.Name == Keywords.DEFINE)
+        //        {
+        //            // extract and rename the key, then rewrite the form to indicate we did so
 
-                        Identifier newOp = new Identifier(Symbols.StaticParDef, op);
+        //            if (TryRewriteDefineArgs(args, out Identifier? key, out Syntax? value))
+        //            {
+        //                if (!key.TryRenameAsVariable(context.Phase, out _))
+        //                {
+        //                    throw new ExpanderException.InvalidBindingOperation(key, context);
+        //                }
 
-                        return new SyntaxList(value, op.LexContext)
-                            .Push(key)
-                            .Push(newOp);
-                    }
-                    else
-                    {
-                        throw new ExpanderException.InvalidForm(Keywords.DEFINE, stx);
-                    }
-                }
+        //                Identifier newOp = new Identifier(Symbols.StaticParDef, op);
 
-                // let-syntax isn't partially expanded because it cannot legally expand into a definition
-            }
-            return stx;
-        }
+        //                return new SyntaxList(value, op.LexContext)
+        //                    .Push(key)
+        //                    .Push(newOp);
+        //            }
+        //            else
+        //            {
+        //                throw new ExpanderException.InvalidForm(Keywords.DEFINE, stx);
+        //            }
+        //        }
 
-        private static Syntax? PartiallyExpandModuleBodyTerm(Syntax stx, CompilationContext context, out Identifier[] exportations)
-        {
-            exportations = [];
+        //        // let-syntax isn't partially expanded because it cannot legally expand into a definition
+        //    }
+        //    return stx;
+        //}
 
-            if (stx is SyntaxPair stp
-                && stp.Expose().Car is Identifier op
-                && op.TryResolveBinding(context.Phase, out RenameBinding? binding)
-                && binding.BoundType == BindingType.Special)
-            {
-                Cons<Syntax, Term> args = stp.Expose();
+        //private static Syntax? PartiallyExpandModuleBodyTerm(Syntax stx, CompilationContext context, out Identifier[] exportations)
+        //{
+        //    exportations = [];
 
-                if (binding.Name == Keywords.DEFINE_SYNTAX)
-                {
-                    // expand and bind the macro AND return the syntax
-                    return new SyntaxList(ExpandDefineSyntaxArgs(args, stx.LexContext, context), stx.LexContext)
-                        .Push(op);
-                }
-                else if (binding.Name == Keywords.DEFINE)
-                {
-                    // extract and rename the key, then rewrite the form to indicate we did so
+        //    if (stx is SyntaxPair stp
+        //        && stp.Expose().Car is Identifier op
+        //        && op.TryResolveBinding(context.Phase, out RenameBinding? binding)
+        //        && binding.BoundType == BindingType.Special)
+        //    {
+        //        Cons<Syntax, Term> args = stp.Expose();
 
-                    if (TryRewriteDefineArgs(args, out Identifier? key, out Syntax? value))
-                    {
-                        if (!key.TryRenameAsVariable(context.Phase, out _))
-                        {
-                            throw new ExpanderException.InvalidBindingOperation(key, context);
-                        }
+        //        if (binding.Name == Keywords.DEFINE_SYNTAX)
+        //        {
+        //            // expand and bind the macro AND return the syntax
+        //            return new SyntaxList(ExpandDefineSyntaxArgs(args, stx.LexContext, context), stx.LexContext)
+        //                .Push(op);
+        //        }
+        //        else if (binding.Name == Keywords.DEFINE)
+        //        {
+        //            // extract and rename the key, then rewrite the form to indicate we did so
 
-                        Identifier newOp = new Identifier(Symbols.StaticParDef, op);
+        //            if (TryRewriteDefineArgs(args, out Identifier? key, out Syntax? value))
+        //            {
+        //                if (!key.TryRenameAsVariable(context.Phase, out _))
+        //                {
+        //                    throw new ExpanderException.InvalidBindingOperation(key, context);
+        //                }
 
-                        return new SyntaxList(value, op.LexContext)
-                            .Push(key)
-                            .Push(newOp);
-                    }
-                    else
-                    {
-                        throw new ExpanderException.InvalidForm(Keywords.DEFINE, stx);
-                    }
-                }
-                else if (binding.Name == Keywords.EXPORT)
-                {
-                    List<Identifier> ids = new List<Identifier>();
-                    Term cdr = args;
+        //                Identifier newOp = new Identifier(Symbols.StaticParDef, op);
 
-                    while (args.TryMatchLeading(out Identifier? id, out cdr))
-                    {
-                        ids.Add(id);
-                    }
+        //                return new SyntaxList(value, op.LexContext)
+        //                    .Push(key)
+        //                    .Push(newOp);
+        //            }
+        //            else
+        //            {
+        //                throw new ExpanderException.InvalidForm(Keywords.DEFINE, stx);
+        //            }
+        //        }
+        //        else if (binding.Name == Keywords.EXPORT)
+        //        {
+        //            List<Identifier> ids = new List<Identifier>();
+        //            Term cdr = args;
 
-                    if (cdr is not Nil)
-                    {
-                        throw new ExpanderException.ExpectedProperList(nameof(Identifier), args, stx.LexContext);
-                    }
+        //            while (args.TryMatchLeading(out Identifier? id, out cdr))
+        //            {
+        //                ids.Add(id);
+        //            }
 
-                    exportations = ids.ToArray();
-                    return null;
-                }
-            }
-            return stx;
-        }
+        //            if (cdr is not Nil)
+        //            {
+        //                throw new ExpanderException.ExpectedProperList(nameof(Identifier), args, stx.LexContext);
+        //            }
+
+        //            exportations = ids.ToArray();
+        //            return null;
+        //        }
+        //    }
+        //    return stx;
+        //}
 
         #endregion
 
@@ -486,7 +491,7 @@ namespace Clasp.Process
         {
             Syntax expandedCar = Expand(stp.Car, context.AsExpression());
 
-            if (stp.Cdr == Datum.NilDatum)
+            if (stp.Cdr == Datum.NullSyntax)
             {
                 return new (expandedCar, stp.Cdr);
             }

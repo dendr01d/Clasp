@@ -58,6 +58,5 @@ namespace Clasp.Data.Terms.Procedures
             string.Join(' ', Parameters),
             VariadicParameter is null ? string.Empty : string.Format(" . {0}", VariadicParameter));
         protected override string FormatType() => string.Format("Lambda({0}{1})", Arity, IsVariadic ? "+" : string.Empty);
-        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(CompoundProcedure), ToString());
     }
 }

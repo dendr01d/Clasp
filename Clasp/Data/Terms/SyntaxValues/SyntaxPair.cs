@@ -39,12 +39,6 @@ namespace Clasp.Data.Terms.SyntaxValues
             return _cons;
         }
 
-        public void Expose(out Syntax car, out Syntax cdr)
-        {
-            car = _car;
-            cdr = _cdr;
-        }
-
         private void LazilyOperate()
         {
             // If there are any pending scope operations, apply them all and reset the operator

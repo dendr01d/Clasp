@@ -4,6 +4,7 @@ using Clasp.Binding;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Text;
+using Clasp.Interfaces;
 
 namespace Clasp.Data.Terms.SyntaxValues
 {
@@ -15,7 +16,7 @@ namespace Clasp.Data.Terms.SyntaxValues
         private readonly Term _datum;
         public override Term Expose() => _datum;
 
-        public static Datum NilDatum => new Datum(Nil.Value, SourceCode.StaticSource);
+        public static Datum NullSyntax() => new Datum(Nil.Value, SourceCode.StaticSource);
 
         public Datum(Term t, SourceCode loc) : base(loc) => _datum = t;
 

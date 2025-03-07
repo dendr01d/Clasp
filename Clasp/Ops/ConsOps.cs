@@ -10,13 +10,13 @@ namespace Clasp.Ops
         public static Term Car(Cons p) => p.Car;
         public static Term Cdr(Cons p) => p.Cdr;
 
-        public static Term SetCar(Cons<Term, Term> p, Term t)
+        public static Term SetCar(Cons p, Term t)
         {
             p.SetCar(t);
             return VoidTerm.Value;
         }
 
-        public static Term SetCdr(Cons<Term, Term> p, Term t)
+        public static Term SetCdr(Cons p, Term t)
         {
             p.SetCdr(t);
             return VoidTerm.Value;

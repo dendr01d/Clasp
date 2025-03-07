@@ -40,7 +40,6 @@ namespace Clasp.Data.Terms
 
         public override string ToString() => string.Format("{0}{1}{2}¡", RealPart, ImaginaryPart.Sign, ImaginaryPart);
         protected override string FormatType() => "Complex";
-        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(ComplexNumeric), ToString());
     }
 
     internal abstract class RealNumeric : ComplexNumeric
