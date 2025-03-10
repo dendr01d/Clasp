@@ -14,7 +14,7 @@ namespace Clasp.Binding.Environments
     {
         public override RootEnv Root { get; }
 
-        public Closure(DynamicEnv pred) : base(pred)
+        public Closure(MutableEnv pred) : base(pred)
         {
             Root = pred.Root;
         }

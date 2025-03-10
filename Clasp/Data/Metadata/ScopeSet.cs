@@ -98,7 +98,7 @@ namespace Clasp.Data.Metadata
 
         public bool TryBind(int phase, string symbolicName, RenameBinding binding)
         {
-            if (_phasedScopeSets[phase].MaxBy(x => x.Id) is Scope scp
+            if (this[phase].MaxBy(x => x.Id) is Scope scp
                 && !scp.Binds(symbolicName))
             {
                 scp.AddBinding(symbolicName, binding);

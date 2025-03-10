@@ -10,6 +10,7 @@ namespace Clasp.Data.Terms.SyntaxValues
     {
         public SourceCode Location { get; private set; }
         public abstract Term Expose();
+        public abstract Term ExposeAll();
 
         protected Syntax(SourceCode loc)
         {
@@ -58,6 +59,7 @@ namespace Clasp.Data.Terms.SyntaxValues
         /// Create a copy of this Syntax stripped of scope information at or above the level of <paramref name="inclusivePhaseThreshold"/>.
         /// </summary>
         public abstract Syntax StripScopes(int inclusivePhaseThreshold);
+
 
         public abstract ScopeSet GetScopeSet();
         private void SetScopes(ScopeSet original)

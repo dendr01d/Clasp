@@ -18,7 +18,7 @@ namespace Clasp.Binding.Environments
         public RootEnv() : base(StaticEnv.Instance)
         {
             _modules = new Dictionary<string, ModuleEnv>();
-            ImplicitScopes = new List<Scope>() { StaticEnv.Instance.ImplicitScope };
+            ImplicitScopes = new List<Scope>() { StaticEnv.ImplicitScope };
         }
 
         public RootEnv(RootEnv original) : base(original.Predecessor)
@@ -27,12 +27,14 @@ namespace Clasp.Binding.Environments
             ImplicitScopes = original.ImplicitScopes.ToList();
         }
 
-        public void InstallModule(Module mdl)
+        public void InstallModule(InstantiatedModule mdl)
         {
             if (!_modules.ContainsKey(mdl.Name))
             {
-                ModuleEnv mEnv = new ModuleEnv(this, mdl);
+                ModuleEnv mEnv = new ModuleEnv(this.Predecessor, mdl);
                 Predecessor = mEnv; // insert at base of linked list
+
+                _modules.Add(mdl.Name, mEnv);
             }
         }
     }

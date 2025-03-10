@@ -1,16 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-using Clasp.Binding.Modules;
 using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
-using Clasp.Data.Terms.ProductValues;
-using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
 using Clasp.Exceptions;
-using Clasp.Ops;
-using Clasp.Ops.Functions;
 
 namespace Clasp.Binding.Environments
 {
@@ -23,7 +18,7 @@ namespace Clasp.Binding.Environments
         private static readonly Dictionary<string, Term> _definitions = new Dictionary<string, Term>();
 
         public static readonly StaticEnv Instance = new StaticEnv();
-        public static readonly Scope ImplicitScope = new Scope(SourceCode.StaticSource);
+        public static readonly Scope ImplicitScope = new Scope("Static Global", SourceCode.StaticSource);
 
         public static string ClaspSourceDir = string.Empty;
 
@@ -50,33 +45,63 @@ namespace Clasp.Binding.Environments
             {
                 return true;
             }
+
             // end of the line
-            throw new ClaspGeneralException("Could not find definition of '{0}' in environment chain.", key);
+            value = null;
+            return false;
         }
 
         private static readonly Symbol[] CoreKeywords = new Symbol[]
         {
             Symbols.Quote,
-            Symbols.QuoteSyntax,
+            Symbols.Quasiquote,
+            Symbols.Unquote,
+            Symbols.UnquoteSplicing,
 
-            Symbols.Apply,
+            Symbols.QuoteSyntax,
+            Symbols.Quasisyntax,
+            Symbols.Unsyntax,
+            Symbols.UnsyntaxSplicing,
 
             Symbols.Define,
             Symbols.Set,
 
-            Symbols.Lambda,
-
             Symbols.If,
-
             Symbols.Begin,
+            Symbols.Apply,
+            Symbols.Lambda,
 
             Symbols.Module,
             Symbols.Import,
             Symbols.Export,
 
             Symbols.DefineSyntax,
+            Symbols.ImportForSyntax,
             Symbols.BeginForSyntax,
-            Symbols.ImportForSyntax
+
+            Symbols.Syntax,
+            Symbols.Ellipsis,
+
+            Symbols.S_TopBegin,
+            Symbols.S_TopDefine,
+            Symbols.S_TopVar,
+
+            Symbols.S_Module,
+            Symbols.S_Module_Begin,
+            Symbols.S_Import,
+
+            Symbols.S_Set,
+
+            Symbols.S_If,
+            Symbols.S_Begin,
+            Symbols.S_Apply,
+            Symbols.S_Lambda,
+
+            Symbols.S_Var,
+            Symbols.S_Const,
+
+            Symbols.S_PartialDefine,
+            Symbols.S_VisitModule
         };
 
     }

@@ -12,6 +12,7 @@ using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.VirtualMachine;
 using Clasp.Interfaces;
 using Clasp.Exceptions;
+using Clasp.Binding.Environments;
 
 namespace Clasp
 {
@@ -78,8 +79,8 @@ namespace Clasp
 
             // -----
 
-            Processor clasp = new Processor(writer);
             Blob session = new Blob("REPL", []);
+            RootEnv topLevelEnv = new RootEnv();
 
             while (input != _QUIT_CMD)
             {
@@ -156,18 +157,16 @@ namespace Clasp
                             {
                                 if (_showingInput) writer.WriteLine(" INPUT: {0}", input);
 
-                                IEnumerable<Token> tokens = clasp.LexLine(input, session);
+                                IEnumerable<Token> tokens = Lexer.LexText("REPL", input);
                                 if (_showingInput) writer.WriteLine("TOKENS: {0}", Printer.PrintRawTokens(tokens));
 
-                                Syntax readSyntax = clasp.Read(tokens);
+                                Syntax readSyntax = Reader.ReadTokens(tokens);
                                 if (_showingInput) writer.WriteLine("  READ: {0}", readSyntax.ToString());
-                                if (_showingInput) writer.WriteLine("    └─> {0}", readSyntax.ToDatum());
 
-                                Syntax expandedSyntax = clasp.Expand(readSyntax);
+                                Syntax expandedSyntax = Expander.Expand(readSyntax, CompilationContext.ForTopLevel());
                                 if (_showingInput) writer.WriteLine("EXPAND: {0}", expandedSyntax.ToString());
-                                if (_showingInput) writer.WriteLine("    └─> {0}", expandedSyntax.ToDatum());
 
-                                CoreForm parsedInput = clasp.Parse(expandedSyntax);
+                                CoreForm parsedInput = Parser.ParseSyntax(expandedSyntax, 1);
                                 if (_showingInput) writer.WriteLine(" PARSE: {0}", parsedInput.ToString());
 
                                 if (_showingInput) writer.WriteLine("-------");
@@ -176,22 +175,23 @@ namespace Clasp
                                     ? System.Diagnostics.Stopwatch.StartNew()
                                     : null;
 
+                                MachineState mx = new MachineState(parsedInput, topLevelEnv);
                                 Term result;
 
                                 if (_showingSteps)
                                 {
                                     if (_pausing)
                                     {
-                                        result = clasp.Interpret(parsedInput, PrintStepAndPause);
+                                        result = Interpreter.InterpretToCompletion(mx, PrintStepAndPause).ReturningValue;
                                     }
                                     else
                                     {
-                                        result = clasp.Interpret(parsedInput, PrintStep);
+                                        result = Interpreter.InterpretToCompletion(mx, PrintStep).ReturningValue;
                                     }
                                 }
                                 else
                                 {
-                                    result = clasp.Interpret(parsedInput);
+                                    result = Interpreter.InterpretToCompletion(mx).ReturningValue;
                                 }
 
                                 timer?.Stop();

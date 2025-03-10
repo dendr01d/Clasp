@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Clasp.Data.Static
 {
-    internal static class RuntimeParams
+    public static class RuntimeParams
     {
         public const string FILE_EXT = "clsp";
 

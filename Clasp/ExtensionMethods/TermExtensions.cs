@@ -52,7 +52,7 @@ namespace Clasp.ExtensionMethods
 
             cddr = cdr?.Cdr as T3;
 
-            return (car is not null && cdr is not null);
+            return (car is not null && cadr is not null && cddr is not null);
         }
 
         /// <summary>
@@ -80,14 +80,14 @@ namespace Clasp.ExtensionMethods
 
             cdddr = cddr?.Cdr as T4;
 
-            return (car is not null && cadr is not null && cddr is not null);
+            return (car is not null && cadr is not null && caddr is not null && cdddr is not null);
         }
 
         // ---
         
         /// <summary>
         /// Attempt to deconstruct <paramref name="t"/> as a Cons-list
-        /// structured as (<typeparamref name="T1"/> . <typeparamref name="T2"/>)
+        /// structured as (<typeparamref name="T1"/>)
         /// </summary>
         public static bool TryDelist<T1>(this Term t,
             [NotNullWhen(true)] out T1? car)
@@ -98,7 +98,7 @@ namespace Clasp.ExtensionMethods
 
         /// <summary>
         /// Attempt to deconstruct <paramref name="t"/> as a Cons-list
-        /// structured as (<typeparamref name="T1"/> <typeparamref name="T2"/> . <typeparamref name="T3"/>)
+        /// structured as (<typeparamref name="T1"/> <typeparamref name="T2"/>)
         /// </summary>
         public static bool TryDelist<T1, T2>(this Term t,
             [NotNullWhen(true)] out T1? car,
@@ -111,7 +111,7 @@ namespace Clasp.ExtensionMethods
 
         /// <summary>
         /// Attempt to deconstruct <paramref name="t"/> as a Cons-list
-        /// structured as (<typeparamref name="T1"/> <typeparamref name="T2"/> <typeparamref name="T3"/> . <typeparamref name="T4"/>)
+        /// structured as (<typeparamref name="T1"/> <typeparamref name="T2"/> <typeparamref name="T3"/>)
         /// </summary>
         public static bool TryDelist<T1, T2, T3>(this Term t,
             [NotNullWhen(true)] out T1? car,

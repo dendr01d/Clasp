@@ -13,14 +13,17 @@ namespace Clasp.Binding.Modules
     internal sealed class VisitedModule : Module
     {
         public readonly CoreForm ParsedForm;
-        public readonly Symbol[] ExportedSymbols;
+        public readonly Identifier[] ExportedIds;
+        public readonly Scope ExportedScope;
+
         public override bool Visited => true;
         public override bool Instantiated => false;
 
-        public VisitedModule(string name, CoreForm cf, Identifier[] ids) : base(name)
+        public VisitedModule(string name, CoreForm cf, Identifier[] ids, Scope scp) : base(name)
         {
             ParsedForm = cf;
-            ExportedSymbols = ids.Select(x => x.Expose()).ToArray();
+            ExportedIds = ids;
+            ExportedScope = scp;
         }
     }
 }

@@ -22,13 +22,19 @@ namespace Clasp.Process
                 {
                     return ParseApplication(stl, phase);
                 }
+                else if (stx is Identifier id)
+                {
+                    return ParseVar(id, phase);
+                }
+                else
+                {
+                    return new ConstValue(stx);
+                }
             }
             catch (ClaspException cex)
             {
                 throw new ParserException.InvalidSyntax(stx, cex);
             }
-
-            throw new ParserException.ExpectedCoreKeywordForm(stx);
         }
 
         //private static CoreForm ParseIdentifier(Identifier id, int phase)
@@ -47,7 +53,10 @@ namespace Clasp.Process
 
         private static CoreForm ParseApplication(SyntaxPair stp, int phase)
         {
-            stp.Expose(out Syntax op, out Syntax args);
+            if (!stp.TryUnpair(out Syntax? op, out Syntax? args))
+            {
+                throw new ParserException.InvalidSyntax(stp);
+            }
 
             if (op is Identifier id
                 && id.TryResolveBinding(phase, BindingType.Special, out RenameBinding? binding))
@@ -118,15 +127,15 @@ namespace Clasp.Process
             Syntax stx = args;
             List<CoreForm> forms = new List<CoreForm>();
 
-            while (stx is SyntaxPair stp)
+            while (stx.TryUnpair(out Syntax? nextForm, out Syntax? tail))
             {
-                stp.Expose(out Syntax nextForm, out stx);
-
                 CoreForm outForm = ParseSyntax(nextForm, phase);
                 forms.Add(outForm);
+
+                stx = tail;
             }
 
-            if (stx != Datum.NullSyntax)
+            if (!Nil.Is(stx))
             {
                 throw new ParserException.ExpectedProperList(args);
             }
@@ -136,8 +145,7 @@ namespace Clasp.Process
 
         private static TopDefine ParseTopDefine(Syntax args, int phase)
         {
-            if (args is not SyntaxPair stp
-                || !stp.TryMatchOnly(out Identifier? key, out Syntax? value))
+            if (!args.TryUnpair(out Identifier? key, out Syntax? value))
             {
                 throw new ParserException.InvalidArguments(Keywords.S_TOP_DEFINE, args);
             }
@@ -154,18 +162,43 @@ namespace Clasp.Process
 
         private static Sequential ParseModuleBegin(Syntax args, int phase)
         {
-            Syntax stx = args;
-            List<CoreForm> forms = new List<CoreForm>();
-
-            while (stx is SyntaxPair stp)
+            if (!args.TryUnpair(out Syntax? exports, out Syntax? body))
             {
-                stp.Expose(out Syntax nextForm, out stx);
-
-                CoreForm outForm = ParseSyntax(nextForm, phase);
-                forms.Add(outForm);
+                throw new ParserException.InvalidArguments(Keywords.S_MODULE_BEGIN, args);
             }
 
-            if (stx != Datum.NullSyntax)
+            List<CoreForm> forms = new List<CoreForm>();
+
+            Syntax stx = exports;
+            while (stx.TryUnpair(out Identifier? nextExport, out Syntax? moreExports))
+            {
+                if (nextExport.TryResolveBinding(phase, out RenameBinding? binding)
+                    && binding.BoundType != BindingType.Module)
+                {
+                    forms.Add(new Undefine(binding.BindingSymbol));
+                }
+                else
+                {
+                    throw new ParserException.UnboundIdentifier(nextExport);
+                }
+                stx = moreExports;
+            }
+
+            if (!Nil.Is(stx))
+            {
+                throw new ParserException.ExpectedProperList(exports);
+            }
+
+            stx = body;
+            while (stx.TryUnpair(out Syntax? nextForm, out Syntax? tail))
+            {
+                CoreForm outForm = ParseSyntax(nextForm, phase);
+                forms.Add(outForm);
+
+                stx = tail;
+            }
+
+            if (!Nil.Is(stx))
             {
                 throw new ParserException.ExpectedProperList(args);
             }
@@ -178,27 +211,15 @@ namespace Clasp.Process
             Syntax stx = args;
             List<Symbol> mdlSymbols = new List<Symbol>();
 
-            while (stx is SyntaxPair stp)
+            while (stx.TryUnpair(out Identifier? nextImport, out Syntax? tail))
             {
-                stp.Expose(out Syntax nextForm, out stx);
-
-                if (nextForm is not Identifier outForm)
-                {
-                    throw new ParserException.InvalidArguments(Keywords.S_IMPORT, args);
-                }
-
-                if (!outForm.TryResolveBinding(phase, BindingType.Module, out RenameBinding? binding))
-                {
-                    throw new ParserException.UnboundIdentifier(outForm, BindingType.Module);
-                }
-
-                Module.Visit(binding.Name);
-                mdlSymbols.Add(binding.BindingSymbol);
+                mdlSymbols.Add(nextImport.Expose());
+                stx = tail;
             }
 
-            if (stx != Datum.NullSyntax)
+            if (!Nil.Is(stx))
             {
-                throw new ParserException.ExpectedProperList(args);
+                throw new ParserException.ExpectedProperList(nameof(Identifier), args);
             }
 
             return new Importation(mdlSymbols);
@@ -206,8 +227,7 @@ namespace Clasp.Process
 
         private static Mutation ParseSet(Syntax args, int phase)
         {
-            if (args is not SyntaxPair stp
-                || !stp.TryMatchOnly(out Identifier? key, out Syntax? value))
+            if (!args.TryDelist(out Identifier? key, out Syntax? value))
             {
                 throw new ParserException.InvalidArguments(Keywords.S_SET, args);
             }
@@ -224,8 +244,7 @@ namespace Clasp.Process
 
         private static Conditional ParseIf(Syntax args, int phase)
         {
-            if (args is not SyntaxPair stp
-                || !stp.TryMatchOnly(out Syntax? arg1, out Syntax? arg2, out Syntax? arg3))
+            if (!args.TryDelist(out Syntax? arg1, out Syntax? arg2, out Syntax? arg3))
             {
                 throw new ParserException.InvalidArguments(Keywords.S_IF, args);
             }
@@ -242,15 +261,15 @@ namespace Clasp.Process
             Syntax stx = args;
             List<CoreForm> forms = new List<CoreForm>();
 
-            while (stx is SyntaxPair stp)
+            while (stx.TryUnpair(out Syntax? nextForm, out Syntax? tail))
             {
-                stp.Expose(out Syntax nextForm, out stx);
-
                 CoreForm outForm = ParseSyntax(nextForm, phase);
                 forms.Add(outForm);
+
+                stx = tail;
             }
 
-            if (stx != Datum.NullSyntax)
+            if (!Nil.Is(stx))
             {
                 throw new ParserException.ExpectedProperList(args);
             }
@@ -275,31 +294,34 @@ namespace Clasp.Process
 
         private static Procedural ParseLambda(Syntax args, int phase)
         {
-            if (args is not SyntaxPair stp
-                || !stp.TryMatchLeading(out Syntax? p1, out Syntax? pv, out Syntax? p2, out Term? rest)
-                || rest is not SyntaxPair body)
+            if (!args.TryUnpair(out Syntax? formals, out Syntax? variad, out Syntax? informals, out SyntaxPair? body))
             {
                 throw new ParserException.InvalidArguments(Keywords.S_LAMBDA, args);
             }
 
-            IEnumerable<Symbol> formals = ParseParameterList(p1, phase);
-            Symbol? variad = ParseMaybeParameter(pv, phase);
-            IEnumerable<Symbol> informals = ParseParameterList(p2, phase);
+            IEnumerable<Symbol> parsedFormals = ParseParameterList(formals, phase);
+            Symbol? parsedVariad = ParseMaybeParameter(variad, phase);
+            IEnumerable<Symbol> parsedInformals = ParseParameterList(informals, phase);
             Sequential parsedBody = ParseBegin(body, phase);
 
-            return new Procedural(formals, variad, informals, parsedBody);
+            return new Procedural(parsedFormals, parsedVariad, parsedInformals, parsedBody);
         }
 
-        private static VariableReference ParseVar(Syntax args, int phase)
+        private static CoreForm ParseVar(Syntax args, int phase)
         {
             if (args is not Identifier id)
             {
                 throw new ParserException.InvalidArguments(Keywords.S_VAR, args);
             }
 
-            if (!id.TryResolveBinding(phase, BindingType.Variable, out RenameBinding? binding))
+            if (!id.TryResolveBinding(phase, out RenameBinding? binding))
             {
                 throw new ParserException.UnboundIdentifier(id);
+            }
+
+            if (binding.BoundType == BindingType.Module)
+            {
+                return new ConstValue(new ModuleHandle(id.Name));
             }
 
             return new VariableReference(binding.BindingSymbol, false);
@@ -307,7 +329,7 @@ namespace Clasp.Process
 
         private static ConstValue ParseConst(Syntax args, int phase)
         {
-            return new ConstValue(args.StripScopes(1));
+            return new ConstValue(args.ExposeAll());
         }
 
         private static ConstValue ParseConstSyntax(Syntax args, int phase)
@@ -324,10 +346,10 @@ namespace Clasp.Process
         /// </summary>
         private static IEnumerable<CoreForm> ParseArguments(Syntax stx, int phase)
         {
-            while (stx is SyntaxPair stp)
-            {
-                stp.Expose(out Syntax nextArg, out stx);
+            Syntax target = stx;
 
+            while (target.TryUnpair(out Syntax? nextArg, out Syntax? tail))
+            {
                 CoreForm outArg = ParseSyntax(nextArg, phase);
 
                 if (outArg.IsImperative)
@@ -336,9 +358,11 @@ namespace Clasp.Process
                 }
 
                 yield return outArg;
+                
+                target = tail;
             }
 
-            if (stx != Datum.NullSyntax)
+            if (!Nil.Is(target))
             {
                 throw new ParserException.ExpectedProperList(stx);
             }
@@ -350,10 +374,8 @@ namespace Clasp.Process
         {
             Syntax target = stx;
 
-            while (target is SyntaxPair stp)
+            while (target.TryUnpair(out Identifier? nextParam, out Syntax? tail))
             {
-                stp.Expose(out Syntax? nextParam, out target);
-
                 if (nextParam is not Identifier outParam)
                 {
                     throw new ParserException.InvalidArguments("Parameter List", stx);
@@ -366,18 +388,25 @@ namespace Clasp.Process
                 {
                     yield return binding.BindingSymbol;
                 }
+
+                target = tail;
             }
 
-            if (target != Datum.NullSyntax)
+            if (!Nil.Is(target))
             {
                 throw new ParserException.ExpectedProperList(stx);
             }
+
             yield break;
         }
 
         private static Symbol? ParseMaybeParameter(Syntax stx, int phase)
         {
-            if (stx is Identifier id)
+            if (Nil.Is(stx))
+            {
+                return null;
+            }
+            else if (stx is Identifier id)
             {
                 if (id.TryResolveBinding(phase, BindingType.Variable, out RenameBinding? binding))
                 {
@@ -385,14 +414,7 @@ namespace Clasp.Process
                 }
                 throw new ParserException.UnboundIdentifier(id);
             }
-            else if (stx == Datum.NullSyntax)
-            {
-                return null;
-            }
-            else
-            {
-                throw new ParserException.InvalidArguments("Variadic Parameter", stx);
-            }
+            throw new ParserException.InvalidArguments("Variadic Parameter", stx);
         }
 
         #endregion

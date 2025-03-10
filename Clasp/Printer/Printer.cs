@@ -15,6 +15,11 @@ namespace Clasp
 
         public static string PrintLineErrorHelper(Blob sourceText, SourceCode loc)
         {
+            if (loc.NormalizedLineNumber < 0)
+            {
+                return "[Created Statically]";
+            }
+
             return PrintLineErrorHelper(sourceText.Lines[loc.NormalizedLineNumber], loc.LineNumber, loc.Column, loc.Length, loc.Source);
         }
 

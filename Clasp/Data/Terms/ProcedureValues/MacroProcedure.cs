@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Clasp.Binding.Environments;
+﻿using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 
 namespace Clasp.Data.Terms.Procedures
@@ -12,7 +6,7 @@ namespace Clasp.Data.Terms.Procedures
 
     internal sealed class MacroProcedure : CompoundProcedure
     {
-        public MacroProcedure(string parameter, ClaspEnvironment enclosing, Sequential body)
+        public MacroProcedure(string parameter, MutableEnv enclosing, Sequential body)
             : base([parameter], [], enclosing, body)
         { }
 

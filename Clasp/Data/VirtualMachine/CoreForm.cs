@@ -88,17 +88,31 @@ namespace Clasp.Data.AbstractSyntax
 
             foreach (Symbol key in _keys)
             {
-                if (!ModuleCache.TryGet(key.Name, out Module? module))
-                {
-                    throw new InterpreterException(machine, "Unable to uncache module '{0}'.", key.Name);
-                }
-
-                machine.Continuation.Push(new InstallModule(module));
+                machine.Continuation.Push(new InstallModule(key.Name));
             }
         }
         public override VmInstruction CopyContinuation() => new Importation(_keys);
         protected override string FormatArgs() => string.Join(", ", _keys.Select(x => x.ToString()));
         public override Term ToTerm() => Cons.Truct(Symbols.Import, Cons.ProperList(_keys));
+    }
+
+    internal sealed class Undefine : CoreForm
+    {
+        private readonly Symbol _key;
+        public override string AppCode => "NDEF";
+        public override string ImplicitKeyword => Keywords.S_PARTIAL_DEFINE;
+        public Undefine(Symbol key)
+        {
+            _key = key;
+        }
+        public override void RunOnMachine(MachineState machine)
+        {
+            machine.Continuation.Push(new BindFresh(_key.Name));
+            machine.ReturningValue = Undefined.Value;
+        }
+        public override VmInstruction CopyContinuation() => new Undefine(_key);
+        protected override string FormatArgs() => string.Format("{0}", _key);
+        public override Term ToTerm() => Cons.ProperList(Symbols.S_PartialDefine, _key);
     }
 
     internal sealed class Mutation : CoreForm

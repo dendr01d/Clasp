@@ -9,12 +9,14 @@ using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Static;
 using System.Numerics;
+using System.Diagnostics;
 
 namespace Clasp.Data.Metadata
 {
     /// <summary>
     /// Manages state information of an ongoing program expansion\parse
     /// </summary>
+    [DebuggerDisplay("{Mode} @ Phase {Phase}")]
     internal sealed class CompilationContext
     {
         /// <summary>
@@ -43,6 +45,11 @@ namespace Clasp.Data.Metadata
         public readonly List<Identifier> CollectedIdentifiers;
 
         /// <summary>
+        /// Holds scopes imported from other modules within this context.
+        /// </summary>
+        public readonly List<Scope> ImportedScopes;
+
+        /// <summary>
         /// The inside edge of the most immediate scoped sequential form, if one exists.
         /// </summary>
         /// <remarks>
@@ -69,22 +76,23 @@ namespace Clasp.Data.Metadata
             CompileTimeEnv = env;
             Phase = phase;
             CollectedIdentifiers = new List<Identifier>();
+            ImportedScopes = new List<Scope>();
             InsideEdge = edge;
             MacroUseSite = site;
             Mode = mode;
         }
 
-        private static CompilationContext BuildNew(ExpansionMode mode)
+        private static CompilationContext BuildNew(ExpansionMode mode, Scope? insideEdge = null)
         {
             RootEnv phase1Env = new RootEnv();
             Dictionary<int, RootEnv> meta = new Dictionary<int, RootEnv>() { { 1, phase1Env } };
 
-            return new CompilationContext(meta, phase1Env, 1, null, null, mode);
+            return new CompilationContext(meta, phase1Env, 1, insideEdge, null, mode);
         }
 
         public static CompilationContext ForTopLevel() => BuildNew(ExpansionMode.TopLevel);
 
-        public static CompilationContext ForModule() => BuildNew(ExpansionMode.Module);
+        public static CompilationContext ForModule(Scope insideEdge) => BuildNew(ExpansionMode.Module, insideEdge);
 
         /// <summary>
         /// Contextualize a <see cref="Keywords.LAMBDA"/> body form within the current context,
@@ -98,19 +106,19 @@ namespace Clasp.Data.Metadata
                 phase: Phase,
                 edge: insideEdge,
                 site: null,
-                mode: ExpansionMode.InternalDefinition);
+                mode: ExpansionMode.Sequential);
         }
 
-        public CompilationContext InModuleBody(Scope insideEdge)
-        {
-            return new CompilationContext(
-                meta: _metaEnvironments,
-                env: CompileTimeEnv.Enclose(),
-                phase: Phase,
-                edge: insideEdge,
-                site: null,
-                mode: ExpansionMode.Module);
-        }
+        //public CompilationContext InModuleBody(Scope insideEdge)
+        //{
+        //    return new CompilationContext(
+        //        meta: _metaEnvironments,
+        //        env: CompileTimeEnv.Enclose(),
+        //        phase: Phase,
+        //        edge: insideEdge,
+        //        site: null,
+        //        mode: ExpansionMode.Module);
+        //}
 
         /// <summary>
         /// Contextualize a form that is the result of a macro transformation,
@@ -149,7 +157,6 @@ namespace Clasp.Data.Metadata
         /// <summary>
         /// Contextualize a form that is required to be or expand to an expression form.
         /// </summary>
-        /// <returns></returns>
         public CompilationContext AsExpression()
         {
             return new CompilationContext(
@@ -159,6 +166,20 @@ namespace Clasp.Data.Metadata
                 edge: InsideEdge,
                 site: MacroUseSite,
                 mode: ExpansionMode.Expression);
+        }
+
+        /// <summary>
+        /// Contextualize a form that has already been partially-expanded.
+        /// </summary>
+        public CompilationContext AsPartial()
+        {
+            return new CompilationContext(
+                meta: _metaEnvironments,
+                env: CompileTimeEnv,
+                phase: Phase,
+                edge: InsideEdge,
+                site: MacroUseSite,
+                mode: ExpansionMode.Partial);
         }
 
         #endregion
@@ -197,6 +218,8 @@ namespace Clasp.Data.Metadata
         #endregion
 
         public void CollectIdentifier(Identifier id) => CollectedIdentifiers.Add(id);
+
+        public void ImportScope(Scope scp) => ImportedScopes.Add(scp);
 
         /// <summary>
         /// Attempt to dereference a <see cref="MacroProcedure"/> defined using <paramref name="binding"/>

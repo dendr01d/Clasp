@@ -3,6 +3,7 @@ using System.Linq;
 
 using Clasp.Binding.Environments;
 using Clasp.Binding.Modules;
+using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;
@@ -18,7 +19,7 @@ namespace Clasp.Data.AbstractSyntax
     /// </summary>
     internal abstract class VmInstruction
     {
-        protected const string HOLE = "░░░";
+        protected const string HOLE = "░░";
 
         public abstract string AppCode { get; }
         public abstract void RunOnMachine(MachineState machine);
@@ -48,7 +49,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
         {
-            if (!machine.CurrentEnv.TryGetValue(_key, out Term? def) || def is Undefined)
+            if (!machine.CurrentEnv.ContainsKey(_key))
             {
                 machine.CurrentEnv.Define(_key, machine.ReturningValue);
                 machine.ReturningValue = VoidTerm.Value;
@@ -68,7 +69,7 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class RebindExisting : VmInstruction
     {
         private string _key;
-        public override string AppCode => "MUT8";
+        public override string AppCode => "RBND";
         public RebindExisting(string key) => _key = key;
         public override void RunOnMachine(MachineState machine)
         {
@@ -97,7 +98,7 @@ namespace Clasp.Data.AbstractSyntax
     {
         private readonly CoreForm _consequent;
         private readonly CoreForm _alternative;
-        public override string AppCode => "DECIDE";
+        public override string AppCode => "BNCH";
         public DispatchOnCondition(CoreForm consequent, CoreForm alternate) : base()
         {
             _consequent = consequent;
@@ -266,7 +267,7 @@ namespace Clasp.Data.AbstractSyntax
     {
         private readonly Procedure _op;
         private readonly Term[] _arguments;
-        public override string AppCode => "FUN-DISP";
+        public override string AppCode => "FUN-BNCH";
         public FunctionDispatch(Procedure op, params Term[] args)
         {
             _op = op;
@@ -274,22 +275,11 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
         {
-            if (_op is SystemProcedure sp)
+            if (_op is PrimitiveProcedure pp)
             {
                 try
                 {
-                    machine.ReturningValue = sp.Operate(machine, _arguments);
-                }
-                catch (System.Exception ex)
-                {
-                    throw new InterpreterException.InvalidOperation(this, machine, ex);
-                }
-            }
-            else if (_op is NativeProcedure pp)
-            {
-                try
-                {
-                    machine.ReturningValue = pp.Operate(_arguments);
+                    machine.ReturningValue = pp.Operate(machine, _arguments);
                 }
                 catch (System.Exception ex)
                 {
@@ -353,36 +343,46 @@ namespace Clasp.Data.AbstractSyntax
         protected override string FormatArgs() => Prompter;
     }
 
-    internal sealed class CacheEnvAsModule : VmInstruction
-    {
-        private readonly Symbol _key;
-        private readonly string[] _exportedNames;
-        public override string AppCode => "INSTL";
-        public CacheEnvAsModule(Symbol key, string[] exportedNames)
-        {
-            _key = key;
-            _exportedNames = exportedNames;
-        }
-        public override void RunOnMachine(MachineState machine)
-        {
-            StaticEnv.CacheModule(new Binding.Module(_key.Name, machine.CurrentEnv.Root, _exportedNames));
-            machine.ReturningValue = VoidTerm.Value;
-        }
-        public override CacheEnvAsModule CopyContinuation() => new CacheEnvAsModule(_key, _exportedNames);
-        protected override string FormatArgs() => string.Join(", ", _key, string.Join(", ", _exportedNames));
-    }
+    //internal sealed class CacheEnvAsModule : VmInstruction
+    //{
+    //    private readonly Symbol _key;
+    //    private readonly string[] _exportedNames;
+    //    public override string AppCode => "INSTL";
+    //    public CacheEnvAsModule(Symbol key, string[] exportedNames)
+    //    {
+    //        _key = key;
+    //        _exportedNames = exportedNames;
+    //    }
+    //    public override void RunOnMachine(MachineState machine)
+    //    {
+    //        StaticEnv.CacheModule(new Binding.Module(_key.Name, machine.CurrentEnv.Root, _exportedNames));
+    //        machine.ReturningValue = VoidTerm.Value;
+    //    }
+    //    public override CacheEnvAsModule CopyContinuation() => new CacheEnvAsModule(_key, _exportedNames);
+    //    protected override string FormatArgs() => string.Join(", ", _key, string.Join(", ", _exportedNames));
+    //}
 
     internal sealed class InstallModule : VmInstruction
     {
-        private readonly Module _target;
-        public override string AppCode => "INSTALL";
-        public InstallModule(Module target) => _target = target;
+        private readonly string _moduleName;
+        public override string AppCode => "INST";
+        public InstallModule(string mdlName) => _moduleName = mdlName;
         public override void RunOnMachine(MachineState machine)
         {
-            machine.CurrentEnv.Root.InstallModule(_target);
-            machine.ReturningValue = VoidTerm.Value;
+            Module.Instantiate(_moduleName);
+
+            if (ModuleCache.TryGet(_moduleName, out Module? mdl)
+                && mdl is InstantiatedModule instModule)
+            {
+                machine.CurrentEnv.Root.InstallModule(instModule);
+                machine.ReturningValue = VoidTerm.Value;
+            }
+            else
+            {
+                throw new InterpreterException(machine, "Module '{0}' failed to instantiate.", _moduleName);
+            }
         }
-        public override InstallModule CopyContinuation() => new InstallModule(_target);
-        protected override string FormatArgs() => _target.Name;
+        public override InstallModule CopyContinuation() => new InstallModule(_moduleName);
+        protected override string FormatArgs() => _moduleName;
     }
 }

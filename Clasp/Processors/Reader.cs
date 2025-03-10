@@ -1,49 +1,52 @@
-﻿using Clasp.Data.AbstractSyntax;
-using Clasp.Data.Text;
-using Clasp.Data.Terms;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System;
-using Clasp.Data.Metadata;
-using Clasp.Data.Terms.SyntaxValues;
-using Clasp.Data.Terms.ProductValues;
-using Clasp.ExtensionMethods;
-using System.Runtime.ConstrainedExecution;
-using System.Runtime.InteropServices;
-using Clasp.Interfaces;
-using Clasp.Exceptions;
+
 using Clasp.Data.Static;
+using Clasp.Data.Terms;
+using Clasp.Data.Terms.ProductValues;
+using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Data.Text;
+using Clasp.Exceptions;
+using Clasp.Interfaces;
 
 namespace Clasp.Process
 {
     internal static class Reader
     {
-        /// <summary>
-        /// Read a series of tokens into a series of syntactic terms, as elements of an implicit
-        /// <see cref="Keywords.BEGIN"/> form.
-        /// </summary>
-        public static Syntax ReadBeginForm(IEnumerable<Token> tokens)
-        {
-            return ReadTokens(Symbols.S_Begin, tokens);
-        }
+        ///// <summary>
+        ///// Read a series of tokens into a series of syntactic terms, as elements of an implicit
+        ///// <see cref="Keywords.BEGIN"/> form.
+        ///// </summary>
+        //public static Syntax ReadBeginForm(IEnumerable<Token> tokens)
+        //{
+        //    return ReadTokens(Symbols.S_Begin, tokens);
+        //}
 
-        /// <summary>
-        /// Read a series of tokens into a series of syntactic terms, as elements of an
-        /// (implicit or otherwise) <see cref="Keywords.MODULE"/> form.
-        /// </summary>
-        public static Syntax ReadModuleForm(IEnumerable<Token> tokens)
-        {
-            IEnumerable<Token> checkedTokens = tokens.First().TType == TokenType.ModuleFlag
-                ? tokens.Skip(1)
-                : tokens;
+        ///// <summary>
+        ///// Read a series of tokens into a series of syntactic terms, as elements of an
+        ///// (implicit or otherwise) <see cref="Keywords.MODULE"/> form.
+        ///// </summary>
+        //public static Syntax ReadModuleForm(IEnumerable<Token> tokens, string moduleName)
+        //{
+        //    IEnumerable<Token> checkedTokens = tokens;
+            
+        //    if (tokens.First().TType == TokenType.ModuleFlag)
+        //    {
+        //        checkedTokens = checkedTokens.Skip(1); // remove the module flag
 
-            return ReadTokens(Symbols.S_Module, checkedTokens);
-        }
+        //        Token moduleNameToken = Token.Tokenize(TokenType.Symbol, moduleName, tokens.First().SourceText, tokens.First().Location);
+
+        //        checkedTokens = checkedTokens.Prepend(moduleNameToken);
+        //    }
+
+        //    return ReadTokens(Symbols.S_ImplicitModule, checkedTokens);
+        //}
 
         /// <summary>
         /// Reads the given tokens into a series of syntax objects
         /// </summary>
-        private static Syntax ReadTokens(Symbol implicitOperator, IEnumerable<Token> tokens)
+        public static Syntax ReadTokens(IEnumerable<Token> tokens)
         {
             // First, do a quick check to make sure the parentheses all match up
             CheckParentheses(tokens);
@@ -53,11 +56,10 @@ namespace Clasp.Process
                 throw new ReaderException.EmptyTokenStream();
             }
 
-            Identifier opStx = new Identifier(implicitOperator, tokens.First().Location);
+            Syntax[] forms = ReadMultipleSyntaxes(new Stack<Token>(tokens.Reverse())).ToArray();
+            SourceCode wholeInput = SynthesizeLexicalSource(forms[0], forms[^1]);
 
-            Syntax[] syntaxes = ReadMultipleSyntaxes(new Stack<Token>(tokens.Reverse())).ToArray();
-
-            return new SyntaxPair(opStx, Cons.ProperList(syntaxes), opStx.Location);
+            return Syntax.WrapRaw(Cons.ProperList(forms), wholeInput);
         }
 
         #region Parentheses-Checking
@@ -259,7 +261,7 @@ namespace Clasp.Process
             List<Syntax> contents = new List<Syntax>();
             bool dottedList = false;
 
-            while(tokens.Peek().TType != TokenType.DotOperator
+            while (tokens.Peek().TType != TokenType.DotOperator
                 && tokens.Peek().TType != TokenType.ClosingParen)
             {
                 lastReadToken = tokens.Peek();

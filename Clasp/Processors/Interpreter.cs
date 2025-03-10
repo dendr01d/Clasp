@@ -32,6 +32,12 @@ namespace Clasp.Process
             return machine;
         }
 
+        public static MachineState InterpretToCompletion(MachineState machine, System.Action<int, MachineState> postStepHook)
+        {
+            RunToCompletion(machine, postStepHook);
+            return machine;
+        }
+
         // ---
 
         private static bool Step(MachineState machine)

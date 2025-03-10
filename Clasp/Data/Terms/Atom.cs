@@ -45,9 +45,9 @@ namespace Clasp.Data.Terms
 
     internal sealed class ModuleHandle : Atom
     {
-        public readonly Module Handle;
-        public ModuleHandle(Module mdl) => Handle = mdl;
-        public override string ToString() => string.Format("*{0}", Handle.Name);
+        public readonly string Handle;
+        public ModuleHandle(string moduleName) => Handle = moduleName;
+        public override string ToString() => string.Format("*{0}", Handle);
         protected override string FormatType() => "ModuleHandle";
     }
 }

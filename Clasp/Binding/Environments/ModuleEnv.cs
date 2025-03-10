@@ -7,16 +7,20 @@ namespace Clasp.Binding.Environments
 {
     internal sealed class ModuleEnv : DynamicEnv
     {
-        Module Handle;
+        private readonly InstantiatedModule _mdl;
 
-        public ModuleEnv(ClaspEnvironment pred, Module moduleRef) : base(pred)
+        public ModuleEnv(ClaspEnvironment pred, InstantiatedModule moduleRef) : base(pred)
         {
-            Handle = moduleRef;
+            _mdl = moduleRef;
         }
 
         public override bool TryGetValue(string key, [NotNullWhen(true)] out Term? value)
         {
-            return Handle.TryLookup(key, out value);
+            if (!_mdl.EnrichedEnvironment.TryGetValue(key, out value))
+            {
+                return Predecessor.TryGetValue(key, out value);
+            }
+            return true;
         }
     }
 }

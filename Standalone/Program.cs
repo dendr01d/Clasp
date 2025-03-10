@@ -31,6 +31,7 @@ namespace Standalone
             if (args.Length >= 2)
             {
                 sourceDir = args[0];
+                Clasp.Data.Static.RuntimeParams.LIBRARY_REPO_DIR = sourceDir;
 
                 string fileName = Path.HasExtension(args[1])
                     ? args[1]
@@ -38,7 +39,7 @@ namespace Standalone
 
                 moduleName = Path.GetFileNameWithoutExtension(args[1]);
 
-                inputPath = Path.Combine(sourceDir, fileName);
+                inputPath = Path.GetFullPath(Path.Combine(sourceDir, fileName));
 
                 if (!File.Exists(inputPath))
                 {
@@ -48,7 +49,7 @@ namespace Standalone
                 }
             }
 
-            if (args.Length >= 3)
+            if (args.Length == 3)
             {
                 string destFile = Path.GetFullPath(args[1]);
                 if (!Path.EndsInDirectorySeparator(destFile)
@@ -69,7 +70,7 @@ namespace Standalone
 
             try
             {
-                string output = RunProcessor(sourceDir, outputStream);
+                string output = ProcessFile(inputPath, outputStream);
                 if (consoleOutput)
                 {
                     Console.WriteLine(output);
@@ -111,10 +112,9 @@ namespace Standalone
             }
         }
 
-        private static string RunProcessor(string inputFilePath, StreamWriter oStream)
+        private static string ProcessFile(string inputFilePath, StreamWriter oStream)
         {
-            Processor pross = new Processor(oStream);
-            return pross.Process(inputFilePath);
+            return Processor.ProcessProgram(inputFilePath);
         }
 
         private static void HandleException(Exception ex, StreamWriter oStream)

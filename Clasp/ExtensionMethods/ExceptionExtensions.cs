@@ -92,12 +92,12 @@ namespace Clasp.ExtensionMethods
                 sw.WriteLine();
             }
 
-            if (ex is ISourceTraceable ist)
-            {
-                sw.WriteLine();
-                sw.WriteLine("At input source:");
-                sw.WriteLine(Printer.PrintLineErrorHelper(ist));
-            }
+            //if (ex is ISourceTraceable ist)
+            //{
+            //    sw.WriteLine();
+            //    sw.WriteLine("At input source:");
+            //    sw.WriteLine(Printer.PrintLineErrorHelper(ist));
+            //}
 
             sw.WriteLine("From CLASP source:");
             sw.WriteLine(ex.GetSimpleStackTrace());

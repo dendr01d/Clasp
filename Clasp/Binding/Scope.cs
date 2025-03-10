@@ -14,19 +14,22 @@ namespace Clasp.Binding
         private static uint _idCounter = 0;
 
         public readonly uint Id;
+        public readonly string Name;
 
         public SourceCode Location { get; private set; }
 
         public readonly Dictionary<string, RenameBinding> _bindingStore;
 
-        public Scope(SourceCode loc)
+        public Scope(string name, SourceCode loc)
         {
             Id = _idCounter++;
+            Name = name;
+
             Location = loc;
             _bindingStore = [];
         }
 
-        public Scope(Syntax stx) : this(stx.Location) { }
+        //public Scope(Syntax stx) : this(stx.Location) { }
 
         public bool Binds(string symbolicName) => _bindingStore.ContainsKey(symbolicName);
 
@@ -36,7 +39,7 @@ namespace Clasp.Binding
         /// </summary>
         public void AddStaticBinding(string symbolicName, BindingType type)
         {
-            Identifier newId = new Identifier(symbolicName, ScopeSet.StaticInfo);
+            Identifier newId = new Identifier(symbolicName, SourceCode.StaticSource);
             RenameBinding newBinding = new RenameBinding(newId, type);
             AddBinding(symbolicName, newBinding);
         }
@@ -54,7 +57,7 @@ namespace Clasp.Binding
 
         public override string ToString()
         {
-            return string.Format("Scope #{0} @ {1}", Id, Location);
+            return string.Format("Scope #{0} \"{1}\" @ {2}", Id, Name, Location);
         }
     }
 }

@@ -15,6 +15,7 @@ namespace Clasp.Data.Terms.SyntaxValues
     {
         private readonly Term _datum;
         public override Term Expose() => _datum;
+        public override Term ExposeAll() => _datum;
 
         public static Datum NullSyntax() => new Datum(Nil.Value, SourceCode.StaticSource);
 
@@ -26,6 +27,6 @@ namespace Clasp.Data.Terms.SyntaxValues
         public override Syntax StripScopes(int inclusivePhaseThreshold) => this;
         public override ScopeSet GetScopeSet() => ScopeSet.Empty;
 
-        protected override string FormatType() => string.Format("StxDatum<{0}, {1}>", _datum.TypeName);
+        protected override string FormatType() => string.Format("Stx<{0}>", _datum.TypeName);
     }
 }

@@ -46,12 +46,10 @@ namespace Clasp.Data.Static
         public static readonly ReservedSymbol S_TopVar = new(Keywords.S_TOP_VAR);
 
         public static readonly ReservedSymbol S_Module = new(Keywords.S_MODULE);
-        public static readonly ReservedSymbol S_ModuleBodyBegin = new(Keywords.S_MODULE_BODY_BEGIN);
+        public static readonly ReservedSymbol S_Module_Begin = new(Keywords.S_MODULE_BEGIN);
         public static readonly ReservedSymbol S_Import = new(Keywords.S_IMPORT);
 
         public static readonly ReservedSymbol S_Set = new(Keywords.S_SET);
-
-        public static readonly ReservedSymbol S_Meta = new(Keywords.S_META);
 
         public static readonly ReservedSymbol S_If = new(Keywords.S_IF);
         public static readonly ReservedSymbol S_Begin = new(Keywords.S_BEGIN);
@@ -60,9 +58,11 @@ namespace Clasp.Data.Static
 
         public static readonly ReservedSymbol S_Var = new(Keywords.S_VAR);
         public static readonly ReservedSymbol S_Const = new(Keywords.S_CONST);
+        public static readonly ReservedSymbol S_Const_Syntax = new(Keywords.S_CONST_SYNTAX);
 
         //---
 
         public static readonly ReservedSymbol S_PartialDefine = new(Keywords.S_PARTIAL_DEFINE);
+        public static readonly ReservedSymbol S_VisitModule = new(Keywords.S_VISIT_MODULE);
     }
 }

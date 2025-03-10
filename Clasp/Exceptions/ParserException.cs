@@ -110,6 +110,7 @@ namespace Clasp.Exceptions
             internal InvalidArguments(string formName, Syntax invalid) : base(
                 invalid.Location,
                 "Wrong argument/s shape for core form '{0}':\n\t{1}",
+                formName,
                 invalid)
             { }
         }
@@ -141,8 +142,8 @@ namespace Clasp.Exceptions
                 notAProperList)
             { }
 
-            internal ExpectedProperList(string expectedType, Term notAProperList, SourceCode location) : base(
-                location,
+            internal ExpectedProperList(string expectedType, Syntax notAProperList) : base(
+                notAProperList.Location,
                 "Expected proper list with '{0}' elements:\n\t{1}",
                 expectedType,
                 notAProperList)

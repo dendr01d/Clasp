@@ -61,7 +61,6 @@ namespace Clasp.Data.Terms
 
         public override string ToString() => AsFloatingPoint.ToString();
         protected override string FormatType() => "Real";
-        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(RealNumeric), ToString());
     }
 
     internal abstract class RationalNumeric : RealNumeric
@@ -74,7 +73,6 @@ namespace Clasp.Data.Terms
 
         public override string ToString() => string.Format("{0}/{1}", Numerator, Denominator);
         protected override string FormatType() => "Rational";
-        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(RationalNumeric), ToString());
     }
 
     internal abstract class IntegralNumeric : RationalNumeric
@@ -85,7 +83,6 @@ namespace Clasp.Data.Terms
 
         public override string ToString() => AsInteger.ToString();
         protected override string FormatType() => "Integer";
-        internal override string DisplayDebug() => string.Format("{0}: {1}", nameof(IntegralNumeric), ToString());
     }
 
     #endregion

@@ -170,25 +170,35 @@ namespace Clasp.Exceptions
         {
             internal InvalidArguments(Syntax invalid) : base(
                 invalid.Location,
-                "Wrong argument shape for form:\n\t{1}",
+                "Wrong argument shape for form:\n\t{0}",
                 invalid)
             { }
         }
 
         public class InvalidContext : ExpanderException
         {
-            internal InvalidContext(string invalidType, ExpansionMode mode, Syntax wrongSyntax) : base(
+            internal InvalidContext(string formName, ExpansionMode mode, Syntax wrongSyntax) : base(
                 wrongSyntax.Location,
-                "Input of type '{0}' is invalid in '{1}' expansion context:\n\t{2}",
-                invalidType,
+                "Form '{0}' is invalid in '{1}' expansion context:\n\t{2}",
+                formName,
                 mode.ToString(),
                 wrongSyntax)
             { }
         }
 
+        public class ErrorVisitingModule : ExpanderException
+        {
+            internal ErrorVisitingModule(Module pendingModule, Syntax args, Exception innerException) : base(
+                args.Location,
+                innerException,
+                "An error occured while visiting the module '{0}'.",
+                pendingModule.Name)
+            { }
+        }
+
         public class CircularModuleReference : ExpanderException
         {
-            internal CircularModuleReference(DeclaredModule pendingModule, Syntax offendingStx) : base(
+            internal CircularModuleReference(Module pendingModule, Syntax offendingStx) : base(
                 offendingStx.Location,
                 "A circular module reference occurred -- the expander prompted expansion of module '{0}', which is already pending:\n\t{1}",
                 pendingModule.Name,

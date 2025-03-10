@@ -14,12 +14,13 @@ namespace Clasp.Data.Terms.SyntaxValues
         private readonly ScopeSet _scopes;
         private Symbol _sym;
         public override Symbol Expose() => _sym;
+        public override Term ExposeAll() => _sym;
 
         public string Name => _sym.Name;
 
         private Identifier(Symbol sym, SourceCode loc, ScopeSet scopes) : base(loc)
         {
-            _scopes = scopes;
+            _scopes = new ScopeSet(scopes);
             _sym = sym;
         }
         public Identifier(Symbol sym, SourceCode loc) : this(sym, loc, new ScopeSet()) { }
@@ -35,7 +36,7 @@ namespace Clasp.Data.Terms.SyntaxValues
         public override void RemoveScope(int phase, params Scope[] scopes) => _scopes.RemoveScope(phase, scopes);
         public override Syntax StripScopes(int inclusivePhaseThreshold)
         {
-            Identifier strippedCopy = new Identifier(_sym, Location);
+            Identifier strippedCopy = new Identifier(_sym, Location, _scopes);
             strippedCopy._scopes.RestrictPhaseUpTo(inclusivePhaseThreshold);
             return strippedCopy;
         }

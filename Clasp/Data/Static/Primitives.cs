@@ -41,8 +41,8 @@ namespace Clasp.Data.Static
             new("cons", new BinaryFn<Term, Term>(ConsOps.Cons)),
             new("car", new UnaryFn<Cons>(ConsOps.Car)),
             new("cdr", new UnaryFn<Cons>(ConsOps.Cdr)),
-            new("set-car", new BinaryFn<Cons<Term, Term>, Term>(ConsOps.SetCar)),
-            new("set-cdr", new BinaryFn<Cons<Term, Term>, Term>(ConsOps.SetCdr)),
+            new("set-car", new BinaryFn<Cons, Term>(ConsOps.SetCar)),
+            new("set-cdr", new BinaryFn<Cons, Term>(ConsOps.SetCdr)),
         ];
 
         private static readonly PrimitiveProcedure[] _equalityProcs =
@@ -104,9 +104,9 @@ namespace Clasp.Data.Static
             new("bound-identifier=?", new BinaryFn<Identifier, Identifier>(SyntaxOps.BoundIdentifierEq)),
 
             new("syntax-e", new UnaryFn<Syntax>(SyntaxOps.SyntaxE)),
-            new("syntax->list", new UnaryFn<Syntax>(SyntaxOps.SyntaxToList)),
-            new("syntax->datum", new UnaryFn<Syntax>(SyntaxOps.SyntaxToDatum)),
-            new("datum->syntax", new BinaryFn<Syntax, Term>(SyntaxOps.DatumToSyntax)),
+            //new("syntax->list", new UnaryFn<Syntax>(SyntaxOps.SyntaxToList)),
+            //new("syntax->datum", new UnaryFn<Syntax>(SyntaxOps.SyntaxToDatum)),
+            //new("datum->syntax", new BinaryFn<Syntax, Term>(SyntaxOps.DatumToSyntax)),
         ];
 
         private static readonly PrimitiveProcedure[] _arithmeticProcs =

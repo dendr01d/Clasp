@@ -54,7 +54,7 @@ namespace Clasp.Data.Terms
             return string.Format("#\\{0}", Value);
         }
 
-        public override string ToTermString() => Value.ToString();
+        public override string ToPrintedString() => Value.ToString();
         protected override string FormatType() => "Char";
     }
 }

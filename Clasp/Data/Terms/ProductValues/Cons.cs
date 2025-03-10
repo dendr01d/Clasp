@@ -60,11 +60,15 @@ namespace Clasp.Data.Terms.ProductValues
 
         private static string PrintAsTail(Term t)
         {
+            if (Nil.Is(t))
+            {
+                return string.Empty;
+            }
+
             return t switch
             {
                 SyntaxPair stl => PrintAsTail(stl.Expose()),
                 Cons cns => string.Format(" {0}{1}", cns.Car, PrintAsTail(cns.Cdr)),
-                Nil => string.Empty,
                 _ => string.Format(" . {0}", t)
             };
         }

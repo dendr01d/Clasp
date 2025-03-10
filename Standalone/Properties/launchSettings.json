@@ -2,7 +2,7 @@
   "profiles": {
     "Standalone": {
       "commandName": "Project",
-      "commandLineArgs": "\"../../../../Code/DefaultInput.clsp\""
+      "commandLineArgs": "\"C:\\Users\\Duncan\\source\\repos\\ClaspSource\" default"
     }
   }
 }
