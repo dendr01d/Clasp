@@ -99,6 +99,7 @@ namespace Clasp.Binding.Environments
 
             Symbols.S_Var,
             Symbols.S_Const,
+            Symbols.S_Const_Syntax,
 
             Symbols.S_PartialDefine,
             Symbols.S_VisitModule

@@ -58,10 +58,10 @@ namespace Clasp.Process
                 //    return ExpandSyntaxTransformation(binding, id, context);
                 //}
                 //else
-                if (binding.BoundType == BindingType.Special)
-                {
-                    throw new ExpanderException.InvalidForm(binding.Name, id);
-                }
+                //if (binding.BoundType == BindingType.Special)
+                //{
+                //    throw new ExpanderException.InvalidForm(binding.Name, id);
+                //}
 
                 return WrapImplicit(Symbols.S_Var, id);
             }
@@ -143,8 +143,8 @@ namespace Clasp.Process
             {
                 return boundName switch
                 {
-                    Keywords.QUOTE => WrapImplicit(Symbols.S_Const, args),
-                    Keywords.QUOTE_SYNTAX => WrapImplicit(Symbols.S_Const_Syntax, args),
+                    Keywords.QUOTE => ExpandQuote(args, context),
+                    Keywords.QUOTE_SYNTAX => ExpandQuoteSyntax(args, context),
 
                     Keywords.DEFINE => ExpandDefine(args, context),
                     Keywords.S_PARTIAL_DEFINE => ExpandPartialDefine(args, context),
@@ -589,8 +589,8 @@ namespace Clasp.Process
             while (target.TryUnpair(out Identifier? nextExport, out Syntax? tail))
             {
                 //context.SanitizeBindingKey(nextExport);
-                RenameVariableBinding(nextExport, context);
-                context.CollectIdentifier(nextExport);
+                //RenameVariableBinding(nextExport, context);
+                context.ExportIdentifier(nextExport);
 
                 target = tail;
             }
@@ -604,6 +604,24 @@ namespace Clasp.Process
         #endregion
 
         #region Syntactic Special Forms
+
+        private static Syntax ExpandQuote(SyntaxPair stp, CompilationContext context)
+        {
+            if (stp.TryDelist(out Syntax? stx))
+            {
+                return WrapImplicit(Symbols.S_Const, stx);
+            }
+            throw new ExpanderException.InvalidArguments(stp);
+        }
+
+        private static Syntax ExpandQuoteSyntax(SyntaxPair stp, CompilationContext context)
+        {
+            if (stp.TryDelist(out Syntax? stx))
+            {
+                return WrapImplicit(Symbols.S_Const_Syntax, stx);
+            }
+            throw new ExpanderException.InvalidArguments(stp);
+        }
 
         private static Syntax ExpandDefine(SyntaxPair stp, CompilationContext context)
         {
@@ -620,7 +638,7 @@ namespace Clasp.Process
                 {
                     context.CollectIdentifier(key);
                 }
-                else if (context.Mode == ExpansionMode.TopLevel)
+                else if (context.Mode == ExpansionMode.TopLevel || context.Mode == ExpansionMode.Module)
                 {
                     value = Expand(value, context.AsExpression());
                     return Syntax.WrapWithRef(Cons.ProperList(Symbols.S_TopDefine, key, value), stp);
@@ -762,7 +780,7 @@ namespace Clasp.Process
 
             Term fullForm = Cons.ImproperList(
                 Symbols.S_Module_Begin,
-                Cons.ProperList(context.CollectedIdentifiers),
+                Cons.ProperList(context.ExportedIdentifiers),
                 expandedBody);
 
             return Syntax.WrapWithRef(fullForm, stp);

@@ -45,6 +45,11 @@ namespace Clasp.Data.Metadata
         public readonly List<Identifier> CollectedIdentifiers;
 
         /// <summary>
+        /// Holds identifiers that will be exported from the body of the module this instance presumably covers.
+        /// </summary>
+        public readonly List<Identifier> ExportedIdentifiers;
+
+        /// <summary>
         /// Holds scopes imported from other modules within this context.
         /// </summary>
         public readonly List<Scope> ImportedScopes;
@@ -76,6 +81,7 @@ namespace Clasp.Data.Metadata
             CompileTimeEnv = env;
             Phase = phase;
             CollectedIdentifiers = new List<Identifier>();
+            ExportedIdentifiers = new List<Identifier>();
             ImportedScopes = new List<Scope>();
             InsideEdge = edge;
             MacroUseSite = site;
@@ -218,7 +224,7 @@ namespace Clasp.Data.Metadata
         #endregion
 
         public void CollectIdentifier(Identifier id) => CollectedIdentifiers.Add(id);
-
+        public void ExportIdentifier(Identifier id) => ExportedIdentifiers.Add(id);
         public void ImportScope(Scope scp) => ImportedScopes.Add(scp);
 
         /// <summary>

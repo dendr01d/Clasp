@@ -365,7 +365,7 @@ namespace Clasp.Data.AbstractSyntax
         public InstallModule(string mdlName) => _moduleName = mdlName;
         public override void RunOnMachine(MachineState machine)
         {
-            Module.Instantiate(_moduleName);
+            Module.Instantiate(_moduleName, machine.PostStepHook);
 
             if (ModuleCache.TryGet(_moduleName, out Module? mdl)
                 && mdl is InstantiatedModule instModule)

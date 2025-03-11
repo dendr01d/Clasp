@@ -145,7 +145,7 @@ namespace Clasp.Process
 
         private static TopDefine ParseTopDefine(Syntax args, int phase)
         {
-            if (!args.TryUnpair(out Identifier? key, out Syntax? value))
+            if (!args.TryDelist(out Identifier? key, out Syntax? value))
             {
                 throw new ParserException.InvalidArguments(Keywords.S_TOP_DEFINE, args);
             }
@@ -170,24 +170,24 @@ namespace Clasp.Process
             List<CoreForm> forms = new List<CoreForm>();
 
             Syntax stx = exports;
-            while (stx.TryUnpair(out Identifier? nextExport, out Syntax? moreExports))
-            {
-                if (nextExport.TryResolveBinding(phase, out RenameBinding? binding)
-                    && binding.BoundType != BindingType.Module)
-                {
-                    forms.Add(new Undefine(binding.BindingSymbol));
-                }
-                else
-                {
-                    throw new ParserException.UnboundIdentifier(nextExport);
-                }
-                stx = moreExports;
-            }
+            //while (stx.TryUnpair(out Identifier? nextExport, out Syntax? moreExports))
+            //{
+            //    if (nextExport.TryResolveBinding(phase, out RenameBinding? binding)
+            //        && binding.BoundType != BindingType.Module)
+            //    {
+            //        forms.Add(new Undefine(binding.BindingSymbol));
+            //    }
+            //    else
+            //    {
+            //        throw new ParserException.UnboundIdentifier(nextExport);
+            //    }
+            //    stx = moreExports;
+            //}
 
-            if (!Nil.Is(stx))
-            {
-                throw new ParserException.ExpectedProperList(exports);
-            }
+            //if (!Nil.Is(stx))
+            //{
+            //    throw new ParserException.ExpectedProperList(exports);
+            //}
 
             stx = body;
             while (stx.TryUnpair(out Syntax? nextForm, out Syntax? tail))
