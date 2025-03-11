@@ -19,9 +19,6 @@ namespace Clasp.Process
             BuildRgx(TokenType.Whitespace     , @"\s+"),
             BuildRgx(TokenType.Comment        , @"(?>\;.*$)"),
 
-            BuildRgx(TokenType.ModuleFlag     , @"\#[Cc][Ll][Aa][Ss][Pp]"),
-
-            BuildRgx(TokenType.Symbol         , @"(?>([a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^_\~][a-zA-Z0-9\!\$\%\&\*\/\:\<\=\>\?\^_\~\+\-\.\@]*)|\+|\-|\.\.\.)"),
             BuildRgx(TokenType.Boolean        , @"(?>(#(?:[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee]|[Tt]|[Ff])))"),
 
             BuildRgx(TokenType.BinInteger     , @"(?>(?:#[Bb])(?:\+)?(\-?[01]+))"),
@@ -32,6 +29,8 @@ namespace Clasp.Process
 
             BuildRgx(TokenType.Character      , @"(?>#\\(?:(?:[^\s\(\)\-]+)|.))"), // #\ followed by a single character, or alias with no spaces or parens
             BuildRgx(TokenType.String         , @"(?>\""((?:[^\""|^\\]|\\""|\\\\)*)\"")"), // exclude double-quotes and backslashes unless escaped
+
+            BuildRgx(TokenType.Symbol         , @"(?>([a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^_\~][a-zA-Z0-9\!\$\%\&\*\/\:\<\=\>\?\^_\~\+\-\.\@]*)|\+|\-|\.\.\.)"),
 
             BuildRgx(TokenType.OpenListParen  , @"\("),
             BuildRgx(TokenType.ClosingParen   , @"\)"),

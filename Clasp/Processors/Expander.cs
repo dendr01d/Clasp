@@ -572,12 +572,7 @@ namespace Clasp.Process
             else if (stx.TryUnpair(out Identifier? nextModule, out Syntax? remaining))
             {
                 string mdlName = nextModule.Expose().Name;
-                Scope? newMdlScope = Module.Visit(mdlName);
-                
-                if (newMdlScope is not null)
-                {
-                    context.ImportScope(newMdlScope);
-                }
+                context.ImportScope(ModuleCache.GetScope(mdlName));
 
                 ExpandImportedModuleList(remaining, context);
             }
@@ -741,11 +736,9 @@ namespace Clasp.Process
 
                 Syntax visitTail = WrapImplicit(Symbols.S_VisitModule, tail);
 
-                Module.Declare(mdlId.Expose().Name, visitTail);
-
                 try
                 {
-                    Module.Visit(mdlId.Expose().Name);
+                    Module.Visit(mdlId.Expose().Name, visitTail);
                 }
                 catch (Exception ex)
                 {

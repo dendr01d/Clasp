@@ -1,21 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Clasp.Binding.Environments;
-using Clasp.Data.AbstractSyntax;
+﻿using Clasp.Binding.Environments;
+using Clasp.Data.Terms.SyntaxValues;
 
 namespace Clasp.Binding.Modules
 {
-    internal sealed class InstantiatedModule : Module
+    internal sealed class InstantiatedModule : ParsedModule
     {
         public readonly RootEnv EnrichedEnvironment;
         public override bool Visited => true;
         public override bool Instantiated => true;
 
-        public InstantiatedModule(string name, RootEnv env) : base(name)
+        public InstantiatedModule(string name, Identifier[] ids, Scope scp, RootEnv env)
+            : base(name, ids, scp)
         {
             EnrichedEnvironment = env;
         }

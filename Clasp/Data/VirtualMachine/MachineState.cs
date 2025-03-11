@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using Clasp.Binding.Environments;
@@ -15,6 +16,8 @@ namespace Clasp.Data.VirtualMachine
         public MutableEnv CurrentEnv;
         public Stack<VmInstruction> Continuation;
 
+        public readonly Action<int, MachineState>? PostStepHook;
+
         public bool Complete => Continuation.Count == 0;
 
         /// <summary>
@@ -29,11 +32,12 @@ namespace Clasp.Data.VirtualMachine
             return new Stack<VmInstruction>(copiedInstructions);
         }
 
-        public MachineState(CoreForm program, MutableEnv env)
+        public MachineState(CoreForm program, MutableEnv env, Action<int, MachineState>? postStepHook = null)
         {
             ReturningValue = VoidTerm.Value;
             CurrentEnv = env;
             Continuation = new Stack<VmInstruction>();
+            PostStepHook = postStepHook;
 
             Continuation.Push(program);
         }
@@ -43,6 +47,7 @@ namespace Clasp.Data.VirtualMachine
             ReturningValue = machine.ReturningValue;
             CurrentEnv = machine.CurrentEnv; // TODO: is this how call/cc works? do the threads share environment?
             Continuation = machine.CopyContinuation();
+            PostStepHook = machine.PostStepHook;
         }
     }
 }

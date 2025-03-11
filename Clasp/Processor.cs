@@ -53,11 +53,30 @@ namespace Clasp
         /// <returns>The result of the CLASP program, coerced to a string.</returns>
         public static string ProcessProgram(string inputFilePath)
         {
-            Module.Declare(inputFilePath);
-            Module.Visit(Module.NameFromPath(inputFilePath));
-            Term output = Module.Instantiate(Module.NameFromPath(inputFilePath));
+            //Module.Declare(inputFilePath);
+            //Module.Visit(Module.NameFromPath(inputFilePath));
+            //Term output = Module.Instantiate(Module.NameFromPath(inputFilePath));
 
-            return output.ToPrintedString();
+            //return output.ToPrintedString();
+
+            return Module.Instantiate(Module.NameFromPath(inputFilePath), PrintStepAndPause).ToPrintedString();
+        }
+
+
+
+        private static void PrintStepAndPause(int i, MachineState machine)
+        {
+            PrintStep(i, machine);
+            Console.ReadKey(true);
+        }
+
+        private static void PrintStep(int i, MachineState machine)
+        {
+            Console.WriteLine("------------------------------------------------------------");
+            Console.WriteLine("Step {0}:", i);
+            Console.WriteLine();
+            Console.WriteLine(Interpreter.PrintMachineState(machine));
+            Console.WriteLine();
         }
     }
 }

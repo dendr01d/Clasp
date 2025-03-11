@@ -17,7 +17,7 @@ namespace Clasp.Data.Terms.Procedures
         public readonly string[] Parameters;
         public readonly string? VariadicParameter;
         public readonly string[] InformalParameters;
-        public readonly Closure CapturedEnv;
+        public readonly MutableEnv CapturedEnv;
         public readonly Sequential Body;
 
         public readonly int Arity;
@@ -29,7 +29,7 @@ namespace Clasp.Data.Terms.Procedures
             VariadicParameter = null;
             InformalParameters = informals;
 
-            CapturedEnv = enclosing.Enclose();
+            CapturedEnv = enclosing;
             Body = body;
 
             Arity = parameters.Length;
@@ -40,6 +40,8 @@ namespace Clasp.Data.Terms.Procedures
         public CompoundProcedure(string[] parameters, string[] informals, MutableEnv enclosing, Sequential body)
             : this(parameters, null, informals, enclosing, body)
         { }
+
+        public Closure GetClosure() => CapturedEnv.Enclose();
 
         public bool TryCoerceMacro([NotNullWhen(true)] out MacroProcedure? macro)
         {

@@ -11,9 +11,8 @@ namespace Clasp.Process
 {
     internal static class Piper
     {
-        public static IEnumerable<string> PipeInFileContents(string relativePath)
+        public static IEnumerable<string> PipeInFileContents(string fullPath)
         {
-            string fullPath = Path.GetFullPath(relativePath);
             if (!File.Exists(fullPath))
             {
                 throw new PiperException.MissingFile(fullPath);

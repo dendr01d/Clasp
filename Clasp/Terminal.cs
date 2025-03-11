@@ -58,7 +58,7 @@ namespace Clasp
                 writer.WriteLine("------------------------------------------------------------");
                 writer.WriteLine("Step {0}:", i);
                 writer.WriteLine();
-                Interpreter.PrintMachineState(machine, writer);
+                writer.WriteLine(Interpreter.PrintMachineState(machine));
                 writer.WriteLine();
             }
 
@@ -178,21 +178,21 @@ namespace Clasp
                                 MachineState mx = new MachineState(parsedInput, topLevelEnv);
                                 Term result;
 
-                                if (_showingSteps)
-                                {
-                                    if (_pausing)
-                                    {
-                                        result = Interpreter.InterpretToCompletion(mx, PrintStepAndPause).ReturningValue;
-                                    }
-                                    else
-                                    {
-                                        result = Interpreter.InterpretToCompletion(mx, PrintStep).ReturningValue;
-                                    }
-                                }
-                                else
-                                {
-                                    result = Interpreter.InterpretToCompletion(mx).ReturningValue;
-                                }
+                                //if (_showingSteps)
+                                //{
+                                //    if (_pausing)
+                                //    {
+                                //        result = Interpreter.InterpretToCompletion(mx, PrintStepAndPause).ReturningValue;
+                                //    }
+                                //    else
+                                //    {
+                                //        result = Interpreter.InterpretToCompletion(mx, PrintStep).ReturningValue;
+                                //    }
+                                //}
+                                //else
+                                //{
+                                result = Interpreter.InterpretToCompletion(mx).ReturningValue;
+                                //}
 
                                 timer?.Stop();
                                 output = result.ToString();

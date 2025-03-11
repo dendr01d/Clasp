@@ -10,20 +10,17 @@ using Clasp.Data.Terms.SyntaxValues;
 
 namespace Clasp.Binding.Modules
 {
-    internal sealed class VisitedModule : Module
+    internal sealed class VisitedModule : ParsedModule
     {
         public readonly CoreForm ParsedForm;
-        public readonly Identifier[] ExportedIds;
-        public readonly Scope ExportedScope;
 
         public override bool Visited => true;
         public override bool Instantiated => false;
 
-        public VisitedModule(string name, CoreForm cf, Identifier[] ids, Scope scp) : base(name)
+        public VisitedModule(string name, CoreForm cf, Identifier[] ids, Scope scp)
+            : base(name, ids, scp)
         {
             ParsedForm = cf;
-            ExportedIds = ids;
-            ExportedScope = scp;
         }
     }
 }

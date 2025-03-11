@@ -26,12 +26,8 @@ namespace Clasp.Data.AbstractSyntax
         public abstract VmInstruction CopyContinuation();
         public sealed override string ToString() => string.Format("{0}({1})", AppCode, FormatArgs());
         protected abstract string FormatArgs();
-        public void PrintAsStackFrame(System.IO.StreamWriter sw) => sw.WriteLine(ToString());
-        public void PrintAsStackFrame(System.IO.StreamWriter sw, int i)
-        {
-            sw.Write("{0,3}: ", i);
-            PrintAsStackFrame(sw);
-        }
+        public string PrintAsStackFrame() => ToString();
+        public string PrintAsStackFrame(int i) => string.Format("{0,3}: {1}", i, ToString());
     }
 
     #region Binding Operations
@@ -311,7 +307,7 @@ namespace Clasp.Data.AbstractSyntax
                         : new ConstValue(Nil.Value));
                 }
 
-                machine.Continuation.Push(new ChangeEnv(this, cp.CapturedEnv));
+                machine.Continuation.Push(new ChangeEnv(this, cp.GetClosure()));
             }
             else 
             {

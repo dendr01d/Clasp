@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.Metrics;
 using System.Linq;
+using System.Text;
 
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
@@ -11,9 +12,9 @@ namespace Clasp.Process
 {
     internal static class Interpreter
     {
-        public static Term InterpretProgram(CoreForm program, MutableEnv env)
+        public static Term InterpretProgram(CoreForm program, MutableEnv env, System.Action<int, MachineState>? postStepHook = null)
         {
-            MachineState machine = new MachineState(program, env);
+            MachineState machine = new MachineState(program, env, postStepHook);
             RunToCompletion(machine);
             return machine.ReturningValue;
         }
@@ -29,12 +30,6 @@ namespace Clasp.Process
         public static MachineState InterpretToCompletion(MachineState machine)
         {
             RunToCompletion(machine);
-            return machine;
-        }
-
-        public static MachineState InterpretToCompletion(MachineState machine, System.Action<int, MachineState> postStepHook)
-        {
-            RunToCompletion(machine, postStepHook);
             return machine;
         }
 
@@ -72,32 +67,31 @@ namespace Clasp.Process
 
         private static void RunToCompletion(MachineState machine)
         {
-            while (Step(machine)) ;
-        }
-
-        private static void RunToCompletion(MachineState machine, System.Action<int, MachineState> postStepHook)
-        {
             int counter = 0;
 
             while (!machine.Complete)
             {
                 Step(machine);
-                postStepHook(++counter, machine);
+                machine.PostStepHook?.Invoke(counter++, machine);
             }
         }
 
-        public static void PrintMachineState(MachineState machine, System.IO.StreamWriter sw)
+        public static string PrintMachineState(MachineState machine)
         {
-            sw.WriteLine("<──┐ [RETURN]");
+            StringBuilder sb = new StringBuilder();
+
+            sb.AppendLine("<──┐ [RETURN]");
 
             int counter = 1;
 
             foreach (VmInstruction frame in machine.Continuation.Reverse())
             {
-                frame.PrintAsStackFrame(sw, counter++);
+                sb.AppendLine(frame.PrintAsStackFrame(counter++));
             }
 
-            sw.Write("   └─> {0}", machine.ReturningValue);
+            sb.Append(string.Format("   └─> {0}", machine.ReturningValue));
+
+            return sb.ToString();
         }
     }
 }

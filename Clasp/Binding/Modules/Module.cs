@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,6 +11,7 @@ using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
+using Clasp.Data.VirtualMachine;
 using Clasp.Exceptions;
 using Clasp.Process;
 
@@ -30,7 +32,8 @@ namespace Clasp.Binding.Modules
 
         public static string NameFromPath(string moduleFilePath)
         {
-            return Path.GetFileNameWithoutExtension(moduleFilePath);
+            string relative = Path.GetRelativePath(RuntimeParams.LIBRARY_REPO_DIR, moduleFilePath);
+            return Path.ChangeExtension(relative, null);
         }
 
         public static bool DetectCircularReference(string moduleName)
@@ -41,31 +44,38 @@ namespace Clasp.Binding.Modules
         /// <summary>
         /// Declare that a module must exist, loading it into the cache without visiting or instantiating it.
         /// </summary>
-        public static void Declare(string moduleFilePath)
+        private static void Declare(string moduleName)
         {
-            string moduleName = NameFromPath(moduleFilePath);
-
             if (!ModuleCache.Contains(moduleName))
             {
                 string fileName = Path.ChangeExtension(moduleName, RuntimeParams.FILE_EXT);
                 string filePath = Path.Combine(RuntimeParams.LIBRARY_REPO_DIR, fileName);
 
                 Syntax moduleBody = Reader.ReadTokens(Lexer.LexFile(filePath));
-                Declare(moduleName, moduleBody);
+                DeclaredModule mdl = new DeclaredModule(moduleName, moduleBody);
+                ModuleCache.Update(mdl);
             }
         }
 
-        public static void Declare(string moduleName, Syntax moduleStx)
+        public static void Visit(string moduleName, Syntax moduleStx)
         {
-            DeclaredModule mdl = new DeclaredModule(moduleName, moduleStx);
-            ModuleCache.Update(mdl);
+            if (ModuleCache.Contains(moduleName))
+            {
+                throw new ClaspGeneralException("Tried to declare syntactic module '{0}' that already exists in cache.", moduleName);
+            }
+            else
+            {
+                DeclaredModule mdl = new DeclaredModule(moduleName, moduleStx);
+                ModuleCache.Update(mdl);
+                Visit(moduleName);
+            }
         }
 
         /// <summary>
         /// Update a cached module by "visiting" it and expanding/parsing its syntax as needed.
         /// This will <see cref="Declare(string)"/> the module if it is undeclared.
         /// </summary>
-        public static Scope? Visit(string moduleName)
+        public static void Visit(string moduleName)
         {
             Declare(moduleName);
             Module mdl = ModuleCache.Get(moduleName);
@@ -87,22 +97,18 @@ namespace Clasp.Binding.Modules
 
                 VisitedModule vMdl = new VisitedModule(moduleName, parsedStx, bodyContext.CollectedIdentifiers.ToArray(), insideEdge);
                 ModuleCache.Update(vMdl);
-
-                return insideEdge;
             }
-
-            return null;
         }
 
         /// <summary>
         /// Instantiate a module by evaluating its contents and ensuring all exported names have corresponding definitions.
         /// This will <see cref="Visit(string)"/> the module if it is unvisited, but it's an error to instantiate an undeclared module.
-        public static Term Instantiate(string moduleName)
+        public static Term Instantiate(string moduleName, Action<int, MachineState>? postStepHook = null)
         {
-            if (!ModuleCache.Contains(moduleName))
-            {
-                throw new ClaspGeneralException("Tried to instantiate module '{0}' before it has been declared.", moduleName);
-            }
+            //if (!ModuleCache.Contains(moduleName))
+            //{
+            //    throw new ClaspGeneralException("Tried to instantiate module '{0}' before it has been declared.", moduleName);
+            //}
 
             Visit(moduleName);
             Module mdl = ModuleCache.Get(moduleName);
@@ -110,7 +116,7 @@ namespace Clasp.Binding.Modules
             if (mdl is VisitedModule vMdl)
             {
                 RootEnv env = new RootEnv();
-                Term output = Interpreter.InterpretProgram(vMdl.ParsedForm, env);
+                Term output = Interpreter.InterpretProgram(vMdl.ParsedForm, env, postStepHook);
 
                 List<Symbol> missingSymbols = new List<Symbol>();
 
@@ -133,7 +139,7 @@ namespace Clasp.Binding.Modules
                         string.Join(", ", missingSymbols.Select(x => $"'{x.Name}'")));
                 }
 
-                InstantiatedModule iMdl = new InstantiatedModule(moduleName, env);
+                InstantiatedModule iMdl = new InstantiatedModule(moduleName, vMdl.ExportedIds, vMdl.ExportedScope, env);
                 ModuleCache.Update(iMdl);
 
                 return output;
