@@ -59,6 +59,8 @@ namespace Clasp.Binding.Modules
 
         public static ParsedModule Visit(string moduleName, Syntax moduleStx)
         {
+            //TODO strip scopes off the incoming syntax
+            
             if (ModuleCache.Contains(moduleName))
             {
                 throw new ClaspGeneralException("Tried to declare syntactic module '{0}' that already exists in cache.", moduleName);
