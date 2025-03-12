@@ -32,6 +32,8 @@ namespace Clasp.Binding.Environments
                 Predecessor = mEnv; // insert at base of linked list
 
                 _modules.Add(mdl.Name, mEnv);
+
+                //TODO check for conflicts among imported identifiers
             }
         }
     }
