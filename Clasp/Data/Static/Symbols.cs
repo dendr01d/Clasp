@@ -30,6 +30,7 @@ namespace Clasp.Data.Static
 
         public static readonly Symbol Module = Symbol.Intern(Keywords.MODULE);
         public static readonly Symbol Import = Symbol.Intern(Keywords.IMPORT);
+        //public static readonly Symbol ImportFrom = Symbol.Intern(Keywords.IMPORT_FROM);
         public static readonly Symbol Export = Symbol.Intern(Keywords.EXPORT);
 
         public static readonly Symbol DefineSyntax = Symbol.Intern(Keywords.DEFINE_SYNTAX);
@@ -48,6 +49,7 @@ namespace Clasp.Data.Static
         public static readonly ReservedSymbol S_Module = new(Keywords.S_MODULE);
         public static readonly ReservedSymbol S_Module_Begin = new(Keywords.S_MODULE_BEGIN);
         public static readonly ReservedSymbol S_Import = new(Keywords.S_IMPORT);
+        //public static readonly ReservedSymbol S_ImportFrom = new(Keywords.S_IMPORT_FROM);
 
         public static readonly ReservedSymbol S_Set = new(Keywords.S_SET);
 

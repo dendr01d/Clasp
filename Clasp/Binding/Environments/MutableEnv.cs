@@ -6,17 +6,17 @@ using Clasp.Exceptions;
 
 namespace Clasp.Binding.Environments
 {
-    internal abstract class MutableEnv : DynamicEnv
+    internal abstract class MutableEnv : ClaspEnvironment
     {
         protected readonly Dictionary<string, Term> _definitions;
         public abstract RootEnv Root { get; }
 
-        protected MutableEnv(ClaspEnvironment pred) : base(pred)
+        protected MutableEnv(ClaspEnvironment? pred) : base(pred)
         {
             _definitions = new Dictionary<string, Term>();
         }
 
-        public bool ContainsKey(string key) => _definitions.ContainsKey(key);
+        public override bool ContainsKey(string key) => _definitions.ContainsKey(key);
 
         public Closure Enclose() => new Closure(this);
 

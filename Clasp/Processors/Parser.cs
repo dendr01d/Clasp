@@ -87,6 +87,7 @@ namespace Clasp.Process
                     Keywords.S_TOP_DEFINE => ParseTopDefine(args, phase),
                     Keywords.S_MODULE_BEGIN => ParseModuleBegin(args, phase),
                     Keywords.S_IMPORT => ParseImport(args, phase),
+                    //Keywords.S_IMPORT_FROM => ParseImportFrom(args, phase),
                     Keywords.S_SET => ParseSet(args, phase),
                     Keywords.S_IF => ParseIf(args, phase),
                     Keywords.S_BEGIN => ParseBegin(args, phase),

@@ -121,7 +121,7 @@ namespace Clasp.Data.Metadata
                 }
             }
 
-            if (StaticEnv.ImplicitScope.TryResolve(symbolicName, out RenameBinding? staticBinding))
+            if (StaticEnv.StaticScope.TryResolve(symbolicName, out RenameBinding? staticBinding))
             {
                 return staticBinding;
             }

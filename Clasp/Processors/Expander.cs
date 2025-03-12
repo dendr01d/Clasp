@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Clasp.Binding;
+using Clasp.Binding.Environments;
 using Clasp.Binding.Modules;
+using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
 using Clasp.Data.Static;
 using Clasp.Data.Terms;
+using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Exceptions;
@@ -53,6 +56,8 @@ namespace Clasp.Process
         {
             if (id.TryResolveBinding(context.Phase, out RenameBinding? binding))
             {
+                //TODO the racket spec has some particular semantics here that I know I need to fix
+
                 //if (binding.BoundType == BindingType.Transformer)
                 //{
                 //    return ExpandSyntaxTransformation(binding, id, context);
@@ -159,9 +164,9 @@ namespace Clasp.Process
 
                     Keywords.MODULE => ExpandModuleForm(args, context),
                     Keywords.S_VISIT_MODULE => ExpandModuleVisit(args, context),
-                    //Keywords.IMPORT => ExpandModuleImport(args, context),
+                    //Keywords.IMPORT_FROM => ExpandImportFrom(args, context),
 
-                    //Keywords.DEFINE_SYNTAX => DefineTransformer(args, context),
+                    Keywords.DEFINE_SYNTAX => ExpandDefineSyntax(args, context),
                     //Keywords.IMPORT_FOR_SYNTAX => null,
                     //Keywords.BEGIN_FOR_SYNTAX => MetaExpand(args, context),
 
@@ -188,9 +193,10 @@ namespace Clasp.Process
             {
                 if (binding.Name == Keywords.DEFINE_SYNTAX)
                 {
-                    // expand and bind the macro, then discard the syntax
-                    //ExpandDefineSyntaxArgs(args, context);
-                    return null;
+                    Syntax macroDef = ExpandDefineSyntax(args, context);
+                    return context.Mode == ExpansionMode.TopLevel
+                        ? macroDef
+                        : null;
                 }
                 else if (binding.Name == Keywords.IMPORT)
                 {
@@ -213,38 +219,52 @@ namespace Clasp.Process
 
         #region Meta-Syntax Related
 
-        /// <summary>
-        /// RETURNS UNDEFINED IF NOT TOP-LEVEL
-        /// </summary>
-        //private static Syntax ExpandDefineSyntaxArgs(Cons<Syntax, Term> stp, ScopeSet info, CompilationContext context)
-        //{
-        //    if (context.Mode == ExpansionMode.Expression)
-        //    {
-        //        throw new ExpanderException.InvalidContext(Keywords.DEFINE_SYNTAX, context.Mode, stp, info);
-        //    }
-        //    else if (TryRewriteDefineSyntaxArgs(stp, context, out Identifier? key, out Syntax? value))
-        //    {
-        //        context.SanitizeBindingKey(key);
+        private static Syntax ExpandDefineSyntax(SyntaxPair stp, CompilationContext context)
+        {
+            if (context.Mode == ExpansionMode.Expression)
+            {
+                throw new ExpanderException.InvalidContext(Keywords.DEFINE_SYNTAX, context.Mode, stp);
+            }
 
-        //        MacroProcedure macro = ExpandAndEvalMacro(value, context);
-        //        if (!key.TryRenameAsMacro(context.Phase, out Identifier? bindingId))
-        //        {
-        //            throw new ExpanderException.InvalidBindingOperation(key, context);
-        //        }
-        //        else
-        //        {
-        //            context.CompileTimeEnv.Define(bindingId.Name, macro);
-        //        }
+            if (!stp.TryDelist(out Identifier? key, out Syntax? value))
+            {
+                throw new ExpanderException.InvalidArguments(stp);
+            }
 
-        //        Syntax evaluatedMacro = ExpandImplicit(Symbols.StaticQuote, new Datum(macro, value), context);
+            context.SanitizeBindingKey(key);
 
-        //        return Datum.FromDatum(VoidTerm.Value, info);
-        //    }
-        //    else
-        //    {
-        //        throw new ExpanderException.InvalidArguments(stp, info);
-        //    }
-        //}
+            Term evaluatedValue = Accelerate(value, context);
+
+            if (evaluatedValue is not CompoundProcedure cp
+                || !cp.TryCoerceMacro(out MacroProcedure? macro))
+            {
+                throw new ExpanderException.InvalidTransformer(evaluatedValue, value);
+            }
+
+            RenameMacroBinding(key, context);
+
+            Syntax macroStx = Syntax.WrapWithRef(macro, value);
+            Syntax constMacro = WrapImplicit(Symbols.S_Const, macroStx);
+            return Syntax.WrapWithRef(Cons.ProperList(Symbols.S_TopDefine, key, constMacro), stp);
+        }
+
+        private static Term Accelerate(Syntax stx, CompilationContext context)
+        {
+            try
+            {
+                CompilationContext nextPhaseCtx = context.InNextPhase();
+
+                Syntax expandedStx = Expand(stx, nextPhaseCtx);
+                CoreForm parsedStx = Parser.ParseSyntax(expandedStx, nextPhaseCtx.Phase);
+                Term evaluatedStx = Interpreter.InterpretProgram(parsedStx, nextPhaseCtx.CompileTimeEnv);
+
+                return evaluatedStx;
+            }
+            catch (Exception ex)
+            {
+                throw new ExpanderException.EvaluationError(stx, ex);
+            }
+        }
 
         //private static Syntax ExpandSyntaxTransformation(RenameBinding binding, Syntax input, CompilationContext context)
         //{
@@ -798,6 +818,39 @@ namespace Clasp.Process
 
             return Syntax.WrapWithRef(Cons.Truct(Symbols.S_Import, stp), stp);
         }
+
+        //private static Syntax ExpandImportFrom(SyntaxPair stp, CompilationContext context)
+        //{
+        //    if (stp.TryDelist(out Syntax? moduleTarget, out Syntax? varTarget))
+        //    {
+        //        if (varTarget is Datum dat)
+        //        {
+        //            return WrapImplicit(Symbols.S_Const, dat);
+        //        }
+        //        else if (varTarget is Identifier id)
+        //        {
+        //            Identifier externalRef = id.StripScopes(0);
+
+        //            if (moduleTarget is Datum mdlDat && mdlDat.Expose() == Data.Terms.Boolean.False)
+        //            {
+        //                externalRef.AddScope(context.Phase, StaticEnv.StaticScope);
+        //                return Syntax.WrapWithRef(Cons.ProperList(Symbols.S_ImportFrom, moduleTarget, externalRef), stp);
+        //            }
+        //            else if (moduleTarget is Identifier mdlId)
+        //            {
+        //                ParsedModule pMdl = Module.Visit(mdlId.Name);
+
+        //                if (pMdl.ExportedIds.Select(x => x.Name).Contains(id.Name))
+        //                {
+        //                    externalRef.AddScope(context.Phase, pMdl.ExportedScope);
+        //                    return Syntax.WrapWithRef(Cons.ProperList(Symbols.S_ImportFrom, moduleTarget, externalRef), stp);
+        //                }
+        //            }
+        //        }
+        //    }
+
+        //    throw new ExpanderException.InvalidArguments(stp);
+        //}
 
         #endregion
     }

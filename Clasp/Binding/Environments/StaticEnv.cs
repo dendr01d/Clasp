@@ -4,8 +4,8 @@ using System.Diagnostics.CodeAnalysis;
 using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
+using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
-using Clasp.Exceptions;
 
 namespace Clasp.Binding.Environments
 {
@@ -15,28 +15,34 @@ namespace Clasp.Binding.Environments
     /// </summary>
     internal sealed class StaticEnv : ClaspEnvironment
     {
-        private static readonly Dictionary<string, Term> _definitions = new Dictionary<string, Term>();
+        private static readonly Dictionary<string, Term> _definitions = [];
 
-        public static readonly StaticEnv Instance = new StaticEnv();
-        public static readonly Scope ImplicitScope = new Scope("Static Global", SourceCode.StaticSource);
+        public static readonly StaticEnv Instance = new();
+        public static readonly Scope StaticScope = new("Static Global", SourceCode.StaticSource);
 
-        public static string ClaspSourceDir = string.Empty;
+        public static Identifier[] StaticIdentifiers;
 
-        private StaticEnv() { }
+        private StaticEnv() : base(null) { }
 
         static StaticEnv()
         {
+            List<Identifier> staticKeys = [];
+
             foreach (Symbol sym in CoreKeywords)
             {
-                ImplicitScope.AddStaticBinding(sym.Name, BindingType.Special);
+                StaticScope.AddStaticBinding(sym.Name, BindingType.Special);
                 _definitions.Add(sym.Name, sym);
+                staticKeys.Add(new Identifier(sym, SourceCode.StaticSource));
             }
 
             foreach (PrimitiveProcedure pp in Primitives.PrimitiveProcs)
             {
-                ImplicitScope.AddStaticBinding(pp.OpSymbol.Name, BindingType.Primitive);
+                StaticScope.AddStaticBinding(pp.OpSymbol.Name, BindingType.Primitive);
                 _definitions.Add(pp.OpSymbol.Name, pp);
+                staticKeys.Add(new Identifier(pp.OpSymbol, SourceCode.StaticSource));
             }
+
+            StaticIdentifiers = staticKeys.ToArray();
         }
 
         public override bool TryGetValue(string key, [MaybeNullWhen(false)] out Term value)
@@ -50,6 +56,8 @@ namespace Clasp.Binding.Environments
             value = null;
             return false;
         }
+
+        public override bool ContainsKey(string key) => _definitions.ContainsKey(key);
 
         private static readonly Symbol[] CoreKeywords = new Symbol[]
         {

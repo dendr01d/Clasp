@@ -57,7 +57,7 @@ namespace Clasp.Binding.Modules
             }
         }
 
-        public static void Visit(string moduleName, Syntax moduleStx)
+        public static ParsedModule Visit(string moduleName, Syntax moduleStx)
         {
             if (ModuleCache.Contains(moduleName))
             {
@@ -67,7 +67,7 @@ namespace Clasp.Binding.Modules
             {
                 DeclaredModule mdl = new DeclaredModule(moduleName, moduleStx);
                 ModuleCache.Update(mdl);
-                Visit(moduleName);
+                return Visit(moduleName);
             }
         }
 
@@ -75,12 +75,16 @@ namespace Clasp.Binding.Modules
         /// Update a cached module by "visiting" it and expanding/parsing its syntax as needed.
         /// This will <see cref="Declare(string)"/> the module if it is undeclared.
         /// </summary>
-        public static void Visit(string moduleName)
+        public static ParsedModule Visit(string moduleName)
         {
             Declare(moduleName);
             Module mdl = ModuleCache.Get(moduleName);
 
-            if (mdl is DeclaredModule dMdl)
+            if (mdl is ParsedModule pMdl)
+            {
+                return pMdl;
+            }
+            else if (mdl is DeclaredModule dMdl)
             {
                 Syntax stx = dMdl.FreshSyntax;
 
@@ -97,7 +101,11 @@ namespace Clasp.Binding.Modules
 
                 VisitedModule vMdl = new VisitedModule(moduleName, parsedStx, bodyContext.CollectedIdentifiers.ToArray(), insideEdge);
                 ModuleCache.Update(vMdl);
+
+                return vMdl;
             }
+
+            throw new ClaspGeneralException("Unknown module type???");
         }
 
         /// <summary>

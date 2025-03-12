@@ -11,20 +11,17 @@ namespace Clasp.Binding.Environments
     internal sealed class RootEnv : MutableEnv
     {
         private readonly Dictionary<string, ModuleEnv> _modules;
-        public readonly List<Scope> ImplicitScopes;
 
         public override RootEnv Root => this;
 
-        public RootEnv() : base(StaticEnv.Instance)
+        public RootEnv() : base(null)
         {
             _modules = new Dictionary<string, ModuleEnv>();
-            ImplicitScopes = new List<Scope>() { StaticEnv.ImplicitScope };
         }
 
         public RootEnv(RootEnv original) : base(original.Predecessor)
         {
             _modules = original._modules.ToDictionary(x => x.Key, x => x.Value);
-            ImplicitScopes = original.ImplicitScopes.ToList();
         }
 
         public void InstallModule(InstantiatedModule mdl)

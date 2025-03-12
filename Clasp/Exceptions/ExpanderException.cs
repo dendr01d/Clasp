@@ -114,12 +114,11 @@ namespace Clasp.Exceptions
 
         public class EvaluationError : ExpanderException
         {
-            internal EvaluationError(string inputType, Syntax source, Exception ce) : base(
-                source.Location,
-                ce,
-                "An error occurred while accelerating & evaluating the '{0}' form:\n\t{1}",
-                inputType,
-                source)
+            internal EvaluationError(Syntax erroneousStx, Exception ex) : base(
+                erroneousStx.Location,
+                ex,
+                "An error occurred while accelerating & evaluating the form:\n\t{1}",
+                erroneousStx)
             { }
 
             internal EvaluationError(string inputType, Syntax source, string msg) : base(

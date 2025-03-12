@@ -34,7 +34,7 @@ namespace Clasp.Data.Terms.SyntaxValues
         public override void AddScope(int phase, params Scope[] scopes) => _scopes.AddScope(phase, scopes);
         public override void FlipScope(int phase, params Scope[] scopes) => _scopes.FlipScope(phase, scopes);
         public override void RemoveScope(int phase, params Scope[] scopes) => _scopes.RemoveScope(phase, scopes);
-        public override Syntax StripScopes(int inclusivePhaseThreshold)
+        public override Identifier StripScopes(int inclusivePhaseThreshold)
         {
             Identifier strippedCopy = new Identifier(_sym, Location, _scopes);
             strippedCopy._scopes.RestrictPhaseUpTo(inclusivePhaseThreshold);

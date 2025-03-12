@@ -34,6 +34,7 @@ namespace Clasp.Data.Static
 
         public const string MODULE = "module";
         public const string IMPORT = "import";
+        //public const string IMPORT_FROM = "import_from";
         public const string EXPORT = "export";
 
         public const string DEFINE_SYNTAX = "define-syntax";
@@ -51,6 +52,7 @@ namespace Clasp.Data.Static
         public const string S_TOP_DEFINE = "σ-top-define";
         public const string S_MODULE = "σ-module";
         public const string S_IMPORT = "σ-import";
+        //public const string S_IMPORT_FROM = "σ-import-from";
         public const string S_MODULE_BEGIN = "σ-module-begin";
         public const string S_SET = "σ-set!";
         public const string S_IF = "σ-if";
@@ -68,6 +70,7 @@ namespace Clasp.Data.Static
             S_TOP_DEFINE,
             S_MODULE,
             S_IMPORT,
+            //S_IMPORT_FROM,
             S_MODULE_BEGIN,
             S_SET,
             S_IF,

@@ -13,7 +13,12 @@ namespace Clasp.Data.Static
 {
     internal static class ModuleCache
     {
-        private static Dictionary<string, Module> _cache = new Dictionary<string, Module>();
+        private static Dictionary<string, Module> _cache;
+
+        static ModuleCache()
+        {
+            _cache = new Dictionary<string, Module>();
+        }
 
         public static Scope GetScope(string moduleName)
         {
