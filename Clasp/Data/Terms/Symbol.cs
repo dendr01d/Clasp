@@ -27,8 +27,9 @@ namespace Clasp.Data.Terms
             return _interned[name];
         }
 
-        public override string ToString() => Name;
         protected override string FormatType() => "Symbol";
+        public override string ToString() => Name;
+        public override string ToPrintedString() => Name;
     }
 
     internal class GenSym : Symbol

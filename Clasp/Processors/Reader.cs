@@ -30,7 +30,7 @@ namespace Clasp.Process
         //public static Syntax ReadModuleForm(IEnumerable<Token> tokens, string moduleName)
         //{
         //    IEnumerable<Token> checkedTokens = tokens;
-            
+
         //    if (tokens.First().TType == TokenType.ModuleFlag)
         //    {
         //        checkedTokens = checkedTokens.Skip(1); // remove the module flag
@@ -44,9 +44,23 @@ namespace Clasp.Process
         //}
 
         /// <summary>
-        /// Reads the given tokens into a series of syntax objects
+        /// Reads the given tokens into a Term, or a proper list of Terms if there are more than one.
         /// </summary>
-        public static Syntax ReadTokens(IEnumerable<Token> tokens)
+        public static Term ReadTokenText(IEnumerable<Token> tokens)
+        {
+            return ReadTokens(tokens, out _);
+        }
+
+        /// <summary>
+        /// Reads the given tokens into a syntax object, or a SyntaxPair-list thereof if there are more than one.
+        /// </summary>
+        public static Syntax ReadTokenSyntax(IEnumerable<Token> tokens)
+        {
+            Term t = ReadTokens(tokens, out SourceCode location);
+            return Syntax.WrapRaw(t, location);
+        }
+
+        private static Term ReadTokens(IEnumerable<Token> tokens, out SourceCode location)
         {
             // First, do a quick check to make sure the parentheses all match up
             CheckParentheses(tokens);
@@ -57,9 +71,9 @@ namespace Clasp.Process
             }
 
             Syntax[] forms = ReadMultipleSyntaxes(new Stack<Token>(tokens.Reverse())).ToArray();
-            SourceCode wholeInput = SynthesizeLexicalSource(forms[0], forms[^1]);
+            location = SynthesizeLexicalSource(forms[0], forms[^1]);
 
-            return Syntax.WrapRaw(Cons.ProperList(forms), wholeInput);
+            return Cons.ProperList(forms);
         }
 
         #region Parentheses-Checking

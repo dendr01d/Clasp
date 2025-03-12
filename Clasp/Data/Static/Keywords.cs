@@ -20,6 +20,8 @@ namespace Clasp.Data.Static
         public const string UNQUOTE_SPLICING = "unquote-splicing";
 
         public const string QUOTE_SYNTAX = "quote-syntax";
+
+        public const string SYNTAX = "syntax";
         public const string QUASISYNTAX = "quasisyntax";
         public const string UNSYNTAX = "unsyntax";
         public const string UNSYNTAX_SPLICING = "unsyntax-splicing";
@@ -41,7 +43,6 @@ namespace Clasp.Data.Static
         public const string BEGIN_FOR_SYNTAX = "begin-for-syntax";
         public const string IMPORT_FOR_SYNTAX = "import-for-syntax";
 
-        public const string SYNTAX = "syntax";
         public const string ELLIPSIS = "...";
 
         //-----------------

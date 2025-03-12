@@ -94,7 +94,7 @@ namespace Clasp.Data.AbstractSyntax
     {
         private readonly CoreForm _consequent;
         private readonly CoreForm _alternative;
-        public override string AppCode => "BNCH";
+        public override string AppCode => "DSPX";
         public DispatchOnCondition(CoreForm consequent, CoreForm alternate) : base()
         {
             _consequent = consequent;
@@ -127,8 +127,13 @@ namespace Clasp.Data.AbstractSyntax
     internal sealed class FunctionVerification : VmInstruction
     {
         private readonly CoreForm[] _arguments;
+        private readonly CoreForm? _varArg;
         public override string AppCode => "FUN-CHK";
-        public FunctionVerification(CoreForm[] arguments) => _arguments = arguments;
+        public FunctionVerification(CoreForm[] arguments, CoreForm? varArg)
+        {
+            _arguments = arguments;
+            _varArg = varArg;
+        }
         public override void RunOnMachine(MachineState machine)
         {
             if (machine.ReturningValue is not Procedure proc)
@@ -157,11 +162,12 @@ namespace Clasp.Data.AbstractSyntax
             }
             else
             {
-                machine.Continuation.Push(new FunctionArgs(proc, _arguments));
+                machine.Continuation.Push(new FunctionArgs(proc, _arguments, _varArg));
             }
         }
 
-        public override VmInstruction CopyContinuation() => new FunctionVerification(_arguments.ToArray());
+        public override VmInstruction CopyContinuation() => new FunctionVerification(
+            _arguments.Select(x => x.CopyContinuation()).ToArray(), _varArg?.CopyContinuation());
         protected override string FormatArgs() => string.Join(", ", _arguments.Select(x => x.ToString()));
     }
 
@@ -173,21 +179,24 @@ namespace Clasp.Data.AbstractSyntax
     {
         private static readonly System.Random _rng = new System.Random();
 
-        public readonly Procedure Op;
-        public readonly CoreForm[] RawArguments; // Arguments that need to be evaluated
-        public readonly Term[] EvaluatedArguments; // Arguments that completed evaluation
+        private readonly Procedure _op;
+        private readonly CoreForm[] _rawArg; // Arguments that need to be evaluated
+        private readonly CoreForm? _varArg;
+        private readonly Term[] _evaluatedArgs; // Arguments that completed evaluation
 
         private readonly int[] EvaluationOrder; // The index order in which to evaluate arguments
         private int CurrentIndex; // The index^2 of the evaluated argument we expect to receive
         public override string AppCode => "FUN-ARGS";
 
-        public FunctionArgs(Procedure op, CoreForm[] arguments)
+        public FunctionArgs(Procedure op, CoreForm[] arguments, CoreForm? varArg)
         {
-            Op = op;
-            RawArguments = arguments;
-            EvaluatedArguments = Enumerable.Repeat<Term>(Undefined.Value, RawArguments.Length).ToArray();
+            _op = op;
+            _rawArg = arguments;
+            _varArg = varArg;
 
-            EvaluationOrder = Enumerable.Range(0, RawArguments.Length).ToArray();
+            _evaluatedArgs = Enumerable.Repeat<Term>(Undefined.Value, _rawArg.Length).ToArray();
+
+            EvaluationOrder = Enumerable.Range(0, _rawArg.Length).ToArray();
             _rng.Shuffle(EvaluationOrder);
 
             CurrentIndex = -1;
@@ -196,9 +205,9 @@ namespace Clasp.Data.AbstractSyntax
         private FunctionArgs(Procedure op, CoreForm[] rawArgs, Term[] doneArgs, int[] evalOrder, int currentIndex)
         {
             // All this stuff needs to be statically identical for continuations to work properly.
-            Op = op;
-            RawArguments = rawArgs.ToArray();
-            EvaluatedArguments = doneArgs.ToArray();
+            _op = op;
+            _rawArg = rawArgs.ToArray();
+            _evaluatedArgs = doneArgs.ToArray();
             EvaluationOrder = evalOrder.ToArray();
             CurrentIndex = currentIndex;
         }
@@ -207,14 +216,14 @@ namespace Clasp.Data.AbstractSyntax
         {
             if (CurrentIndex >= 0)
             {
-                EvaluatedArguments[EvaluationOrder[CurrentIndex]] = machine.ReturningValue;
+                _evaluatedArgs[EvaluationOrder[CurrentIndex]] = machine.ReturningValue;
             }
 
             ++CurrentIndex;
 
-            if (CurrentIndex < RawArguments.Length)
+            if (CurrentIndex < _rawArg.Length)
             {
-                CoreForm nextArg = RawArguments[EvaluationOrder[CurrentIndex]];
+                CoreForm nextArg = _rawArg[EvaluationOrder[CurrentIndex]];
 
                 if (nextArg.IsImperative)
                 {
@@ -227,15 +236,15 @@ namespace Clasp.Data.AbstractSyntax
             }
             else
             {
-                machine.Continuation.Push(new FunctionDispatch(Op, EvaluatedArguments));
+                machine.Continuation.Push(new FunctionDispatch(_op, _evaluatedArgs));
             }
         }
 
-        public override VmInstruction CopyContinuation() => new FunctionArgs(Op, RawArguments, EvaluatedArguments, EvaluationOrder, CurrentIndex);
+        public override VmInstruction CopyContinuation() => new FunctionArgs(_op, _rawArg, _evaluatedArgs, EvaluationOrder, CurrentIndex);
 
         protected override string FormatArgs()
         {
-            string[] output = new string[RawArguments.Length];
+            string[] output = new string[_rawArg.Length];
 
             for (int i = 0; i < EvaluationOrder.Length; ++i)
             {
@@ -243,7 +252,7 @@ namespace Clasp.Data.AbstractSyntax
 
                 if (i < CurrentIndex)
                 {
-                    output[randomIndex] = EvaluatedArguments[randomIndex].ToString();
+                    output[randomIndex] = _evaluatedArgs[randomIndex].ToString();
                 }
                 else if (i == CurrentIndex)
                 {
@@ -251,7 +260,87 @@ namespace Clasp.Data.AbstractSyntax
                 }
                 else
                 {
-                    output[randomIndex] = RawArguments[randomIndex].ToString();
+                    output[randomIndex] = _rawArg[randomIndex].ToString();
+                }
+            }
+
+            return string.Join(", ", output);
+        }
+    }
+
+    internal sealed class FunctionVArg : VmInstruction
+    {
+        private static readonly System.Random _rng = new System.Random();
+
+        private readonly Procedure _op;
+        private readonly Term[] _normalArgs;
+        private readonly List<Term> _varArgs;
+        public override string AppCode => "FUN-VARG";
+
+        public FunctionVArg(Procedure op, Term[] arguments)
+        {
+            _op = op;
+            _normalArgs = arguments;
+            _varArgs = new List<Term>();
+        }
+
+        public override void RunOnMachine(MachineState machine)
+        {
+            Term varArg = machine.ReturningValue;
+
+            while (varArg is Cons cns)
+            {
+                _varArgs.Add(cns.Car);
+                varArg = 
+            }
+
+            if (CurrentIndex >= 0)
+            {
+                _evaluatedArgs[EvaluationOrder[CurrentIndex]] = machine.ReturningValue;
+            }
+
+            ++CurrentIndex;
+
+            if (CurrentIndex < _rawArg.Length)
+            {
+                CoreForm nextArg = _rawArg[EvaluationOrder[CurrentIndex]];
+
+                if (nextArg.IsImperative)
+                {
+                    throw new InterpreterException(machine, "Illegal use of imperative form as a function argument: {0}", nextArg);
+                }
+
+                machine.Continuation.Push(this); // TODO verify it's safe to reuse the frame this way multiple times
+                machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
+                machine.Continuation.Push(nextArg);
+            }
+            else
+            {
+                machine.Continuation.Push(new FunctionDispatch(_op, _evaluatedArgs));
+            }
+        }
+
+        public override VmInstruction CopyContinuation() => new FunctionArgs(_op, _rawArg, _evaluatedArgs, EvaluationOrder, CurrentIndex);
+
+        protected override string FormatArgs()
+        {
+            string[] output = new string[_rawArg.Length];
+
+            for (int i = 0; i < EvaluationOrder.Length; ++i)
+            {
+                int randomIndex = EvaluationOrder[i];
+
+                if (i < CurrentIndex)
+                {
+                    output[randomIndex] = _evaluatedArgs[randomIndex].ToString();
+                }
+                else if (i == CurrentIndex)
+                {
+                    output[randomIndex] = HOLE;
+                }
+                else
+                {
+                    output[randomIndex] = _rawArg[randomIndex].ToString();
                 }
             }
 
@@ -263,7 +352,7 @@ namespace Clasp.Data.AbstractSyntax
     {
         private readonly Procedure _op;
         private readonly Term[] _arguments;
-        public override string AppCode => "FUN-BNCH";
+        public override string AppCode => "FUN-DSPX";
         public FunctionDispatch(Procedure op, params Term[] args)
         {
             _op = op;

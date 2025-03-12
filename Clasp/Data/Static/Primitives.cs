@@ -31,7 +31,9 @@ namespace Clasp.Data.Static
 
                 _syntaxProcs,
 
-                _arithmeticProcs
+                _arithmeticProcs,
+
+                _portProcs
             }
             .SelectMany(x => x).ToArray();
         }
@@ -133,6 +135,15 @@ namespace Clasp.Data.Static
                 new BinaryFn<Number, Number>(MathOps.Divide),
                 new VariadicFn<Number>(MathOps.DivideVar)
             }
+        ];
+
+        private static readonly PrimitiveProcedure[] _portProcs =
+        [
+            new("open-console-out", new NullaryFn(PortOps.OpenConsoleOut)),
+            new("open-console-in", new NullaryFn(PortOps.OpenConsoleIn)),
+
+            new("port-read", new UnaryFn<PortReader>(PortOps.Read)),
+            new("port-write", new BinaryFn<PortWriter, Term>(PortOps.Write))
         ];
     }
 }

@@ -121,12 +121,11 @@ namespace Clasp.Exceptions
                 erroneousStx)
             { }
 
-            internal EvaluationError(string inputType, Syntax source, string msg) : base(
-                source.Location,
-                "A system-level exception occurred while accelerating & evaluating the '{0}' form:\n\t{1}: {2}",
-                inputType,
-                source,
-                msg)
+            internal EvaluationError(MacroProcedure macro, Syntax erroneousStx, Exception ex) : base(
+                erroneousStx.Location,
+                "A system-level exception occurred while applying the macro '{0}' to the given syntax:\n\t{1}\n\t{2}",
+                macro,
+                erroneousStx)
             { }
         }
 

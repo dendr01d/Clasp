@@ -160,7 +160,7 @@ namespace Clasp
                                 IEnumerable<Token> tokens = Lexer.LexText("REPL", input);
                                 if (_showingInput) writer.WriteLine("TOKENS: {0}", Printer.PrintRawTokens(tokens));
 
-                                Syntax readSyntax = Reader.ReadTokens(tokens);
+                                Syntax readSyntax = Reader.ReadTokenSyntax(tokens);
                                 if (_showingInput) writer.WriteLine("  READ: {0}", readSyntax.ToString());
 
                                 Syntax expandedSyntax = Expander.Expand(readSyntax, CompilationContext.ForTopLevel());

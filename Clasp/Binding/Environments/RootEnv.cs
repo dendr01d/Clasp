@@ -14,7 +14,7 @@ namespace Clasp.Binding.Environments
 
         public override RootEnv Root => this;
 
-        public RootEnv() : base(null)
+        public RootEnv() : base(StaticEnv.Instance)
         {
             _modules = new Dictionary<string, ModuleEnv>();
         }

@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 
 using Clasp.Binding;
-using Clasp.Binding.Environments;
 using Clasp.Binding.Modules;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
@@ -58,17 +56,23 @@ namespace Clasp.Process
             {
                 //TODO the racket spec has some particular semantics here that I know I need to fix
 
-                //if (binding.BoundType == BindingType.Transformer)
-                //{
-                //    return ExpandSyntaxTransformation(binding, id, context);
-                //}
-                //else
-                //if (binding.BoundType == BindingType.Special)
+                if (binding.BoundType == BindingType.Transformer)
+                {
+                    return ExpandSyntaxTransformation(binding, id, context);
+                }
+                else if (context.CompileTimeEnv.TryGetValue(binding.Name, out Term? boundDef))
+                {
+                    return Syntax.WrapWithRef(boundDef, id);
+                }
+                //else if (binding.BoundType == BindingType.Special)
                 //{
                 //    throw new ExpanderException.InvalidForm(binding.Name, id);
                 //}
-
-                return WrapImplicit(Symbols.S_Var, id);
+                else
+                {
+                    return id;
+                    //return WrapImplicit(Symbols.S_Var, id);
+                }
             }
             else if (context.Mode != ExpansionMode.Module)
             {
@@ -85,11 +89,11 @@ namespace Clasp.Process
         {
             if (op.TryResolveBinding(context.Phase, out RenameBinding? binding))
             {
-                //if (binding.BoundType == BindingType.Transformer)
-                //{
-                //    return ExpandSyntaxTransformation(binding, stp, context);
-                //}
-                //else
+                if (binding.BoundType == BindingType.Transformer)
+                {
+                    return ExpandSyntaxTransformation(binding, stp, context);
+                }
+                else
                 if (binding.BoundType == BindingType.Special)
                 {
                     return ExpandSpecialForm(binding.Name, stp, context);
@@ -159,16 +163,17 @@ namespace Clasp.Process
                     Keywords.IF => ExpandIf(args, context),
                     Keywords.BEGIN => ExpandSequence(args, context),
 
-                    Keywords.APPLY => ExpandApplication(args, context),
+                    Keywords.APPLY => ExpandApplyForm(args, context),
                     Keywords.LAMBDA => ExpandLambda(args, context),
 
                     Keywords.MODULE => ExpandModuleForm(args, context),
                     Keywords.S_VISIT_MODULE => ExpandModuleVisit(args, context),
                     //Keywords.IMPORT_FROM => ExpandImportFrom(args, context),
 
-                    Keywords.DEFINE_SYNTAX => ExpandDefineSyntax(args, context),
-                    //Keywords.IMPORT_FOR_SYNTAX => null,
+                    Keywords.DEFINE_SYNTAX => EvalDefineSyntax(args, context),
                     //Keywords.BEGIN_FOR_SYNTAX => MetaExpand(args, context),
+
+                    Keywords.SYNTAX => ExpandSyntaxForm(args, context), // the special form, not just any syntax
 
                     _ => throw new ExpanderException.InvalidSyntax(stp)
                 };
@@ -193,19 +198,24 @@ namespace Clasp.Process
             {
                 if (binding.Name == Keywords.DEFINE_SYNTAX)
                 {
-                    Syntax macroDef = ExpandDefineSyntax(args, context);
+                    Syntax macroDef = EvalDefineSyntax(args, context);
                     return context.Mode == ExpansionMode.TopLevel
                         ? macroDef
                         : null;
                 }
-                else if (binding.Name == Keywords.IMPORT)
+                else if (binding.Name == Keywords.BEGIN_FOR_SYNTAX)
                 {
-                    return ExpandModuleImport(args, context);
+                    EvalBeginForSyntax(args, context);
+                    return null;
                 }
                 else if (binding.Name == Keywords.EXPORT)
                 {
                     ExpandExportedBindingList(args, context);
                     return null;
+                }
+                else if (binding.Name == Keywords.IMPORT)
+                {
+                    return ExpandModuleImport(args, context);
                 }
                 else if (binding.Name == Keywords.DEFINE)
                 {
@@ -219,7 +229,7 @@ namespace Clasp.Process
 
         #region Meta-Syntax Related
 
-        private static Syntax ExpandDefineSyntax(SyntaxPair stp, CompilationContext context)
+        private static Syntax EvalDefineSyntax(SyntaxPair stp, CompilationContext context)
         {
             if (context.Mode == ExpansionMode.Expression)
             {
@@ -256,7 +266,7 @@ namespace Clasp.Process
 
                 Syntax expandedStx = Expand(stx, nextPhaseCtx);
                 CoreForm parsedStx = Parser.ParseSyntax(expandedStx, nextPhaseCtx.Phase);
-                Term evaluatedStx = Interpreter.InterpretProgram(parsedStx, nextPhaseCtx.CompileTimeEnv);
+                Term evaluatedStx = Interpreter.InterpretProgram(parsedStx, context.CompileTimeEnv);
 
                 return evaluatedStx;
             }
@@ -266,137 +276,66 @@ namespace Clasp.Process
             }
         }
 
-        //private static Syntax ExpandSyntaxTransformation(RenameBinding binding, Syntax input, CompilationContext context)
-        //{
-        //    if (context.TryLookupMacro(binding, out MacroProcedure? macro))
-        //    {
-        //        Scope introScope = new Scope(input);
-        //        Scope useSiteScope = new Scope(input);
+        private static Syntax ExpandSyntaxTransformation(RenameBinding binding, Syntax input, CompilationContext context)
+        {
+            if (context.TryLookupMacro(binding, out MacroProcedure? macro))
+            {
+                Scope intro = new Scope($"{binding.Name} Macro Intro", input.Location);
+                Scope useSite = new Scope($"{binding.Name} Macro Use-Site", input.Location);
 
-        //        input.AddScope(context.Phase, introScope, useSiteScope);
+                input.AddScope(context.Phase, intro, useSite);
 
-        //        Syntax output = ApplySyntaxTransformer(macro, input);
+                Syntax output = ApplySyntaxTransformer(macro, input, context);
 
-        //        CompilationContext macroContext = context.InTransformed(useSiteScope);
-        //        output.FlipScope(macroContext.Phase, useSiteScope);
-        //        context.AddPendingInsideEdge(output);
+                CompilationContext macroContext = context.InTransformed(useSite);
+                output.FlipScope(macroContext.Phase, useSite);
+                //context.AddPendingInsideEdge(output);
 
-        //        return Expand(output, macroContext);
-        //    }
-        //    else
-        //    {
-        //        throw new ExpanderException.UnboundMacro(binding.Id);
-        //    }
-        //}
+                return Expand(output, macroContext);
+            }
+            else
+            {
+                throw new ExpanderException.UnboundMacro(binding.Id);
+            }
+        }
 
-        //private static Syntax ApplySyntaxTransformer(MacroProcedure macro, Syntax input)
-        //{
-        //    Term output;
+        private static Syntax ApplySyntaxTransformer(MacroProcedure macro, Syntax input, CompilationContext context)
+        {
+            Term output;
 
-        //    try
-        //    {
-        //        MacroApplication program = new MacroApplication(macro, input);
-        //        output = Interpreter.InterpretProgram(program);
-        //    }
-        //    catch (System.Exception e)
-        //    {
-        //        throw new ExpanderException.EvaluationError(nameof(MacroProcedure), input, e);
-        //    }
+            try
+            {
+                Application program = new Application(macro, input);
+                output = Interpreter.InterpretProgram(program, context.CompileTimeEnv);
+            }
+            catch (Exception ex)
+            {
+                throw new ExpanderException.EvaluationError(input, ex);
+            }
 
-        //    if (output is not Syntax outputStx)
-        //    {
-        //        throw new ExpanderException.InvalidTransformation(output, macro, input);
-        //    }
+            if (output is not Syntax outputStx)
+            {
+                throw new ExpanderException.InvalidTransformation(output, macro, input);
+            }
 
-        //    return outputStx;
-        //}
+            return outputStx;
+        }
 
-        //private static MacroProcedure ExpandAndEvalMacro(Syntax input, CompilationContext context)
-        //{
-        //    CompilationContext subState = context.InNextPhase();
+        private static void EvalBeginForSyntax(SyntaxPair stp, CompilationContext context)
+        {
+            if (context.Mode == ExpansionMode.Expression)
+            {
+                throw new ExpanderException.InvalidContext(Keywords.DEFINE_SYNTAX, context.Mode, stp);
+            }
 
-        //    Term output;
+            if (Nil.Is(stp))
+            {
+                throw new ExpanderException.InvalidArguments(stp);
+            }
 
-        //    try
-        //    {
-        //        Syntax expandedInput = ExpandSyntax(input, subState);
-        //        CoreForm parsedInput = Parser.ParseSyntax(expandedInput, subState.Phase);
-        //        output = Interpreter.InterpretInVacuum(parsedInput);
-        //    }
-        //    catch (System.Exception e)
-        //    {
-        //        throw new ExpanderException.EvaluationError(nameof(MacroProcedure), input, e);
-        //    }
-
-        //    if (output is CompoundProcedure cp
-        //        && cp.TryCoerceMacro(out MacroProcedure? macro))
-        //    {
-        //        return macro;
-        //    }
-
-        //    throw new ExpanderException.InvalidTransformer(output, input);
-        //}
-
-        //private static Syntax BeginForSyntax(SyntaxPair form, CompilationContext context)
-        //{
-        //    Cons<Syntax, Term> terms = form.Expose();
-        //    ScopeSet info = form.LexContext;
-        //    CompilationContext subState = context.InNextPhase();
-
-        //    Term output;
-
-        //    try
-        //    {
-        //        // Treat the sequent terms like a regular Begin form, but in the substate
-
-        //        Cons<Syntax, Term> expandedSequence = ExpandSequence(terms, info, subState);
-        //        SyntaxPair stxSequence = new SyntaxList(expandedSequence, info);
-        //        SyntaxPair beginStx = ExpandImplicit(Symbols.StaticBegin, stxSequence, subState);
-
-        //        // Nest the first Begin form inside a second, to add an implicit return value (#t)
-        //        SyntaxPair nestedStx = new SyntaxList(new Datum(Boolean.True, info), info)
-        //            .Push(beginStx);
-        //        nestedStx = ExpandImplicit(Symbols.StaticBegin, nestedStx, subState);
-
-        //        // Parse (still in the substate), which will de-nest the final list of terms
-        //        CoreForm parsedInput = Parser.ParseSyntax(beginStx, subState.Phase);
-
-        //        // Now interpret the parse, but back in THIS expansion's context
-        //        // Which allows for mutation of the current compile-time environment
-        //        output = Interpreter.InterpretProgram(parsedInput, subState.CompileTimeEnv.Root);
-        //    }
-        //    catch (System.Exception e)
-        //    {
-        //        throw new ExpanderException.EvaluationError(Keywords.BEGIN_FOR_SYNTAX, form, e);
-        //    }
-
-        //    // Check that the interpretation returned #t as expected
-        //    if (output is not Boolean b || b != Boolean.True)
-        //    {
-        //        throw new ExpanderException.EvaluationError(Keywords.BEGIN_FOR_SYNTAX, form,
-        //            string.Format("Compile-Time Interpretation yielded an unexpected value: {0}", output));
-        //    }
-
-        //    return Datum.FromDatum(VoidTerm.Value, form);
-        //}
-
-        //private static Syntax ImportForSyntax(SyntaxPair form, CompilationContext context)
-        //{
-        //    Term ls = form.Expose().Cdr;
-
-        //    while (ls is Cons<Syntax, Term> remaining
-        //        && remaining.TryMatchLeading(out Identifier? id, out ls))
-        //    {
-        //        context.CompileTimeEnv.Root.InstallModule(Module.InterpretModule(id.Name));
-        //    }
-
-        //    if (ls is not null)
-        //    {
-        //        throw new ExpanderException.InvalidSyntax(form);
-        //    }
-
-        //    return Datum.FromDatum(VoidTerm.Value, form);
-        //}
+            Syntax implicitBegin = Syntax.WrapWithRef(Cons.Truct(Symbols.S_Begin, stp), stp);
+            Accelerate(implicitBegin, context);
+        }
 
         #endregion
 
@@ -418,8 +357,12 @@ namespace Clasp.Process
 
                 return Syntax.WrapWithRef(Cons.Truct(expr, rest), stx);
             }
+            else
+            {
+                return Expand(stx, context);
+            }
 
-            throw new ExpanderException.ExpectedProperList(nameof(Syntax), stx);
+            //throw new ExpanderException.ExpectedProperList(nameof(Syntax), stx);
         }
 
         /// <summary>
@@ -429,7 +372,7 @@ namespace Clasp.Process
         private static Syntax ExpandBody(Syntax stx, CompilationContext context)
         {
             Syntax partiallyExpandedBody = PartiallyExpandSequence(stx, context);
-            
+
             if (context.Mode == ExpansionMode.TopLevel || context.Mode == ExpansionMode.Module
                 && context.ImportedScopes.Any())
             {
@@ -513,6 +456,29 @@ namespace Clasp.Process
             }
 
             throw new ExpanderException.ExpectedProperList(nameof(Syntax), stx);
+        }
+
+        private static Syntax ExpandSyntacticIdentifiers(Syntax stx, CompilationContext context)
+        {
+            if (Nil.Is(stx))
+            {
+                return stx;
+            }
+            else if (stx is Identifier id
+                && id.TryResolveBinding(context.Phase, out RenameBinding? binding))
+            {
+                return binding.Id;
+            }
+            else if (stx.TryUnpair(out Syntax? car, out Syntax? cdr))
+            {
+                Syntax expandedCar = ExpandSyntacticIdentifiers(car, context);
+                Syntax expandedCdr = ExpandSyntacticIdentifiers(cdr, context);
+                return Syntax.WrapWithRef(Cons.Truct(expandedCar, expandedCdr), stx);
+            }
+            else
+            {
+                return stx;
+            }
         }
 
         #endregion
@@ -819,38 +785,17 @@ namespace Clasp.Process
             return Syntax.WrapWithRef(Cons.Truct(Symbols.S_Import, stp), stp);
         }
 
-        //private static Syntax ExpandImportFrom(SyntaxPair stp, CompilationContext context)
-        //{
-        //    if (stp.TryDelist(out Syntax? moduleTarget, out Syntax? varTarget))
-        //    {
-        //        if (varTarget is Datum dat)
-        //        {
-        //            return WrapImplicit(Symbols.S_Const, dat);
-        //        }
-        //        else if (varTarget is Identifier id)
-        //        {
-        //            Identifier externalRef = id.StripScopes(0);
-
-        //            if (moduleTarget is Datum mdlDat && mdlDat.Expose() == Data.Terms.Boolean.False)
-        //            {
-        //                externalRef.AddScope(context.Phase, StaticEnv.StaticScope);
-        //                return Syntax.WrapWithRef(Cons.ProperList(Symbols.S_ImportFrom, moduleTarget, externalRef), stp);
-        //            }
-        //            else if (moduleTarget is Identifier mdlId)
-        //            {
-        //                ParsedModule pMdl = Module.Visit(mdlId.Name);
-
-        //                if (pMdl.ExportedIds.Select(x => x.Name).Contains(id.Name))
-        //                {
-        //                    externalRef.AddScope(context.Phase, pMdl.ExportedScope);
-        //                    return Syntax.WrapWithRef(Cons.ProperList(Symbols.S_ImportFrom, moduleTarget, externalRef), stp);
-        //                }
-        //            }
-        //        }
-        //    }
-
-        //    throw new ExpanderException.InvalidArguments(stp);
-        //}
+        private static Syntax ExpandSyntaxForm(SyntaxPair stp, CompilationContext context)
+        {
+            if (stp.TryDelist(out Syntax? value))
+            {
+                return ExpandSyntacticIdentifiers(value, context);
+            }
+            else
+            {
+                throw new ExpanderException.InvalidArguments(stp);
+            }
+        }
 
         #endregion
     }

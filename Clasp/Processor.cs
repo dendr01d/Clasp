@@ -20,7 +20,7 @@ namespace Clasp
         internal static IEnumerable<string> Pipe(string source) => Piper.PipeInFileContents(source);
         internal static IEnumerable<Token> Lex(string source, string input) => Lexer.LexText(source, input);
 
-        internal static Syntax Read(IEnumerable<Token> tokens) => Reader.ReadTokens(tokens);
+        internal static Syntax Read(IEnumerable<Token> tokens) => Reader.ReadTokenSyntax(tokens);
 
         internal static Syntax ExpandTopLevel(Syntax rawSyntax) => Expander.Expand(rawSyntax, CompilationContext.ForTopLevel());
 
@@ -59,7 +59,7 @@ namespace Clasp
 
             //return output.ToPrintedString();
 
-            return Module.Instantiate(Module.NameFromPath(inputFilePath), PrintStepAndPause).ToPrintedString();
+            return Module.Instantiate(Module.NameFromPath(inputFilePath), PrintStep).ToPrintedString();
         }
 
 

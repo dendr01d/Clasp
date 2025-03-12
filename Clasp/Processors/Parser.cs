@@ -28,7 +28,7 @@ namespace Clasp.Process
                 }
                 else
                 {
-                    return new ConstValue(stx);
+                    return ParseConst(stx, phase);
                 }
             }
             catch (ClaspException cex)
@@ -71,9 +71,9 @@ namespace Clasp.Process
                 throw new ParserException.InvalidOperator(parsedOp, stp);
             }
 
-            CoreForm[] parsedArgs = ParseArguments(args, phase).ToArray();
+            CoreForm[] parsedArgs = ParseArguments(args, phase, out CoreForm? varArg).ToArray();
 
-            return new Application(parsedOp, parsedArgs);
+            return new Application(parsedOp, parsedArgs, varArg);
         }
 
         private static CoreForm ParseSpecialArgs(string formName, Syntax args, int phase)
@@ -345,8 +345,9 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of argument expressions.
         /// </summary>
-        private static IEnumerable<CoreForm> ParseArguments(Syntax stx, int phase)
+        private static List<CoreForm> ParseArguments(Syntax stx, int phase, out CoreForm? varArg)
         {
+            List<CoreForm> outArgs = new List<CoreForm>();
             Syntax target = stx;
 
             while (target.TryUnpair(out Syntax? nextArg, out Syntax? tail))
@@ -358,17 +359,28 @@ namespace Clasp.Process
                     throw new ParserException.ExpectedExpression(outArg, nextArg.Location);
                 }
 
-                yield return outArg;
+                outArgs.Add(outArg);
                 
                 target = tail;
             }
 
             if (!Nil.Is(target))
             {
-                throw new ParserException.ExpectedProperList(stx);
+                CoreForm outArg = ParseSyntax(target, phase);
+
+                if (outArg.IsImperative)
+                {
+                    throw new ParserException.ExpectedExpression(outArg, target.Location);
+                }
+
+                varArg = outArg;
+            }
+            else
+            {
+                varArg = null;
             }
 
-            yield break;
+            return outArgs;
         }
 
         private static IEnumerable<Symbol> ParseParameterList(Syntax stx, int phase)

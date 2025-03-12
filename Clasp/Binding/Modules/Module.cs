@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,8 +13,6 @@ using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.VirtualMachine;
 using Clasp.Exceptions;
 using Clasp.Process;
-
-using static System.Net.WebRequestMethods;
 
 namespace Clasp.Binding.Modules
 {
@@ -51,7 +48,7 @@ namespace Clasp.Binding.Modules
                 string fileName = Path.ChangeExtension(moduleName, RuntimeParams.FILE_EXT);
                 string filePath = Path.Combine(RuntimeParams.LIBRARY_REPO_DIR, fileName);
 
-                Syntax moduleBody = Reader.ReadTokens(Lexer.LexFile(filePath));
+                Syntax moduleBody = Reader.ReadTokenSyntax(Lexer.LexFile(filePath));
                 DeclaredModule mdl = new DeclaredModule(moduleName, moduleBody);
                 ModuleCache.Update(mdl);
             }
@@ -128,7 +125,7 @@ namespace Clasp.Binding.Modules
 
                 List<Symbol> missingSymbols = new List<Symbol>();
 
-                foreach(Identifier exportedId in vMdl.ExportedIds)
+                foreach (Identifier exportedId in vMdl.ExportedIds)
                 {
                     if (!exportedId.TryResolveBinding(1, out RenameBinding? binding))
                     {
