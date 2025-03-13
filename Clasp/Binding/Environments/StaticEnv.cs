@@ -59,7 +59,7 @@ namespace Clasp.Binding.Environments
 
         public override bool ContainsKey(string key) => _definitions.ContainsKey(key);
 
-        private static readonly Symbol[] CoreKeywords = new Symbol[]
+        public static readonly Symbol[] CoreKeywords = new Symbol[]
         {
             Symbols.Quote,
             Symbols.Quasiquote,

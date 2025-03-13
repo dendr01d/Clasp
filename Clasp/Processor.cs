@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 
-using Clasp.Binding;
-using Clasp.Binding.Environments;
 using Clasp.Binding.Modules;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
+using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
@@ -53,13 +51,11 @@ namespace Clasp
         /// <returns>The result of the CLASP program, coerced to a string.</returns>
         public static string ProcessProgram(string inputFilePath)
         {
-            //Module.Declare(inputFilePath);
-            //Module.Visit(Module.NameFromPath(inputFilePath));
-            //Term output = Module.Instantiate(Module.NameFromPath(inputFilePath));
+            string moduleName = Module.NameFromPath(inputFilePath);
 
-            //return output.ToPrintedString();
+            Module.Visit(moduleName);
 
-            return Module.Instantiate(Module.NameFromPath(inputFilePath)).ToPrintedString();
+            return Module.Instantiate(moduleName).ToPrintedString();
         }
 
 

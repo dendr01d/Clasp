@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using Clasp.Binding;
@@ -371,7 +372,9 @@ namespace Clasp.Process
         /// </summary>
         private static Syntax ExpandBody(Syntax stx, CompilationContext context)
         {
-            Syntax partiallyExpandedBody = PartiallyExpandSequence(stx, context);
+            Syntax unrolledBody = Syntax.WrapWithRef(Cons.ProperList(FlattenNestedSequences(stx, context)), stx);
+
+            Syntax partiallyExpandedBody = PartiallyExpandSequence(unrolledBody, context);
 
             if (context.Mode == ExpansionMode.TopLevel || context.Mode == ExpansionMode.Module
                 && context.ImportedScopes.Any())
@@ -380,6 +383,44 @@ namespace Clasp.Process
             }
 
             return ExpandSequence(partiallyExpandedBody, context.AsPartial());
+        }
+
+        /// <summary>
+        /// Without performing expansion, flatten a sequence by checking for nested sequences and splicing them together.
+        /// </summary>
+        private static IEnumerable<Syntax> FlattenNestedSequences(Syntax stx, CompilationContext context)
+        {
+            Stack<Syntax> pending = new Stack<Syntax>();
+            pending.Push(stx);
+            
+            while(pending.Count > 0)
+            {
+                Syntax nextSequence = pending.Pop();
+
+                if (nextSequence.TryUnpair(out Syntax? nextItem, out Syntax? remaining))
+                {
+                    pending.Push(remaining);
+
+                    if (nextItem.TryUnpair(out Identifier? op, out Syntax? args)
+                    && op.TryResolveBinding(context.Phase, out RenameBinding? binding)
+                    && binding.BoundType == BindingType.Special
+                    && (binding.Name == Keywords.BEGIN
+                        || binding.Name == Keywords.S_TOP_BEGIN
+                        || binding.Name == Keywords.S_BEGIN))
+                    {
+                        pending.Push(args);
+                    }
+                    else
+                    {
+                        yield return nextItem;
+                    }
+
+                }
+                else if (!Nil.Is(nextSequence))
+                {
+                    throw new ExpanderException.ExpectedProperList(stx);
+                }
+            }
         }
 
         /// <summary>

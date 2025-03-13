@@ -37,6 +37,8 @@ namespace Clasp.Data.Terms
         // Gamma, for "GenSym"
         private const string _SEP = "-Γ";
 
+        private readonly string _originalName;
+
         private static string GenerateUniqueName(string partial)
         {
             string output = partial;
@@ -49,10 +51,14 @@ namespace Clasp.Data.Terms
             return output;
         }
 
-        public GenSym(string fromName) : base(GenerateUniqueName(fromName)) { }
+        public GenSym(string fromName) : base(GenerateUniqueName(fromName))
+        {
+            _originalName = fromName;
+        }
         public GenSym() : this("GenSym") { }
 
         protected override string FormatType() => "GenSym";
+        public override string ToPrintedString() => _originalName;
     }
 
     /// <summary>

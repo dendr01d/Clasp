@@ -16,20 +16,20 @@ namespace Clasp.Data.Terms
 
     internal sealed class PortReader : Port
     {
-        public readonly StreamReader Stream;
-        public PortReader(string name, Stream stream) : base(name)
+        public readonly TextReader Stream;
+        public PortReader(string name, TextReader stream) : base(name)
         {
-            Stream = new StreamReader(stream);
+            Stream = stream;
         }
         protected override string FormatType() => nameof(PortReader);
     }
 
     internal sealed class PortWriter : Port
     {
-        public readonly StreamWriter Stream;
-        public PortWriter(string name, Stream stream) : base(name)
+        public readonly TextWriter Stream;
+        public PortWriter(string name, TextWriter stream) : base(name)
         {
-            Stream = new StreamWriter(stream);
+            Stream = stream;
         }
         protected override string FormatType() => nameof(PortWriter);
     }

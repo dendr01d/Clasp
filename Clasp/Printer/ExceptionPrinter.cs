@@ -4,9 +4,9 @@ using System.Linq;
 using Clasp.Data.Text;
 using Clasp.Interfaces;
 
-namespace Clasp
+namespace Clasp.Printer
 {
-    internal static class Printer
+    internal static class ExceptionPrinter
     {
         public static string PrintLineErrorHelper(ISourceTraceable ist)
         {

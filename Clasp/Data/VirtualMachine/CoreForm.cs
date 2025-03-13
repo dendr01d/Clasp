@@ -113,7 +113,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override VmInstruction CopyContinuation() => new Undefine(_key);
         protected override string FormatArgs() => string.Format("{0}", _key);
-        public override Term ToTerm() => Cons.ProperList(Symbols.S_PartialDefine, _key);
+        public override Term ToTerm() => Cons.ProperList(Symbols.Define, _key, Undefined.Value);
     }
 
     internal sealed class Mutation : CoreForm
@@ -158,8 +158,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override VmInstruction CopyContinuation() => new Conditional(_test, _consequent, _alternative);
         protected override string FormatArgs() => string.Join(", ", _test, _consequent, _alternative);
-        public override Term ToTerm() => Cons.ProperList(Symbols.If,
-            _test.ToTerm(), _consequent.ToTerm(), _alternative.ToTerm());
+        public override Term ToTerm() => Cons.ProperList(Symbols.If, _test.ToTerm(), _consequent.ToTerm(), _alternative.ToTerm());
     }
 
     internal sealed class Sequential : CoreForm
@@ -209,7 +208,7 @@ namespace Clasp.Data.AbstractSyntax
 
         public override Application CopyContinuation() => new Application(_operator, _arguments);
         protected override string FormatArgs() => string.Join(", ", _operator, string.Join(", ", _arguments.Select(x => x.ToString())));
-        public override Term ToTerm() => Cons.ImproperList(Symbols.Apply, _operator.ToTerm(), Cons.ProperList(_arguments.Select(x => x.ToTerm())));
+        public override Term ToTerm() => Cons.Truct(_operator.ToTerm(), Cons.ProperList(_arguments.Select(x => x.ToTerm())));
     }
 
     internal sealed class Procedural : CoreForm
