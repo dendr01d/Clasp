@@ -33,7 +33,9 @@ namespace Clasp.Data.Static
 
                 _arithmeticProcs,
 
-                _portProcs
+                _portProcs,
+
+                _specialValueProcs
             }
             .SelectMany(x => x).ToArray();
         }
@@ -144,6 +146,12 @@ namespace Clasp.Data.Static
 
             new("port-read", new UnaryFn<PortReader>(PortOps.Read)),
             new("port-write", new BinaryFn<PortWriter, Term>(PortOps.Write))
+        ];
+
+        private static readonly PrimitiveProcedure[] _specialValueProcs =
+        [
+            new("void", new NullaryFn(SpecialValueOps.MakeVoid)),
+            new("undefined", new NullaryFn(SpecialValueOps.MakeUndefined))
         ];
     }
 }

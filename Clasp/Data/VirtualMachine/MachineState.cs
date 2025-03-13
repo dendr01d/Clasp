@@ -11,7 +11,7 @@ namespace Clasp.Data.VirtualMachine
 {
     internal class MachineState
     {
-        public int Phase;
+        public int Phase = 1;
         public Term ReturningValue;
         public MutableEnv CurrentEnv;
         public Stack<VmInstruction> Continuation;

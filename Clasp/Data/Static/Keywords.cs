@@ -58,7 +58,7 @@ namespace Clasp.Data.Static
         public const string S_SET = "σ-set!";
         public const string S_IF = "σ-if";
         public const string S_BEGIN = "σ-begin";
-        public const string S_APPLY = "σ-apply";
+        public const string S_APP = "σ-app";
         public const string S_LAMBDA = "σ-lambda";
         public const string S_VAR = "σ-var";
         public const string S_CONST = "σ-const";
@@ -76,7 +76,7 @@ namespace Clasp.Data.Static
             S_SET,
             S_IF,
             S_BEGIN,
-            S_APPLY,
+            S_APP,
             S_LAMBDA,
             S_VAR,
             S_CONST,

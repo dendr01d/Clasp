@@ -2,6 +2,7 @@
 using System.Linq;
 
 using Clasp.Binding.Modules;
+using Clasp.Exceptions;
 
 namespace Clasp.Binding.Environments
 {
@@ -33,7 +34,16 @@ namespace Clasp.Binding.Environments
 
                 _modules.Add(mdl.Name, mEnv);
 
-                //TODO check for conflicts among imported identifiers
+                foreach(ModuleEnv otherEnv in _modules.Values)
+                {
+                    foreach(var key in mdl.ExportedIds)
+                    {
+                        if (otherEnv.ContainsKey(key.Expose().Name))
+                        {
+                            throw new ClaspGeneralException("Collision error on {0} whilst installing module '{1}'.", key.Expose().Name, mdl.Name);
+                        }
+                    }
+                }
             }
         }
     }

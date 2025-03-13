@@ -23,8 +23,6 @@ namespace Clasp.Data.AbstractSyntax
         public virtual bool IsImperative { get; } = false;
         public abstract string ImplicitKeyword { get; }
         public abstract Term ToTerm();
-
-        public abstract override CoreForm CopyContinuation();
     }
 
     internal sealed class TopBegin : CoreForm
@@ -44,7 +42,7 @@ namespace Clasp.Data.AbstractSyntax
             }
             machine.Continuation.Push(_bodyForms[0]);
         }
-        public override CoreForm CopyContinuation()
+        public override VmInstruction CopyContinuation()
         {
             // The continuation can't contain any of the other forms in the sequence
             // Act as if it were ONLY the next form to be evaluated
@@ -74,7 +72,7 @@ namespace Clasp.Data.AbstractSyntax
             machine.Continuation.Push(setOrDefine);
             machine.Continuation.Push(_value);
         }
-        public override TopDefine CopyContinuation() => new TopDefine(_key, _value);
+        public override VmInstruction CopyContinuation() => new TopDefine(_key, _value);
         protected override string FormatArgs() => string.Format("{0}, {1}", _key, _value.ToString());
         public override Term ToTerm() => Cons.ProperList(Symbols.Define, _key, _value.ToTerm());
     }
@@ -94,7 +92,7 @@ namespace Clasp.Data.AbstractSyntax
                 machine.Continuation.Push(new InstallModule(key.Name));
             }
         }
-        public override Importation CopyContinuation() => new Importation(_keys);
+        public override VmInstruction CopyContinuation() => new Importation(_keys);
         protected override string FormatArgs() => string.Join(", ", _keys.Select(x => x.ToString()));
         public override Term ToTerm() => Cons.Truct(Symbols.Import, Cons.ProperList(_keys));
     }
@@ -113,7 +111,7 @@ namespace Clasp.Data.AbstractSyntax
             machine.Continuation.Push(new BindFresh(_key.Name));
             machine.ReturningValue = Undefined.Value;
         }
-        public override Undefine CopyContinuation() => new Undefine(_key);
+        public override VmInstruction CopyContinuation() => new Undefine(_key);
         protected override string FormatArgs() => string.Format("{0}", _key);
         public override Term ToTerm() => Cons.ProperList(Symbols.S_PartialDefine, _key);
     }
@@ -134,7 +132,7 @@ namespace Clasp.Data.AbstractSyntax
             machine.Continuation.Push(new RebindExisting(_key.Name));
             machine.Continuation.Push(_value);
         }
-        public override Mutation CopyContinuation() => new Mutation(_key, _value);
+        public override VmInstruction CopyContinuation() => new Mutation(_key, _value);
         protected override string FormatArgs() => string.Format("{0}, {1}", _key, _value.ToString());
         public override Term ToTerm() => Cons.ProperList(Symbols.Set, _key, _value.ToTerm());
     }
@@ -158,7 +156,7 @@ namespace Clasp.Data.AbstractSyntax
             machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
             machine.Continuation.Push(_test);
         }
-        public override Conditional CopyContinuation() => new Conditional(_test, _consequent, _alternative);
+        public override VmInstruction CopyContinuation() => new Conditional(_test, _consequent, _alternative);
         protected override string FormatArgs() => string.Join(", ", _test, _consequent, _alternative);
         public override Term ToTerm() => Cons.ProperList(Symbols.If,
             _test.ToTerm(), _consequent.ToTerm(), _alternative.ToTerm());
@@ -190,31 +188,26 @@ namespace Clasp.Data.AbstractSyntax
     {
         private readonly CoreForm _operator;
         private readonly CoreForm[] _arguments;
-        private readonly CoreForm? _varArg;
-
         public override string AppCode => "APPL";
-        public override string ImplicitKeyword => Keywords.S_APPLY;
-        public Application(CoreForm op, CoreForm[] args, CoreForm? varArg) : base()
+        public override string ImplicitKeyword => Keywords.S_APP;
+        public Application(CoreForm op, CoreForm[] args) : base()
         {
             _operator = op;
             _arguments = args;
         }
-        public Application(MacroProcedure macro, Syntax input)
-            : this(new ConstValue(macro), [ new ConstValue(input) ], null)
-        { }
-
         public override void RunOnMachine(MachineState machine)
         {
-            machine.Continuation.Push(new FunctionVerification(_arguments, _varArg));
+            machine.Continuation.Push(new FunctionVerification(_arguments));
             machine.Continuation.Push(new ChangeEnv(this, machine.CurrentEnv));
             machine.Continuation.Push(_operator);
         }
-        public override Application CopyContinuation()
+
+        public static Application ForMacro(MacroProcedure macro, Syntax arg)
         {
-            return new Application(_operator.CopyContinuation(),
-                _arguments.Select(x => x.CopyContinuation()).ToArray(),
-                _varArg?.CopyContinuation());
+            return new Application(new ConstValue(macro), [new ConstValue(arg)]);
         }
+
+        public override Application CopyContinuation() => new Application(_operator, _arguments);
         protected override string FormatArgs() => string.Join(", ", _operator, string.Join(", ", _arguments.Select(x => x.ToString())));
         public override Term ToTerm() => Cons.ImproperList(Symbols.Apply, _operator.ToTerm(), Cons.ProperList(_arguments.Select(x => x.ToTerm())));
     }

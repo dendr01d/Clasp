@@ -102,7 +102,7 @@ namespace Clasp.Binding.Environments
 
             Symbols.S_If,
             Symbols.S_Begin,
-            Symbols.S_Apply,
+            Symbols.S_App,
             Symbols.S_Lambda,
 
             Symbols.S_Var,

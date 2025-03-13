@@ -74,7 +74,7 @@ namespace Clasp.Process
                     //return WrapImplicit(Symbols.S_Var, id);
                 }
             }
-            else if (context.Mode != ExpansionMode.Module)
+            else if (context.Mode != ExpansionMode.TopLevel)
             {
                 return WrapImplicit(Symbols.S_TopVar, id);
             }
@@ -111,11 +111,11 @@ namespace Clasp.Process
             try
             {
                 Syntax expandedList = ExpandExpressionList(stp, context);
-                return WrapImplicit(Symbols.S_Apply, expandedList);
+                return WrapImplicit(Symbols.S_App, expandedList);
             }
             catch (ExpanderException ee)
             {
-                throw new ExpanderException.InvalidForm(Keywords.S_APPLY, stp, ee);
+                throw new ExpanderException.InvalidForm(Keywords.S_APP, stp, ee);
             }
         }
 
@@ -305,7 +305,7 @@ namespace Clasp.Process
 
             try
             {
-                Application program = new Application(macro, input);
+                Application program = Application.ForMacro(macro, input);
                 output = Interpreter.InterpretProgram(program, context.CompileTimeEnv);
             }
             catch (Exception ex)
@@ -795,6 +795,23 @@ namespace Clasp.Process
             {
                 throw new ExpanderException.InvalidArguments(stp);
             }
+        }
+
+        private static Syntax ExpandApplyForm(SyntaxPair stp, CompilationContext context)
+        {
+            if (stp.TryUnpair(out Syntax? op, out Syntax? rest))
+            {
+                if (Nil.Is(rest))
+                {
+                    return ExpandApplication(stp, context);
+                }
+                else if (stp.TryDelist(out Syntax? args))
+                {
+                    return ExpandApplication(new SyntaxPair(op, args, stp.Location), context);
+                }
+            }
+
+            throw new ExpanderException.InvalidArguments(stp);
         }
 
         #endregion

@@ -2,7 +2,6 @@
 using System.Linq;
 
 using Clasp.Binding;
-using Clasp.Binding.Modules;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Static;
 using Clasp.Data.Terms;
@@ -71,9 +70,9 @@ namespace Clasp.Process
                 throw new ParserException.InvalidOperator(parsedOp, stp);
             }
 
-            CoreForm[] parsedArgs = ParseArguments(args, phase, out CoreForm? varArg).ToArray();
+            CoreForm[] parsedArgs = ParseArguments(args, phase).ToArray();
 
-            return new Application(parsedOp, parsedArgs, varArg);
+            return new Application(parsedOp, parsedArgs);
         }
 
         private static CoreForm ParseSpecialArgs(string formName, Syntax args, int phase)
@@ -91,7 +90,7 @@ namespace Clasp.Process
                     Keywords.S_SET => ParseSet(args, phase),
                     Keywords.S_IF => ParseIf(args, phase),
                     Keywords.S_BEGIN => ParseBegin(args, phase),
-                    Keywords.S_APPLY => ParseApply(args, phase),
+                    Keywords.S_APP => ParseApply(args, phase),
                     Keywords.S_LAMBDA => ParseLambda(args, phase),
                     Keywords.S_VAR => ParseVar(args, phase),
                     Keywords.S_CONST => ParseConst(args, phase),
@@ -126,7 +125,7 @@ namespace Clasp.Process
         private static TopBegin ParseTopBegin(Syntax args, int phase)
         {
             Syntax stx = args;
-            List<CoreForm> forms = new List<CoreForm>();
+            List<CoreForm> forms = [];
 
             while (stx.TryUnpair(out Syntax? nextForm, out Syntax? tail))
             {
@@ -168,7 +167,7 @@ namespace Clasp.Process
                 throw new ParserException.InvalidArguments(Keywords.S_MODULE_BEGIN, args);
             }
 
-            List<CoreForm> forms = new List<CoreForm>();
+            List<CoreForm> forms = [];
 
             Syntax stx = exports;
             //while (stx.TryUnpair(out Identifier? nextExport, out Syntax? moreExports))
@@ -210,7 +209,7 @@ namespace Clasp.Process
         private static Importation ParseImport(Syntax args, int phase)
         {
             Syntax stx = args;
-            List<Symbol> mdlSymbols = new List<Symbol>();
+            List<Symbol> mdlSymbols = [];
 
             while (stx.TryUnpair(out Identifier? nextImport, out Syntax? tail))
             {
@@ -260,7 +259,7 @@ namespace Clasp.Process
         private static Sequential ParseBegin(Syntax args, int phase)
         {
             Syntax stx = args;
-            List<CoreForm> forms = new List<CoreForm>();
+            List<CoreForm> forms = [];
 
             while (stx.TryUnpair(out Syntax? nextForm, out Syntax? tail))
             {
@@ -287,7 +286,7 @@ namespace Clasp.Process
         {
             if (args is not SyntaxPair stp)
             {
-                throw new ParserException.InvalidArguments(Keywords.S_APPLY, args);
+                throw new ParserException.InvalidArguments(Keywords.S_APP, args);
             }
 
             return ParseApplication(stp, phase);
@@ -345,9 +344,8 @@ namespace Clasp.Process
         /// <summary>
         /// Enumerate all the forms in a (proper) list of argument expressions.
         /// </summary>
-        private static List<CoreForm> ParseArguments(Syntax stx, int phase, out CoreForm? varArg)
+        private static IEnumerable<CoreForm> ParseArguments(Syntax stx, int phase)
         {
-            List<CoreForm> outArgs = new List<CoreForm>();
             Syntax target = stx;
 
             while (target.TryUnpair(out Syntax? nextArg, out Syntax? tail))
@@ -359,28 +357,17 @@ namespace Clasp.Process
                     throw new ParserException.ExpectedExpression(outArg, nextArg.Location);
                 }
 
-                outArgs.Add(outArg);
-                
+                yield return outArg;
+
                 target = tail;
             }
 
             if (!Nil.Is(target))
             {
-                CoreForm outArg = ParseSyntax(target, phase);
-
-                if (outArg.IsImperative)
-                {
-                    throw new ParserException.ExpectedExpression(outArg, target.Location);
-                }
-
-                varArg = outArg;
-            }
-            else
-            {
-                varArg = null;
+                throw new ParserException.ExpectedProperList(stx);
             }
 
-            return outArgs;
+            yield break;
         }
 
         private static IEnumerable<Symbol> ParseParameterList(Syntax stx, int phase)

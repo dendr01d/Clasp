@@ -56,7 +56,7 @@ namespace Clasp.Binding.Modules
 
         public static ParsedModule Visit(string moduleName, Syntax moduleStx)
         {
-            //TODO strip scopes off the incoming syntax
+            moduleStx = moduleStx.StripScopes(0);
             
             if (ModuleCache.Contains(moduleName))
             {

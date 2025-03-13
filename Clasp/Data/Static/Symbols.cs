@@ -55,7 +55,7 @@ namespace Clasp.Data.Static
 
         public static readonly ReservedSymbol S_If = new(Keywords.S_IF);
         public static readonly ReservedSymbol S_Begin = new(Keywords.S_BEGIN);
-        public static readonly ReservedSymbol S_Apply = new(Keywords.S_APPLY);
+        public static readonly ReservedSymbol S_App = new(Keywords.S_APP);
         public static readonly ReservedSymbol S_Lambda = new(Keywords.S_LAMBDA);
 
         public static readonly ReservedSymbol S_Var = new(Keywords.S_VAR);

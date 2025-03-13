@@ -59,7 +59,7 @@ namespace Clasp
 
             //return output.ToPrintedString();
 
-            return Module.Instantiate(Module.NameFromPath(inputFilePath), PrintStep).ToPrintedString();
+            return Module.Instantiate(Module.NameFromPath(inputFilePath)).ToPrintedString();
         }
 
 
