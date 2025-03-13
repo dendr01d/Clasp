@@ -1,0 +1,5 @@
+(export set!)
+
+(define old-set! set!)
+
+(define set! (lambda x x))

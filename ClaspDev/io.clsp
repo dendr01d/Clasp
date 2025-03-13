@@ -1,0 +1,22 @@
+(export display displayln)
+
+(define console-out (open-console-out))
+(define console-in (open-console-in))
+
+(define display
+        (lambda (x . y)
+                (begin (port-write console-out x)
+                       (if (null? y)
+                           (void)
+                           (begin (port-write console-out #\space)
+                                  (display (car y) (cdr y)))))))
+        
+(define displayln
+        (lambda (x . y)
+                (begin (port-write console-out
+                                   x)
+                       (if (null? y)
+                           (port-write console-out #\newline)
+                           (begin (port-write console-out #\space)
+                                  (displayln (car y)
+                                             (cdr y)))))))

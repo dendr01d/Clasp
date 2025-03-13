@@ -1,0 +1,5 @@
+(export lambda)
+
+(define old-lambda 'lambda)
+
+(define lambda ((old-lambda () "wavelength")))
