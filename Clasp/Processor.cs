@@ -53,7 +53,11 @@ namespace Clasp
         {
             string moduleName = Module.NameFromPath(inputFilePath);
 
-            Module.Visit(moduleName);
+            if (Module.Visit(moduleName) is VisitedModule vMdl)
+            {
+                Console.WriteLine(Printer.FormPrinter.Print(vMdl.ParsedForm.ToTerm(), false));
+                Console.WriteLine();
+            }
 
             return Module.Instantiate(moduleName).ToPrintedString();
         }

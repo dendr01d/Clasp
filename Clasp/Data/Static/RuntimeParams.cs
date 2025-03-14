@@ -10,6 +10,6 @@ namespace Clasp.Data.Static
     {
         public const string FILE_EXT = "clsp";
 
-        public static string LIBRARY_REPO_DIR = Environment.ExpandEnvironmentVariables(@"%USERPROFILE%\source\repos\ClaspSource");
+        public static string LIBRARY_REPO_DIR = Environment.ExpandEnvironmentVariables(@"%USERPROFILE%\source\repos\Clasp\ClaspDev");
     }
 }

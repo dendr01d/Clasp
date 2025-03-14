@@ -10,7 +10,7 @@
                            (void)
                            (begin (port-write console-out #\space)
                                   (display (car y) (cdr y)))))))
-        
+
 (define displayln
         (lambda (x . y)
                 (begin (port-write console-out

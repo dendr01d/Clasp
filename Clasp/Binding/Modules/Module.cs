@@ -101,9 +101,6 @@ namespace Clasp.Binding.Modules
                 VisitedModule vMdl = new VisitedModule(moduleName, parsedStx, bodyContext.CollectedIdentifiers.ToArray(), insideEdge);
                 ModuleCache.Update(vMdl);
 
-                Console.WriteLine(Printer.FormPrinter.Print(parsedStx.ToTerm(), true));
-                Console.WriteLine();
-
                 return vMdl;
             }
 
