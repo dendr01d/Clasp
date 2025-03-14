@@ -1,4 +1,4 @@
-﻿(import test-add)
+(import test/add test/mult)
 (export sub)
 
-(define sub (lambda (x y) (add x (* -1 y))))
+(define sub (lambda (x y) (add x (mult -1 y))))

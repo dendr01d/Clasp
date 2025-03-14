@@ -1,0 +1,3 @@
+(export mult)
+
+(define mult (lambda (x y) (* x y)))

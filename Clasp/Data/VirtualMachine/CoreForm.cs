@@ -180,7 +180,9 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override Sequential CopyContinuation() => new Sequential(_bodyForms);
         protected override string FormatArgs() => string.Join(", ", _bodyForms.Select(x => x.ToString()));
-        public override Term ToTerm() => Cons.Truct(Symbols.Begin, Cons.ProperList(_bodyForms.Select(x => x.ToTerm())));
+        public override Term ToTerm() => Cons.Truct(Symbols.Begin, ToImplicitTerm());
+
+        public Term ToImplicitTerm() => Cons.ProperList(_bodyForms.Select(x => x.ToTerm()));
     }
 
     internal sealed class Application : CoreForm
@@ -240,7 +242,7 @@ namespace Clasp.Data.AbstractSyntax
             string.Format("({0})", _formalVariad?.Name ?? string.Empty),
             string.Format("({0})", string.Join(", ", _informals.Select(x => x.Name))),
             _body.ToString());
-        public override Term ToTerm() => Cons.ImproperList(Symbols.Lambda, Cons.ImproperList(_formals.Append((Term?)_formalVariad ?? Nil.Value)), _body.ToTerm());
+        public override Term ToTerm() => Cons.ImproperList(Symbols.Lambda, Cons.ImproperList(_formals.Append((Term?)_formalVariad ?? Nil.Value)), _body.ToImplicitTerm());
     }
 
     internal sealed class VariableReference : CoreForm

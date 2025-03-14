@@ -162,7 +162,7 @@ namespace Clasp.Process
                     Keywords.SET => ExpandSet(args, context),
 
                     Keywords.IF => ExpandIf(args, context),
-                    Keywords.BEGIN => ExpandSequence(args, context),
+                    Keywords.BEGIN => ExpandBegin(args, context),
 
                     Keywords.APPLY => ExpandApplyForm(args, context),
                     Keywords.LAMBDA => ExpandLambda(args, context),
@@ -372,7 +372,8 @@ namespace Clasp.Process
         /// </summary>
         private static Syntax ExpandBody(Syntax stx, CompilationContext context)
         {
-            Syntax unrolledBody = Syntax.WrapWithRef(Cons.ProperList(FlattenNestedSequences(stx, context)), stx);
+            IEnumerable<Syntax> bodyItems = FlattenNestedSequences(stx, context).ToArray();
+            Syntax unrolledBody = Syntax.WrapWithRef(Cons.ProperList(bodyItems), stx);
 
             Syntax partiallyExpandedBody = PartiallyExpandSequence(unrolledBody, context);
 
@@ -731,6 +732,19 @@ namespace Clasp.Process
             else
             {
                 throw new ExpanderException.InvalidArguments(stp);
+            }
+        }
+
+        private static Syntax ExpandBegin(SyntaxPair stp, CompilationContext context)
+        {
+            if (Nil.Is(stp))
+            {
+                throw new ExpanderException.InvalidArguments(stp);
+            }
+            else
+            {
+                Syntax expandedSequence = ExpandSequence(stp, context);
+                return Syntax.WrapWithRef(Cons.Truct(Symbols.S_Begin, expandedSequence), stp);
             }
         }
 

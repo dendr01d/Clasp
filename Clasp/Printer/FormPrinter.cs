@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 using Clasp.Binding.Environments;
 using Clasp.Data.Terms;
@@ -14,17 +13,83 @@ namespace Clasp.Printer
 {
     internal static class FormPrinter
     {
+        #region Presets
+
+        private static readonly Color LiteRed = Color.FromArgb(0xFF, 0x88, 0x88);
+        private static readonly Color LiteMgn = Color.FromArgb(0xFF, 0x88, 0xFF);
+        private static readonly Color LiteBlu = Color.FromArgb(0x88, 0x88, 0xFF);
+        private static readonly Color LiteCyn = Color.FromArgb(0x88, 0xFF, 0xFF);
+        private static readonly Color LiteGrn = Color.FromArgb(0x88, 0xFF, 0x88);
+        private static readonly Color LiteYlw = Color.FromArgb(0xFF, 0xFF, 0x88);
+
+        private static readonly Color PureRed = Color.FromArgb(0xFF, 0x00, 0x00);
+        private static readonly Color PureMgn = Color.FromArgb(0xFF, 0x00, 0xFF);
+        private static readonly Color PureBlu = Color.FromArgb(0x00, 0x00, 0xFF);
+        private static readonly Color PureCyn = Color.FromArgb(0x00, 0xFF, 0xFF);
+        private static readonly Color PureGrn = Color.FromArgb(0x00, 0xFF, 0x00);
+        private static readonly Color PureYlw = Color.FromArgb(0xFF, 0xFF, 0x00);
+
+        private static readonly Color DarkRed = Color.FromArgb(0x88, 0x00, 0x00);
+        private static readonly Color DarkMgn = Color.FromArgb(0x88, 0x00, 0x88);
+        private static readonly Color DarkBlu = Color.FromArgb(0x00, 0x00, 0x88);
+        private static readonly Color DarkCyn = Color.FromArgb(0x00, 0x88, 0x88);
+        private static readonly Color DarkGrn = Color.FromArgb(0x00, 0x88, 0x00);
+        private static readonly Color DarkYlw = Color.FromArgb(0x88, 0x88, 0x00);
+
+        private const string PAREN_LEFT = "⌠";
+        private const string PAREN_RIGHT = "⌡";
+        private const string DOT_OP = "•";
+
+        #endregion
+
+        #region Preset Helpers
+
+        private static readonly Random _rng = new();
+
+        private static readonly Color[] PureColors = [PureRed, PureMgn, PureBlu, PureCyn, PureGrn, PureYlw];
+        private static Color RandomParenColor() => PureColors[_rng.Next(0, 6)];
+
+        private static Color RotateDepthwise(Color c)
+        {
+            return c switch
+            {
+                _ when c == PureRed => PureCyn,
+                _ when c == PureMgn => PureGrn,
+                _ when c == PureBlu => PureYlw,
+                _ when c == PureCyn => PureRed,
+                _ when c == PureGrn => PureMgn,
+                _ when c == PureYlw => PureBlu,
+                _ => Color.White
+            };
+        }
+
+        private static Color RotateBreadthwise(Color c)
+        {
+            return c switch
+            {
+                _ when c == PureRed => PureGrn,
+                _ when c == PureMgn => PureCyn,
+                _ when c == PureBlu => PureRed,
+                _ when c == PureCyn => PureYlw,
+                _ when c == PureGrn => PureBlu,
+                _ when c == PureYlw => PureMgn,
+                _ => Color.White
+            };
+        }
+
+        #endregion
+
         public static string Print(Term t, bool colorize)
         {
-            StringBuilder sb = new StringBuilder();
-            Stack<string> indents = new Stack<string>();
+            StringBuilder sb = new();
+            Stack<string> indents = new();
 
-            PrintFormattedTerm(t, sb, indents, colorize, RandomParenColor());
+            PrintFormattedTerm(t, sb, indents, colorize, Color.White);
 
             return sb.ToString();
         }
 
-        private static int PrintFormattedTerm(Term t, StringBuilder sb, Stack<string> indents, bool colorize, string parenColor)
+        private static int PrintFormattedTerm(Term t, StringBuilder sb, Stack<string> indents, bool colorize, Color parenColor)
         {
             if (Nil.Is(t))
             {
@@ -40,14 +105,11 @@ namespace Clasp.Printer
             }
         }
 
-        private const string PAREN_LEFT = "⟦";
-        private const string PAREN_RIGHT = "⟧";
-
-        private static int PrintFormattedList(Cons cns, StringBuilder sb, Stack<string> indents, bool colorize, string parenColor)
+        private static int PrintFormattedList(Cons cns, StringBuilder sb, Stack<string> indents, bool colorize, Color parenColor)
         {
-            sb.Append(ColorizeParen(PAREN_LEFT, parenColor, colorize));
+            sb.Append(Colorize(PAREN_LEFT, parenColor, colorize));
 
-            string deeperColor = _depthRotation[parenColor];
+            Color deeperColor = RotateDepthwise(parenColor);
 
             int indentLength = PrintFormattedTerm(cns.Car, sb, indents, colorize, deeperColor);
             string newIndent = indentLength > 0
@@ -61,7 +123,7 @@ namespace Clasp.Printer
             if (rest is Cons firstLine)
             {
                 sb.Append(' ');
-                deeperColor = _breadthRotation[deeperColor];
+                deeperColor = RotateBreadthwise(deeperColor);
                 PrintFormattedTerm(firstLine.Car, sb, indents, colorize, deeperColor);
                 rest = firstLine.Cdr;
             }
@@ -69,24 +131,27 @@ namespace Clasp.Printer
             while (rest is Cons anotherLine)
             {
                 sb.AppendLine();
-                foreach(string indent in indents)
+                foreach (string indent in indents)
                 {
                     sb.Append(indent);
                 }
-                deeperColor = _breadthRotation[deeperColor];
+                deeperColor = RotateBreadthwise(deeperColor);
                 PrintFormattedTerm(anotherLine.Car, sb, indents, colorize, deeperColor);
                 rest = anotherLine.Cdr;
             }
 
             if (!Nil.Is(rest))
             {
-                sb.Append(" . ");
-                deeperColor = _breadthRotation[deeperColor];
+                sb.Append(' ');
+                sb.Append(Colorize(DOT_OP, parenColor, colorize));
+                sb.Append(' ');
+
+                deeperColor = RotateBreadthwise(deeperColor);
                 PrintFormattedTerm(rest, sb, indents, colorize, deeperColor);
             }
 
             indents.Pop();
-            sb.Append(ColorizeParen(PAREN_RIGHT, parenColor, colorize));
+            sb.Append(Colorize(PAREN_RIGHT, parenColor, colorize));
 
             return 0;
         }
@@ -102,11 +167,11 @@ namespace Clasp.Printer
 
             string outStr = t switch
             {
-                Symbol special when StaticEnv.CoreKeywords.Contains(special) => Colorize(str, Color.Khaki, colorize),
-                PrimitiveProcedure pp => Colorize(str, Color.PeachPuff, colorize),
-                CharString cStr => Colorize(str, Color.ForestGreen, colorize),
-                Character c => Colorize(str, Color.SeaGreen, colorize),
-                Data.Terms.Boolean b => Colorize(str, Color.Purple, colorize),
+                Symbol special when StaticEnv.CoreKeywords.Contains(special) => Colorize(str, LiteYlw, colorize),
+                PrimitiveProcedure pp => Colorize(str, LiteRed, colorize),
+                CharString cStr => Colorize(str, LiteGrn, colorize),
+                Character c => Colorize(str, LiteCyn, colorize),
+                Data.Terms.Boolean b => Colorize(str, LiteBlu, colorize),
                 _ => str
             };
 
@@ -117,7 +182,7 @@ namespace Clasp.Printer
 
         // ------------------------
 
-        private static string Colorize(string str, System.Drawing.Color color, bool enabled)
+        private static string Colorize(string str, Color color, bool enabled)
         {
             if (enabled)
             {
@@ -129,55 +194,5 @@ namespace Clasp.Printer
             }
             return str;
         }
-
-        private static string EncodeColor(Color clr) => string.Format("\x1b[38;2;{0};{1};{2}m", (int)clr.R, (int)clr.G, (int)clr.B);
-
-        private static readonly string DARKBLUE = EncodeColor(Color.Teal);
-        private static readonly string LITEBLUE = EncodeColor(Color.MediumAquamarine); 
-        private static readonly string DARKORNG = EncodeColor(Color.Chocolate); 
-        private static readonly string LITEORNG = EncodeColor(Color.Coral); 
-        private static readonly string DARKPURP = EncodeColor(Color.Indigo);
-        private static readonly string LITEPURP = EncodeColor(Color.SlateBlue); 
-
-        private static string ColorizeParen(string paren, string code, bool enabled)
-        {
-            if (enabled)
-            {
-                return string.Format("{0}{1}\x1b[0m", code, paren);
-            }
-            return $"{paren}";
-        }
-
-        private static Random _rng = new Random();
-
-        private static string RandomParenColor() => new string[]
-        {
-            DARKBLUE,
-            LITEBLUE,
-            DARKORNG,
-            LITEORNG,
-            DARKPURP,
-            LITEPURP
-        }[_rng.Next(0, 5)];
-
-        private static readonly Dictionary<string, string> _depthRotation = new Dictionary<string, string>()
-        {
-            { DARKBLUE, LITEORNG },
-            { DARKORNG, LITEPURP },
-            { DARKPURP, LITEBLUE },
-            { LITEBLUE, DARKORNG },
-            { LITEORNG, DARKPURP },
-            { LITEPURP, DARKBLUE },
-        };
-
-        private static readonly Dictionary<string, string> _breadthRotation = new Dictionary<string, string>()
-        {
-            { DARKBLUE, LITEBLUE },
-            { DARKORNG, LITEORNG },
-            { DARKPURP, LITEPURP },
-            { LITEBLUE, DARKBLUE },
-            { LITEORNG, DARKORNG },
-            { LITEPURP, DARKPURP },
-        };
     }
 }

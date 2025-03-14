@@ -19,7 +19,7 @@ namespace Clasp.Data.AbstractSyntax
     /// </summary>
     internal abstract class VmInstruction
     {
-        protected const string HOLE = "░░";
+        protected const string HOLE = "□";
 
         public abstract string AppCode { get; }
         public abstract void RunOnMachine(MachineState machine);
