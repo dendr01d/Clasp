@@ -6,11 +6,11 @@ namespace VirtualMachine
     {
         static void Main(string[] args)
         {
-            Chunk testChunk = new Chunk();
-            int offset = testChunk.WriteConstant(new Character('c'));
+            ClosureBuilder testChunk = new ClosureBuilder();
+            int offset = testChunk.AddConstant(new Character('c'));
 
-            testChunk.WriteToEnd((byte)OpCode.Op_Constant, (byte)offset);
-            testChunk.WriteToEnd((byte)OpCode.Op_Return);
+            testChunk.AppendCode((byte)OpCode.Op_Constant, (byte)offset);
+            testChunk.AppendCode((byte)OpCode.Op_Return);
 
             string disassembledTest = Disassembler.Disassemble(testChunk, "test chunk");
 

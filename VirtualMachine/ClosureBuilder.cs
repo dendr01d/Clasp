@@ -8,21 +8,23 @@ using VirtualMachine.Terms;
 
 namespace VirtualMachine
 {
-    internal struct Chunk
+    internal struct ClosureBuilder
     {
         public readonly List<byte> Code;
-        public readonly List<byte> ConstantPool;
+        public readonly List<int> Const_Integers;
+        public readonly List<string> Const_Strings;
+        public readonly List<int> JumpTargets;
 
-        public Chunk()
+        public ClosureBuilder()
         {
             Code = new List<byte>();
             ConstantPool = new List<byte>();
         }
 
-        public void WriteToEnd(byte b) => Code.Add(b);
-        public void WriteToEnd(params byte[] bytes) => Code.AddRange(bytes);
 
-        public int WriteConstant<T>(T value)
+        public void AppendCode(params byte[] bytes) => Code.AddRange(bytes);
+
+        public int AddConstant<T>(T value)
             where T : ITerm
         {
             int index = ConstantPool.Count;

@@ -10,9 +10,9 @@ namespace VirtualMachine
     {
         private MachineResult _result;
         private int _ip;
-        private readonly Chunk _chunk;
+        private readonly ClosureBuilder _chunk;
 
-        private Machine(Chunk program)
+        private Machine(ClosureBuilder program)
         {
             _ip = 0;
             _chunk = program;
@@ -40,7 +40,7 @@ namespace VirtualMachine
         }
         
 
-        public static MachineResult Run(Chunk program)
+        public static MachineResult Run(ClosureBuilder program)
         {
             Machine mx = new Machine(program);
             return mx.Run();
