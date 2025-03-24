@@ -8,7 +8,7 @@ namespace VirtualMachine
 {
     internal static class Disassembler
     {
-        public static string Disassemble(ClosureBuilder chunk, string name)
+        public static string Disassemble(Chunk chunk, string name)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -26,7 +26,7 @@ namespace VirtualMachine
             return sb.ToString();
         }
 
-        private static int DisassembleInstruction(ClosureBuilder chunk, int offset, StringBuilder sb)
+        private static int DisassembleInstruction(Chunk chunk, int offset, StringBuilder sb)
         {
             sb.Append($"{offset:0000} ");
 

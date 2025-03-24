@@ -4,10 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace VirtualMachine.Terms
+namespace Clasp.Data.Abstractions.Values
 {
-    internal interface ITerm
+    internal readonly struct Box<T> : IAbstractValue
     {
-
     }
 }

@@ -18,14 +18,8 @@ namespace VirtualMachine.Terms
             _ref = value;
         }
 
-        public byte[] GetBytes() => BoxedValue.GetBytes();
-
         public bool Equals(Box<T> other) => ReferenceEquals(_ref, other._ref);
-
-        public bool Equals(ITerm? other) => other is Box<T> bx && Equals(bx);
-
         public override bool Equals([NotNullWhen(true)] object? obj) => obj is Box<T> bx && Equals(bx);
-
         public override int GetHashCode() => HashCode.Combine(BoxedValue.GetHashCode());
     }
 }

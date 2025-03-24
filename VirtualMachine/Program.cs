@@ -6,7 +6,7 @@ namespace VirtualMachine
     {
         static void Main(string[] args)
         {
-            ClosureBuilder testChunk = new ClosureBuilder();
+            Chunk testChunk = new Chunk();
             int offset = testChunk.AddConstant(new Character('c'));
 
             testChunk.AppendCode((byte)OpCode.Op_Constant, (byte)offset);
