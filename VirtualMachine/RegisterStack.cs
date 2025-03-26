@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace VirtualMachine
 {
-    public ref struct RegisterStack<T>
+    public sealed class RegisterStack<T>
         where T : struct
     {
-        private Span<T> _stack;
+        private T[] _stack;
         private int _pointer;
         private int _size;
 
@@ -25,11 +25,11 @@ namespace VirtualMachine
 
         public RegisterStack()
         {
-            _stack = new Span<T>(new T[DEFAULT_SIZE]);
+            _stack = new T[DEFAULT_SIZE];
             _pointer = 0;
         }
 
-        public Span<T> Slice(int index, int length) => _stack.Slice(index, length);
+        public Span<T> Slice(int index, int length) => new Span<T>(_stack).Slice(index, length);
 
         public void Push(T value)
         {
@@ -60,19 +60,19 @@ namespace VirtualMachine
         public Span<T> PopValues(int length)
         {
             _pointer -= length;
-            return _stack.Slice(_pointer, length);
+            return Slice(_pointer, length);
         }
 
         public Span<T> PeekValues(int length)
         {
-            return _stack.Slice(_pointer - length, length);
+            return Slice(_pointer - length, length);
         }
 
         private void ReAllocate()
         {
             _size *= 2;
-            Span<T> resizedStack = new Span<T>(new T[_size]);
-            _stack.CopyTo(resizedStack);
+            T[] resizedStack = new T[_size];
+            _stack.CopyTo(new Span<T>(resizedStack));
             _stack = resizedStack;
         }
     }

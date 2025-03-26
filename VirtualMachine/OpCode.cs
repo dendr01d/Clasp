@@ -17,31 +17,17 @@ namespace VirtualMachine
         Jump_Ne,
         
         // Reading & Writing Values
-        Load_Local_Acc,
-        Load_Local_Arg1,
-        Load_Local_Arg2,
-
+        Load_Local,
         Mutate_Local,
         Push_Local,
         Pop_Local,
 
-        Load_Global_Acc,
-        Load_Global_Arg1,
-        Load_Global_Arg2,
-
+        Load_Global,
         Mutate_Global,
         Push_Global,
         Pop_Global,
 
-        Load_Const_Acc,
-        Load_Const_Arg1,
-        Load_Const_Arg2,
-
-        //Boxing and Unboxing
-        Box,
-        Unbox_Acc,
-        Unbox_Arg1,
-        Unbox_Arg2,
+        Load_Static,
 
         // List Ops
         Cons,

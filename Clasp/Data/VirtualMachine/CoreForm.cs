@@ -97,24 +97,24 @@ namespace Clasp.Data.AbstractSyntax
         public override Term ToTerm() => Cons.Truct(Symbols.Import, Cons.ProperList(_keys));
     }
 
-    internal sealed class Undefine : CoreForm
-    {
-        private readonly Symbol _key;
-        public override string AppCode => "NDEF";
-        public override string ImplicitKeyword => Keywords.S_PARTIAL_DEFINE;
-        public Undefine(Symbol key)
-        {
-            _key = key;
-        }
-        public override void RunOnMachine(MachineState machine)
-        {
-            machine.Continuation.Push(new BindFresh(_key.Name));
-            machine.ReturningValue = Undefined.Value;
-        }
-        public override VmInstruction CopyContinuation() => new Undefine(_key);
-        protected override string FormatArgs() => string.Format("{0}", _key);
-        public override Term ToTerm() => Cons.ProperList(Symbols.Define, _key, Undefined.Value);
-    }
+    //internal sealed class Undefine : CoreForm
+    //{
+    //    private readonly Symbol _key;
+    //    public override string AppCode => "NDEF";
+    //    public override string ImplicitKeyword => Keywords.S_PARTIAL_DEFINE;
+    //    public Undefine(Symbol key)
+    //    {
+    //        _key = key;
+    //    }
+    //    public override void RunOnMachine(MachineState machine)
+    //    {
+    //        machine.Continuation.Push(new BindFresh(_key.Name));
+    //        machine.ReturningValue = Undefined.Value;
+    //    }
+    //    public override VmInstruction CopyContinuation() => new Undefine(_key);
+    //    protected override string FormatArgs() => string.Format("{0}", _key);
+    //    public override Term ToTerm() => Cons.ProperList(Symbols.Define, _key, Undefined.Value);
+    //}
 
     internal sealed class Mutation : CoreForm
     {

@@ -9,7 +9,7 @@ using Clasp.Process;
 
 namespace Clasp.Data.VirtualMachine
 {
-    internal class MachineState
+    internal struct MachineState
     {
         public int Phase = 1;
         public Term ReturningValue;
