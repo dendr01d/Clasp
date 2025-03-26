@@ -10,6 +10,5 @@ namespace Clasp.Data.Abstractions.Values
     internal readonly struct FloNum : IAbstractValue
     {
         public readonly double Value;
-        public int Size => sizeof(double);
     }
 }

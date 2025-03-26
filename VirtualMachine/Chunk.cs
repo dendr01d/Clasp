@@ -4,8 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using VirtualMachine.Terms;
-
 namespace VirtualMachine
 {
     public ref struct Chunk

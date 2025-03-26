@@ -15,7 +15,7 @@ namespace VirtualMachine
             sb.AppendLine($"== {name} ==");
 
             int offset = 0;
-            while (offset < chunk.Code.Count)
+            while (offset < chunk.Code.Length)
             {
                 offset = DisassembleInstruction(chunk, offset, sb);
                 sb.AppendLine();

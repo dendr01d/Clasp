@@ -11,9 +11,5 @@ namespace Clasp.Data.Abstractions.Values
     /// </summary>
     internal interface IAbstractValue : IAbstractForm
     {
-        /// <summary>
-        /// The size (in bytes) of this value.
-        /// </summary>
-        public int Size { get; }
     }
 }

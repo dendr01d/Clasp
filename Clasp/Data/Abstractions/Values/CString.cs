@@ -6,9 +6,13 @@ using System.Threading.Tasks;
 
 namespace Clasp.Data.Abstractions.Values
 {
-    /// <inheritdoc cref="long"/>
-    internal readonly struct FixNum : IAbstractValue
+    internal readonly struct CString : IAbstractValue
     {
-        public readonly long Value;
+        public readonly string Value;
+
+        public CString(string value)
+        {
+            Value = value;
+        }
     }
 }
