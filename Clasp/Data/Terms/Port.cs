@@ -1,36 +1,22 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Clasp.Data.Terms
 {
-    internal abstract class Port : Atom
+    internal readonly struct Port : ITerm, IEquatable<Port>
     {
         public readonly string Name;
-        protected Port(string name) => Name = name;
-        public override string ToString() => $"#{{{Name}}}";
-    }
+        public readonly Stream Value;
 
-    internal sealed class PortReader : Port
-    {
-        public readonly TextReader Stream;
-        public PortReader(string name, TextReader stream) : base(name)
+        public Port(string name, Stream value)
         {
-            Stream = stream;
+            Name = name;
+            Value = value;
         }
-        protected override string FormatType() => nameof(PortReader);
-    }
-
-    internal sealed class PortWriter : Port
-    {
-        public readonly TextWriter Stream;
-        public PortWriter(string name, TextWriter stream) : base(name)
-        {
-            Stream = stream;
-        }
-        protected override string FormatType() => nameof(PortWriter);
+        public bool Equals(Port other) => Value == other.Value;
+        public bool Equals(ITerm? other) => other is Port prt && Equals(prt);
+        public override bool Equals(object? other) => other is FloNum prt && Equals(prt);
+        public override int GetHashCode() => Value.GetHashCode();
+        public override string ToString() => $"{{{Name}}}";
     }
 }

@@ -226,7 +226,7 @@ namespace Clasp.Process
         private static Datum ReadCharString(Token current)
         {
             string sansQuotes = current.Text.Trim('\"');
-            return new Datum(new CharString(sansQuotes), current.Location);
+            return new Datum(new RefString(sansQuotes), current.Location);
         }
 
         private static SyntaxPair NativelyExpand(Token opToken, Symbol opSym, Stack<Token> tokens)

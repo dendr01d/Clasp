@@ -20,7 +20,7 @@ namespace Clasp.Ops
                 && binding1.Name == binding2.Name;
         }
 
-        public static CharString SyntaxSource(Syntax stx) => new CharString(stx.Location.Source);
+        public static RefString SyntaxSource(Syntax stx) => new RefString(stx.Location.Source);
         public static IntegralNumeric SyntaxLine(Syntax stx) => new Integer(stx.Location.LineNumber);
         public static IntegralNumeric SyntaxColumn(Syntax stx) => new Integer(stx.Location.Column);
         public static IntegralNumeric SyntaxPosition(Syntax stx) => new Integer(stx.Location.StartingPosition);

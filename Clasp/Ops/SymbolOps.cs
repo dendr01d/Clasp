@@ -5,9 +5,9 @@ namespace Clasp.Ops
 {
     internal static class SymbolOps
     {
-        public static Term SymbolToString(Symbol sym) => new CharString(sym.Name);
+        public static Term SymbolToString(Symbol sym) => new RefString(sym.Name);
 
-        public static Term StringToSymbol(CharString cs) => Symbol.Intern(cs.Value);
+        public static Term StringToSymbol(RefString cs) => Symbol.Intern(cs.Value);
 
     }
 }

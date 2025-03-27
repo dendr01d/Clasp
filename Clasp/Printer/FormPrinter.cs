@@ -169,7 +169,7 @@ namespace Clasp.Printer
             {
                 Symbol special when StaticEnv.CoreKeywords.Contains(special) => Colorize(str, LiteYlw, colorize),
                 PrimitiveProcedure pp => Colorize(str, LiteRed, colorize),
-                CharString cStr => Colorize(str, LiteGrn, colorize),
+                RefString cStr => Colorize(str, LiteGrn, colorize),
                 Character c => Colorize(str, LiteCyn, colorize),
                 Data.Terms.Boolean b => Colorize(str, LiteBlu, colorize),
                 _ => str

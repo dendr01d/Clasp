@@ -63,7 +63,7 @@ namespace Clasp.Data.Static
 
             new("symbol?", new UnaryFn<Term>(PredicateOps.IsType<Symbol>)),
             new("character?", new UnaryFn<Term>(PredicateOps.IsType<Character>)),
-            new("string?", new UnaryFn<Term>(PredicateOps.IsType<CharString>)),
+            new("string?", new UnaryFn<Term>(PredicateOps.IsType<RefString>)),
             new("vector?", new UnaryFn<Term>(PredicateOps.IsType<Vector>)),
             new("boolean?", new UnaryFn<Term>(PredicateOps.IsType<Terms.Boolean>)),
 
@@ -80,7 +80,7 @@ namespace Clasp.Data.Static
         private static readonly PrimitiveProcedure[] _symbolProcs =
         [
             new("symbol->string", new UnaryFn<Symbol>(SymbolOps.SymbolToString)),
-            new("string->symbol", new UnaryFn<CharString>(SymbolOps.StringToSymbol))
+            new("string->symbol", new UnaryFn<RefString>(SymbolOps.StringToSymbol))
         ];
 
         private static readonly PrimitiveProcedure[] _characterProcs =

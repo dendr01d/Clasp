@@ -1,74 +1,48 @@
-﻿using System.Collections.Generic;
-using System.Runtime.ConstrainedExecution;
+﻿using System;
 
 using Clasp.Data.Static;
-using Clasp.Data.Terms.ProductValues;
 
 namespace Clasp.Data.Terms
 {
-    internal class Symbol : Atom
+    internal readonly struct Symbol : ITerm, IEquatable<Symbol>
     {
         public readonly string Name;
-        protected Symbol(string name)
-        {
-            Name = name;
-            _interned.Add(name, this);
-        }
 
-        private static readonly Dictionary<string, Symbol> _interned = [];
-        protected static bool IsInterned(string name) => _interned.ContainsKey(name);
+        private Symbol(string name) => Name = name;
+        public bool Equals(Symbol other) => Name == other.Name;
+        public bool Equals(ITerm? other) => other is Symbol sym && Equals(sym);
+        public override bool Equals(object? other) => other is Symbol sym && Equals(sym);
+        public override int GetHashCode() => Name.GetHashCode();
+        public override string ToString() => Name;
 
         public static Symbol Intern(string name)
         {
-            if (!_interned.ContainsKey(name))
+            if (InternedSymbols.TryGetSymbol(name, out Symbol result))
             {
-                _interned[name] = new Symbol(name);
+                return result;
             }
-            return _interned[name];
+
+            result = new Symbol(name);
+            InternedSymbols.Intern(result);
+            return result;
         }
 
-        protected override string FormatType() => "Symbol";
-        public override string ToString() => Name;
-        public override string ToPrintedString() => Name;
-    }
+        private const string GEN_PREFIX = "Γ";
+        private const string DEFAULT_GEN = "gensym";
 
-    internal class GenSym : Symbol
-    {
-        // Gamma, for "GenSym"
-        private const string _SEP = "-Γ";
+        public static Symbol GenSym() => GenSym(DEFAULT_GEN);
 
-        private readonly string _originalName;
-
-        private static string GenerateUniqueName(string partial)
+        public static Symbol GenSym(string name)
         {
-            string output = partial;
-            uint counter = 1;
+            string newName = name;
+            int counter = 0;
 
-            while (IsInterned(output))
+            while (InternedSymbols.Contains(newName))
             {
-                output = string.Format("{0}{1}{2}", partial, _SEP, counter++);
+                newName = $"{name}{GEN_PREFIX}{counter++}";
             }
-            return output;
+
+            return Intern(newName);
         }
-
-        public GenSym(string fromName) : base(GenerateUniqueName(fromName))
-        {
-            _originalName = fromName;
-        }
-        public GenSym() : this("GenSym") { }
-
-        protected override string FormatType() => "GenSym";
-        public override string ToPrintedString() => _originalName;
-    }
-
-    /// <summary>
-    /// Special symbols that cannot be linguistically represented. They act as
-    /// "unshadowable" representations of certain important keywords by dint of being
-    /// an entirely different Type.
-    /// </summary>
-    internal sealed class ReservedSymbol : Symbol
-    {
-        public ReservedSymbol(string name) : base(name) { }
-        protected override string FormatType() => "ReservedSymbol";
     }
 }

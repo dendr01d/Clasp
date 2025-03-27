@@ -27,18 +27,6 @@ namespace Clasp.Data.Terms.Procedures
             : this(Symbol.Intern(opName), ops)
         { }
 
-        public Term Operate(MachineState mx, Term[] args)
-        {
-            foreach (PrimitiveOperation fun in _ops)
-            {
-                if (fun.TryOperate(mx, args, out Term? result))
-                {
-                    return result;
-                }
-            }
-
-            throw new ProcessingException.InvalidPrimitiveArgumentsException(args);
-        }
 
         public IEnumerator<PrimitiveOperation> GetEnumerator() => ((IEnumerable<PrimitiveOperation>)_ops).GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_ops).GetEnumerator();
