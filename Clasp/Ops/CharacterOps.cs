@@ -6,16 +6,16 @@ namespace Clasp.Ops
     internal static class CharacterOps
     {
         // I'm interning all my characters to begin with, so this is a little redundant...
-        public static Term CharEq(Character c1, Character c2) => EqualityOps.Eq(c1, c2);
+        public static ITerm CharEq(Character c1, Character c2) => EqualityOps.Eq(c1, c2);
 
-        public static Term CharLT(Character c1, Character c2) => c1.AsInteger < c2.AsInteger;
-        public static Term CharLTE(Character c1, Character c2) => c1.AsInteger <= c2.AsInteger;
-        public static Term CharGT(Character c1, Character c2) => c1.AsInteger > c2.AsInteger;
-        public static Term CharGTE(Character c1, Character c2) => c1.AsInteger >= c2.AsInteger;
+        public static ITerm CharLT(Character c1, Character c2) => new Boole(c1.Value < c2.Value);
+        public static ITerm CharLTE(Character c1, Character c2) => new Boole(c1.Value <= c2.Value);
+        public static ITerm CharGT(Character c1, Character c2) => new Boole(c1.Value > c2.Value);
+        public static ITerm CharGTE(Character c1, Character c2) => new Boole(c1.Value >= c2.Value);
 
-        public static Term CharacterToInteger(Character c) => new Integer(c.AsInteger);
+        public static ITerm CharacterToInteger(Character c) => new FixNum(c.Value);
 
-        public static Term IntegerToCharacter(IntegralNumeric z) => Character.Intern((char)z.AsInteger);
+        public static ITerm IntegerToCharacter(FixNum z) => new Character((char)z.Value);
 
     }
 }

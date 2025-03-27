@@ -4,9 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using Clasp.Data.Terms;
-using Clasp.Data.Terms.Procedures;
-using Clasp.Data.Terms.ProductValues;
-using Clasp.Data.Terms.SyntaxValues;
+//using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Ops;
 using Clasp.Ops.Functions;
 
@@ -29,7 +27,7 @@ namespace Clasp.Data.Static
                 _symbolProcs,
                 _characterProcs,
 
-                _syntaxProcs,
+                //_syntaxProcs,
 
                 _arithmeticProcs,
 
@@ -42,39 +40,37 @@ namespace Clasp.Data.Static
 
         private static readonly PrimitiveProcedure[] _listProcs =
         [
-            new("cons", new BinaryFn<Term, Term>(ConsOps.Cons)),
+            new("cons", new BinaryFn<ITerm, ITerm>(ConsOps.Cons)),
             new("car", new UnaryFn<Cons>(ConsOps.Car)),
             new("cdr", new UnaryFn<Cons>(ConsOps.Cdr)),
-            new("set-car", new BinaryFn<Cons, Term>(ConsOps.SetCar)),
-            new("set-cdr", new BinaryFn<Cons, Term>(ConsOps.SetCdr)),
+            new("set-car", new BinaryFn<Cons, ITerm>(ConsOps.SetCar)),
+            new("set-cdr", new BinaryFn<Cons, ITerm>(ConsOps.SetCdr)),
         ];
 
         private static readonly PrimitiveProcedure[] _equalityProcs =
         [
-            new("eq", new BinaryFn<Term, Term>(EqualityOps.Eq)),
-            new("eqv", new BinaryFn<Term, Term>(EqualityOps.Eqv)),
-            new("equal", new BinaryFn<Term, Term>(EqualityOps.Equal)),
+            new("eq", new BinaryFn<ITerm, ITerm>(EqualityOps.Eq)),
+            new("eqv", new BinaryFn<ITerm, ITerm>(EqualityOps.Eqv)),
+            new("equal", new BinaryFn<ITerm, ITerm>(EqualityOps.Equal)),
         ];
 
         private static readonly PrimitiveProcedure[] _typePredicateProcs =
         [
-            new("pair?", new UnaryFn<Term>(PredicateOps.IsType<Cons>)),
-            new("null?", new UnaryFn<Term>(PredicateOps.IsType<Nil>)),
+            new("pair?", new UnaryFn<ITerm>(PredicateOps.IsType<Cons>)),
+            new("null?", new UnaryFn<ITerm>(PredicateOps.IsType<Nil>)),
 
-            new("symbol?", new UnaryFn<Term>(PredicateOps.IsType<Symbol>)),
-            new("character?", new UnaryFn<Term>(PredicateOps.IsType<Character>)),
-            new("string?", new UnaryFn<Term>(PredicateOps.IsType<RefString>)),
-            new("vector?", new UnaryFn<Term>(PredicateOps.IsType<Vector>)),
-            new("boolean?", new UnaryFn<Term>(PredicateOps.IsType<Terms.Boolean>)),
+            new("symbol?", new UnaryFn<ITerm>(PredicateOps.IsType<Symbol>)),
+            new("character?", new UnaryFn<ITerm>(PredicateOps.IsType<Character>)),
+            new("string?", new UnaryFn<ITerm>(PredicateOps.IsType<RefString>)),
+            new("vector?", new UnaryFn<ITerm>(PredicateOps.IsType<Vector>)),
+            new("boolean?", new UnaryFn<ITerm>(PredicateOps.IsType<Boole>)),
 
-            new("number?", new UnaryFn<Term>(PredicateOps.IsType<Number>)),
-            new("complex?", new UnaryFn<Term>(PredicateOps.IsType<ComplexNumeric>)),
-            new("real?", new UnaryFn<Term>(PredicateOps.IsType<RealNumeric>)),
-            new("rational?", new UnaryFn<Term>(PredicateOps.IsType<RationalNumeric>)),
-            new("integer?", new UnaryFn<Term>(PredicateOps.IsType<IntegralNumeric>)),
+            //new("number?", new UnaryFn<ITerm>(PredicateOps.IsType<Number>)),
+            new("flonum?", new UnaryFn<ITerm>(PredicateOps.IsType<FloNum>)),
+            new("fixnum?", new UnaryFn<ITerm>(PredicateOps.IsType<FixNum>)),
 
-            new("syntax?", new UnaryFn<Term>(PredicateOps.IsType<Syntax>)),
-            new("identifier?", new UnaryFn<Term>(PredicateOps.IsType<Identifier>)),
+            //new("syntax?", new UnaryFn<ITerm>(PredicateOps.IsType<Syntax>)),
+            //new("identifier?", new UnaryFn<ITerm>(PredicateOps.IsType<Identifier>)),
         ];
 
         private static readonly PrimitiveProcedure[] _symbolProcs =
@@ -92,51 +88,47 @@ namespace Clasp.Data.Static
             new("char>=", new BinaryFn<Character, Character>(CharacterOps.CharGTE)),
 
             new("char->integer", new UnaryFn<Character>(CharacterOps.CharacterToInteger)),
-            new("integer->char", new UnaryFn<IntegralNumeric>(CharacterOps.IntegerToCharacter)),
+            new("integer->char", new UnaryFn<FixNum>(CharacterOps.IntegerToCharacter)),
         ];
 
-        private static readonly PrimitiveProcedure[] _syntaxProcs =
-        [
-            new("syntax-source", new UnaryFn<Syntax>(SyntaxOps.SyntaxSource)),
-            new("syntax-line", new UnaryFn<Syntax>(SyntaxOps.SyntaxLine)),
-            new("syntax-column", new UnaryFn<Syntax>(SyntaxOps.SyntaxColumn)),
-            new("syntax-position", new UnaryFn<Syntax>(SyntaxOps.SyntaxPosition)),
-            new("syntax-span", new UnaryFn<Syntax>(SyntaxOps.SyntaxSpan)),
-            new("syntax-original", new UnaryFn<Syntax>(SyntaxOps.SyntaxOriginal)),
+        //private static readonly PrimitiveProcedure[] _syntaxProcs =
+        //[
+        //    new("syntax-source", new UnaryFn<Syntax>(SyntaxOps.SyntaxSource)),
+        //    new("syntax-line", new UnaryFn<Syntax>(SyntaxOps.SyntaxLine)),
+        //    new("syntax-column", new UnaryFn<Syntax>(SyntaxOps.SyntaxColumn)),
+        //    new("syntax-position", new UnaryFn<Syntax>(SyntaxOps.SyntaxPosition)),
+        //    new("syntax-span", new UnaryFn<Syntax>(SyntaxOps.SyntaxSpan)),
+        //    new("syntax-original", new UnaryFn<Syntax>(SyntaxOps.SyntaxOriginal)),
 
-            new("free-identifier=?", new BinaryMxFn<Identifier, Identifier>(SyntaxOps.FreeIdentifierEq)),
-            new("bound-identifier=?", new BinaryFn<Identifier, Identifier>(SyntaxOps.BoundIdentifierEq)),
+        //    new("free-identifier=?", new BinaryMxFn<Identifier, Identifier>(SyntaxOps.FreeIdentifierEq)),
+        //    new("bound-identifier=?", new BinaryFn<Identifier, Identifier>(SyntaxOps.BoundIdentifierEq)),
 
-            new("syntax-e", new UnaryFn<Syntax>(SyntaxOps.SyntaxE)),
-            //new("syntax->list", new UnaryFn<Syntax>(SyntaxOps.SyntaxToList)),
-            //new("syntax->datum", new UnaryFn<Syntax>(SyntaxOps.SyntaxToDatum)),
-            //new("datum->syntax", new BinaryFn<Syntax, Term>(SyntaxOps.DatumToSyntax)),
-        ];
+        //    new("syntax-e", new UnaryFn<Syntax>(SyntaxOps.SyntaxE)),
+        //    //new("syntax->list", new UnaryFn<Syntax>(SyntaxOps.SyntaxToList)),
+        //    //new("syntax->datum", new UnaryFn<Syntax>(SyntaxOps.SyntaxToDatum)),
+        //    //new("datum->syntax", new BinaryFn<Syntax, ITerm>(SyntaxOps.DatumToSyntax)),
+        //];
 
         private static readonly PrimitiveProcedure[] _arithmeticProcs =
         [
-            new("+")
-            {
+            new("+",
                 new BinaryFn<Number, Number>(MathOps.Add),
                 new VariadicFn<Number>(MathOps.AddVar)
-            },
-            new("-")
-            {
+            ),
+            new("-",
                 new UnaryFn<Number>(MathOps.Negate),
                 new BinaryFn<Number, Number>(MathOps.Subtract),
                 new VariadicFn<Number>(MathOps.SubtractVar)
-            },
-            new("*")
-            {
+            ),
+            new("*",
                 new BinaryFn<Number, Number>(MathOps.Multiply),
                 new VariadicFn<Number>(MathOps.MultiplyVar)
-            },
-            new("/")
-            {
+            ),
+            new("/",
                 new UnaryFn<Number>(MathOps.Invert),
                 new BinaryFn<Number, Number>(MathOps.Divide),
                 new VariadicFn<Number>(MathOps.DivideVar)
-            }
+            )
         ];
 
         private static readonly PrimitiveProcedure[] _portProcs =
@@ -145,7 +137,7 @@ namespace Clasp.Data.Static
             new("open-console-in", new NullaryFn(PortOps.OpenConsoleIn)),
 
             new("port-read", new UnaryFn<PortReader>(PortOps.Read)),
-            new("port-write", new BinaryFn<PortWriter, Term>(PortOps.Write))
+            new("port-write", new BinaryFn<PortWriter, ITerm>(PortOps.Write))
         ];
 
         private static readonly PrimitiveProcedure[] _specialValueProcs =

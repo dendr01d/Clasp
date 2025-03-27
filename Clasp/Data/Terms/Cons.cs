@@ -10,7 +10,7 @@ namespace Clasp.Data.Terms
         public ITerm Car => _car.Value;
         public ITerm Cdr => _cdr.Value;
 
-        private Cons(ITerm car, ITerm cdr)
+        public Cons(ITerm car, ITerm cdr)
         {
             _car = new Box(car);
             _cdr = new Box(cdr);

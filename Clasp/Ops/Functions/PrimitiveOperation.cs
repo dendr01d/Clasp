@@ -18,7 +18,7 @@ namespace Clasp.Ops.Functions
             Variadic = variadic;
         }
 
-        public bool TryOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        public bool TryOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             result = null;
             if (Variadic && args.Length >= Arity
@@ -29,14 +29,14 @@ namespace Clasp.Ops.Functions
             return false;
         }
 
-        protected abstract bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result);
+        protected abstract bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result);
     }
 
     internal sealed class NullaryFn : PrimitiveOperation
     {
-        private readonly Func<Term> _operation;
-        public NullaryFn(Func<Term> op) : base(0, false) => _operation = op;
-        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        private readonly Func<ITerm> _operation;
+        public NullaryFn(Func<ITerm> op) : base(0, false) => _operation = op;
+        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             result = _operation();
             return true;
@@ -45,9 +45,9 @@ namespace Clasp.Ops.Functions
 
     internal sealed class NullaryMxFn : PrimitiveOperation
     {
-        private readonly Func<MachineState, Term> _operation;
-        public NullaryMxFn(Func<MachineState, Term> op) : base(0, false) => _operation = op;
-        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        private readonly Func<MachineState, ITerm> _operation;
+        public NullaryMxFn(Func<MachineState, ITerm> op) : base(0, false) => _operation = op;
+        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             result = _operation(mx);
             return true;
@@ -55,11 +55,11 @@ namespace Clasp.Ops.Functions
     }
 
     internal sealed class UnaryFn<T0> : PrimitiveOperation
-        where T0 : Term
+        where T0 : ITerm
     {
-        private readonly Func<T0, Term> _operation;
-        public UnaryFn(Func<T0, Term> op) : base(1, false) => _operation = op;
-        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        private readonly Func<T0, ITerm> _operation;
+        public UnaryFn(Func<T0, ITerm> op) : base(1, false) => _operation = op;
+        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             if (args[0] is T0 arg0)
             {
@@ -72,11 +72,11 @@ namespace Clasp.Ops.Functions
     }
 
     internal sealed class UnaryMxFn<T0> : PrimitiveOperation
-        where T0 : Term
+        where T0 : ITerm
     {
-        private readonly Func<MachineState, T0, Term> _operation;
-        public UnaryMxFn(Func<MachineState, T0, Term> op) : base(1, false) => _operation = op;
-        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        private readonly Func<MachineState, T0, ITerm> _operation;
+        public UnaryMxFn(Func<MachineState, T0, ITerm> op) : base(1, false) => _operation = op;
+        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             if (args[0] is T0 arg0)
             {
@@ -89,12 +89,12 @@ namespace Clasp.Ops.Functions
     }
 
     internal sealed class BinaryFn<T0, T1> : PrimitiveOperation
-        where T0 : Term
-        where T1 : Term
+        where T0 : ITerm
+        where T1 : ITerm
     {
-        private readonly Func<T0, T1, Term> _operation;
-        public BinaryFn(Func<T0, T1, Term> op) : base(2, false) => _operation = op;
-        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        private readonly Func<T0, T1, ITerm> _operation;
+        public BinaryFn(Func<T0, T1, ITerm> op) : base(2, false) => _operation = op;
+        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             if (args[0] is T0 arg0 && args[1] is T1 arg1)
             {
@@ -107,12 +107,12 @@ namespace Clasp.Ops.Functions
     }
 
     internal sealed class BinaryMxFn<T0, T1> : PrimitiveOperation
-        where T0 : Term
-        where T1 : Term
+        where T0 : ITerm
+        where T1 : ITerm
     {
-        private readonly Func<MachineState, T0, T1, Term> _operation;
-        public BinaryMxFn(Func<MachineState, T0, T1, Term> op) : base(2, false) => _operation = op;
-        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        private readonly Func<MachineState, T0, T1, ITerm> _operation;
+        public BinaryMxFn(Func<MachineState, T0, T1, ITerm> op) : base(2, false) => _operation = op;
+        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             if (args[0] is T0 arg0 && args[1] is T1 arg1)
             {
@@ -125,13 +125,13 @@ namespace Clasp.Ops.Functions
     }
 
     internal sealed class TernaryFn<T0, T1, T2> : PrimitiveOperation
-        where T0 : Term
-        where T1 : Term
-        where T2 : Term
+        where T0 : ITerm
+        where T1 : ITerm
+        where T2 : ITerm
     {
-        private readonly Func<T0, T1, T2, Term> _operation;
-        public TernaryFn(Func<T0, T1, T2, Term> op) : base(3, false) => _operation = op;
-        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        private readonly Func<T0, T1, T2, ITerm> _operation;
+        public TernaryFn(Func<T0, T1, T2, ITerm> op) : base(3, false) => _operation = op;
+        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             if (args[0] is T0 arg0 && args[1] is T1 arg1 && args[2] is T2 arg2)
             {
@@ -144,13 +144,13 @@ namespace Clasp.Ops.Functions
     }
 
     internal sealed class TernaryMxFn<T0, T1, T2> : PrimitiveOperation
-        where T0 : Term
-        where T1 : Term
-        where T2 : Term
+        where T0 : ITerm
+        where T1 : ITerm
+        where T2 : ITerm
     {
-        private readonly Func<MachineState, T0, T1, T2, Term> _operation;
-        public TernaryMxFn(Func<MachineState, T0, T1, T2, Term> op) : base(3, false) => _operation = op;
-        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        private readonly Func<MachineState, T0, T1, T2, ITerm> _operation;
+        public TernaryMxFn(Func<MachineState, T0, T1, T2, ITerm> op) : base(3, false) => _operation = op;
+        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             if (args[0] is T0 arg0 && args[1] is T1 arg1 && args[2] is T2 arg2)
             {
@@ -163,11 +163,11 @@ namespace Clasp.Ops.Functions
     }
 
     internal sealed class VariadicFn<V> : PrimitiveOperation
-        where V : Term
+        where V : ITerm
     {
-        private readonly Func<V[], Term> _operation;
-        public VariadicFn(Func<V[], Term> op) : base(-1, true) => _operation = op;
-        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        private readonly Func<V[], ITerm> _operation;
+        public VariadicFn(Func<V[], ITerm> op) : base(-1, true) => _operation = op;
+        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             if (args.Cast<V>().ToArray() is V[] varArgs && !varArgs.Any(x => x is null))
             {
@@ -180,11 +180,11 @@ namespace Clasp.Ops.Functions
     }
 
     internal sealed class VariadicMxFn<V> : PrimitiveOperation
-        where V : Term
+        where V : ITerm
     {
-        private readonly Func<MachineState, V[], Term> _operation;
-        public VariadicMxFn(Func<MachineState, V[], Term> op) : base(-1, true) => _operation = op;
-        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out Term? result)
+        private readonly Func<MachineState, V[], ITerm> _operation;
+        public VariadicMxFn(Func<MachineState, V[], ITerm> op) : base(-1, true) => _operation = op;
+        protected override bool TryMatchAndOperate(MachineState mx, object[] args, [NotNullWhen(true)] out ITerm? result)
         {
             if (args.Cast<V>().ToArray() is V[] varArgs && !varArgs.Any(x => x is null))
             {
