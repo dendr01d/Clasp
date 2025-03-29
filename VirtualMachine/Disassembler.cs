@@ -15,7 +15,7 @@ namespace VirtualMachine
             sb.AppendLine($"== {name} ==");
 
             int offset = 0;
-            while (offset < chunk.Code.Length)
+            while (offset < chunk.Code.Count)
             {
                 offset = DisassembleInstruction(chunk, offset, sb);
                 sb.AppendLine();
@@ -30,7 +30,7 @@ namespace VirtualMachine
         {
             sb.Append($"{offset:0000} ");
 
-            OpCode instruction = (OpCode)chunk.Code[offset];
+            OpCode instruction = (OpCode)chunk._code[offset];
 
             switch(instruction)
             {

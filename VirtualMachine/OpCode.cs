@@ -13,21 +13,19 @@ namespace VirtualMachine
 
         // Jump
         Jump,
-        Jump_Eq,
-        Jump_Ne,
+        Jump_If,
+        Jump_IfNot,
         
         // Reading & Writing Values
-        Load_Local,
-        Mutate_Local,
-        Push_Local,
-        Pop_Local,
+        Local_Load1, Local_Store1, Local_Push1, Local_Pop1,
+        Local_Load2, Local_Store2, Local_Push2, Local_Pop2,
+        Local_Load4, Local_Store4, Local_Push4, Local_Pop4,
+        Local_Load8, Local_Store8, Local_Push8, Local_Pop8,
 
-        Load_Global,
-        Mutate_Global,
-        Push_Global,
-        Pop_Global,
-
-        Load_Static,
+        Global_Load1, Global_Store1, Global_Push1, Global_Pop1,
+        Global_Load2, Global_Store2, Global_Push2, Global_Pop2,
+        Global_Load4, Global_Store4, Global_Push4, Global_Pop4,
+        Global_Load8, Global_Store8, Global_Push8, Global_Pop8,
 
         // List Ops
         Cons,
@@ -37,56 +35,18 @@ namespace VirtualMachine
         Set_Cdr,
 
         // Comparisons
-        Eq,
-        Neq,
-        Lt,
-        Leq,
-        Gt,
-        Geq,
+        Eq, Neq,
+        Lt, Leq,
+        Gt, Geq,
 
         // Integral Arithmetic
-        IAdd,
-        IMul,
-        ISub,
-        SDiv,
-        UDiv,
-        SMod,
-        UMod,
+        Fix_Add, Fix_Mul, Fix_Sub, Fix_Div, Fix_Mod,
 
         // Floating-Point Arithmetic
-        FAdd,
-        FMul,
-        FSub,
-        FDiv,
-        FMod,
+        Flo_Add, Flo_Mul, Flo_Sub, Flo_Div, Flo_Mod,
 
         // Bitwise Arithmetic
-        Bitwise_Xor,
-        Bitwise_Or, 
-        Bitwise_And,
-
-        // Comparisons
-        //Const_Eq, Local_Eq,
-        //Const_Ne, Local_Ne,
-        //Const_Lt, Local_Lt,
-        //Const_Le, Local_Le,
-        //Const_Gt, Local_Gt,
-        //Const_Ge, Local_Ge,
-
-        // Integer (long) Arithmetic
-        //Const_IAdd, Local_IAdd,
-        //Const_IMul, Local_IMul,
-        //Const_ISub, Local_ISub,
-        //Const_SDiv, Local_SDiv,
-        //Const_UDiv, Local_UDiv,
-        //Const_SMod, Local_SMod,
-        //Const_UMod, Local_UMod,
-
-        // Floating-point (double) Arithmetic
-        //Const_FAdd, Local_FAdd,
-        //Const_FMul, Local_FMul,
-        //Const_FSub, Local_FSub,
-        //Const_FDiv, Local_FDiv,
-        //Const_FMod, Local_FMod,
+        Shift_L, Shift_R,
+        Bitwise_And, Bitwise_Or, Bitwise_Xor,
     }
 }

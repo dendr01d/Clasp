@@ -1,20 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace VirtualMachine
+﻿namespace VirtualMachine
 {
-    public ref struct Chunk
+    public class Chunk
     {
-        public readonly ReadOnlySpan<byte> Code;
-        public readonly ReadOnlySpan<byte> Constants;
+        private readonly byte[] _code;
+        private readonly byte[] _constants;
 
         public Chunk(byte[] code, byte[] constants)
         {
-            Code = new ReadOnlySpan<byte>(code);
-            Constants = new ReadOnlySpan<byte>(constants);
+            _code = code;
+            _constants = constants;
         }
+
+        public OpCode ReadOpCode(int i) => (OpCode)_code[i];
+
+        public Span<byte> ReadCode(int i, int l) => new Span<byte>(_code, i, l);
+        public Span<byte> ReadConstant(int i, int l) => new Span<byte>(_constants, i, l);
     }
 }

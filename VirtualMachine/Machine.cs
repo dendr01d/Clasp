@@ -10,174 +10,196 @@ namespace VirtualMachine
 {
     internal ref struct Machine
     {
-        public static readonly int WordSize = sizeof(int);
+        private readonly Chunk _chunk;
 
         private MachineResult _result;
         private int _ip;
-        private readonly Chunk _chunk;
+        private int _frame;
 
-        private List<int> _staticMemory = new List<int>();
-        private List<int> _globalMemory = new List<int>();
-        private List<int> _localMemory = new List<int>();
+        private RegisterStack<byte> _globalMemory = new RegisterStack<byte>();
+        private RegisterStack<byte> _localMemory = new RegisterStack<byte>();
 
-        private int _accumulator;
+        private byte[] _workspace = new byte[sizeof(Int64)];
+        private Span<byte> _accumulator;
 
         private Machine(Chunk program)
         {
+            _chunk = program;
+
             _result = MachineResult.Undetermined;
             _ip = 0;
-            _chunk = program;
+            _frame = 0;
+
+            _accumulator = new Span<byte>(_workspace);
         }
 
-        //private MachineResult Run()
-        //{
-        //    while (_result == MachineResult.Undetermined)
-        //    {
-        //        OpCode instruction = (OpCode)_chunk.Code[_ip++];
+        private MachineResult Run()
+        {
+            while (_result == MachineResult.Undetermined)
+            {
+                OpCode instruction = _chunk.ReadOpCode(_ip++);
 
-        //        switch (instruction)
-        //        {
-        //            case (byte)OpCode.Op_Return:
-        //                _result = MachineResult.OK;
-        //                break;
+                switch (instruction)
+                {
+                    case (byte)OpCode.Op_Return:
+                        _result = MachineResult.OK;
+                        break;
 
-        //            case OpCode.Load_Local_Acc:
-        //                _localMemory.Slice(_chunk.Code[_ip++], _chunk.Code[_ip++]).CopyTo(_accumulator);
-        //                break;
+                    case OpCode.Jump:
+                        _ip = BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadCode(_ip, sizeof(int)));
+                        break;
+                    case OpCode.Jump_If:
+                        if (BinaryPrimitives.ReadUInt64LittleEndian(_accumulator) != 0)
+                        {
+                            _ip = BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadCode(_ip, sizeof(int)));
+                        }
+                        else
+                        {
+                            _ip += sizeof(int);
+                        }
+                        break;
+                    case OpCode.Jump_IfNot:
+                        if (BinaryPrimitives.ReadUInt64LittleEndian(_accumulator) == 0)
+                        {
+                            _ip = BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadCode(_ip, sizeof(int)));
+                        }
+                        else
+                        {
+                            _ip += sizeof(int);
+                        }
+                        break;
 
-        //            case OpCode.Load_Local_Arg1:
-        //                _localMemory.Slice(_chunk.Code[_ip++], _chunk.Code[_ip++]).CopyTo(_arg1);
-        //                break;
+                    case OpCode.Local_Load1:
+                        _accumulator = _localMemory.Slice(BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadCode(_ip, sizeof(int))), 1);
+                        _ip += sizeof(int);
+                        break;
+                    case OpCode.Local_Store1:
+                        _accumulator.CopyTo(_localMemory.Slice(BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadCode(_ip, sizeof(int))), 1));
+                        _ip += sizeof(int);
+                        break;
+                    case OpCode.Local_Push1:
+                        _localMemory.Push(_accumulator);
+                        break;
+                    case OpCode.Local_Pop1:
+                        _localMemory.PopValues(1);
+                        break;
 
-        //            case OpCode.Load_Local_Arg2:
-        //                _localMemory.Slice(_chunk.Code[_ip++], _chunk.Code[_ip++]).CopyTo(_arg2);
-        //                break;
+                    case OpCode.Local_Load2:
+                        break;
+                    case OpCode.Local_Store2:
+                        break;
+                    case OpCode.Local_Push2:
+                        break;
+                    case OpCode.Local_Pop2:
+                        break;
+                    case OpCode.Local_Load4:
+                        break;
+                    case OpCode.Local_Store4:
+                        break;
+                    case OpCode.Local_Push4:
+                        break;
+                    case OpCode.Local_Pop4:
+                        break;
+                    case OpCode.Local_Load8:
+                        break;
+                    case OpCode.Local_Store8:
+                        break;
+                    case OpCode.Local_Push8:
+                        break;
+                    case OpCode.Local_Pop8:
+                        break;
+                    case OpCode.Global_Load1:
+                        break;
+                    case OpCode.Global_Store1:
+                        break;
+                    case OpCode.Global_Push1:
+                        break;
+                    case OpCode.Global_Pop1:
+                        break;
+                    case OpCode.Global_Load2:
+                        break;
+                    case OpCode.Global_Store2:
+                        break;
+                    case OpCode.Global_Push2:
+                        break;
+                    case OpCode.Global_Pop2:
+                        break;
+                    case OpCode.Global_Load4:
+                        break;
+                    case OpCode.Global_Store4:
+                        break;
+                    case OpCode.Global_Push4:
+                        break;
+                    case OpCode.Global_Pop4:
+                        break;
+                    case OpCode.Global_Load8:
+                        break;
+                    case OpCode.Global_Store8:
+                        break;
+                    case OpCode.Global_Push8:
+                        break;
+                    case OpCode.Global_Pop8:
+                        break;
+                    case OpCode.Cons:
+                        break;
+                    case OpCode.Car:
+                        break;
+                    case OpCode.Cdr:
+                        break;
+                    case OpCode.Set_Car:
+                        break;
+                    case OpCode.Set_Cdr:
+                        break;
+                    case OpCode.Eq:
+                        break;
+                    case OpCode.Neq:
+                        break;
+                    case OpCode.Lt:
+                        break;
+                    case OpCode.Leq:
+                        break;
+                    case OpCode.Gt:
+                        break;
+                    case OpCode.Geq:
+                        break;
+                    case OpCode.Fix_Add:
+                        break;
+                    case OpCode.Fix_Mul:
+                        break;
+                    case OpCode.Fix_Sub:
+                        break;
+                    case OpCode.Fix_Div:
+                        break;
+                    case OpCode.Fix_Mod:
+                        break;
+                    case OpCode.Flo_Add:
+                        break;
+                    case OpCode.Flo_Mul:
+                        break;
+                    case OpCode.Flo_Sub:
+                        break;
+                    case OpCode.Flo_Div:
+                        break;
+                    case OpCode.Flo_Mod:
+                        break;
+                    case OpCode.Shift_L:
+                        break;
+                    case OpCode.Shift_R:
+                        break;
+                    case OpCode.Bitwise_And:
+                        break;
+                    case OpCode.Bitwise_Or:
+                        break;
+                    case OpCode.Bitwise_Xor:
+                        break;
+                    default:
+                        _result = MachineResult.BadOpCode;
+                        break;
+                }
+            }
 
-        //            case OpCode.Mutate_Local:
-        //                _accumulator.CopyTo(_localMemory.Slice(_chunk.Code[_ip++], _chunk.Code[_ip++]));
-        //                break;
-
-        //            case OpCode.Push_Local:
-        //                _localMemory.Push(_accumulator);
-        //                break;
-
-        //            #region Comparisons
-        //            case OpCode.Eq:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    (_accumulator.SequenceEqual(_arg1)) ? 1 : 0);
-        //                break;
-
-        //            case OpCode.Neq:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    (_accumulator.SequenceEqual(_arg1)) ? 0 : 1);
-        //                break;
-
-        //            case OpCode.Lt:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    (_accumulator.SequenceCompareTo(_arg1) < 0) ? 1 : 0);
-        //                break;
-
-        //            case OpCode.Leq:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    (_accumulator.SequenceCompareTo(_arg1) <= 0) ? 1 : 0);
-        //                break;
-
-        //            case OpCode.Gt:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    (_accumulator.SequenceCompareTo(_arg1) > 0) ? 1 : 0);
-        //                break;
-
-        //            case OpCode.Geq:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    (_accumulator.SequenceCompareTo(_arg1) >= 0) ? 1 : 0);
-        //                break;
-        //            #endregion
-
-        //            #region Integer Arithmetic
-        //            case OpCode.IAdd:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadInt64LittleEndian(_accumulator)
-        //                    + BinaryPrimitives.ReadInt64LittleEndian(_arg1));
-        //                break;
-
-        //            case OpCode.ISub:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadInt64LittleEndian(_accumulator)
-        //                    - BinaryPrimitives.ReadInt64LittleEndian(_arg1));
-        //                break;
-
-        //            case OpCode.IMul:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadInt64LittleEndian(_accumulator)
-        //                    * BinaryPrimitives.ReadInt64LittleEndian(_arg1));
-        //                break;
-
-        //            case OpCode.SDiv:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadInt64LittleEndian(_accumulator)
-        //                    / BinaryPrimitives.ReadInt64LittleEndian(_arg1));
-        //                break;
-
-        //            case OpCode.UDiv:
-        //                BinaryPrimitives.WriteUInt64LittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadUInt64LittleEndian(_accumulator)
-        //                    / BinaryPrimitives.ReadUInt64LittleEndian(_arg1));
-        //                break;
-
-        //            case OpCode.SMod:
-        //                BinaryPrimitives.WriteInt64LittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadInt64LittleEndian(_accumulator)
-        //                    % BinaryPrimitives.ReadInt64LittleEndian(_arg1));
-        //                break;
-
-        //            case OpCode.UMod:
-        //                BinaryPrimitives.WriteUInt64LittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadUInt64LittleEndian(_accumulator)
-        //                    % BinaryPrimitives.ReadUInt64LittleEndian(_arg1));
-        //                break;
-        //            #endregion
-
-        //            #region Floating-Point Arithmetic
-        //            case OpCode.FAdd:
-        //                BinaryPrimitives.WriteDoubleLittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadDoubleLittleEndian(_accumulator)
-        //                    + BinaryPrimitives.ReadDoubleLittleEndian(_arg1));
-        //                break;
-
-        //            case OpCode.FSub:
-        //                BinaryPrimitives.WriteDoubleLittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadDoubleLittleEndian(_accumulator)
-        //                    - BinaryPrimitives.ReadDoubleLittleEndian(_arg1));
-        //                break;
-
-        //            case OpCode.FMul:
-        //                BinaryPrimitives.WriteDoubleLittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadDoubleLittleEndian(_accumulator)
-        //                    * BinaryPrimitives.ReadDoubleLittleEndian(_arg1));
-        //                break;
-
-        //            case OpCode.FDiv:
-        //                BinaryPrimitives.WriteDoubleLittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadDoubleLittleEndian(_accumulator)
-        //                    / BinaryPrimitives.ReadDoubleLittleEndian(_arg1));
-        //                break;
-
-        //            case OpCode.FMod:
-        //                BinaryPrimitives.WriteDoubleLittleEndian(_accumulator,
-        //                    BinaryPrimitives.ReadDoubleLittleEndian(_accumulator)
-        //                    % BinaryPrimitives.ReadDoubleLittleEndian(_arg1));
-        //                break;
-
-        //            #endregion
-
-        //            default:
-        //                _result = MachineResult.BadOpCode;
-        //                break;
-        //        }
-        //    }
-
-        //    return _result;
-        //}
+            return _result;
+        }
 
 
         //public static MachineResult Run(Chunk program)
