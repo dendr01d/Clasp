@@ -1,11 +1,11 @@
 ﻿
 using System.Linq;
 
+using Clasp.AbstractMachine;
 using Clasp.Binding;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
-using Clasp.Data.VirtualMachine;
 
 namespace Clasp.Ops
 {

@@ -18,5 +18,7 @@ namespace Clasp.Data.Abstractions.Variables
         {
             SymbolicName = symbolicName;
         }
+
+        public override string Express() => SymbolicName;
     }
 }

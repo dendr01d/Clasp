@@ -9,6 +9,7 @@ namespace Clasp.Data.Terms
         public readonly string Name;
 
         private Symbol(string name) => Name = name;
+        
         public bool Equals(Symbol other) => Name == other.Name;
         public bool Equals(ITerm? other) => other is Symbol sym && Equals(sym);
         public override bool Equals(object? other) => other is Symbol sym && Equals(sym);

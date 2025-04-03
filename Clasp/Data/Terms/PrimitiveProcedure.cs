@@ -1,6 +1,6 @@
 ﻿using System;
 
-using Clasp.Data.VirtualMachine;
+using Clasp.AbstractMachine;
 using Clasp.Exceptions;
 using Clasp.Ops.Functions;
 
@@ -17,6 +17,7 @@ namespace Clasp.Data.Terms
             _ops = ops;
         }
 
+        
         public bool Equals(PrimitiveProcedure other) => Name.Equals(other.Name);
         public bool Equals(ITerm? other) => other is PrimitiveProcedure pp && Equals(pp);
         public override bool Equals(object? other) => other is PrimitiveProcedure pp && Equals(pp);

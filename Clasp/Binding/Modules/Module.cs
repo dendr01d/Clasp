@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
+using Clasp.AbstractMachine;
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
@@ -10,7 +11,6 @@ using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.ProductValues;
 using Clasp.Data.Terms.SyntaxValues;
-using Clasp.Data.VirtualMachine;
 using Clasp.Exceptions;
 using Clasp.Process;
 

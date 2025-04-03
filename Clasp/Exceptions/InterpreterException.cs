@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using Clasp.AbstractMachine;
 using Clasp.Data.AbstractSyntax;
-using Clasp.Data.VirtualMachine;
 
 namespace Clasp.Exceptions
 {

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using Clasp.AbstractMachine;
 using Clasp.Binding.Modules;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Metadata;
@@ -8,7 +9,6 @@ using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Data.Text;
-using Clasp.Data.VirtualMachine;
 using Clasp.Process;
 
 namespace Clasp

@@ -13,6 +13,7 @@ namespace Clasp.Data.Terms
             Name = name;
             Value = value;
         }
+        
         public bool Equals(Port other) => Value == other.Value;
         public bool Equals(ITerm? other) => other is Port prt && Equals(prt);
         public override bool Equals(object? other) => other is FloNum prt && Equals(prt);

@@ -7,12 +7,12 @@ using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Terms;
 using Clasp.Process;
 
-namespace Clasp.Data.VirtualMachine
+namespace Clasp.AbstractMachine
 {
     internal struct MachineState
     {
         public int Phase = 1;
-        public Term ReturningValue;
+        public ITerm Accumulator;
         public MutableEnv CurrentEnv;
         public Stack<VmInstruction> Continuation;
 
@@ -34,7 +34,7 @@ namespace Clasp.Data.VirtualMachine
 
         public MachineState(CoreForm program, MutableEnv env, Action<int, MachineState>? postStepHook = null)
         {
-            ReturningValue = VoidTerm.Value;
+            Accumulator = 
             CurrentEnv = env;
             Continuation = new Stack<VmInstruction>();
             PostStepHook = postStepHook;

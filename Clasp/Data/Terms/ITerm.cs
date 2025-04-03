@@ -1,9 +1,10 @@
 ﻿using System;
 
+using Clasp.Data.Abstractions;
+
 namespace Clasp.Data.Terms
 {
-    internal interface ITerm : IEquatable<ITerm>
+    internal interface ITerm : IAbstractForm, IEquatable<ITerm>
     {
-
     }
 }

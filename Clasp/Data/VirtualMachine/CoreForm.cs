@@ -1,15 +1,20 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
+using Clasp.AbstractMachine;
+using Clasp.Binding.Environments;
+using Clasp.Binding.Modules;
 using Clasp.Data.Static;
 using Clasp.Data.Terms;
-using Clasp.Data.VirtualMachine;
+using Clasp.Data.Terms.Procedures;
+using Clasp.Data.Terms.ProductValues;
+using Clasp.Data.Terms.SyntaxValues;
 using Clasp.Exceptions;
 
 namespace Clasp.Data.AbstractSyntax
 {
     /// <summary>
-    /// The core forms of the Scheme being described. All programs are represented in ITerms of
+    /// The core forms of the Scheme being described. All programs are represented in terms of
     /// these objects, and all source code must be parsed to a tree of these values.
     /// </summary>
     internal abstract class CoreForm : VmInstruction
@@ -17,7 +22,7 @@ namespace Clasp.Data.AbstractSyntax
         protected CoreForm() : base() { }
         public virtual bool IsImperative { get; } = false;
         public abstract string ImplicitKeyword { get; }
-        public abstract ITerm ToTerm();
+        public abstract Term ToTerm();
     }
 
     internal sealed class TopBegin : CoreForm
@@ -44,7 +49,7 @@ namespace Clasp.Data.AbstractSyntax
             return _bodyForms[0];
         }
         protected override string FormatArgs() => string.Join(", ", _bodyForms.Select(x => x.ToString()));
-        public override ITerm ToTerm() => Cons.Truct(Symbols.Begin, Cons.ProperList(_bodyForms.Select(x => x.ToTerm())));
+        public override Term ToTerm() => Cons.Truct(Symbols.Begin, Cons.ProperList(_bodyForms.Select(x => x.ToTerm())));
     }
 
     internal sealed class TopDefine : CoreForm
@@ -69,7 +74,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override VmInstruction CopyContinuation() => new TopDefine(_key, _value);
         protected override string FormatArgs() => string.Format("{0}, {1}", _key, _value.ToString());
-        public override ITerm ToTerm() => Cons.ProperList(Symbols.Define, _key, _value.ToTerm());
+        public override Term ToTerm() => Cons.ProperList(Symbols.Define, _key, _value.ToTerm());
     }
 
     internal sealed class Importation : CoreForm
@@ -89,27 +94,27 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override VmInstruction CopyContinuation() => new Importation(_keys);
         protected override string FormatArgs() => string.Join(", ", _keys.Select(x => x.ToString()));
-        public override ITerm ToTerm() => Cons.Truct(Symbols.Import, Cons.ProperList(_keys));
+        public override Term ToTerm() => Cons.Truct(Symbols.Import, Cons.ProperList(_keys));
     }
 
-    //internal sealed class Undefine : CoreForm
-    //{
-    //    private readonly Symbol _key;
-    //    public override string AppCode => "NDEF";
-    //    public override string ImplicitKeyword => Keywords.S_PARTIAL_DEFINE;
-    //    public Undefine(Symbol key)
-    //    {
-    //        _key = key;
-    //    }
-    //    public override void RunOnMachine(MachineState machine)
-    //    {
-    //        machine.Continuation.Push(new BindFresh(_key.Name));
-    //        machine.ReturningValue = Undefined.Value;
-    //    }
-    //    public override VmInstruction CopyContinuation() => new Undefine(_key);
-    //    protected override string FormatArgs() => string.Format("{0}", _key);
-    //    public override ITerm ToITerm() => Cons.ProperList(Symbols.Define, _key, Undefined.Value);
-    //}
+    internal sealed class Undefine : CoreForm
+    {
+        private readonly Symbol _key;
+        public override string AppCode => "NDEF";
+        public override string ImplicitKeyword => Keywords.S_PARTIAL_DEFINE;
+        public Undefine(Symbol key)
+        {
+            _key = key;
+        }
+        public override void RunOnMachine(MachineState machine)
+        {
+            machine.Continuation.Push(new BindFresh(_key.Name));
+            machine.ReturningValue = Undefined.Value;
+        }
+        public override VmInstruction CopyContinuation() => new Undefine(_key);
+        protected override string FormatArgs() => string.Format("{0}", _key);
+        public override Term ToTerm() => Cons.ProperList(Symbols.Define, _key, Undefined.Value);
+    }
 
     internal sealed class Mutation : CoreForm
     {
@@ -129,7 +134,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override VmInstruction CopyContinuation() => new Mutation(_key, _value);
         protected override string FormatArgs() => string.Format("{0}, {1}", _key, _value.ToString());
-        public override ITerm ToTerm() => Cons.ProperList(Symbols.Set, _key, _value.ToTerm());
+        public override Term ToTerm() => Cons.ProperList(Symbols.Set, _key, _value.ToTerm());
     }
 
     internal sealed class Conditional : CoreForm
@@ -153,7 +158,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override VmInstruction CopyContinuation() => new Conditional(_test, _consequent, _alternative);
         protected override string FormatArgs() => string.Join(", ", _test, _consequent, _alternative);
-        public override ITerm ToTerm() => Cons.ProperList(Symbols.If, _test.ToTerm(), _consequent.ToTerm(), _alternative.ToTerm());
+        public override Term ToTerm() => Cons.ProperList(Symbols.If, _test.ToTerm(), _consequent.ToTerm(), _alternative.ToTerm());
     }
 
     internal sealed class Sequential : CoreForm
@@ -175,9 +180,9 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override Sequential CopyContinuation() => new Sequential(_bodyForms);
         protected override string FormatArgs() => string.Join(", ", _bodyForms.Select(x => x.ToString()));
-        public override ITerm ToTerm() => Cons.Truct(Symbols.Begin, ToImplicitITerm());
+        public override Term ToTerm() => Cons.Truct(Symbols.Begin, ToImplicitTerm());
 
-        public ITerm ToImplicitITerm() => Cons.ProperList(_bodyForms.Select(x => x.ToTerm()));
+        public Term ToImplicitTerm() => Cons.ProperList(_bodyForms.Select(x => x.ToTerm()));
     }
 
     internal sealed class Application : CoreForm
@@ -205,7 +210,7 @@ namespace Clasp.Data.AbstractSyntax
 
         public override Application CopyContinuation() => new Application(_operator, _arguments);
         protected override string FormatArgs() => string.Join(", ", _operator, string.Join(", ", _arguments.Select(x => x.ToString())));
-        public override ITerm ToTerm() => Cons.Truct(_operator.ToTerm(), Cons.ProperList(_arguments.Select(x => x.ToTerm())));
+        public override Term ToTerm() => Cons.Truct(_operator.ToTerm(), Cons.ProperList(_arguments.Select(x => x.ToTerm())));
     }
 
     internal sealed class Procedural : CoreForm
@@ -237,7 +242,7 @@ namespace Clasp.Data.AbstractSyntax
             string.Format("({0})", _formalVariad?.Name ?? string.Empty),
             string.Format("({0})", string.Join(", ", _informals.Select(x => x.Name))),
             _body.ToString());
-        public override ITerm ToTerm() => Cons.ImproperList(Symbols.Lambda, Cons.ImproperList(_formals.Append((ITerm?)_formalVariad ?? Nil.Value)), _body.ToImplicitITerm());
+        public override Term ToTerm() => Cons.ImproperList(Symbols.Lambda, Cons.ImproperList(_formals.Append((Term?)_formalVariad ?? Nil.Value)), _body.ToImplicitTerm());
     }
 
     internal sealed class VariableReference : CoreForm
@@ -253,7 +258,7 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override void RunOnMachine(MachineState machine)
         {
-            if (machine.CurrentEnv.TryGetValue(_key.Name, out ITerm? value))
+            if (machine.CurrentEnv.TryGetValue(_key.Name, out Term? value))
             {
                 machine.ReturningValue = value;
             }
@@ -268,22 +273,22 @@ namespace Clasp.Data.AbstractSyntax
         }
         public override VariableReference CopyContinuation() => new VariableReference(_key, _top);
         protected override string FormatArgs() => _key.Name;
-        public override ITerm ToTerm() => _key;
+        public override Term ToTerm() => _key;
     }
 
     internal sealed class ConstValue : CoreForm
     {
-        private readonly ITerm _value;
+        private readonly Term _value;
         public override string AppCode => "CONST";
         public override string ImplicitKeyword => Keywords.S_CONST;
-        public ConstValue(ITerm value) => _value = value;
+        public ConstValue(Term value) => _value = value;
         public override void RunOnMachine(MachineState machine)
         {
             machine.ReturningValue = _value;
         }
         public override ConstValue CopyContinuation() => new ConstValue(_value);
         protected override string FormatArgs() => _value.ToString();
-        public override ITerm ToTerm() => _value is Atom
+        public override Term ToTerm() => _value is Atom
             ? _value
             : Cons.ProperList(Symbols.Quote, _value);
     }

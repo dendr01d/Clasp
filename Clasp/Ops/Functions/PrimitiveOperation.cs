@@ -2,8 +2,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
+using Clasp.AbstractMachine;
 using Clasp.Data.Terms;
-using Clasp.Data.VirtualMachine;
 
 namespace Clasp.Ops.Functions
 {

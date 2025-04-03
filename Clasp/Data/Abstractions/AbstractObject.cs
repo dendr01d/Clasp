@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Clasp.Data.Terms;
 
 namespace Clasp.Data.Abstractions
 {
@@ -14,5 +10,7 @@ namespace Clasp.Data.Abstractions
     /// </remarks>
     internal abstract class AbstractObject : IAbstractForm
     {
+        public abstract override string ToString();
+        public abstract ITerm Express();
     }
 }

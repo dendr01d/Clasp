@@ -19,6 +19,13 @@ namespace Clasp.Data.Terms
         public void SetCar(ITerm car) => _car.Mutate(car);
         public void SetCdr(ITerm cdr) => _cdr.Mutate(cdr);
 
+        public static ITerm List(ITerm first, params ITerm[] rest)
+        {
+            return (rest.Length > 0)
+                ? new Cons(first, List(rest[0], rest[1..]))
+                : first;
+        }
+
         public bool Equals(Cons other) => Car.Equals(other.Car) && Cdr.Equals(other.Cdr);
         public bool Equals(ITerm? other) => other is Cons cns && Equals(cns);
         public override bool Equals(object? other) => other is Cons cns && Equals(cns);
@@ -31,6 +38,7 @@ namespace Clasp.Data.Terms
             {
                 Nil => string.Empty,
                 Cons cns => $"{cns.Car} {PrintAsTail(cns.Cdr)}",
+                StxPair stp => $"{stp.Pair.Car} {PrintAsTail(stp.Pair.Cdr)}"
                 _ => $" . {term}"
             };
         }

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Clasp.Data.Abstractions
 {
     /// <summary>
-    /// Represents the set of abstract objects that correspond some evaluation process,
+    /// Represents the set of abstract objects that correspond to some evaluation process,
     /// and thus encode a programmatic procedure.
     /// </summary>
     internal abstract class AbstractProgram : AbstractObject

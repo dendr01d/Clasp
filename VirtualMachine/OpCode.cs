@@ -17,15 +17,17 @@ namespace VirtualMachine
         Jump_IfNot,
         
         // Reading & Writing Values
-        Local_Load1, Local_Store1, Local_Push1, Local_Pop1,
-        Local_Load2, Local_Store2, Local_Push2, Local_Pop2,
-        Local_Load4, Local_Store4, Local_Push4, Local_Pop4,
-        Local_Load8, Local_Store8, Local_Push8, Local_Pop8,
+        Local_Load1, Local_Store1, Local_Pop1,
+        Local_Load2, Local_Store2, Local_Pop2,
+        Local_Load4, Local_Store4, Local_Pop4,
+        Local_Load8, Local_Store8, Local_Pop8,
+        Local_Push,
 
-        Global_Load1, Global_Store1, Global_Push1, Global_Pop1,
-        Global_Load2, Global_Store2, Global_Push2, Global_Pop2,
-        Global_Load4, Global_Store4, Global_Push4, Global_Pop4,
-        Global_Load8, Global_Store8, Global_Push8, Global_Pop8,
+        Global_Load1, Global_Store1, Global_Pop1,
+        Global_Load2, Global_Store2, Global_Pop2,
+        Global_Load4, Global_Store4, Global_Pop4,
+        Global_Load8, Global_Store8, Global_Pop8,
+        Global_Push,
 
         // List Ops
         Cons,

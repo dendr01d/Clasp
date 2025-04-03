@@ -1,19 +1,19 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
+using Clasp.AbstractMachine;
 using Clasp.Binding.Environments;
 using Clasp.Binding.Modules;
 using Clasp.Data.Static;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
 using Clasp.Data.Terms.ProductValues;
-using Clasp.Data.VirtualMachine;
 using Clasp.Exceptions;
 
 namespace Clasp.Data.AbstractSyntax
 {
     /// <summary>
-    /// Represents instructional forms that act upon a <see cref="VirtualMachine.MachineState"/>
+    /// Represents instructional forms that act upon a <see cref="AbstractMachine.MachineState"/>
     /// -- and in turn can be "interpreted" by the <see cref="Process.Interpreter"/>.
     /// These consist of <see cref="CoreForm"/> objects and tertiary supporting instructions.
     /// </summary>

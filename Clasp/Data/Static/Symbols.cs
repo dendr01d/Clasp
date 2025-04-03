@@ -42,29 +42,29 @@ namespace Clasp.Data.Static
 
         //---
 
-        public static readonly ReservedSymbol S_TopBegin = new(Keywords.S_TOP_BEGIN);
-        public static readonly ReservedSymbol S_TopDefine = new(Keywords.S_TOP_DEFINE);
-        public static readonly ReservedSymbol S_TopVar = new(Keywords.S_TOP_VAR);
+        public static readonly Symbol S_TopBegin = Symbol.Intern(Keywords.S_TOP_BEGIN);
+        public static readonly Symbol S_TopDefine = Symbol.Intern(Keywords.S_TOP_DEFINE);
+        public static readonly Symbol S_TopVar = Symbol.Intern(Keywords.S_TOP_VAR);
 
-        public static readonly ReservedSymbol S_Module = new(Keywords.S_MODULE);
-        public static readonly ReservedSymbol S_Module_Begin = new(Keywords.S_MODULE_BEGIN);
-        public static readonly ReservedSymbol S_Import = new(Keywords.S_IMPORT);
-        //public static readonly ReservedSymbol S_ImportFrom = new(Keywords.S_IMPORT_FROM);
+        public static readonly Symbol S_Module = Symbol.Intern(Keywords.S_MODULE);
+        public static readonly Symbol S_Module_Begin = Symbol.Intern(Keywords.S_MODULE_BEGIN);
+        public static readonly Symbol S_Import = Symbol.Intern(Keywords.S_IMPORT);
+        //public static readonly Symbol S_ImportFrom = Symbol.Intern(Keywords.S_IMPORT_FROM);
 
-        public static readonly ReservedSymbol S_Set = new(Keywords.S_SET);
+        public static readonly Symbol S_Set = Symbol.Intern(Keywords.S_SET);
 
-        public static readonly ReservedSymbol S_If = new(Keywords.S_IF);
-        public static readonly ReservedSymbol S_Begin = new(Keywords.S_BEGIN);
-        public static readonly ReservedSymbol S_App = new(Keywords.S_APP);
-        public static readonly ReservedSymbol S_Lambda = new(Keywords.S_LAMBDA);
+        public static readonly Symbol S_If = Symbol.Intern(Keywords.S_IF);
+        public static readonly Symbol S_Begin = Symbol.Intern(Keywords.S_BEGIN);
+        public static readonly Symbol S_App = Symbol.Intern(Keywords.S_APP);
+        public static readonly Symbol S_Lambda = Symbol.Intern(Keywords.S_LAMBDA);
 
-        public static readonly ReservedSymbol S_Var = new(Keywords.S_VAR);
-        public static readonly ReservedSymbol S_Const = new(Keywords.S_CONST);
-        public static readonly ReservedSymbol S_Const_Syntax = new(Keywords.S_CONST_SYNTAX);
+        public static readonly Symbol S_Var = Symbol.Intern(Keywords.S_VAR);
+        public static readonly Symbol S_Const = Symbol.Intern(Keywords.S_CONST);
+        public static readonly Symbol S_Const_Syntax = Symbol.Intern(Keywords.S_CONST_SYNTAX);
 
         //---
 
-        public static readonly ReservedSymbol S_PartialDefine = new(Keywords.S_PARTIAL_DEFINE);
-        public static readonly ReservedSymbol S_VisitModule = new(Keywords.S_VISIT_MODULE);
+        public static readonly Symbol S_PartialDefine = Symbol.Intern(Keywords.S_PARTIAL_DEFINE);
+        public static readonly Symbol S_VisitModule = Symbol.Intern(Keywords.S_VISIT_MODULE);
     }
 }

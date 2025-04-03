@@ -9,10 +9,10 @@ using System;
 using System.Collections.Generic;
 using Clasp.Data.Metadata;
 using Clasp.Data.Terms.SyntaxValues;
-using Clasp.Data.VirtualMachine;
 using Clasp.Interfaces;
 using Clasp.Exceptions;
 using Clasp.Binding.Environments;
+using Clasp.AbstractMachine;
 
 namespace Clasp
 {

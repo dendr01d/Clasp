@@ -2,11 +2,11 @@
 using System.Linq;
 using System.Text;
 
+using Clasp.AbstractMachine;
 using Clasp.Binding.Environments;
 using Clasp.Data.AbstractSyntax;
 using Clasp.Data.Terms;
 using Clasp.Data.Terms.Procedures;
-using Clasp.Data.VirtualMachine;
 
 namespace Clasp.Process
 {
