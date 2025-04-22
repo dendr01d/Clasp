@@ -1,22 +1,34 @@
 ﻿
 
+using System.Buffers.Binary;
+
 namespace VirtualMachine
 {
     internal class Program
     {
         static void Main(string[] args)
         {
-            //Chunk testChunk = new Chunk();
-            //int offset = testChunk.AddConstant(new Character('c'));
+            ChunkBuilder cb = new ChunkBuilder();
 
-            //testChunk.AppendCode((byte)OpCode.Op_Constant, (byte)offset);
-            //testChunk.AppendCode((byte)OpCode.Op_Return);
+            cb.AppendCode((byte)OpCode.Const_FixNum);
+            cb.AppendCode(BitConverter.GetBytes(5).Reverse().ToArray());
 
-            //string disassembledTest = Disassembler.Disassemble(testChunk, "test chunk");
+            cb.AppendCode((byte)OpCode.Local_Push);
 
-            //Console.WriteLine(disassembledTest);
+            cb.AppendCode((byte)OpCode.Const_FixNum);
+            cb.AppendCode(BitConverter.GetBytes(6).Reverse().ToArray());
 
-            //Console.ReadKey(true);
+            cb.AppendCode((byte)OpCode.Fix_Add);
+
+            cb.AppendCode((byte)OpCode.Op_Return);
+
+            Chunk testChunk = cb.Finalize();
+
+            string disassembledTest = Disassembler.Disassemble(testChunk, "test chunk");
+
+            Console.WriteLine(disassembledTest);
+
+            Console.ReadKey(true);
         }
     }
 }

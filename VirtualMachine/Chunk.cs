@@ -2,18 +2,23 @@
 {
     public class Chunk
     {
-        private readonly byte[] _code;
-        private readonly byte[] _constants;
+        /// <summary>
+        /// The size (in bytes) of the chunk.
+        /// </summary>
+        public int Size => _code.Length;
 
-        public Chunk(byte[] code, byte[] constants)
+        private readonly byte[] _code;
+
+        public byte this[int i]
         {
-            _code = code;
-            _constants = constants;
+            get => _code[i];
         }
 
-        public OpCode ReadOpCode(int i) => (OpCode)_code[i];
-
-        public Span<byte> ReadCode(int i, int l) => new Span<byte>(_code, i, l);
-        public Span<byte> ReadConstant(int i, int l) => new Span<byte>(_constants, i, l);
+        public Chunk(byte[] code)
+        {
+            _code = code;
+        }
+        public byte ReadByte(int ip) => _code[ip];
+        public Span<byte> ReadBytes(int ip, int len) => new Span<byte>(_code, ip, len);
     }
 }

@@ -4,76 +4,75 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using VirtualMachine.Objects;
+
 namespace VirtualMachine
 {
-    public sealed class RegisterStack<T>
-        where T : struct
+    /// <summary>
+    /// Implements a Stack of Terms that provides random access to its contents.
+    /// </summary>
+    internal sealed class RegisterStack
     {
-        private T[] _stack;
-        private int _pointer;
-        private int _size;
+        private Term[] _block;
+        private int _stackTop;
+        private int _stackSize;
 
-        public int Length => _pointer;
-        public int Capacity => _size;
+        public int Length => _stackTop;
+        public int Capacity => _stackSize;
 
-        public T this[int i]
+        public Term this[int i]
         {
-            get { return _stack[i]; }
+            get { return _block[i]; }
+            set
+            {
+                if (i > _stackTop)
+                {
+                    throw new IndexOutOfRangeException($"Tried to access invalid index {i} in {nameof(RegisterStack)} of length {Length} and capacity {Capacity}.");
+                }
+                _block[i] = value;
+            }
         }
 
-        private const int DEFAULT_SIZE = 8;
+        private const int DEFAULT_SIZE = 64;
 
         public RegisterStack()
         {
-            _stack = new T[DEFAULT_SIZE];
-            _pointer = 0;
+            _block = new Term[DEFAULT_SIZE];
+            _stackTop = 0;
+            _stackSize = DEFAULT_SIZE;
         }
 
-        public Span<T> Slice(int index, int length) => new Span<T>(_stack).Slice(index, length);
-
-        public void Push(T value)
+        public void Push(Term t)
         {
-            if (_pointer >= _size)
+            if (_stackTop >= _stackSize)
             {
                 ReAllocate();
             }
 
-            _stack[_pointer++] = value;
+            _block[_stackTop++] = t;
         }
 
-        public void Push(Span<T> values)
+        public Term Pop() => _block[_stackTop--];
+        public Term Peek() => _block[_stackTop - 1];
+
+        /// <summary>
+        /// Pop the given number of values from the top of the stack. The last
+        /// term to be popped is returned.
+        /// </summary>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        public Term PopValues(int count)
         {
-            while (_pointer + values.Length >= _size)
-            {
-                ReAllocate();
-            }
-
-            for (int i = 0; i < values.Length; ++i)
-            {
-                _stack[_pointer++] = values[i];
-            }
-        }
-
-        public T Pop() => _stack[_pointer--];
-        public T Peek() => _stack[_pointer - 1];
-
-        public Span<T> PopValues(int length)
-        {
-            _pointer -= length;
-            return Slice(_pointer, length);
-        }
-
-        public Span<T> PeekValues(int length)
-        {
-            return Slice(_pointer - length, length);
+            _stackTop -= count;
+            return _block[_stackTop + 1];
         }
 
         private void ReAllocate()
         {
-            _size *= 2;
-            T[] resizedStack = new T[_size];
-            _stack.CopyTo(new Span<T>(resizedStack));
-            _stack = resizedStack;
+            _stackSize *= 2;
+            Term[] resizedStack = new Term[_stackSize];
+            _block.CopyTo(resizedStack, 0);
+            _block = resizedStack;
         }
     }
 }
