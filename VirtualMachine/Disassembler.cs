@@ -28,161 +28,55 @@ namespace VirtualMachine
 
         private static int DisassembleInstruction(Chunk chunk, int offset, StringBuilder sb)
         {
-            sb.Append($"{offset:0000} ");
+            sb.Append($"{offset:0000} | ");
 
             OpCode instruction = (OpCode)chunk[offset];
 
-            switch (instruction)
+            return instruction switch
             {
-                case OpCode.Op_Return:
-                    return RenderSimpleInstruction(, offset, sb);
-                case OpCode.Jump:
-                    return RenderSimpleInstruction(Enum.GetName(typeof(OpCode), instruction), offset, sb);
-                case OpCode.Jump_If:
-                    break;
-                case OpCode.Jump_IfNot:
-                    break;
-                case OpCode.Local_Load:
-                    break;
-                case OpCode.Local_Store:
-                    break;
-                case OpCode.Local_Push:
-                    break;
-                case OpCode.Local_Pop:
-                    break;
-                case OpCode.Local_Swap:
-                    break;
-                case OpCode.Global_Load:
-                    break;
-                case OpCode.Global_Store:
-                    break;
-                case OpCode.Global_Push:
-                    break;
-                case OpCode.Global_Pop:
-                    break;
-                case OpCode.Const_Boolean:
-                    break;
-                case OpCode.Const_Byte:
-                    break;
-                case OpCode.Const_Char:
-                    break;
-                case OpCode.Const_FixNum:
-                    break;
-                case OpCode.Const_FloNum:
-                    break;
-                case OpCode.Const_Raw:
-                    break;
-                case OpCode.Eq:
-                    break;
-                case OpCode.Neq:
-                    break;
-                case OpCode.Lt:
-                    break;
-                case OpCode.Leq:
-                    break;
-                case OpCode.Gt:
-                    break;
-                case OpCode.Geq:
-                    break;
-                case OpCode.Raw_Add:
-                    break;
-                case OpCode.Raw_Mul:
-                    break;
-                case OpCode.Raw_Sub:
-                    break;
-                case OpCode.Raw_Div:
-                    break;
-                case OpCode.Raw_Mod:
-                    break;
-                case OpCode.Fix_Add:
-                    break;
-                case OpCode.Fix_Mul:
-                    break;
-                case OpCode.Fix_Sub:
-                    break;
-                case OpCode.Fix_Div:
-                    break;
-                case OpCode.Fix_Mod:
-                    break;
-                case OpCode.Flo_Add:
-                    break;
-                case OpCode.Flo_Mul:
-                    break;
-                case OpCode.Flo_Sub:
-                    break;
-                case OpCode.Flo_Div:
-                    break;
-                case OpCode.Flo_Mod:
-                    break;
-                case OpCode.Shift_L:
-                    break;
-                case OpCode.Shift_R:
-                    break;
-                case OpCode.Bitwise_And:
-                    break;
-                case OpCode.Bitwise_Or:
-                    break;
-                case OpCode.Bitwise_Xor:
-                    break;
-                case OpCode.TypeCast:
-                    break;
-                case OpCode.Fix_From_Raw:
-                    break;
-                case OpCode.Fix_From_Flo:
-                    break;
-                case OpCode.Flo_From_Raw:
-                    break;
-                case OpCode.Flo_From_Fix:
-                    break;
-                case OpCode.Raw_From_Fix:
-                    break;
-                case OpCode.Raw_From_Flo:
-                    break;
-                case OpCode.Box:
-                    break;
-                case OpCode.Unbox:
-                    break;
-                case OpCode.Cons:
-                    break;
-                case OpCode.Car:
-                    break;
-                case OpCode.Cdr:
-                    break;
-                case OpCode.Set_Car:
-                    break;
-                case OpCode.Set_Cdr:
-                    break;
-                case OpCode.Vec_Make:
-                    break;
-                case OpCode.Vec_Emplace:
-                    break;
-                case OpCode.Vec_Retrieve:
-                    break;
-                case OpCode.Vec_Length:
-                    break;
-                case OpCode.Func_Make:
-                    break;
-                case OpCode.Func_Apply:
-                    break;
-                case OpCode.Port_Get_Console:
-                    break;
-                case OpCode.Port_Get_File:
-                    break;
-                case OpCode.Port_Open_Write:
-                    break;
-                case OpCode.Port_Open_Read:
-                    break;
+                OpCode.Jump => Render1ArgInstruction(instruction, offset, sb, ReadBytes(chunk, offset, sizeof(int))),
+                OpCode.Jump_If => Render1ArgInstruction(instruction, offset, sb, ReadBytes(chunk, offset, sizeof(int))),
+                OpCode.Jump_IfNot => Render1ArgInstruction(instruction, offset, sb, ReadBytes(chunk, offset, sizeof(int))),
 
-                    //default:
-                    //    sb.Append($"Unknown OpCode: {(int)instruction}");
-                    //    return offset + 1;
-            }
+                OpCode.Const_Boolean => Render1ArgInstruction(instruction, offset, sb, ReadBytes(chunk, offset, sizeof(bool))),
+                OpCode.Const_Byte => Render1ArgInstruction(instruction, offset, sb, ReadBytes(chunk, offset, sizeof(byte))),
+                OpCode.Const_Char => Render1ArgInstruction(instruction, offset, sb, ReadBytes(chunk, offset, sizeof(char))),
+                OpCode.Const_FixNum => Render1ArgInstruction(instruction, offset, sb, ReadBytes(chunk, offset, sizeof(int))),
+                OpCode.Const_FloNum => Render1ArgInstruction(instruction, offset, sb, ReadBytes(chunk, offset, sizeof(double))),
+                OpCode.Const_Raw => Render1ArgInstruction(instruction, offset, sb, ReadBytes(chunk, offset, sizeof(ulong))),
+
+                OpCode.TypeCast => Render1ArgInstruction(instruction, offset, sb, ReadBytes(chunk, offset, sizeof(byte))),
+
+                _ => RenderSimpleInstruction(instruction, offset, sb)
+            };
+        }
+
+        private static int _opCodeMaxLen = Enum.GetNames(typeof(OpCode)).Max(x => x.Length);
+        private static string _opCodeFormat = $"{{0, {-1 * _opCodeMaxLen}}}";
+
+        private static byte[] ReadBytes(Chunk chunk, int opOffset, int byteCount)
+        {
+            return chunk.ReadBytes(opOffset + 1, byteCount).ToArray().Reverse().ToArray();
+        }
+
+        private static void PrintOpCode(OpCode op, StringBuilder sb)
+        {
+            sb.Append(string.Format(_opCodeFormat, Enum.GetName(typeof(OpCode), op)));
         }
 
         private static int RenderSimpleInstruction(OpCode op, int offset, StringBuilder sb)
         {
-            sb.Append(Enum.GetName(typeof(OpCode), op));
+            PrintOpCode(op, sb);
             return offset + 1;
+        }
+
+        private static int Render1ArgInstruction(OpCode op, int offset, StringBuilder sb, byte[] arg)
+        {
+            PrintOpCode(op, sb);
+            sb.Append(" | ");
+            sb.Append(string.Join(' ', arg.Select(x => x.ToString("X"))));
+
+            return offset + 1 + arg.Length;
         }
 
     }

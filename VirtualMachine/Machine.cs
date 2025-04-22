@@ -216,22 +216,22 @@ namespace VirtualMachine
                         _accumulator = Term.ByType(_accumulator.AsRawNum, _accumulator.AsObject, (TypeTag)_chunk.ReadByte(_ip++));
                         break;
 
-                    case OpCode.Fix_From_Raw:
+                    case OpCode.Raw_To_Fix:
                         _accumulator = Term.FixNum(int.CreateTruncating(_accumulator.AsRawNum));
                         break;
-                    case OpCode.Fix_From_Flo:
+                    case OpCode.Flo_To_Fix:
                         _accumulator = Term.FixNum(int.CreateTruncating(double.Truncate(_accumulator.AsFloNum)));
                         break;
-                    case OpCode.Flo_From_Raw:
+                    case OpCode.Raw_To_Flo:
                         _accumulator = Term.FloNum(double.CreateTruncating(_accumulator.AsRawNum));
                         break;
-                    case OpCode.Flo_From_Fix:
+                    case OpCode.Fix_To_Flo:
                         _accumulator = Term.FloNum(_accumulator.AsFixNum);
                         break;
-                    case OpCode.Raw_From_Flo:
+                    case OpCode.Flo_To_Raw:
                         _accumulator = Term.RawNum(ulong.CreateTruncating(_accumulator.AsFloNum), (TypeTag)_chunk.ReadByte(_ip++));
                         break;
-                    case OpCode.Raw_From_Fix:
+                    case OpCode.Fix_To_Raw:
                         _accumulator = Term.RawNum(ulong.CreateTruncating(_accumulator.AsFixNum), (TypeTag)_chunk.ReadByte(_ip++));
                         break;
 
@@ -301,10 +301,13 @@ namespace VirtualMachine
             return new InvalidOperationException($"Invalid to perform operation {op} with accumulator {acc} and argument {arg}.");
         }
 
-        //public static MachineResult Run(Chunk program)
-        //{
-        //    Machine mx = new Machine(program);
-        //    return mx.Run();
-        //}
+        public static (MachineResult, Term) Run(Chunk program)
+        {
+            Machine mx = new Machine(program);
+            MachineResult result = mx.Run();
+            Term finalTerm = mx._accumulator;
+
+            return (result, finalTerm);
+        }
     }
 }

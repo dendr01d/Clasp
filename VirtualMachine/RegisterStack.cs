@@ -52,7 +52,7 @@ namespace VirtualMachine
             _block[_stackTop++] = t;
         }
 
-        public Term Pop() => _block[_stackTop--];
+        public Term Pop() => _block[--_stackTop];
         public Term Peek() => _block[_stackTop - 1];
 
         /// <summary>

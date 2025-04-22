@@ -21,7 +21,7 @@ namespace VirtualMachine.Objects
         [FieldOffset(0)] private readonly ulong _ulong;
         #endregion
 
-        #region Reference Field (4? Bytes)
+        #region Reference Field (8? Bytes)
         [FieldOffset(8)] private readonly string _string = null!;
         [FieldOffset(8)] private readonly Box _box = null!;
         [FieldOffset(8)] private readonly Cons _cons = null!;
@@ -33,7 +33,7 @@ namespace VirtualMachine.Objects
         #endregion
 
         #region Type
-        [FieldOffset(12)] public readonly TypeTag Tag;
+        [FieldOffset(16)] public readonly TypeTag Tag;
         #endregion
 
         #region Construction

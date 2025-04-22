@@ -19,6 +19,8 @@ namespace VirtualMachine
 
         public void AppendCode(params byte[] bytes) => Code.AddRange(bytes);
 
+        public void AppendConstant(params byte[] bytes) => Code.AddRange(bytes.Reverse());
+
         //public int AddConstant(params byte[] bytes)
         //{
         //    int index = Constants.Count;

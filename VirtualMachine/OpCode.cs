@@ -47,9 +47,9 @@ namespace VirtualMachine
 
         // Type-Casting
         TypeCast,
-        Fix_From_Raw, Fix_From_Flo,
-        Flo_From_Raw, Flo_From_Fix,
-        Raw_From_Fix, Raw_From_Flo,
+        Raw_To_Fix, Flo_To_Fix,
+        Raw_To_Flo, Fix_To_Flo,
+        Fix_To_Raw, Flo_To_Raw,
 
         // Box Ops
         Box,
