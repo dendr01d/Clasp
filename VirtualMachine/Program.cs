@@ -19,8 +19,10 @@ namespace VirtualMachine
 
             cb.AppendCode((byte)OpCode.Local_Push);
 
-            cb.AppendCode((byte)OpCode.Const_FixNum);
-            cb.AppendCode(BitConverter.GetBytes(6));
+            cb.AppendCode((byte)OpCode.Const_FloNum);
+            cb.AppendCode(BitConverter.GetBytes(6.0));
+
+            cb.AppendCode((byte)OpCode.Flo_To_Fix);
 
             cb.AppendCode((byte)OpCode.Fix_Add);
 

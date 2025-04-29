@@ -13,6 +13,7 @@ namespace VirtualMachine
             StringBuilder sb = new StringBuilder();
 
             sb.AppendLine($"== {name} ==");
+            sb.AppendLine();
 
             int offset = 0;
             while (offset < chunk.Size)
@@ -21,6 +22,7 @@ namespace VirtualMachine
                 sb.AppendLine();
             }
 
+            sb.AppendLine();
             sb.Append("== end ==");
 
             return sb.ToString();
@@ -28,7 +30,7 @@ namespace VirtualMachine
 
         private static int DisassembleInstruction(Chunk chunk, int offset, StringBuilder sb)
         {
-            sb.Append($"{offset:0000} | ");
+            sb.Append($"{offset:0000} : ");
 
             OpCode instruction = (OpCode)chunk[offset];
 
@@ -67,14 +69,15 @@ namespace VirtualMachine
         private static int RenderSimpleInstruction(OpCode op, int offset, StringBuilder sb)
         {
             PrintOpCode(op, sb);
+            sb.Append(" |");
             return offset + 1;
         }
 
         private static int Render1ArgInstruction(OpCode op, int offset, StringBuilder sb, byte[] arg)
         {
-            PrintOpCode(op, sb);
-            sb.Append(" | ");
-            sb.Append(string.Join(' ', arg.Select(x => x.ToString("X"))));
+            RenderSimpleInstruction(op, offset, sb);
+            sb.Append(' ');
+            sb.Append(BitConverter.ToString(arg).Replace('-', ' '));
 
             return offset + 1 + arg.Length;
         }

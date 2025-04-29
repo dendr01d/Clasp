@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
@@ -12,16 +13,38 @@ namespace VirtualMachine.Objects
     [StructLayout(LayoutKind.Explicit)]
     internal readonly partial struct Term : IEquatable<Term>, IComparable<Term>
     {
-        #region Primitive Field (8 Bytes)
-        [FieldOffset(0)] private readonly bool _bool;
-        [FieldOffset(0)] private readonly byte _byte;
-        [FieldOffset(0)] private readonly char _char;
-        [FieldOffset(0)] private readonly int _int;
-        [FieldOffset(0)] private readonly double _double;
-        [FieldOffset(0)] private readonly ulong _ulong;
+        #region Bit-Masking
+
+        private const ulong QNAN = 0x_00_00_00_00_00_00_7F_FC;
+        private const ulong BSTR = 0x_FF_FF_FF_FF_FF_FF_00_00;
+
         #endregion
 
-        #region Reference Field (8? Bytes)
+        #region Primitive Fields
+        // Raw values that can be represented by the term
+        // These need to align such that their LEAST significant bits overlap
+
+        [FieldOffset(0)] private readonly double _double; //8 bytes
+        [FieldOffset(0)] private readonly ulong _ulong; //8 bytes
+
+        [FieldOffset(4)] private readonly int _int; //4 bytes
+
+        [FieldOffset(6)] private readonly char _char; //2 bytes
+
+        [FieldOffset(7)] private readonly byte _byte; //1 byte
+        [FieldOffset(7)] private readonly bool _bool; //1 byte
+        #endregion
+
+        #region Metadata Fields
+
+        [FieldOffset(2)] private readonly byte _typeTag;
+        #endregion
+
+        #region Reference Fields
+        // Heap-managed values that the term could also represent
+        // The CLR absolutely forbids ANY overlap of value & reference fields
+        // but multiple overlapping reference fields is no problem
+
         [FieldOffset(8)] private readonly string _string = null!;
         [FieldOffset(8)] private readonly Box _box = null!;
         [FieldOffset(8)] private readonly Cons _cons = null!;
@@ -32,19 +55,20 @@ namespace VirtualMachine.Objects
         [FieldOffset(8)] private readonly object _ref = null!;
         #endregion
 
-        #region Type
-        [FieldOffset(16)] public readonly TypeTag Tag;
-        #endregion
-
         #region Construction
-        private Term(TypeTag type) : this() => Tag = type;
+        private Term(TypeTag type) : this()
+        {
+            _ulong = QNAN;
+            this._typeTag = (byte)type;
+        }
 
         private Term(bool b) : this(TypeTag.Boolean) => _bool = b;
         private Term(byte b) : this(TypeTag.Byte) => _byte = b;
         private Term(char c) : this(TypeTag.Character) => _char = c;
         private Term(int i) : this(TypeTag.FixNum) => _int = i;
         private Term(double d) : this(TypeTag.FloNum) => _double = d;
-        private Term(ulong ui, TypeTag tag) : this(tag) => _ulong = ui;
+        private Term(ulong ul) : this(TypeTag.ByteString) => _ulong = ul;
+        private Term(ulong ul, TypeTag tag) : this(tag) => _ulong = ul;
 
         private Term(string str, TypeTag tag) : this(tag) => _string = str; // Symbols AND strings
         private Term(Box boxed) : this(TypeTag.Box) => _box = boxed;
@@ -81,7 +105,8 @@ namespace VirtualMachine.Objects
         public static Term Character(char c) => new(c);
         public static Term FixNum(int i) => new(i);
         public static Term FloNum(double d) => new(d);
-        public static Term RawNum(ulong ul, TypeTag tag) => new(ul, tag);
+        public static Term ByteString(ulong ul) => new(ul & BSTR);
+        public static Term ByteString(ulong ul, TypeTag tag) => new(ul & BSTR, tag);
 
         public static Term Symbol(string name) => new(name, TypeTag.Symbol);
 
@@ -103,12 +128,22 @@ namespace VirtualMachine.Objects
 
         #region Meta-Attributes
 
-        public bool IsNil => Tag == TypeTag.Nil;
+        private bool _isDouble => ((_ulong & QNAN) != QNAN);
+
+        private bool _isByteString => ((_ulong & QNAN) == QNAN) && _double < 0;
+
+        public TypeTag Tag => _isDouble
+            ? TypeTag.FloNum
+            : _isByteString
+                ? TypeTag.ByteString
+                : (TypeTag)_typeTag;
+
+        public bool IsNil => _ulong == 0;
         public bool IsStaticType => (int)Tag < 100;
         public bool IsValueType => (int)Tag < 200;
         public bool IsReferenceType => (int)Tag >= 200;
-        public bool IsFalsy => _ulong == 0;
-        public bool IsTruthy => _ulong != 0;
+        public bool IsFalsy => Tag == TypeTag.Boolean && _bool == false;
+        public bool IsTruthy => !IsFalsy;
         public bool IsBoxed => Tag == TypeTag.Box;
 
         public bool IsUnsignedFixed => (int)Tag < 120;
@@ -124,6 +159,7 @@ namespace VirtualMachine.Objects
         public ulong AsRawNum => _ulong;
         public int AsFixNum => _int;
         public double AsFloNum => _double;
+        public byte[] AsByteString => BitConverter.GetBytes(_ulong);
 
         // Symbols only meaningfully exist as Terms
         public string AsCharString => _string;
@@ -221,12 +257,14 @@ namespace VirtualMachine.Objects
             {
                 TypeTag.Boolean => IsTruthy ? "#t" : "#f",
 
-                TypeTag.Byte => _byte.ToString("X"),
+                TypeTag.Byte => BitConverter.ToString([_byte]),
                 TypeTag.Character => CharacterToString(_char),
 
                 TypeTag.FixNum => _int.ToString(),
 
                 TypeTag.FloNum => _double.ToString(),
+
+                TypeTag.ByteString => BitConverter.ToString(AsByteString),
 
                 TypeTag.Box => $"^{_ref.ToString()}",
                 TypeTag.Cons => $"{_cons.Car.ToString()}{CdrToString(_cons.Cdr)}",
@@ -267,41 +305,6 @@ namespace VirtualMachine.Objects
                 _ => $" . {t.ToString()}"
             };
         }
-        #endregion
-
-        #region Byte-Serialization
-
-        //public byte[] ToByteString()
-        //{
-        //    return Tag switch
-        //    {
-        //        TypeTag.Boolean => IsTruthy ? [0x1] : [0x0],
-
-        //        TypeTag.Byte => [_byte],
-        //        TypeTag.Character => CharacterToString(_char),
-
-        //        TypeTag.FixNum => _int.ToString(),
-
-        //        TypeTag.FloNum => _double.ToString(),
-
-        //        TypeTag.Box => $"^{_ref.ToString()}",
-        //        TypeTag.Cons => $"{_cons.Car.ToString()}{CdrToString(_cons.Cdr)}",
-        //        TypeTag.Vector => $"#({string.Join(' ', _vector.Elements)})",
-        //        TypeTag.Functional => $"ƒ({_functional.Arity}{(_functional.Variadic ? "+" : string.Empty)})",
-        //        TypeTag.Symbol => _string,
-        //        TypeTag.PortReader => $"Read:{{{_portReader.Name}}}",
-        //        TypeTag.PortWriter => $"Write:{{{_portWriter.Name}}}",
-
-        //        TypeTag.CharString => $"\"{_string}\"",
-
-        //        TypeTag.Nil => "()",
-        //        TypeTag.Void => "#<void>",
-        //        TypeTag.Undefined => "#<undefined>",
-
-        //        _ => "#<unknown>",
-        //    }
-        //}
-
         #endregion
     }
 }

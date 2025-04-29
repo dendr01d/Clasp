@@ -67,13 +67,40 @@ namespace VirtualMachine
                         }
                         break;
 
-                    case OpCode.Local_Load:
+                    case OpCode.Frame_Load:
                         _accumulator = _localMemory[_frame + BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadBytes(_ip, sizeof(int)))];
                         _ip += sizeof(int);
                         break;
-                    case OpCode.Local_Store:
+                    case OpCode.Frame_Store:
                         _localMemory[_frame + BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadBytes(_ip, sizeof(int)))] = _accumulator;
                         _ip += sizeof(int);
+                        break;
+                    case OpCode.Frame_Swap:
+                        {
+                            Term temp = _accumulator;
+                            int addr = _frame + BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadBytes(_ip, sizeof(int)));
+                            _ip += sizeof(int);
+                            _accumulator = _localMemory[addr];
+                            _localMemory[addr] = _accumulator;
+                        }
+                        break;
+
+                    case OpCode.Local_Load:
+                        _accumulator = _localMemory[BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadBytes(_ip, sizeof(int)))];
+                        _ip += sizeof(int);
+                        break;
+                    case OpCode.Local_Store:
+                        _localMemory[BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadBytes(_ip, sizeof(int)))] = _accumulator;
+                        _ip += sizeof(int);
+                        break;
+                    case OpCode.Local_Swap:
+                        {
+                            Term temp = _accumulator;
+                            int addr = BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadBytes(_ip, sizeof(int)));
+                            _ip += sizeof(int);
+                            _accumulator = _localMemory[addr];
+                            _localMemory[addr] = _accumulator;
+                        }
                         break;
                     case OpCode.Local_Push:
                         _localMemory.Push(_accumulator);
@@ -81,7 +108,7 @@ namespace VirtualMachine
                     case OpCode.Local_Pop:
                         _localMemory.Pop();
                         break;
-                    case OpCode.Local_Swap:
+                    case OpCode.Local_Shuffle:
                         {
                             Term temp = _accumulator;
                             _accumulator = _localMemory.Pop();
@@ -145,22 +172,6 @@ namespace VirtualMachine
                         _accumulator = Term.Boolean(_localMemory.Pop().CompareTo(_accumulator) >= 0);
                         break;
 
-                    case OpCode.Raw_Add:
-                        _accumulator = Term.RawNum(_accumulator.AsRawNum + _localMemory.Pop().AsRawNum, _accumulator.Tag);
-                        break;
-                    case OpCode.Raw_Mul:
-                        _accumulator = Term.RawNum(_accumulator.AsRawNum * _localMemory.Pop().AsRawNum, _accumulator.Tag);
-                        break;
-                    case OpCode.Raw_Sub:
-                        _accumulator = Term.RawNum(_accumulator.AsRawNum - _localMemory.Pop().AsRawNum, _accumulator.Tag);
-                        break;
-                    case OpCode.Raw_Div:
-                        _accumulator = Term.RawNum(_accumulator.AsRawNum / _localMemory.Pop().AsRawNum, _accumulator.Tag);
-                        break;
-                    case OpCode.Raw_Mod:
-                        _accumulator = Term.RawNum(_accumulator.AsRawNum % _localMemory.Pop().AsRawNum, _accumulator.Tag);
-                        break;
-
                     case OpCode.Fix_Add:
                         _accumulator = Term.FixNum(_accumulator.AsFixNum + _localMemory.Pop().AsFixNum);
                         break;
@@ -194,45 +205,33 @@ namespace VirtualMachine
                         break;
 
                     case OpCode.Shift_L:
-                        _accumulator = Term.RawNum(_accumulator.AsRawNum << BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadBytes(_ip, sizeof(int))), _accumulator.Tag);
+                        _accumulator = Term.ByteString(_accumulator.AsRawNum << BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadBytes(_ip, sizeof(int))), _accumulator.Tag);
                         _ip += sizeof(int);
                         break;
                     case OpCode.Shift_R:
-                        _accumulator = Term.RawNum(_accumulator.AsRawNum >> BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadBytes(_ip, sizeof(int))), _accumulator.Tag);
+                        _accumulator = Term.ByteString(_accumulator.AsRawNum >> BinaryPrimitives.ReadInt32LittleEndian(_chunk.ReadBytes(_ip, sizeof(int))), _accumulator.Tag);
                         _ip += sizeof(int);
                         break;
 
                     case OpCode.Bitwise_And:
-                        _accumulator = Term.RawNum(_accumulator.AsRawNum & _localMemory.Pop().AsRawNum, _accumulator.Tag);
+                        _accumulator = Term.ByteString(_accumulator.AsRawNum & _localMemory.Pop().AsRawNum, _accumulator.Tag);
                         break;
                     case OpCode.Bitwise_Or:
-                        _accumulator = Term.RawNum(_accumulator.AsRawNum | _localMemory.Pop().AsRawNum, _accumulator.Tag);
+                        _accumulator = Term.ByteString(_accumulator.AsRawNum | _localMemory.Pop().AsRawNum, _accumulator.Tag);
                         break;
                     case OpCode.Bitwise_Xor:
-                        _accumulator = Term.RawNum(_accumulator.AsRawNum ^ _localMemory.Pop().AsRawNum, _accumulator.Tag);
+                        _accumulator = Term.ByteString(_accumulator.AsRawNum ^ _localMemory.Pop().AsRawNum, _accumulator.Tag);
                         break;
 
                     case OpCode.TypeCast:
                         _accumulator = Term.ByType(_accumulator.AsRawNum, _accumulator.AsObject, (TypeTag)_chunk.ReadByte(_ip++));
                         break;
 
-                    case OpCode.Raw_To_Fix:
-                        _accumulator = Term.FixNum(int.CreateTruncating(_accumulator.AsRawNum));
-                        break;
                     case OpCode.Flo_To_Fix:
                         _accumulator = Term.FixNum(int.CreateTruncating(double.Truncate(_accumulator.AsFloNum)));
                         break;
-                    case OpCode.Raw_To_Flo:
-                        _accumulator = Term.FloNum(double.CreateTruncating(_accumulator.AsRawNum));
-                        break;
                     case OpCode.Fix_To_Flo:
                         _accumulator = Term.FloNum(_accumulator.AsFixNum);
-                        break;
-                    case OpCode.Flo_To_Raw:
-                        _accumulator = Term.RawNum(ulong.CreateTruncating(_accumulator.AsFloNum), (TypeTag)_chunk.ReadByte(_ip++));
-                        break;
-                    case OpCode.Fix_To_Raw:
-                        _accumulator = Term.RawNum(ulong.CreateTruncating(_accumulator.AsFixNum), (TypeTag)_chunk.ReadByte(_ip++));
                         break;
 
                     case OpCode.Box:

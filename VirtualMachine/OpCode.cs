@@ -17,9 +17,10 @@ namespace VirtualMachine
         Jump_IfNot,
         
         // Memory Management
-        Local_Load, Local_Store,
-        Local_Push, Local_Pop,
-        Local_Swap,
+        Frame_Load, Frame_Store, Frame_Swap,
+
+        Local_Load, Local_Store, Local_Swap,
+        Local_Push, Local_Pop, Local_Shuffle,
 
         Global_Load, Global_Store,
         Global_Push, Global_Pop,

@@ -25,6 +25,8 @@ namespace VirtualMachine.Objects
 
         FloNum       = 130, // Signed floating-point
 
+        ByteString   = 140, // unsigned long, but only 6 bytes' worth
+
         /* 200-255 reserved for C# managed Reference types */
 
         Symbol       = 200, // Kind of like a string, but semantically different
