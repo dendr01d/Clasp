@@ -15,7 +15,8 @@ namespace VirtualMachine.Objects
     {
         #region Bit-Masking
 
-        private const ulong QNAN = 0x_00_00_00_00_00_00_7F_FC;
+        // Written in little-endian
+        private const ulong QNAN = 0x_00_00_00_00_00_00_FC_7F;
         private const ulong BSTR = 0x_FF_FF_FF_FF_FF_FF_00_00;
 
         #endregion
