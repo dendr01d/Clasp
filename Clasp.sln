@@ -15,6 +15,8 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "ClaspDev", "ClaspDev\ClaspD
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VirtualMachine", "VirtualMachine\VirtualMachine.csproj", "{D87FD49A-FCF0-4080-800C-F40DF3F95B09}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClaspCompiler", "ClaspCompiler\ClaspCompiler.csproj", "{E727C1B6-B4B3-4763-84EA-635D44819783}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -85,6 +87,18 @@ Global
 		{D87FD49A-FCF0-4080-800C-F40DF3F95B09}.Release|x64.Build.0 = Release|Any CPU
 		{D87FD49A-FCF0-4080-800C-F40DF3F95B09}.Release|x86.ActiveCfg = Release|Any CPU
 		{D87FD49A-FCF0-4080-800C-F40DF3F95B09}.Release|x86.Build.0 = Release|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Debug|x64.Build.0 = Debug|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Debug|x86.Build.0 = Debug|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Release|x64.ActiveCfg = Release|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Release|x64.Build.0 = Release|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Release|x86.ActiveCfg = Release|Any CPU
+		{E727C1B6-B4B3-4763-84EA-635D44819783}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
