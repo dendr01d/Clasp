@@ -16,7 +16,7 @@ namespace ClaspCompiler.CompilerPasses
             { TokenType.RightParen, @"\)" },
             { TokenType.Integer   , @"-?[1-9]\d*" },
             { TokenType.Symbol    , @"(?:\+|\-|[a-zA-Z]+)" },
-            { TokenType.Malformed , @"*" }
+            { TokenType.Malformed , @".*" }
 
             /*
             { TokenType.Whitespace     , @"\s+" },
@@ -58,7 +58,7 @@ namespace ClaspCompiler.CompilerPasses
         };
 
         private static readonly string _productions = string.Join('|', _regexes.Select(FormatRule));
-        private static readonly string _grammar = @"(?:\s*)(" + _productions + ")";
+        private static readonly string _grammar = @"(" + _productions + ")";
 
         private static readonly Regex _masterRegex = new(_grammar);
 
@@ -81,12 +81,11 @@ namespace ClaspCompiler.CompilerPasses
                 foreach (Match match in matchColl)
                 {
                     TokenType type = _regexes.Keys.First(x => match.Groups[x.ToString()].Success);
+
                     Group group = match.Groups[type.ToString()];
 
                     SourceRef source = new SourceRef(sourceName, text,
                         lineNumber, columnNumber, match.Index, match.Length);
-
-                    yield return new Token(type, source);
 
                     if (type == TokenType.NewLine)
                     {
@@ -97,13 +96,18 @@ namespace ClaspCompiler.CompilerPasses
                     {
                         columnNumber += match.Length;
                     }
+
+                    if (type != TokenType.Whitespace)
+                    {
+                        yield return new Token(type, source);
+                    }
                 }
             }
         }
 
         private static string FormatRule(KeyValuePair<TokenType, string> pair)
         {
-            return $"(?<{pair.Key}>{pair.Value}";
+            return $"(?<{pair.Key}>{pair.Value})";
         }
 
     }

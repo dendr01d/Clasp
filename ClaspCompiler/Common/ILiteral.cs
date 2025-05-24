@@ -4,8 +4,15 @@ using ClaspCompiler.Semantics;
 
 namespace ClaspCompiler.Common
 {
-    internal interface ILiteral : IPrintable, ISemExp, INormExp
+    internal interface ILiteral : IPrintable,
+        ISemExp,
+        INormExp, INormArg
     {
-        public ITerm Value { get; }
+        public ITerm GetValue();
+    }
+
+    internal static class ILiteralExtensions
+    {
+        public static string ToString(ILiteral lit) => lit.GetValue().ToString();
     }
 }

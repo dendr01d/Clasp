@@ -11,7 +11,7 @@ namespace ClaspCompiler.Data
 
         protected ValueBase(T value) => Value = value;
 
-        public override string ToString() => Value.ToString() ?? "<?>";
+        public sealed override string ToString() => Value.ToString() ?? "<?>";
         public void Print(TextWriter writer, int indent) => writer.Write(ToString());
     }
 }

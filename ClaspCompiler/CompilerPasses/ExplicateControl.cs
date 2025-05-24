@@ -31,7 +31,7 @@ namespace ClaspCompiler.CompilerPasses
             else
             {
                 return new Sequence(
-                    new Assign(var, TranslateExpression(var)),
+                    new Assign(var, TranslateExpression(exp)),
                     tail);
             }
         }

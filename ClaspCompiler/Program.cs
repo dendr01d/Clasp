@@ -1,17 +1,69 @@
-﻿namespace ClaspCompiler
+﻿using ClaspCompiler.ANormalForms;
+using ClaspCompiler.CompilerPasses;
+using ClaspCompiler.Semantics;
+using ClaspCompiler.Syntax;
+using ClaspCompiler.Tokens;
+
+using static System.Net.Mime.MediaTypeNames;
+
+namespace ClaspCompiler
 {
     internal class Program
     {
+        private static readonly string[] testPrograms = new string[]
+        {
+            "(let ((x 32)) (+ (let ((x 10)) x) x))",
+            "(let ((x (+ 12 20))) (+ 10 x))",
+            "(let ((x (read))) (let ((y (read))) (+ x (- y))))",
+            "(let ((x (let ((x 4))(+ x 1))))(+ x 2))",
+            "(+ 52 (- 10))",
+            "(let ((a 42)) (let ((b a)) b))"
+        };
+
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello, World!");
+            foreach(string program in testPrograms)
+            {
+                Console.WriteLine(new string('=', 65));
+                Console.WriteLine();
 
-            //for (int i = 0; i < (1 << 10); ++i)
-            //{
-            //    Console.WriteLine(string.Format("{0,3}: {1,4:X}: {2}", i, i, (char)i));
-            //}
+                AnnounceProgram("Raw Input", program);
 
+                TokenStream tokens = Tokenize.Execute("Test Program", program);
+                AnnounceProgram("Token Stream", tokens);
+
+                ISyntax stx = ParseSyntax.Execute(tokens);
+                AnnounceProgram("Syntax", stx.ToString());
+
+                ProgR1 semProg = ParseSemantics.Execute(stx);
+                AnnounceProgram("Semantics", semProg);
+
+                ProgR1 semProgUniqueVars = Uniquify.Execute(semProg);
+                AnnounceProgram("Unique Vars", semProgUniqueVars);
+
+                ProgR1 semProgNoComplex = RemoveComplexOperants.Execute(semProgUniqueVars);
+                AnnounceProgram("Removed Complex Operants", semProgNoComplex);
+
+                ProgC0 normProg = ExplicateControl.Execute(semProgNoComplex);
+                AnnounceProgram("A-Normal Form", normProg);
+            }
+
+            Console.WriteLine();
             Console.ReadKey(true);
+        }
+
+        private static void AnnounceProgram(string title, string text)
+        {
+            Console.WriteLine(":: {0} ::", title);
+            Console.WriteLine(text);
+            Console.WriteLine('\n');
+        }
+
+        private static void AnnounceProgram(string title, IPrintable prin)
+        {
+            Console.WriteLine(":: {0} ::", title);
+            prin.Print(Console.Out, 1);
+            Console.WriteLine("\n\n");
         }
     }
 }

@@ -6,11 +6,11 @@ namespace ClaspCompiler.Common
     internal sealed record Var : ILiteral, ISemExp
     {
         public Symbol Symbol { get; init; }
-        ITerm ILiteral.Value => Symbol;
 
         public Var(Symbol value) => Symbol = value;
+        public ITerm GetValue() => Symbol;
 
-        public static Var GenVar() => new Var(Symbol.GenSym());
+        public static Var GenVar(Var? var = null) => new Var(Symbol.GenSym(var?.Symbol.Name));
 
         public override string ToString() => Symbol.ToString();
         public void Print(TextWriter writer, int indent) => writer.Write(ToString());

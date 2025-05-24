@@ -60,7 +60,7 @@ namespace ClaspCompiler.CompilerPasses
             if (args is not StxPair cns
                 || cns.Car is not StxPair binding
                 || cns.Cdr is not StxPair bodyCns
-                || !bodyCns.IsNil)
+                || !bodyCns.Cdr.IsNil)
             {
                 throw new Exception($"Can't parse args of let form: {args}");
             }

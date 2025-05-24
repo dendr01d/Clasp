@@ -17,7 +17,8 @@ namespace ClaspCompiler.ANormalForms
         public void Print(TextWriter writer, int indent)
         {
             writer.WriteIndenting("(assign ", ref indent);
-            
+            writer.Write(Variable, indent);
+
             if (Value is ILiteral)
             {
                 writer.Write(' ');
