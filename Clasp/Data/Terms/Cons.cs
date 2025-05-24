@@ -38,7 +38,7 @@ namespace Clasp.Data.Terms
             {
                 Nil => string.Empty,
                 Cons cns => $"{cns.Car} {PrintAsTail(cns.Cdr)}",
-                StxPair stp => $"{stp.Pair.Car} {PrintAsTail(stp.Pair.Cdr)}"
+                StxPair stp => $"{stp.Pair.Car} {PrintAsTail(stp.Pair.Cdr)}",
                 _ => $" . {term}"
             };
         }

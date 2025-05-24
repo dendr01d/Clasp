@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ClaspCompiler.Data
+﻿namespace ClaspCompiler.Data
 {
-    class ITerm
+    internal interface ITerm : IPrintable
     {
+        bool IsAtom { get; }
+        bool IsNil { get; }
     }
 }
