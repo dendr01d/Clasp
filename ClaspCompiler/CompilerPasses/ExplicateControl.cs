@@ -42,7 +42,7 @@ namespace ClaspCompiler.CompilerPasses
             {
                 return new ANormalForms.Application(
                     TranslateExpression(app.Operator),
-                    app.GetArguments().Select(TranslateExpression));
+                    app.Arguments.Select(TranslateExpression));
             }
             else if (exp is ILiteral lit)
             {

@@ -10,6 +10,7 @@
         public Symbol(string name) => Name = name;
 
         private static uint _counter = 0;
+        public static void ResetGenerator() => _counter = 0;
         public static Symbol GenSym(string? name = null)
         {
             return new Symbol($"{name ?? "$"}.{++_counter}");

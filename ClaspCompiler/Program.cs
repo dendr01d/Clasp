@@ -1,10 +1,9 @@
 ﻿using ClaspCompiler.ANormalForms;
 using ClaspCompiler.CompilerPasses;
+using ClaspCompiler.Data;
 using ClaspCompiler.Semantics;
 using ClaspCompiler.Syntax;
 using ClaspCompiler.Tokens;
-
-using static System.Net.Mime.MediaTypeNames;
 
 namespace ClaspCompiler
 {
@@ -12,18 +11,20 @@ namespace ClaspCompiler
     {
         private static readonly string[] testPrograms = new string[]
         {
-            "(let ((x 32)) (+ (let ((x 10)) x) x))",
-            "(let ((x (+ 12 20))) (+ 10 x))",
-            "(let ((x (read))) (let ((y (read))) (+ x (- y))))",
-            "(let ((x (let ((x 4))(+ x 1))))(+ x 2))",
+            "(let ([x 32]) (+ (let ([x 10]) x) x))",
+            "(let ([x (+ 12 20)]) (+ 10 x))",
+            "(let ([x (read)]) (let ([y (read)]) (+ x (- y))))",
+            "(let ([x (let ([x 4]) (+ x 1))]) (+ x 2))",
             "(+ 52 (- 10))",
-            "(let ((a 42)) (let ((b a)) b))"
+            "(let ([a 42]) (let ([b a]) b))"
         };
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
-            foreach(string program in testPrograms)
+            foreach (string program in testPrograms)
             {
+                Symbol.ResetGenerator();
+
                 Console.WriteLine(new string('=', 65));
                 Console.WriteLine();
 
@@ -55,6 +56,7 @@ namespace ClaspCompiler
         private static void AnnounceProgram(string title, string text)
         {
             Console.WriteLine(":: {0} ::", title);
+            Console.Write(' ');
             Console.WriteLine(text);
             Console.WriteLine('\n');
         }
@@ -62,6 +64,7 @@ namespace ClaspCompiler
         private static void AnnounceProgram(string title, IPrintable prin)
         {
             Console.WriteLine(":: {0} ::", title);
+            Console.Write(' ');
             prin.Print(Console.Out, 1);
             Console.WriteLine("\n\n");
         }

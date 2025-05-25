@@ -94,7 +94,7 @@ namespace ClaspCompiler.CompilerPasses
         {
             return std.Value switch
             {
-                Integer i => new Literal<Integer>(i),
+                Integer i => new Literal<Integer>(i, "int"),
                 _ => throw new Exception($"Can't parse datum: {std}")
             };
         }

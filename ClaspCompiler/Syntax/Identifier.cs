@@ -14,6 +14,12 @@ namespace ClaspCompiler.Syntax
             BindingName = value;
         }
 
+        public Identifier(Identifier id, Symbol bindingName) : base(id.Source)
+        {
+            SymbolicName = id.SymbolicName;
+            BindingName = bindingName;
+        }
+
         public override bool IsAtom => true;
         public override bool IsNil => false;
 

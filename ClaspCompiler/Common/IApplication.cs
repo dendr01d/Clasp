@@ -3,7 +3,8 @@
     internal interface IApplication<T>
         where T : IPrintable
     {
-        T Operator { get; }
-        IEnumerable<T> GetArguments();
+        public T Operator { get; }
+        public IEnumerable<T> Arguments { get; }
+        public int Adicity { get; }
     }
 }

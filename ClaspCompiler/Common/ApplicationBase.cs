@@ -4,21 +4,22 @@
         where T : IPrintable
     {
         public T Operator { get; init; }
-        private readonly T[] _args;
+        public IEnumerable<T> Arguments => _args;
+        public int Adicity => _args.Count;
 
-        protected ApplicationBase(T op, params T[] args)
+        private readonly List<T> _args;
+
+        protected ApplicationBase(T op, IEnumerable<T> args)
         {
             Operator = op;
-            _args = args;
+            _args = args.ToList();
         }
-
-        public IEnumerable<T> GetArguments() => _args;
 
         public override string ToString()
         {
             return string.Format("({0}{1})",
                 Operator,
-                string.Concat(GetArguments().Select(x => $" {x}")));
+                string.Concat(Arguments.Select(x => $" {x}")));
         }
 
         public void Print(TextWriter writer, int indent)
@@ -26,7 +27,7 @@
             writer.WriteIndenting('(', ref indent);
             writer.WriteIndenting(Operator, ref indent);
 
-            if (_args.Length > 0)
+            if (Adicity > 0)
             {
                 if (_args.All(x => x is ILiteral))
                 {
@@ -41,7 +42,7 @@
                     writer.WriteIndenting(' ', ref indent);
                     _args[0].Print(writer, indent);
 
-                    foreach (var arg in _args.Skip(1))
+                    foreach (var arg in Arguments.Skip(1))
                     {
                         writer.WriteLineIndent(indent);
                         arg.Print(writer, indent);

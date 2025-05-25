@@ -9,14 +9,17 @@ namespace ClaspCompiler.CompilerPasses
     {
         private static readonly Dictionary<TokenType, string> _regexes = new()
         {
-            { TokenType.NewLine   , @"$" },
-            { TokenType.Whitespace, @"\s+" },
+            { TokenType.NewLine     , @"$" },
+            { TokenType.Whitespace  , @"\s+" },
 
-            { TokenType.LeftParen , @"\(" },
-            { TokenType.RightParen, @"\)" },
-            { TokenType.Integer   , @"-?[1-9]\d*" },
-            { TokenType.Symbol    , @"(?:\+|\-|[a-zA-Z]+)" },
-            { TokenType.Malformed , @".*" }
+            { TokenType.LeftParen   , @"\(" },
+            { TokenType.RightParen  , @"\)" },
+            { TokenType.LeftBracket , @"\[" },
+            { TokenType.RightBracket, @"\]" },
+
+            { TokenType.Integer     , @"-?[1-9]\d*" },
+            { TokenType.Symbol      , @"(?:\+|\-|[a-zA-Z]+)" },
+            { TokenType.Malformed   , @".*" }
 
             /*
             { TokenType.Whitespace     , @"\s+" },

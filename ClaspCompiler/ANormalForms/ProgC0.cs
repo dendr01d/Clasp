@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using ClaspCompiler.Common;
+﻿using ClaspCompiler.Common;
 
 namespace ClaspCompiler.ANormalForms
 {
@@ -20,7 +14,7 @@ namespace ClaspCompiler.ANormalForms
         }
 
         public ProgC0(ITail entry, params Var[] locals)
-            : this(new Dictionary<string, ITail>() { { "start", entry} }, locals)
+            : this(new Dictionary<string, ITail>() { { "start", entry } }, locals)
         { }
 
         private string FormatLocals() => string.Format("({0})", string.Join(' ', Locals.Select(x => x.ToString())));
@@ -39,12 +33,13 @@ namespace ClaspCompiler.ANormalForms
 
             writer.WriteIndenting("  (", ref indent);
 
-            foreach(var pair in LabeledTails)
+            foreach (var pair in LabeledTails)
             {
                 writer.Write('(');
                 writer.Write(pair.Key);
                 writer.WriteLineIndent(" .", indent);
                 writer.Write(pair.Value, indent);
+                writer.Write(')');
             }
 
             writer.Write("))");

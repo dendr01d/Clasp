@@ -54,7 +54,7 @@ namespace ClaspCompiler.CompilerPasses
         {
             return new Application(
                 MapThroughExpression(app.Operator, map),
-                app.GetArguments().Select(x => MapThroughExpression(x, map)).ToArray());
+                app.Arguments.Select(x => MapThroughExpression(x, map)).ToArray());
         }
     }
 }

@@ -3,6 +3,8 @@
     internal enum TokenType
     {
         LeftParen, RightParen,
+        LeftBracket, RightBracket,
+
         Integer, Symbol,
         Malformed,
 

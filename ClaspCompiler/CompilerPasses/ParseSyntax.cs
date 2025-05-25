@@ -35,24 +35,35 @@ namespace ClaspCompiler.CompilerPasses
             return nextToken.Type switch
             {
                 TokenType.RightParen => throw new Exception("Unexpected right parenthesis."),
-                TokenType.LeftParen => ParseList(tokens),
+                TokenType.LeftParen => ParseList(tokens, false),
+                TokenType.RightBracket => throw new Exception("Unexpected right bracket."),
+                TokenType.LeftBracket => ParseList(tokens, true),
                 TokenType.Integer => ParseInteger(nextToken),
                 TokenType.Symbol => ParseSymbol(nextToken),
                 _ => throw new Exception($"Can't parse token of type {nextToken.Type}: {nextToken}")
             };
         }
 
-        private static ISyntax ParseList(IEnumerator<Token> tokens)
+        private static ISyntax ParseList(IEnumerator<Token> tokens, bool bracketed)
         {
             if (tokens.Current.Type == TokenType.RightParen)
             {
+                if (bracketed) throw new Exception("Encountered closing bracket in paren list.");
+
                 tokens.MoveNext(); //pop off right paren
+                return new StxDatum(Nil.Instance);
+            }
+            else if (tokens.Current.Type == TokenType.RightBracket)
+            {
+                if (!bracketed) throw new Exception("Encountered closing paren in bracket list.");
+
+                tokens.MoveNext(); // pop off right bracket
                 return new StxDatum(Nil.Instance);
             }
             else
             {
                 ISyntax car = ParseNextExpression(tokens);
-                ISyntax cdr = ParseList(tokens);
+                ISyntax cdr = ParseList(tokens, bracketed);
                 return new StxPair(car, cdr);
             }
         }

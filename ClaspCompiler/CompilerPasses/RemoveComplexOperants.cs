@@ -32,11 +32,11 @@ namespace ClaspCompiler.CompilerPasses
             {
                 Let let => new Let(
                     let.Variable,
-                    SimplifyExpression(let.Argument, bindings),
+                    TransformComplexExpression(let.Argument, bindings),
                     TransformNewScope(let.Body)),
                 Application app => new Application(
                     SimplifyExpression(app.Operator, bindings),
-                    app.GetArguments().Select(x => SimplifyExpression(x, bindings)).ToArray()),
+                    app.Arguments.Select(x => SimplifyExpression(x, bindings)).ToArray()),
                 _ => exp
             };
         }
@@ -45,19 +45,30 @@ namespace ClaspCompiler.CompilerPasses
         {
             if (exp is Let let)
             {
-                bindings.Push(new(let.Variable, let.Argument));
-                return SimplifyExpression(let.Body, bindings);
+                if (let.Body is Var var)
+                {
+                    if (let.Variable == var)
+                    {
+                        return let.Argument;
+                    }
+                }
+                else if (let.Body is ILiteral lit)
+                {
+                    return lit;
+                }
+
+                //bindings.Push(new(let.Variable, let.Argument));
+                //return SimplifyExpression(let.Body, bindings);
             }
-            else if (exp is Application app)
+            else
+            if (exp is Application app)
             {
                 Var newVar = Var.GenVar();
                 bindings.Push(new(newVar, app));
                 return newVar;
             }
-            else
-            {
-                return exp;
-            }
+
+            return exp;
         }
     }
 }

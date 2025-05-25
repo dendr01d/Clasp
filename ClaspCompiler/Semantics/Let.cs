@@ -17,7 +17,7 @@ namespace ClaspCompiler.Semantics
 
         public override string ToString()
         {
-            return string.Format("(let (({0} {1})) {2})", Variable, Argument, Body);
+            return string.Format("(let ([{0} {1}]) {2})", Variable, Argument, Body);
         }
 
         public void Print(TextWriter writer, int indent)
@@ -25,13 +25,13 @@ namespace ClaspCompiler.Semantics
             writer.WriteIndenting("(let ", ref indent);
             int restIndent = indent;
 
-            writer.WriteIndenting("((", ref indent);
+            writer.WriteIndenting("([", ref indent);
             writer.WriteIndenting(Variable, ref indent);
             writer.WriteIndenting(' ', ref indent);
 
             writer.Write(Argument, indent);
 
-            writer.WriteLineIndent("))", restIndent);
+            writer.WriteLineIndent("])", restIndent);
             writer.Write(Body, restIndent);
 
             writer.Write(')');
