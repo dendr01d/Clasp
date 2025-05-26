@@ -2,20 +2,18 @@
 
 namespace ClaspCompiler.Common
 {
-    internal sealed record Literal<T> : ILiteral
+    internal sealed record Literal<T> : IAtom<T>
         where T : ITerm
     {
-        private string _type { get; init; }
-        public T Value { get; init; }
-        public Literal(T value, string type)
+        public TypeName TypeName { get; init; }
+        public T Data { get; init; }
+        public Literal(TypeName typeName, T value)
         {
-            Value = value;
-            _type = type;
+            TypeName = typeName;
+            Data = value;
         }
-        public ITerm GetValue() => Value;
-        public string GetTypeName() => _type;
 
-        public override string ToString() => string.Format("({0} {1})", _type, Value);
+        public override string ToString() => string.Format("({0} {1})", TypeName.ToString().ToLower(), Data);
         public void Print(TextWriter writer, int indent) => writer.Write(ToString());
     }
 }

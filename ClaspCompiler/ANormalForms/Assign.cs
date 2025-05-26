@@ -19,7 +19,7 @@ namespace ClaspCompiler.ANormalForms
             writer.WriteIndenting("(assign ", ref indent);
             writer.Write(Variable, indent);
 
-            if (Value is ILiteral)
+            if (Value is IAtom)
             {
                 writer.Write(' ');
             }

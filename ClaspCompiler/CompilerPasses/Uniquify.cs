@@ -16,14 +16,14 @@ namespace ClaspCompiler.CompilerPasses
         {
             return exp switch
             {
-                ILiteral lit => MapLiteral(lit, map),
+                IAtom lit => MapLiteral(lit, map),
                 Let let => MapThroughLet(let, map),
                 Application app => MapThroughApplication(app, map),
                 _ => throw new Exception($"Can't map variables in expression: {exp}")
             };
         }
 
-        private static ILiteral MapLiteral(ILiteral lit, Dictionary<Var, Var> map)
+        private static IAtom MapLiteral(IAtom lit, Dictionary<Var, Var> map)
         {
             if (lit is Var var && map.TryGetValue(var, out Var? newVar))
             {

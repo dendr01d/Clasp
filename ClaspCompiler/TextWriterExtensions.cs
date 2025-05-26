@@ -46,5 +46,18 @@ namespace ClaspCompiler
             indent += output.Split(Environment.NewLine).FirstOrDefault()?.Length ?? 0;
             writer.Write(output);
         }
+
+        public static void WriteWithComment(this TextWriter writer, IPrintable term, int paddedWidth, string comment)
+        {
+            if (string.IsNullOrWhiteSpace(comment))
+            {
+                writer.Write(term.ToString());
+            }
+            else
+            {
+                string format = $"{{0,{paddedWidth}}}{{1}}";
+                writer.Write(format, term.ToString(), comment);
+            }
+        }
     }
 }

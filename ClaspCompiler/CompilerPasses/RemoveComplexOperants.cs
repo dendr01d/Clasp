@@ -52,7 +52,7 @@ namespace ClaspCompiler.CompilerPasses
                         return let.Argument;
                     }
                 }
-                else if (let.Body is ILiteral lit)
+                else if (let.Body is IAtom lit)
                 {
                     return lit;
                 }

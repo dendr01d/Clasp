@@ -18,18 +18,18 @@
         public override string ToString()
         {
             return string.Format("({0}{1})",
-                Operator,
+                Operator is Var v ? v.Data : Operator,
                 string.Concat(Arguments.Select(x => $" {x}")));
         }
 
         public void Print(TextWriter writer, int indent)
         {
             writer.WriteIndenting('(', ref indent);
-            writer.WriteIndenting(Operator, ref indent);
+            writer.WriteIndenting(Operator is Var v ? v.Data : Operator, ref indent);
 
             if (Adicity > 0)
             {
-                if (_args.All(x => x is ILiteral))
+                if (_args.All(x => x is IAtom))
                 {
                     foreach (var arg in _args)
                     {

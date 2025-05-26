@@ -1,45 +1,69 @@
 ﻿using ClaspCompiler.Common;
+using ClaspCompiler.Data;
 
 namespace ClaspCompiler.ANormalForms
 {
     internal sealed class ProgC0 : IPrintable
     {
-        public Var[] Locals { get; init; }
+        public Dictionary<Var, TypeName> LocalVariables { get; init; }
         public Dictionary<string, ITail> LabeledTails { get; init; }
 
-        public ProgC0(Dictionary<string, ITail> labeledTails, params Var[] locals)
+        public ProgC0(Dictionary<Var, TypeName> localVars, Dictionary<string, ITail> labeledTails)
         {
+            LocalVariables = localVars;
             LabeledTails = labeledTails;
-            Locals = locals;
         }
 
-        public ProgC0(ITail entry, params Var[] locals)
-            : this(new Dictionary<string, ITail>() { { "start", entry } }, locals)
+        public ProgC0(ITail entry)
+            : this(new(), new Dictionary<string, ITail>() { { "start", entry } })
         { }
-
-        private string FormatLocals() => string.Format("({0})", string.Join(' ', Locals.Select(x => x.ToString())));
 
         public override string ToString()
         {
             return string.Format("(program {0} ({1}))",
-                FormatLocals(),
+                string.Join(' ', LocalVariables.Select(x => $"({x.Value.ToString().ToLower()} . {x.Key})")),
                 string.Join(' ', LabeledTails.Select(x => $"({x.Key} . {x.Value}")));
         }
 
         public void Print(TextWriter writer, int indent)
         {
             writer.Write("(program "); // no hanging indent
-            writer.WriteLineIndent(FormatLocals(), indent);
 
+            if (LocalVariables.Count == 0)
+            {
+                writer.Write("()");
+            }
+
+            writer.WriteLineIndent(indent);
             writer.WriteIndenting("  (", ref indent);
+
+            if (LocalVariables.Count > 0)
+            {
+                writer.Write("({0} . ", LocalVariables.First().Value.ToString().ToLower());
+                writer.Write(LocalVariables.First().Key, indent);
+                writer.Write(')');
+
+                foreach(var pair in LocalVariables.Skip(1))
+                {
+                    writer.WriteLineIndent(indent);
+                    writer.Write("({0} . ", pair.Value.ToString().ToLower());
+                    writer.Write(pair.Key, indent);
+                    writer.Write(')');
+                }
+
+                writer.Write(')');
+                writer.WriteLineIndent(indent - 1);
+                writer.Write('(');
+            }
 
             foreach (var pair in LabeledTails)
             {
                 writer.Write('(');
                 writer.Write(pair.Key);
                 writer.WriteLineIndent(" .", indent);
-                writer.Write(pair.Value, indent);
-                writer.Write(')');
+                writer.Write('(');
+                writer.Write(pair.Value, indent + 1);
+                writer.Write("))");
             }
 
             writer.Write("))");

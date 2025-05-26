@@ -1,6 +1,7 @@
 ﻿using ClaspCompiler.ANormalForms;
 using ClaspCompiler.CompilerPasses;
 using ClaspCompiler.Data;
+using ClaspCompiler.PseudoIl;
 using ClaspCompiler.Semantics;
 using ClaspCompiler.Syntax;
 using ClaspCompiler.Tokens;
@@ -16,7 +17,8 @@ namespace ClaspCompiler
             "(let ([x (read)]) (let ([y (read)]) (+ x (- y))))",
             "(let ([x (let ([x 4]) (+ x 1))]) (+ x 2))",
             "(+ 52 (- 10))",
-            "(let ([a 42]) (let ([b a]) b))"
+            "(let ([a 42]) (let ([b a]) b))",
+            "(let ([v 1]) (let ([w 46]) (let ([x (+ v 7)]) (let ([y (+ 4 x)]) (let ([z (+ x w)])(+ z (- y)))))))"
         };
 
         private static void Main(string[] args)
@@ -47,6 +49,21 @@ namespace ClaspCompiler
 
                 ProgC0 normProg = ExplicateControl.Execute(semProgNoComplex);
                 AnnounceProgram("A-Normal Form", normProg);
+
+                ProgC0 normTyped = TypeCheckVars.Execute(normProg);
+                AnnounceProgram("Checked Types", normTyped);
+
+                ProgIl0 ilProg = SelectInstructions.Execute(normTyped);
+                AnnounceProgram("Pseudo-IL", ilProg);
+
+                //ProgIl0 ilProgNoVars = AssignHomes.Execute(ilProg);
+                //AnnounceProgram("Assigned Local Variable Homes", ilProgNoVars);
+
+                ProgIl0 ilProgLiveMems = AnalyzeLiveness.Execute(ilProg);
+                AnnounceProgram("Analyzed Liveness of Mems", ilProgLiveMems);
+
+                ProgIl0 ilProgWithInterference = BuildInterferenceGraph.Execute(ilProgLiveMems);
+                AnnounceProgram("Built Interference Graph", ilProgWithInterference);
             }
 
             Console.WriteLine();

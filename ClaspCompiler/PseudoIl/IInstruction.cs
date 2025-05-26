@@ -4,5 +4,6 @@
     {
         Label? LineLabel { get; }
         PseudoOp Operator { get; }
+        IArgument? Operand { get; }
     }
 }

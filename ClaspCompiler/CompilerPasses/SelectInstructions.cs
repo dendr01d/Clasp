@@ -13,13 +13,15 @@ namespace ClaspCompiler.CompilerPasses
             foreach (var pair in program.LabeledTails)
             {
                 Label label = new(pair.Key);
-                Block block = new("()",
+                Block block = new([],
                     SelectTail(pair.Value).ToArray());
 
                 labeledBlocks.Add(label, block);
             }
 
-            return new ProgIl0(program.Locals, labeledBlocks);
+            var localVars = program.LocalVariables.ToDictionary(x => (IMem)x.Key, x => x.Value);
+
+            return new ProgIl0(localVars, labeledBlocks);
         }
 
         private static IEnumerable<IInstruction> SelectTail(ITail tail)
@@ -31,7 +33,8 @@ namespace ClaspCompiler.CompilerPasses
             }
             else if (tail is Return ret)
             {
-                return SelectExpression(ret.Value);
+                return SelectExpression(ret.Value)
+                    .Append(new Instruction(PseudoOp.Return));
             }
 
             throw new Exception($"Can't select instructions from tail: {tail}");
@@ -42,7 +45,7 @@ namespace ClaspCompiler.CompilerPasses
             if (stmt is Assign asmt)
             {
                 return SelectExpression(asmt.Value)
-                    .Append(new Instruction<IMem>(PseudoOp.Store, asmt.Variable));
+                    .Append(new Instruction(PseudoOp.Store, asmt.Variable));
             }
 
             throw new Exception($"Can't select instructions from statement: {stmt}");
@@ -50,13 +53,13 @@ namespace ClaspCompiler.CompilerPasses
 
         private static IInstruction SelectArgument(INormArg arg)
         {
-            if (arg is IMem mem)
+            if (arg is Var var)
             {
-                return new Instruction<IMem>(PseudoOp.Load, mem);
+                return new Instruction(PseudoOp.Load, var);
             }
-            else if (arg is ILiteral lit)
+            else if (arg is IAtom lit)
             {
-                return new Instruction<ILiteral>(PseudoOp.Load, lit);
+                return new Instruction(PseudoOp.Load, lit);
             }
 
             throw new Exception($"Can't select instruction for unknown arg type: {arg}");
@@ -73,7 +76,7 @@ namespace ClaspCompiler.CompilerPasses
             {
                 IEnumerable<IInstruction> loadArgs = app.Arguments.SelectMany(SelectExpression);
 
-                return loadArgs.Concat(op.Symbol.Name switch
+                return loadArgs.Concat(op.Data.Name switch
                 {
                     "+" when app.Adicity == 2 => [new Instruction(PseudoOp.Add)],
                     "-" when app.Adicity == 1 => [new Instruction(PseudoOp.Neg)],
@@ -89,7 +92,8 @@ namespace ClaspCompiler.CompilerPasses
         private static IEnumerable<IInstruction> ConstructRead()
         {
             return [
-                new Instruction(PseudoOp.Call, new Label("string [System.Console]System.Console.Readline()")),
+                new Instruction(PseudoOp.Call, new Label("string [System.Console]System.Console::ReadLine()")),
+                new Instruction(PseudoOp.Call, new Label("int32 [System.Runtime]System.Int32::Parse(string)")),
                 ];
         }
     }

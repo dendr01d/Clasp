@@ -44,7 +44,7 @@ namespace ClaspCompiler.CompilerPasses
                     TranslateExpression(app.Operator),
                     app.Arguments.Select(TranslateExpression));
             }
-            else if (exp is ILiteral lit)
+            else if (exp is IAtom lit)
             {
                 return lit;
             }

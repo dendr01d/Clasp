@@ -5,17 +5,17 @@ using ClaspCompiler.Semantics;
 
 namespace ClaspCompiler.Common
 {
-    internal interface ILiteral : IPrintable,
+    internal interface IAtom : IPrintable,
         ISemExp,
         INormExp, INormArg,
         IArgument
     {
-        public string GetTypeName();
-        public ITerm GetValue();
+        public TypeName TypeName { get; }
     }
 
-    internal static class ILiteralExtensions
+    internal interface IAtom<out T> : IAtom
+        where T : ITerm
     {
-        public static string ToString(ILiteral lit) => lit.GetValue().ToString();
+        public T Data { get; }
     }
 }

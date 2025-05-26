@@ -30,7 +30,7 @@ namespace ClaspCompiler.CompilerPasses
 
             if (op is Var v)
             {
-                return v.Symbol.Name switch
+                return v.Data.Name switch
                 {
                     "let" => ParseLet(stp.Cdr),
                     _ => ParseGenericApplication(v, stp.Cdr)
@@ -46,7 +46,7 @@ namespace ClaspCompiler.CompilerPasses
         {
             ISemExp[] pArgs = ParseArgs(args);
 
-            return varOp.Symbol.Name switch
+            return varOp.Data.Name switch
             {
                 "read" when pArgs.Length == 0 => new Application(varOp),
                 "-" when pArgs.Length == 1 => new Application(varOp, pArgs),
@@ -94,7 +94,7 @@ namespace ClaspCompiler.CompilerPasses
         {
             return std.Value switch
             {
-                Integer i => new Literal<Integer>(i, "int"),
+                Integer i => new Literal<Integer>(TypeName.Int, i),
                 _ => throw new Exception($"Can't parse datum: {std}")
             };
         }
