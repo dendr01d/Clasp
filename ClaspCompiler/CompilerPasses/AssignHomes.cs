@@ -1,12 +1,13 @@
-﻿using ClaspCompiler.Common;
-using ClaspCompiler.Data;
-using ClaspCompiler.PseudoIl;
+﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.IntermediateStackLang.Abstract;
+using ClaspCompiler.IntermediateStackLang;
+using ClaspCompiler.SchemeData.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {
     internal static class AssignHomes
     {
-        public static ProgIl0 Execute(ProgIl0 program)
+        public static ProgStack0 Execute(ProgStack0 program)
         {
             Dictionary<Var, IMem> map = [];
             Dictionary<Label, Block> blocks = [];
@@ -16,7 +17,7 @@ namespace ClaspCompiler.CompilerPasses
                 blocks[pair.Key] = ReplaceInBlock(pair.Value, map);
             }
 
-            Dictionary<IMem, TypeName> localVars = [];
+            Dictionary<IMem, SchemeType> localVars = [];
 
             foreach (var pair in program.LocalVariables)
             {
@@ -35,13 +36,13 @@ namespace ClaspCompiler.CompilerPasses
                 block.Select(x => ReplaceInInstruction(x, map)).ToArray());
         }
 
-        private static IInstruction ReplaceInInstruction(IInstruction instr, Dictionary<Var, IMem> map)
+        private static IStackInstr ReplaceInInstruction(IStackInstr instr, Dictionary<Var, IMem> map)
         {
             if (instr.Operand is Var var)
             {
                 if (!map.TryGetValue(var, out IMem? mem))
                 {
-                    mem = new LocalMem(map.Count);
+                    mem = new LocalVar(map.Count);
                     map.Add(var, mem);
                 }
                 return new Instruction(instr.Operator, mem, instr.LineLabel);

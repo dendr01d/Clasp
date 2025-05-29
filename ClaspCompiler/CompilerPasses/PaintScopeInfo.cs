@@ -4,11 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using ClaspCompiler.Common;
-using ClaspCompiler.Data;
+using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeData;
 using ClaspCompiler.LexicalScopes;
-using ClaspCompiler.Semantics;
-using ClaspCompiler.Syntax;
+using ClaspCompiler.SchemeSemantics;
+using ClaspCompiler.SchemeSyntax;
+using ClaspCompiler.SchemeSyntax.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {

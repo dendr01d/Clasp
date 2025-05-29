@@ -1,5 +1,6 @@
-﻿using ClaspCompiler.Common;
-using ClaspCompiler.Semantics;
+﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeSemantics;
+using ClaspCompiler.SchemeSemantics.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {
@@ -7,42 +8,39 @@ namespace ClaspCompiler.CompilerPasses
     {
         public static ProgR1 Execute(ProgR1 program)
         {
-            Dictionary<Var, Var> map = new();
+            Dictionary<Var, Var> map = [];
 
             return new ProgR1(program.Info, MapThroughExpression(program.Body, map));
         }
 
-        private static ISemExp MapThroughExpression(ISemExp exp, Dictionary<Var, Var> map)
+        private static ISemanticExp MapThroughExpression(ISemanticExp exp, Dictionary<Var, Var> map)
         {
             return exp switch
             {
-                IAtom lit => MapLiteral(lit, map),
+                Var var => MapVariable(var, map),
                 Let let => MapThroughLet(let, map),
                 Application app => MapThroughApplication(app, map),
-                _ => throw new Exception($"Can't map variables in expression: {exp}")
+                _ => exp
             };
         }
 
-        private static IAtom MapLiteral(IAtom lit, Dictionary<Var, Var> map)
+        private static Var MapVariable(Var variable, Dictionary<Var, Var> map)
         {
-            if (lit is Var var && map.TryGetValue(var, out Var? newVar))
-            {
-                return newVar;
-            }
-
-            return lit;
+            return map.TryGetValue(variable, out Var? result)
+                ? result
+                : variable;
         }
 
         private static Let MapThroughLet(Let let, Dictionary<Var, Var> map)
         {
-            ISemExp newArg = MapThroughExpression(let.Argument, map);
+            ISemanticExp newArg = MapThroughExpression(let.Argument, map);
 
             Dictionary<Var, Var> newMap = new(map);
 
-            Var newVar = Var.GenVar(let.Variable);
+            Var newVar = Var.Gen(let.Variable.Name);
             newMap[let.Variable] = newVar;
 
-            ISemExp newBody = MapThroughExpression(let.Body, newMap);
+            ISemanticExp newBody = MapThroughExpression(let.Body, newMap);
 
             return new Let(
                 newVar,
@@ -53,7 +51,7 @@ namespace ClaspCompiler.CompilerPasses
         private static Application MapThroughApplication(Application app, Dictionary<Var, Var> map)
         {
             return new Application(
-                MapThroughExpression(app.Operator, map),
+                app.Operator,
                 app.Arguments.Select(x => MapThroughExpression(x, map)).ToArray());
         }
     }

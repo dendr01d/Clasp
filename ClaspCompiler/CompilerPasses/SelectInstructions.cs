@@ -1,12 +1,14 @@
-﻿using ClaspCompiler.ANormalForms;
-using ClaspCompiler.Common;
-using ClaspCompiler.PseudoIl;
+﻿using ClaspCompiler.IntermediateAnfLang.Abstract;
+using ClaspCompiler.IntermediateAnfLang;
+using ClaspCompiler.CompilerData;
+using ClaspCompiler.IntermediateStackLang.Abstract;
+using ClaspCompiler.IntermediateStackLang;
 
 namespace ClaspCompiler.CompilerPasses
 {
     internal sealed class SelectInstructions
     {
-        public static ProgIl0 Execute(ProgC0 program)
+        public static ProgStack0 Execute(ProgC0 program)
         {
             Dictionary<Label, Block> labeledBlocks = [];
 
@@ -24,7 +26,7 @@ namespace ClaspCompiler.CompilerPasses
             return new ProgIl0(localVars, labeledBlocks);
         }
 
-        private static IEnumerable<IInstruction> SelectTail(ITail tail)
+        private static IEnumerable<IStackInstr> SelectTail(ITail tail)
         {
             if (tail is Sequence seq)
             {
@@ -34,38 +36,38 @@ namespace ClaspCompiler.CompilerPasses
             else if (tail is Return ret)
             {
                 return SelectExpression(ret.Value)
-                    .Append(new Instruction(PseudoOp.Return));
+                    .Append(new Instruction(StackOp.Return));
             }
 
             throw new Exception($"Can't select instructions from tail: {tail}");
         }
 
-        private static IEnumerable<IInstruction> SelectStatement(IStatement stmt)
+        private static IEnumerable<IStackInstr> SelectStatement(IStatement stmt)
         {
-            if (stmt is Assign asmt)
+            if (stmt is Assignment asmt)
             {
                 return SelectExpression(asmt.Value)
-                    .Append(new Instruction(PseudoOp.Store, asmt.Variable));
+                    .Append(new Instruction(StackOp.Store, asmt.Variable));
             }
 
             throw new Exception($"Can't select instructions from statement: {stmt}");
         }
 
-        private static IInstruction SelectArgument(INormArg arg)
+        private static IStackInstr SelectArgument(INormArg arg)
         {
             if (arg is Var var)
             {
-                return new Instruction(PseudoOp.Load, var);
+                return new Instruction(StackOp.Load, var);
             }
             else if (arg is IAtom lit)
             {
-                return new Instruction(PseudoOp.Load, lit);
+                return new Instruction(StackOp.Load, lit);
             }
 
             throw new Exception($"Can't select instruction for unknown arg type: {arg}");
         }
 
-        private static IEnumerable<IInstruction> SelectExpression(INormExp exp)
+        private static IEnumerable<IStackInstr> SelectExpression(INormExp exp)
         {
             if (exp is INormArg arg)
             {
@@ -74,13 +76,13 @@ namespace ClaspCompiler.CompilerPasses
             else if (exp is Application app
                 && app.Operator is Var op)
             {
-                IEnumerable<IInstruction> loadArgs = app.Arguments.SelectMany(SelectExpression);
+                IEnumerable<IStackInstr> loadArgs = app.Arguments.SelectMany(SelectExpression);
 
-                return loadArgs.Concat(op.Data.Name switch
+                return loadArgs.Concat(op.Name.Name switch
                 {
-                    "+" when app.Adicity == 2 => [new Instruction(PseudoOp.Add)],
-                    "-" when app.Adicity == 1 => [new Instruction(PseudoOp.Neg)],
-                    "-" when app.Adicity == 2 => [new Instruction(PseudoOp.Sub)],
+                    "+" when app.Adicity == 2 => [new Instruction(StackOp.Add)],
+                    "-" when app.Adicity == 1 => [new Instruction(StackOp.Neg)],
+                    "-" when app.Adicity == 2 => [new Instruction(StackOp.Sub)],
                     "read" => ConstructRead(),
                     _ => throw new Exception($"Can't select instructions for application: {app}")
                 });
@@ -89,11 +91,11 @@ namespace ClaspCompiler.CompilerPasses
             throw new Exception($"Can't select instructions for expression: {exp}");
         }
 
-        private static IEnumerable<IInstruction> ConstructRead()
+        private static IEnumerable<IStackInstr> ConstructRead()
         {
             return [
-                new Instruction(PseudoOp.Call, new Label("string [System.Console]System.Console::ReadLine()")),
-                new Instruction(PseudoOp.Call, new Label("int32 [System.Runtime]System.Int32::Parse(string)")),
+                new Instruction(StackOp.Call, new Label("string [System.Console]System.Console::ReadLine()")),
+                new Instruction(StackOp.Call, new Label("int32 [System.Runtime]System.Int32::Parse(string)")),
                 ];
         }
     }

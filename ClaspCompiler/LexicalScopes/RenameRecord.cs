@@ -1,4 +1,4 @@
-﻿using ClaspCompiler.Data;
+﻿using ClaspCompiler.SchemeData;
 
 namespace ClaspCompiler.LexicalScopes
 {

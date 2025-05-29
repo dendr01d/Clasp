@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using ClaspCompiler.PseudoIl;
+using ClaspCompiler.IntermediateStackLang;
 
 namespace ClaspCompiler.CompilerPasses
 {

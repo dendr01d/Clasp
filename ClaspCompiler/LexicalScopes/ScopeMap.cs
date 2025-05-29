@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 
-using ClaspCompiler.Data;
+using ClaspCompiler.SchemeData;
 
 namespace ClaspCompiler.LexicalScopes
 {

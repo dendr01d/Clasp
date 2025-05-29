@@ -1,6 +1,9 @@
-﻿using ClaspCompiler.ANormalForms;
-using ClaspCompiler.Common;
-using ClaspCompiler.Semantics;
+﻿using ClaspCompiler.IntermediateAnfLang;
+using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeSemantics.Abstract;
+using ClaspCompiler.SchemeSemantics;
+using ClaspCompiler.IntermediateAnfLang.Abstract;
+using ClaspCompiler.SchemeData.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {
@@ -13,7 +16,7 @@ namespace ClaspCompiler.CompilerPasses
             return new(explicated);
         }
 
-        private static ITail ExplicateTail(ISemExp exp)
+        private static ITail ExplicateTail(ISemanticExp exp)
         {
             return exp switch
             {
@@ -22,7 +25,7 @@ namespace ClaspCompiler.CompilerPasses
             };
         }
 
-        private static ITail ExplicateAssignment(Var var, ISemExp exp, ITail tail)
+        private static ITail ExplicateAssignment(Var var, ISemanticExp exp, ITail tail)
         {
             if (exp is Let l)
             {
@@ -31,18 +34,18 @@ namespace ClaspCompiler.CompilerPasses
             else
             {
                 return new Sequence(
-                    new Assign(var, TranslateExpression(exp)),
+                    new Assignment(var, TranslateExpression(exp)),
                     tail);
             }
         }
 
-        private static INormExp TranslateExpression(ISemExp exp)
+        private static INormExp TranslateExpression(ISemanticExp exp)
         {
-            if (exp is IApplication<ISemExp> app)
+            if (exp is SchemeSemantics.Application app)
             {
-                return new ANormalForms.Application(
-                    TranslateExpression(app.Operator),
-                    app.Arguments.Select(TranslateExpression));
+                return new IntermediateAnfLang.Application(
+                    app.Operator,
+                    app.Arguments.Select(TranslateArgument).ToArray());
             }
             else if (exp is IAtom lit)
             {
@@ -54,14 +57,24 @@ namespace ClaspCompiler.CompilerPasses
             }
         }
 
-        private static ITail ExplicateReturning(ISemExp exp)
+        private static INormArg TranslateArgument(ISemanticExp exp)
         {
-            if (exp is Semantics.Application)
+            return exp switch
             {
-                Var newVar = Var.GenVar();
+                IAtom atm => atm,
+                Var v => v,
+                _ => throw new Exception($"Can't translate argument: {exp}")
+            };
+        }
+
+        private static ITail ExplicateReturning(ISemanticExp exp)
+        {
+            if (exp is SchemeSemantics.Application)
+            {
+                Var newVar = Var.Gen();
 
                 return new Sequence(
-                    new Assign(newVar, TranslateExpression(exp)),
+                    new Assignment(newVar, TranslateExpression(exp)),
                     new Return(newVar));
             }
             else

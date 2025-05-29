@@ -1,6 +1,7 @@
-﻿using ClaspCompiler.ANormalForms;
-using ClaspCompiler.Common;
-using ClaspCompiler.Data;
+﻿using ClaspCompiler.IntermediateAnfLang.Abstract;
+using ClaspCompiler.IntermediateAnfLang;
+using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeData.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {
@@ -8,7 +9,7 @@ namespace ClaspCompiler.CompilerPasses
     {
         public static ProgC0 Execute(ProgC0 program)
         {
-            Dictionary<Var, TypeName> types = [];
+            Dictionary<Var, SchemeType> types = [];
 
             foreach (ITail tail in program.LabeledTails.Values)
             {
@@ -18,7 +19,7 @@ namespace ClaspCompiler.CompilerPasses
             return new ProgC0(types, program.LabeledTails);
         }
 
-        private static TypeName TypeCheckTail(ITail tail, Dictionary<Var, TypeName> types)
+        private static SchemeType TypeCheckTail(ITail tail, Dictionary<Var, SchemeType> types)
         {
             if (tail is Sequence seq)
             {
@@ -33,13 +34,13 @@ namespace ClaspCompiler.CompilerPasses
             throw new Exception($"Can't check types in tail: {tail}");
         }
 
-        private static TypeName TypeCheckStatement(IStatement stmt, Dictionary<Var, TypeName> types)
+        private static SchemeType TypeCheckStatement(IStatement stmt, Dictionary<Var, SchemeType> types)
         {
-            if (stmt is Assign asmt)
+            if (stmt is Assignment asmt)
             {
-                TypeName assignedType = TypeCheckExpression(asmt.Value, types);
+                SchemeType assignedType = TypeCheckExpression(asmt.Value, types);
 
-                if (types.TryGetValue(asmt.Variable, out TypeName type))
+                if (types.TryGetValue(asmt.Variable, out SchemeType type))
                 {
                     if (type != assignedType)
                     {
@@ -60,9 +61,9 @@ namespace ClaspCompiler.CompilerPasses
             throw new Exception($"Can't check types of statement: {stmt}");
         }
 
-        private static TypeName TypeCheckArgument(INormArg arg, Dictionary<Var, TypeName> types)
+        private static SchemeType TypeCheckArgument(INormArg arg, Dictionary<Var, SchemeType> types)
         {
-            if (arg is Var var && types.TryGetValue(var, out TypeName type))
+            if (arg is Var var && types.TryGetValue(var, out SchemeType type))
             {
                 return type;
             }
@@ -74,7 +75,7 @@ namespace ClaspCompiler.CompilerPasses
             throw new Exception($"Can't check type of arg: {arg}");
         }
 
-        private static TypeName TypeCheckExpression(INormExp exp, Dictionary<Var, TypeName> types)
+        private static SchemeType TypeCheckExpression(INormExp exp, Dictionary<Var, SchemeType> types)
         {
             if (exp is INormArg atm)
             {
@@ -83,18 +84,18 @@ namespace ClaspCompiler.CompilerPasses
             else if (exp is Application app
                 && app.Operator is Var var)
             {
-                switch (var.Data.Name)
+                switch (var.Name.Name)
                 {
                     case "+":
-                        app.Arguments.ToList().ForEach(x => AssertType(x, TypeName.Int, types));
-                        return TypeName.Int;
+                        app.Arguments.ToList().ForEach(x => AssertType(x, SchemeType.Integer, types));
+                        return SchemeType.Integer;
 
                     case "-":
-                        app.Arguments.ToList().ForEach(x => AssertType(x, TypeName.Int, types));
-                        return TypeName.Int;
+                        app.Arguments.ToList().ForEach(x => AssertType(x, SchemeType.Integer, types));
+                        return SchemeType.Integer;
 
                     case "read":
-                        return TypeName.Int;
+                        return SchemeType.Integer;
 
                     default:
                         throw new Exception($"Can't check type of unknown application: {app}");
@@ -104,7 +105,7 @@ namespace ClaspCompiler.CompilerPasses
             throw new Exception($"Can't check type of expression: {exp}");
         }
 
-        private static void AssertType(INormExp arg, TypeName expectedType, Dictionary<Var, TypeName> types)
+        private static void AssertType(INormExp arg, SchemeType expectedType, Dictionary<Var, SchemeType> types)
         {
             if (expectedType != TypeCheckExpression(arg, types))
             {

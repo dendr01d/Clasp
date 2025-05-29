@@ -59,5 +59,39 @@ namespace ClaspCompiler
                 writer.Write(format, term.ToString(), comment);
             }
         }
+
+        public static void WriteApplication(this TextWriter writer, string op, IPrintable[] args, int indent)
+        {
+            WriteIndenting(writer, '(', ref indent);
+            WriteIndenting(writer, op, ref indent);
+
+            if (args.Length > 0)
+            {
+                if (args.All(x => !x.CanBreak))
+                {
+                    foreach (IPrintable arg in args)
+                    {
+                        writer.Write(' ');
+                        arg.Print(writer, indent);
+                    }
+                }
+                else
+                {
+                    writer.WriteIndenting(' ', ref indent);
+                    args[0].Print(writer, indent);
+
+                    foreach (IPrintable arg in args.Skip(1))
+                    {
+                        writer.WriteLineIndent(indent);
+                        arg.Print(writer, indent);
+                    }
+                }
+            }
+
+            writer.Write(')');
+        }
+
+        public static void WriteApplication(this TextWriter writer, IPrintable op, IPrintable[] args, int indent)
+            => WriteApplication(writer, op.ToString(), args, indent);
     }
 }

@@ -1,10 +1,11 @@
-﻿using ClaspCompiler.PseudoIl;
+﻿using ClaspCompiler.IntermediateStackLang;
+using ClaspCompiler.IntermediateStackLang.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {
     internal class BuildInterferenceGraph
     {
-        public static ProgIl0 Execute(ProgIl0 program)
+        public static ProgStack0 Execute(ProgStack0 program)
         {
             Dictionary<IMem, HashSet<IMem>> conflicts = [];
 
@@ -25,7 +26,7 @@ namespace ClaspCompiler.CompilerPasses
         {
             for (int i = 0; i < block.Count; ++i)
             {
-                if (block[i].Operator == PseudoOp.Store
+                if (block[i].Operator == StackOp.Store
                     && block[i].Operand is IMem mem)
                 {
                     foreach (IMem other in block.Liveness[i + 1].Except([mem]))

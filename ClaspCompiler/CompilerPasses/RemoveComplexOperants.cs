@@ -1,7 +1,8 @@
-﻿using ClaspCompiler.Common;
-using ClaspCompiler.Semantics;
+﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeSemantics;
+using ClaspCompiler.SchemeSemantics.Abstract;
 
-using BindingStack = System.Collections.Generic.Stack<System.Tuple<ClaspCompiler.Common.Var, ClaspCompiler.Semantics.ISemExp>>;
+using BindingStack = System.Collections.Generic.Stack<System.Tuple<ClaspCompiler.CompilerData.Var, ClaspCompiler.SchemeSemantics.Abstract.ISemanticExp>>;
 
 namespace ClaspCompiler.CompilerPasses
 {
@@ -12,11 +13,11 @@ namespace ClaspCompiler.CompilerPasses
             return new ProgR1(program.Info, TransformNewScope(program.Body));
         }
 
-        private static ISemExp TransformNewScope(ISemExp exp)
+        private static ISemanticExp TransformNewScope(ISemanticExp exp)
         {
             BindingStack bindings = new();
 
-            ISemExp output = TransformComplexExpression(exp, bindings);
+            ISemanticExp output = TransformComplexExpression(exp, bindings);
 
             while (bindings.TryPop(out var newBinding))
             {
@@ -26,7 +27,7 @@ namespace ClaspCompiler.CompilerPasses
             return output;
         }
 
-        private static ISemExp TransformComplexExpression(ISemExp exp, BindingStack bindings)
+        private static ISemanticExp TransformComplexExpression(ISemanticExp exp, BindingStack bindings)
         {
             return exp switch
             {
@@ -35,13 +36,13 @@ namespace ClaspCompiler.CompilerPasses
                     TransformComplexExpression(let.Argument, bindings),
                     TransformNewScope(let.Body)),
                 Application app => new Application(
-                    SimplifyExpression(app.Operator, bindings),
+                    app.Operator,
                     app.Arguments.Select(x => SimplifyExpression(x, bindings)).ToArray()),
                 _ => exp
             };
         }
 
-        private static ISemExp SimplifyExpression(ISemExp exp, BindingStack bindings)
+        private static ISemanticExp SimplifyExpression(ISemanticExp exp, BindingStack bindings)
         {
             if (exp is Let let)
             {
@@ -52,18 +53,13 @@ namespace ClaspCompiler.CompilerPasses
                         return let.Argument;
                     }
                 }
-                else if (let.Body is IAtom lit)
-                {
-                    return lit;
-                }
 
                 //bindings.Push(new(let.Variable, let.Argument));
                 //return SimplifyExpression(let.Body, bindings);
             }
-            else
-            if (exp is Application app)
+            else if (exp is Application app)
             {
-                Var newVar = Var.GenVar();
+                Var newVar = Var.Gen();
                 bindings.Push(new(newVar, app));
                 return newVar;
             }

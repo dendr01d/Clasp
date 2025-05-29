@@ -1,5 +1,6 @@
-﻿using ClaspCompiler.Data;
-using ClaspCompiler.Syntax;
+﻿using ClaspCompiler.SchemeData;
+using ClaspCompiler.SchemeSyntax.Abstract;
+using ClaspCompiler.SchemeSyntax;
 using ClaspCompiler.Tokens;
 
 namespace ClaspCompiler.CompilerPasses

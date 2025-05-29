@@ -1,7 +1,10 @@
-﻿using ClaspCompiler.Common;
-using ClaspCompiler.Data;
-using ClaspCompiler.Semantics;
-using ClaspCompiler.Syntax;
+﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeData;
+using ClaspCompiler.SchemeSyntax.Abstract;
+using ClaspCompiler.SchemeSemantics;
+using ClaspCompiler.SchemeSyntax;
+using ClaspCompiler.SchemeSemantics.Abstract;
+using ClaspCompiler.SchemeData.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {
@@ -9,11 +12,11 @@ namespace ClaspCompiler.CompilerPasses
     {
         public static ProgR1 Execute(ISyntax stx)
         {
-            ISemExp body = ParseSyntax(stx);
+            ISemanticExp body = ParseSyntax(stx);
             return new ProgR1("()", body);
         }
 
-        private static ISemExp ParseSyntax(ISyntax stx)
+        private static ISemanticExp ParseSyntax(ISyntax stx)
         {
             return stx switch
             {
@@ -24,13 +27,13 @@ namespace ClaspCompiler.CompilerPasses
             };
         }
 
-        private static ISemExp ParseApplication(StxPair stp)
+        private static ISemanticExp ParseApplication(StxPair stp)
         {
-            ISemExp op = ParseSyntax(stp.Car);
+            ISemanticExp op = ParseSyntax(stp.Car);
 
             if (op is Var v)
             {
-                return v.Data.Name switch
+                return v.Name.Name switch
                 {
                     "let" => ParseLet(stp.Cdr),
                     _ => ParseGenericApplication(v, stp.Cdr)
@@ -42,11 +45,11 @@ namespace ClaspCompiler.CompilerPasses
             throw new Exception($"Can't parse application: {stp}");
         }
 
-        private static ISemExp ParseGenericApplication(Var varOp, ISyntax args)
+        private static ISemanticExp ParseGenericApplication(Var varOp, ISyntax args)
         {
-            ISemExp[] pArgs = ParseArgs(args);
+            ISemanticExp[] pArgs = ParseArgs(args);
 
-            return varOp.Data.Name switch
+            return varOp.Name.Name switch
             {
                 "read" when pArgs.Length == 0 => new Application(varOp),
                 "-" when pArgs.Length == 1 => new Application(varOp, pArgs),
@@ -67,13 +70,13 @@ namespace ClaspCompiler.CompilerPasses
             else
             {
                 var pair = ParseLetBinding(binding);
-                ISemExp body = ParseSyntax(bodyCns.Car);
+                ISemanticExp body = ParseSyntax(bodyCns.Car);
 
                 return new Let(pair.Item1, pair.Item2, body);
             }
         }
 
-        private static Tuple<Var, ISemExp> ParseLetBinding(StxPair stp)
+        private static Tuple<Var, ISemanticExp> ParseLetBinding(StxPair stp)
         {
             if (!stp.Cdr.IsNil
                 || stp.Car is not StxPair pr2
@@ -85,25 +88,25 @@ namespace ClaspCompiler.CompilerPasses
             }
             else
             {
-                ISemExp argument = ParseSyntax(pr3.Car);
+                ISemanticExp argument = ParseSyntax(pr3.Car);
                 return new(new Var(id.SymbolicName), argument);
             }
         }
 
-        private static ISemExp ParseDatum(StxDatum std)
+        private static ISemanticExp ParseDatum(StxDatum std)
         {
             return std.Value switch
             {
-                Integer i => new Literal<Integer>(TypeName.Int, i),
+                Integer i => new Literal<Integer>(SchemeType.Integer, i),
                 _ => throw new Exception($"Can't parse datum: {std}")
             };
         }
 
-        private static ISemExp[] ParseArgs(ISyntax stx)
+        private static ISemanticExp[] ParseArgs(ISyntax stx)
         {
             if (stx.IsNil)
             {
-                return Array.Empty<ISemExp>();
+                return Array.Empty<ISemanticExp>();
             }
 
             if (stx is not StxPair stp)

@@ -1,10 +1,10 @@
-﻿using ClaspCompiler.ANormalForms;
+﻿using ClaspCompiler.IntermediateAnfLang;
 using ClaspCompiler.CompilerPasses;
-using ClaspCompiler.Data;
-using ClaspCompiler.PseudoIl;
-using ClaspCompiler.Semantics;
-using ClaspCompiler.Syntax;
+using ClaspCompiler.SchemeData;
+using ClaspCompiler.IntermediateStackLang;
+using ClaspCompiler.SchemeSemantics;
 using ClaspCompiler.Tokens;
+using ClaspCompiler.SchemeSyntax.Abstract;
 
 namespace ClaspCompiler
 {
@@ -33,37 +33,43 @@ namespace ClaspCompiler
                 AnnounceProgram("Raw Input", program);
 
                 TokenStream tokens = Tokenize.Execute("Test Program", program);
-                AnnounceProgram("Token Stream", tokens);
+                //AnnounceProgram("Token Stream", tokens);
 
                 ISyntax stx = ParseSyntax.Execute(tokens);
-                AnnounceProgram("Syntax", stx.ToString());
+                //AnnounceProgram("Syntax", stx.ToString());
 
                 ProgR1 semProg = ParseSemantics.Execute(stx);
-                AnnounceProgram("Semantics", semProg);
+                //AnnounceProgram("Semantics", semProg);
 
                 ProgR1 semProgUniqueVars = Uniquify.Execute(semProg);
-                AnnounceProgram("Unique Vars", semProgUniqueVars);
+                //AnnounceProgram("Unique Vars", semProgUniqueVars);
 
                 ProgR1 semProgNoComplex = RemoveComplexOperants.Execute(semProgUniqueVars);
-                AnnounceProgram("Removed Complex Operants", semProgNoComplex);
+                //AnnounceProgram("Removed Complex Operants", semProgNoComplex);
 
                 ProgC0 normProg = ExplicateControl.Execute(semProgNoComplex);
-                AnnounceProgram("A-Normal Form", normProg);
+                //AnnounceProgram("A-Normal Form", normProg);
 
                 ProgC0 normTyped = TypeCheckVars.Execute(normProg);
-                AnnounceProgram("Checked Types", normTyped);
+                //AnnounceProgram("Checked Types", normTyped);
 
-                ProgIl0 ilProg = SelectInstructions.Execute(normTyped);
-                AnnounceProgram("Pseudo-IL", ilProg);
+                ProgStack0 ilProg = SelectInstructions.Execute(normTyped);
+                //AnnounceProgram("Pseudo-IL", ilProg);
 
                 //ProgIl0 ilProgNoVars = AssignHomes.Execute(ilProg);
                 //AnnounceProgram("Assigned Local Variable Homes", ilProgNoVars);
 
-                ProgIl0 ilProgLiveMems = AnalyzeLiveness.Execute(ilProg);
-                AnnounceProgram("Analyzed Liveness of Mems", ilProgLiveMems);
+                ProgStack0 ilProgLiveMems = UncoverLive.Execute(ilProg);
+                //AnnounceProgram("Analyzed Liveness of Mems", ilProgLiveMems);
 
-                ProgIl0 ilProgWithInterference = BuildInterferenceGraph.Execute(ilProgLiveMems);
-                AnnounceProgram("Built Interference Graph", ilProgWithInterference);
+                ProgStack0 ilProgWithInterference = BuildInterferenceGraph.Execute(ilProgLiveMems);
+                //AnnounceProgram("Built Interference Graph", ilProgWithInterference);
+
+                ProgStack0 ilProgHomedVars = AllocateHomes.Execute(ilProgWithInterference);
+                //AnnounceProgram("Assigned Homes to Vars", ilProgHomedVars);
+
+                ProgStack0 ilProgPatched = PatchInstructions.Execute(ilProgHomedVars);
+                AnnounceProgram("Patched weird instructions", ilProgPatched);
             }
 
             Console.WriteLine();
