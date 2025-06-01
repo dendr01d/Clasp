@@ -2,19 +2,18 @@
 
 namespace ClaspCompiler.IntermediateStackLang
 {
-    internal class Instruction : IStackInstr
+    internal class UnaryInstruction : IPrintable
     {
-        public Label? LineLabel { get; init; }
         public StackOp Operator { get; init; }
         public virtual IStackArg? Operand { get; init; }
-        public Instruction(StackOp op, IStackArg? operand = null, Label? label = null)
+        public UnaryInstruction(StackOp op, IStackArg? operand = null)
         {
-            LineLabel = label;
             Operator = op;
             Operand = operand;
         }
-        public override string ToString() => string.Format("({0}{1}{2})",
-            LineLabel is null ? string.Empty : $"{LineLabel}: ",
+
+        public bool CanBreak => true;
+        public override string ToString() => string.Format("({0}{1})",
             Operator,
             Operand is null ? string.Empty : $" {Operand}");
         public void Print(TextWriter writer, int indent) => writer.Write(ToString());

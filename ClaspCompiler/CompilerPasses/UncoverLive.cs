@@ -1,67 +1,45 @@
 ﻿using System.Collections.Immutable;
 
-using ClaspCompiler.IntermediateStackLang.Abstract;
-using ClaspCompiler.IntermediateStackLang;
+using ClaspCompiler.CompilerData;
+using ClaspCompiler.IntermediateLocLang;
+using ClaspCompiler.IntermediateLocLang.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {
     internal static class UncoverLive
     {
-        public static ProgStack0 Execute(ProgStack0 program)
+        public static ProgLoc0 Execute(ProgLoc0 program)
         {
 
             var updatedBlocks = program.LabeledBlocks
                 .ToDictionary(x => x.Key, x => AnalyzeBlock(x.Value));
 
-            return new ProgIl0(program.LocalVariables, updatedBlocks);
+            return new ProgLoc0(program.LocalVariables, updatedBlocks);
         }
 
-        private static Block AnalyzeBlock(Block block)
+        private static BinaryBlock AnalyzeBlock(BinaryBlock block)
         {
-            List<ImmutableHashSet<IMem>> livenessChain = [];
-            ImmutableHashSet<IMem> liveSet = [];
+            List<ImmutableHashSet<Var>> livenessChain = [];
+            ImmutableHashSet<Var> liveSet = [];
 
             livenessChain.Add(liveSet);
 
-            foreach (IStackInstr instr in block.Reverse())
+            foreach (BinaryInstruction instr in block.Instructions.Reverse())
             {
-                liveSet = new HashSet<IMem>(liveSet
-                    .Except(AnalyzeWrites(instr))
-                    .Union(AnalyzeReads(instr)))
-                    .ToImmutableHashSet();
+                if (instr.Destination is not null)
+                {
+                    liveSet = liveSet.Remove(instr.Destination);
+                }
+
+                if (instr.Argument is Var v)
+                {
+                    liveSet = liveSet.Add(v);
+                }
 
                 livenessChain.Add(liveSet);
             }
 
-            return new Block(livenessChain.AsEnumerable().Reverse(), block);
-        }
-
-        private static HashSet<IMem> AnalyzeWrites(IStackInstr instr)
-        {
-            if (instr is Instruction rInstr
-                && rInstr.Operator == StackOp.Store)
-            {
-                if (rInstr.Operand is IMem mem)
-                {
-                    return [mem];
-                }
-            }
-
-            return [];
-        }
-
-        private static HashSet<IMem> AnalyzeReads(IStackInstr instr)
-        {
-            if (instr is Instruction rInstr
-                && rInstr.Operator == StackOp.Load)
-            {
-                if (rInstr.Operand is IMem mem)
-                {
-                    return [mem];
-                }
-            }
-
-            return [];
+            return new BinaryBlock(livenessChain.AsEnumerable().Reverse(), block.Instructions);
         }
     }
 }

@@ -1,12 +1,12 @@
-﻿using ClaspCompiler.IntermediateAnfLang.Abstract;
+﻿using ClaspCompiler.IntermediateCLang.Abstract;
 
-namespace ClaspCompiler.IntermediateAnfLang
+namespace ClaspCompiler.IntermediateCLang
 {
     internal sealed class Return : ITail
     {
-        public readonly INormExp Value;
+        public readonly INormArg Value;
 
-        public Return(INormExp value) => Value = value;
+        public Return(INormArg value) => Value = value;
 
         public bool CanBreak => Value.CanBreak;
         public override string ToString() => $"(return {Value})";

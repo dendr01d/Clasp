@@ -1,5 +1,6 @@
-﻿using ClaspCompiler.IntermediateAnfLang.Abstract;
-using ClaspCompiler.IntermediateVarLang.Abstract;
+﻿using ClaspCompiler.IntermediateCLang.Abstract;
+using ClaspCompiler.IntermediateStackLang.Abstract;
+using ClaspCompiler.IntermediateLocLang.Abstract;
 using ClaspCompiler.SchemeSemantics.Abstract;
 
 namespace ClaspCompiler.CompilerData
@@ -7,9 +8,13 @@ namespace ClaspCompiler.CompilerData
     internal sealed record Var : IPrintable,
         ISemanticExp,
         INormArg,
-        ILocArg
+        ILocArg,
+        IStackArg
     {
+        public static readonly Var NullVar = new("()");
+
         public string Name { get; init; }
+
         public Var(string name) => Name = name;
 
 

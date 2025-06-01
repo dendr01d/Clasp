@@ -12,8 +12,8 @@ namespace ClaspCompiler.Tokens
             _stream = stream;
         }
 
+        public bool CanBreak => false;
         public override string ToString() => string.Join(' ', _stream);
-
         public void Print(TextWriter writer, int indent) => writer.Write(ToString());
 
         public IEnumerator<Token> GetEnumerator() => _stream.GetEnumerator();

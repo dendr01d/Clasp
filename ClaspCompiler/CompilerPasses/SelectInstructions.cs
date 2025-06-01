@@ -1,32 +1,31 @@
-﻿using ClaspCompiler.IntermediateAnfLang.Abstract;
-using ClaspCompiler.IntermediateAnfLang;
+﻿using ClaspCompiler.IntermediateCLang.Abstract;
+using ClaspCompiler.IntermediateCLang;
 using ClaspCompiler.CompilerData;
-using ClaspCompiler.IntermediateStackLang.Abstract;
-using ClaspCompiler.IntermediateStackLang;
+using ClaspCompiler.IntermediateLocLang;
+using ClaspCompiler.IntermediateLocLang.Abstract;
+using ClaspCompiler.SchemeData.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {
     internal sealed class SelectInstructions
     {
-        public static ProgStack0 Execute(ProgC0 program)
+        public static ProgLoc0 Execute(ProgC0 program)
         {
-            Dictionary<Label, Block> labeledBlocks = [];
+            Dictionary<Label, BinaryBlock> labeledBlocks = [];
 
             foreach (var pair in program.LabeledTails)
             {
-                Label label = new(pair.Key);
-                Block block = new([],
-                    SelectTail(pair.Value).ToArray());
+                BinaryBlock block = new(SelectTail(pair.Value));
 
-                labeledBlocks.Add(label, block);
+                labeledBlocks.Add(pair.Key, block);
             }
 
-            var localVars = program.LocalVariables.ToDictionary(x => (IMem)x.Key, x => x.Value);
+            //var localVars = program.LocalVariables.ToDictionary(x => x.Key, x => x.Value);
 
-            return new ProgIl0(localVars, labeledBlocks);
+            return new ProgLoc0(program.LocalVariables, labeledBlocks);
         }
 
-        private static IEnumerable<IStackInstr> SelectTail(ITail tail)
+        private static IEnumerable<BinaryInstruction> SelectTail(ITail tail)
         {
             if (tail is Sequence seq)
             {
@@ -35,68 +34,64 @@ namespace ClaspCompiler.CompilerPasses
             }
             else if (tail is Return ret)
             {
-                return SelectExpression(ret.Value)
-                    .Append(new Instruction(StackOp.Return));
+                return [new BinaryInstruction(LocOp.RETURN, SelectArgument(ret.Value), null)];
             }
 
             throw new Exception($"Can't select instructions from tail: {tail}");
         }
 
-        private static IEnumerable<IStackInstr> SelectStatement(IStatement stmt)
+        private static IEnumerable<BinaryInstruction> SelectStatement(IStatement stmt)
         {
             if (stmt is Assignment asmt)
             {
-                return SelectExpression(asmt.Value)
-                    .Append(new Instruction(StackOp.Store, asmt.Variable));
+                if (asmt.Value is INormArg arg)
+                {
+                    yield return new BinaryInstruction(LocOp.MOVE, SelectArgument(arg), asmt.Variable);
+                    yield break;
+                }
+                else if (asmt.Value is INormApp app)
+                {
+                    ILocArg[] args = app.Arguments.Select(SelectArgument).ToArray();
+
+                    switch(app.Operator)
+                    {
+                        case "read":
+                            yield return new BinaryInstruction(LocOp.READ, null, asmt.Variable);
+                            yield break;
+
+                        case "-":
+                            yield return new BinaryInstruction(LocOp.NEG, args[0], asmt.Variable);
+                            yield break;
+
+                        case "+":
+                            yield return new BinaryInstruction(LocOp.MOVE, args[0], asmt.Variable);
+                            yield return new BinaryInstruction(LocOp.ADD, args[1], asmt.Variable);
+                            yield break;
+                    }
+
+                    throw new Exception($"Can't select instructions for application of unknown operator: {app.Operator}");
+                }
+                else if (asmt.Value is ILocArg locArg)
+                {
+                    yield return new BinaryInstruction(LocOp.MOVE, locArg, asmt.Variable);
+                }
             }
 
             throw new Exception($"Can't select instructions from statement: {stmt}");
         }
 
-        private static IStackInstr SelectArgument(INormArg arg)
+        private static ILocArg SelectArgument(INormArg arg)
         {
             if (arg is Var var)
             {
-                return new Instruction(StackOp.Load, var);
+                return var;
             }
-            else if (arg is IAtom lit)
+            else if (arg is IValue imm)
             {
-                return new Instruction(StackOp.Load, lit);
+                return imm;
             }
 
-            throw new Exception($"Can't select instruction for unknown arg type: {arg}");
-        }
-
-        private static IEnumerable<IStackInstr> SelectExpression(INormExp exp)
-        {
-            if (exp is INormArg arg)
-            {
-                return [SelectArgument(arg)];
-            }
-            else if (exp is Application app
-                && app.Operator is Var op)
-            {
-                IEnumerable<IStackInstr> loadArgs = app.Arguments.SelectMany(SelectExpression);
-
-                return loadArgs.Concat(op.Name.Name switch
-                {
-                    "+" when app.Adicity == 2 => [new Instruction(StackOp.Add)],
-                    "-" when app.Adicity == 1 => [new Instruction(StackOp.Neg)],
-                    "-" when app.Adicity == 2 => [new Instruction(StackOp.Sub)],
-                    "read" => ConstructRead(),
-                    _ => throw new Exception($"Can't select instructions for application: {app}")
-                });
-            }
-
-            throw new Exception($"Can't select instructions for expression: {exp}");
-        }
-
-        private static IEnumerable<IStackInstr> ConstructRead()
-        {
-            return [
-                new Instruction(StackOp.Call, new Label("string [System.Console]System.Console::ReadLine()")),
-                new Instruction(StackOp.Call, new Label("int32 [System.Runtime]System.Int32::Parse(string)")),
-                ];
+            throw new Exception($"Can't select unknown argument type: {arg}");
         }
     }
 }

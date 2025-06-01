@@ -1,6 +1,6 @@
-﻿using ClaspCompiler.IntermediateAnfLang.Abstract;
+﻿using ClaspCompiler.IntermediateCLang.Abstract;
 
-namespace ClaspCompiler.IntermediateAnfLang
+namespace ClaspCompiler.IntermediateCLang
 {
     internal sealed class Sequence : ITail
     {

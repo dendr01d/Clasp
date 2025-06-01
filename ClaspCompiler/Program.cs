@@ -1,10 +1,13 @@
-﻿using ClaspCompiler.IntermediateAnfLang;
+﻿using ClaspCompiler.IntermediateCLang;
 using ClaspCompiler.CompilerPasses;
 using ClaspCompiler.SchemeData;
 using ClaspCompiler.IntermediateStackLang;
 using ClaspCompiler.SchemeSemantics;
 using ClaspCompiler.Tokens;
 using ClaspCompiler.SchemeSyntax.Abstract;
+using ClaspCompiler.SchemeSyntax;
+using ClaspCompiler.CompilerData;
+using ClaspCompiler.IntermediateLocLang;
 
 namespace ClaspCompiler
 {
@@ -25,8 +28,8 @@ namespace ClaspCompiler
         {
             foreach (string program in testPrograms)
             {
-                Symbol.ResetGenerator();
-
+                Var.ResetGenerator();
+                
                 Console.WriteLine(new string('=', 65));
                 Console.WriteLine();
 
@@ -35,7 +38,7 @@ namespace ClaspCompiler
                 TokenStream tokens = Tokenize.Execute("Test Program", program);
                 //AnnounceProgram("Token Stream", tokens);
 
-                ISyntax stx = ParseSyntax.Execute(tokens);
+                ProgS1 stx = ParseSyntax.Execute(tokens);
                 //AnnounceProgram("Syntax", stx.ToString());
 
                 ProgR1 semProg = ParseSemantics.Execute(stx);
@@ -53,19 +56,19 @@ namespace ClaspCompiler
                 ProgC0 normTyped = TypeCheckVars.Execute(normProg);
                 //AnnounceProgram("Checked Types", normTyped);
 
-                ProgStack0 ilProg = SelectInstructions.Execute(normTyped);
+                ProgLoc0 ilProg = SelectInstructions.Execute(normTyped);
                 //AnnounceProgram("Pseudo-IL", ilProg);
 
                 //ProgIl0 ilProgNoVars = AssignHomes.Execute(ilProg);
                 //AnnounceProgram("Assigned Local Variable Homes", ilProgNoVars);
 
-                ProgStack0 ilProgLiveMems = UncoverLive.Execute(ilProg);
+                ProgLoc0 ilProgLiveMems = UncoverLive.Execute(ilProg);
                 //AnnounceProgram("Analyzed Liveness of Mems", ilProgLiveMems);
 
-                ProgStack0 ilProgWithInterference = BuildInterferenceGraph.Execute(ilProgLiveMems);
+                ProgLoc0 ilProgWithInterference = BuildInterferenceGraph.Execute(ilProgLiveMems);
                 //AnnounceProgram("Built Interference Graph", ilProgWithInterference);
 
-                ProgStack0 ilProgHomedVars = AllocateHomes.Execute(ilProgWithInterference);
+                ProgLoc0 ilProgHomedVars = AllocateRegisters.Execute(ilProgWithInterference);
                 //AnnounceProgram("Assigned Homes to Vars", ilProgHomedVars);
 
                 ProgStack0 ilProgPatched = PatchInstructions.Execute(ilProgHomedVars);

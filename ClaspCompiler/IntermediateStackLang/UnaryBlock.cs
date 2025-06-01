@@ -5,10 +5,10 @@ using ClaspCompiler.IntermediateStackLang.Abstract;
 
 namespace ClaspCompiler.IntermediateStackLang
 {
-    internal class Block : IPrintable
+    internal class UnaryBlock : IPrintable
     {
-        public readonly List<IStackInstr> Instructions;
-        public Block(IEnumerable<IStackInstr> instrs)
+        public readonly List<UnaryInstruction> Instructions;
+        public UnaryBlock(IEnumerable<UnaryInstruction> instrs)
         {
             Instructions = instrs.ToList();
         }

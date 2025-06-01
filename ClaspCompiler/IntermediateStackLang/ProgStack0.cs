@@ -4,9 +4,9 @@ namespace ClaspCompiler.IntermediateStackLang
 {
     internal class ProgStack0 : IPrintable
     {
-        public readonly Dictionary<Label, Block> LabeledBlocks;
+        public readonly Dictionary<Label, UnaryBlock> LabeledBlocks;
 
-        public ProgStack0(Dictionary<Label, Block> labeledBlocks)
+        public ProgStack0(Dictionary<Label, UnaryBlock> labeledBlocks)
         {
             LabeledBlocks = labeledBlocks;
         }

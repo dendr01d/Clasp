@@ -7,12 +7,14 @@ namespace ClaspCompiler.CompilerPasses
 {
     internal static class ParseSyntax
     {
-        public static ISyntax Execute(TokenStream stream)
+        public static ProgS1 Execute(TokenStream stream)
         {
             IEnumerator<Token> tokens = stream.GetEnumerator();
             tokens.MoveNext();
 
-            return ParseOneOrMoreExpressions(tokens);
+            ISyntax body = ParseOneOrMoreExpressions(tokens);
+
+            return new ProgS1(body);
         }
 
         private static ISyntax ParseOneOrMoreExpressions(IEnumerator<Token> tokens)

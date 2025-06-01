@@ -12,6 +12,7 @@ namespace ClaspCompiler.SchemeSyntax.Abstract
 
         protected SyntaxBase(SourceRef? source) => Source = source;
 
+        public abstract bool CanBreak { get; }
         public abstract override string ToString();
         public abstract void Print(TextWriter writer, int indent);
     }

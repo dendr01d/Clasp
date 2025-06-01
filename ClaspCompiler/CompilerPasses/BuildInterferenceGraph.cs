@@ -1,15 +1,16 @@
-﻿using ClaspCompiler.IntermediateStackLang;
-using ClaspCompiler.IntermediateStackLang.Abstract;
+﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.IntermediateLocLang;
+using ClaspCompiler.IntermediateLocLang.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {
     internal class BuildInterferenceGraph
     {
-        public static ProgStack0 Execute(ProgStack0 program)
+        public static ProgLoc0 Execute(ProgLoc0 program)
         {
-            Dictionary<IMem, HashSet<IMem>> conflicts = [];
+            Dictionary<Var, HashSet<Var>> conflicts = [];
 
-            foreach (IMem mem in program.LocalVariables.Keys)
+            foreach (Var mem in program.LocalVariables.Keys)
             {
                 conflicts.Add(mem, []);
             }
@@ -19,25 +20,43 @@ namespace ClaspCompiler.CompilerPasses
                 GraphBlock(pair.Value, conflicts);
             }
 
-            return new ProgIl0(conflicts, program.LocalVariables, program.LabeledBlocks);
+            return new ProgLoc0(conflicts, program.LocalVariables, program.LabeledBlocks);
         }
 
-        private static void GraphBlock(Block block, Dictionary<IMem, HashSet<IMem>> graph)
+        // Siek, pg 43
+        private static void GraphBlock(BinaryBlock block, Dictionary<Var, HashSet<Var>> graph)
         {
-            for (int i = 0; i < block.Count; ++i)
+            for (int i = 0; i < block.Instructions.Length; ++i)
             {
-                if (block[i].Operator == StackOp.Store
-                    && block[i].Operand is IMem mem)
+                BinaryInstruction instr = block.Instructions[i];
+
+                if (instr.Destination is null) continue;
+
+                if (instr.Operator == LocOp.MOVE)
                 {
-                    foreach (IMem other in block.Liveness[i + 1].Except([mem]))
+                    foreach(Var liveVar in block.Liveness[i + 1])
                     {
-                        GraphInterference(mem, other, graph);
+                        if (instr.Argument != (ILocArg)liveVar
+                            && instr.Destination != liveVar)
+                        {
+                            GraphInterference(instr.Destination, liveVar, graph);
+                        }
+                    }
+                }
+                else
+                {
+                    foreach(Var liveVar in block.Liveness[i + 1])
+                    {
+                        if (instr.Destination != liveVar)
+                        {
+                            GraphInterference(instr.Destination, liveVar, graph);
+                        }
                     }
                 }
             }
         }
 
-        private static void GraphInterference(IMem nodeA, IMem nodeB, Dictionary<IMem, HashSet<IMem>> graph)
+        private static void GraphInterference(Var nodeA, Var nodeB, Dictionary<Var, HashSet<Var>> graph)
         {
             graph[nodeA].Add(nodeB);
             graph[nodeB].Add(nodeA);

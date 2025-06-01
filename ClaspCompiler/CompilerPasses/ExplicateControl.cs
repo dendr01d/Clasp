@@ -1,8 +1,8 @@
-﻿using ClaspCompiler.IntermediateAnfLang;
+﻿using ClaspCompiler.IntermediateCLang;
 using ClaspCompiler.CompilerData;
 using ClaspCompiler.SchemeSemantics.Abstract;
 using ClaspCompiler.SchemeSemantics;
-using ClaspCompiler.IntermediateAnfLang.Abstract;
+using ClaspCompiler.IntermediateCLang.Abstract;
 using ClaspCompiler.SchemeData.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
@@ -43,11 +43,11 @@ namespace ClaspCompiler.CompilerPasses
         {
             if (exp is SchemeSemantics.Application app)
             {
-                return new IntermediateAnfLang.Application(
+                return new IntermediateCLang.Application(
                     app.Operator,
                     app.Arguments.Select(TranslateArgument).ToArray());
             }
-            else if (exp is IAtom lit)
+            else if (exp is INormExp lit)
             {
                 return lit;
             }
@@ -69,17 +69,17 @@ namespace ClaspCompiler.CompilerPasses
 
         private static ITail ExplicateReturning(ISemanticExp exp)
         {
-            if (exp is SchemeSemantics.Application)
+            if (exp is IAtom atm)
+            {
+                return new Return(atm);
+            }
+            else
             {
                 Var newVar = Var.Gen();
 
                 return new Sequence(
                     new Assignment(newVar, TranslateExpression(exp)),
                     new Return(newVar));
-            }
-            else
-            {
-                return new Return(TranslateExpression(exp));
             }
         }
 

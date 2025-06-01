@@ -10,9 +10,9 @@ namespace ClaspCompiler.CompilerPasses
 {
     internal static class ParseSemantics
     {
-        public static ProgR1 Execute(ISyntax stx)
+        public static ProgR1 Execute(ProgS1 program)
         {
-            ISemanticExp body = ParseSyntax(stx);
+            ISemanticExp body = ParseSyntax(program.Body);
             return new ProgR1("()", body);
         }
 
@@ -22,7 +22,7 @@ namespace ClaspCompiler.CompilerPasses
             {
                 StxPair stp => ParseApplication(stp),
                 StxDatum std => ParseDatum(std),
-                Identifier id => new Var(id.SymbolicName),
+                Identifier id => new Var(id.BindingSymbol.Name),
                 _ => throw new Exception($"Can't parse unknown syntax object: {stx}")
             };
         }
@@ -33,7 +33,7 @@ namespace ClaspCompiler.CompilerPasses
 
             if (op is Var v)
             {
-                return v.Name.Name switch
+                return v.Name switch
                 {
                     "let" => ParseLet(stp.Cdr),
                     _ => ParseGenericApplication(v, stp.Cdr)
@@ -49,11 +49,11 @@ namespace ClaspCompiler.CompilerPasses
         {
             ISemanticExp[] pArgs = ParseArgs(args);
 
-            return varOp.Name.Name switch
+            return varOp.Name switch
             {
-                "read" when pArgs.Length == 0 => new Application(varOp),
-                "-" when pArgs.Length == 1 => new Application(varOp, pArgs),
-                "+" when pArgs.Length == 2 => new Application(varOp, pArgs),
+                "read" when pArgs.Length == 0 => new Application("read"),
+                "-" when pArgs.Length == 1 => new Application("-", pArgs[0]),
+                "+" when pArgs.Length == 2 => new Application("+", pArgs[0], pArgs[1]),
                 _ => throw new Exception($"Can't parse application of '{varOp}' to args: {args}")
             };
         }
@@ -89,17 +89,13 @@ namespace ClaspCompiler.CompilerPasses
             else
             {
                 ISemanticExp argument = ParseSyntax(pr3.Car);
-                return new(new Var(id.SymbolicName), argument);
+                return new(new Var(id.BindingSymbol.Name), argument);
             }
         }
 
         private static ISemanticExp ParseDatum(StxDatum std)
         {
-            return std.Value switch
-            {
-                Integer i => new Literal<Integer>(SchemeType.Integer, i),
-                _ => throw new Exception($"Can't parse datum: {std}")
-            };
+            return std.Value;
         }
 
         private static ISemanticExp[] ParseArgs(ISyntax stx)

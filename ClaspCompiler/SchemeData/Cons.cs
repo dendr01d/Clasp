@@ -21,6 +21,7 @@ namespace ClaspCompiler.SchemeData
         public void SetCar(ISchemeExp car) => Car = car;
         public void SetCdr(ISchemeExp cdr) => Cdr = cdr;
 
+        public bool CanBreak => true;
         public override string ToString() => IConsExtensions.ToString(this);
         public void Print(TextWriter writer, int indent) => IConsExtensions.Print(this, writer, indent);
 

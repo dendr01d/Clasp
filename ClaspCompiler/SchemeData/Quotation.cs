@@ -10,6 +10,8 @@ namespace ClaspCompiler.SchemeData
 
         public Quotation(ISchemeExp quoted) => Quoted = quoted;
 
+        public bool CanBreak => Quoted.CanBreak;
+        public override string ToString() => Quoted.ToString();
         public void Print(TextWriter writer, int indent)
         {
             writer.WriteIndenting('\'', ref indent);

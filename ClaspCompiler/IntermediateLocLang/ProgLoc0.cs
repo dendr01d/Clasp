@@ -1,29 +1,43 @@
 ﻿using ClaspCompiler.CompilerData;
 using ClaspCompiler.SchemeData.Abstract;
 
-namespace ClaspCompiler.IntermediateVarLang
+namespace ClaspCompiler.IntermediateLocLang
 {
     internal sealed class ProgLoc0
     {
-        public Dictionary<Var, HashSet<Var>>? Conflicts { get; init; }
-        public Dictionary<Var, SchemeType>? LocalVariables { get; init; }
-        public readonly Dictionary<Label, Block> LabeledBlocks;
+        public Dictionary<Var, Type> LocalVariables { get; init; }
+        public Dictionary<Var, HashSet<Var>> Conflicts { get; init; }
+        public Dictionary<Var, int> LocalMap { get; init; }
 
-        public ProgLoc0(Dictionary<Label, Block> labeledBlocks)
+        public readonly Dictionary<Label, BinaryBlock> LabeledBlocks;
+
+        public ProgLoc0(
+            Dictionary<Label, BinaryBlock> labeledBlocks)
             : this(null, labeledBlocks)
         { }
 
-        public ProgLoc0(Dictionary<Var, SchemeType>? localVars, Dictionary<Label, Block> labeledBlocks)
+        public ProgLoc0(
+            Dictionary<Var, Type>? localVars,
+            Dictionary<Label, BinaryBlock> labeledBlocks)
             : this(null, localVars, labeledBlocks)
         { }
 
         public ProgLoc0(
             Dictionary<Var, HashSet<Var>>? conflicts,
-            Dictionary<Var, SchemeType>? localVars,
-            Dictionary<Label, Block> labeledBlocks)
+            Dictionary<Var, Type>? localVars,
+            Dictionary<Label, BinaryBlock> labeledBlocks)
+            : this(null, conflicts, localVars, labeledBlocks)
+        { }
+
+        public ProgLoc0(
+            Dictionary<Var, int>? localMap,
+            Dictionary<Var, HashSet<Var>>? conflicts,
+            Dictionary<Var, Type>? localVars,
+            Dictionary<Label, BinaryBlock> labeledBlocks)
         {
-            Conflicts = conflicts;
-            LocalVariables = localVars;
+            LocalMap = localMap ?? [];
+            Conflicts = conflicts ?? [];
+            LocalVariables = localVars ?? [];
             LabeledBlocks = labeledBlocks;
         }
 
@@ -58,7 +72,7 @@ namespace ClaspCompiler.IntermediateVarLang
             writer.Write("))");
         }
 
-        private static void PrintLocalVariables(TextWriter writer, Dictionary<Var, SchemeType>? localVars, int indent)
+        private static void PrintLocalVariables(TextWriter writer, Dictionary<Var, Type>? localVars, int indent)
         {
             writer.WriteIndenting("  (", ref indent);
 

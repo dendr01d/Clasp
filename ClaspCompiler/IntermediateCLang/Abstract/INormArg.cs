@@ -1,6 +1,6 @@
 ﻿using ClaspCompiler.CompilerData;
 
-namespace ClaspCompiler.IntermediateAnfLang.Abstract
+namespace ClaspCompiler.IntermediateCLang.Abstract
 {
     internal interface INormArg : INormExp { }
 }

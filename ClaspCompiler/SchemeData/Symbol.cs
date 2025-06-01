@@ -2,7 +2,7 @@
 
 namespace ClaspCompiler.SchemeData
 {
-    internal sealed record Symbol : ISchemeExp, IEquatable<Symbol>
+    internal sealed record Symbol : IAtom, IEquatable<Symbol>
     {
         public readonly string Name;
 

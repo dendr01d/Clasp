@@ -16,6 +16,7 @@ namespace ClaspCompiler.SchemeSyntax
             Value = value;
         }
 
+        public override bool CanBreak => Value.CanBreak;
         public override string ToString() => Value.ToString();
         public override void Print(TextWriter writer, int indent) => writer.Write(ToString());
     }

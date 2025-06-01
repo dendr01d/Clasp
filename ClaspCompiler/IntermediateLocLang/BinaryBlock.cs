@@ -1,20 +1,26 @@
-﻿using ClaspCompiler.CompilerData;
-using ClaspCompiler.IntermediateVarLang.Abstract;
+﻿using System.Collections.Immutable;
 
-namespace ClaspCompiler.IntermediateVarLang
+using ClaspCompiler.CompilerData;
+using ClaspCompiler.IntermediateLocLang.Abstract;
+
+namespace ClaspCompiler.IntermediateLocLang
 {
-    internal class Block : IPrintable
+    internal class BinaryBlock : IPrintable
     {
-        public readonly List<HashSet<Var>> Liveness;
-        public readonly ILocInstr[] Instructions;
+        public readonly List<ImmutableHashSet<Var>> Liveness;
+        public readonly BinaryInstruction[] Instructions;
 
-        public Block(IEnumerable<HashSet<Var>> liveness, IEnumerable<ILocInstr> instrs)
+        public BinaryBlock(IEnumerable<ImmutableHashSet<Var>> liveness, IEnumerable<BinaryInstruction> instrs)
         {
             Liveness = liveness.ToList();
             Instructions = instrs.ToArray();
         }
 
-        private static string LivenessToString(HashSet<Var> liveMems)
+        public BinaryBlock(IEnumerable<BinaryInstruction> instrs)
+            : this([], instrs)
+        { }
+
+        private static string LivenessToString(ImmutableHashSet<Var> liveMems)
         {
             return string.Format("; {{{0}}} ",
                 string.Join(", ", liveMems.Select(x => x.ToString())));
@@ -28,13 +34,17 @@ namespace ClaspCompiler.IntermediateVarLang
             if (Instructions.Any())
             {
                 int padding = -25;
-                string comment = Liveness.Count == 0 ? string.Empty : LivenessToString(Liveness.Skip(1).First());
+                string comment = Liveness.Count == 0
+                    ? string.Empty
+                    : LivenessToString(Liveness.Skip(1).First());
                 writer.WriteWithComment(Instructions.First(), padding, comment);
 
                 for (int i = 1; i < Instructions.Length; ++i)
                 {
                     writer.WriteLineIndent(indent);
-                    comment = Liveness.Count == 0 ? string.Empty : LivenessToString(Liveness[i - 1]);
+                    comment = Liveness.Count == 0
+                        ? string.Empty
+                        : LivenessToString(Liveness[i - 1]);
                     writer.WriteWithComment(Instructions[i], padding, comment);
                 }
 

@@ -1,7 +1,7 @@
-﻿using ClaspCompiler.IntermediateAnfLang.Abstract;
+﻿using ClaspCompiler.IntermediateCLang.Abstract;
 using ClaspCompiler.CompilerData;
 
-namespace ClaspCompiler.IntermediateAnfLang
+namespace ClaspCompiler.IntermediateCLang
 {
     internal sealed class Assignment : IStatement
     {

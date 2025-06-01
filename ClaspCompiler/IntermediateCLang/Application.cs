@@ -1,11 +1,11 @@
-﻿using ClaspCompiler.IntermediateAnfLang.Abstract;
+﻿using ClaspCompiler.IntermediateCLang.Abstract;
 
-namespace ClaspCompiler.IntermediateAnfLang
+namespace ClaspCompiler.IntermediateCLang
 {
     internal sealed class Application : INormApp
     {
-        public readonly string Operator;
-        public readonly INormArg[] Arguments;
+        public string Operator { get; init; }
+        public INormArg[] Arguments { get; init; }
 
         public Application(string op, params INormArg[] args)
         {

@@ -35,6 +35,7 @@ namespace ClaspCompiler.Textual
             return Text.AsSpan().Slice(Column, Length);
         }
 
+        public bool CanBreak => true;
         public override string ToString() => Text;
         public void Print(TextWriter writer, int indent) => writer.Write(Text);
     }

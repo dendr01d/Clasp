@@ -19,6 +19,7 @@ namespace ClaspCompiler.SchemeData
             return base.GetHashCode();
         }
 
+        public bool CanBreak => false;
         public override string ToString() => "()";
         public void Print(TextWriter writer, int indent) => writer.Write(ToString());
 

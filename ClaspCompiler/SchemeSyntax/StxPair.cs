@@ -20,6 +20,7 @@ namespace ClaspCompiler.SchemeSyntax
             Cdr = cdr;
         }
 
+        public override bool CanBreak => Car.CanBreak || Cdr is not IAtom;
         public override string ToString() => IConsExtensions.ToString(this);
         public override void Print(TextWriter writer, int indent) => IConsExtensions.Print(this, writer, indent);
 

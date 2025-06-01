@@ -13,6 +13,7 @@ namespace ClaspCompiler.SchemeSemantics
             Body = body;
         }
 
+        public bool CanBreak => true;
         public override string ToString() => $"(program {Info} {Body})";
         public void Print(TextWriter writer, int indent)
         {

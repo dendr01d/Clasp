@@ -1,4 +1,4 @@
-﻿namespace ClaspCompiler.IntermediateVarLang.Abstract
+﻿namespace ClaspCompiler.IntermediateLocLang.Abstract
 {
     internal interface ILocArg : IPrintable { }
 }

@@ -1,22 +1,22 @@
-﻿using ClaspCompiler.IntermediateAnfLang.Abstract;
+﻿using ClaspCompiler.IntermediateCLang.Abstract;
 using ClaspCompiler.CompilerData;
 using ClaspCompiler.SchemeData.Abstract;
 
-namespace ClaspCompiler.IntermediateAnfLang
+namespace ClaspCompiler.IntermediateCLang
 {
     internal sealed class ProgC0 : IPrintable
     {
-        public Dictionary<Var, SchemeType> LocalVariables { get; init; }
-        public Dictionary<string, ITail> LabeledTails { get; init; }
+        public Dictionary<Var, Type> LocalVariables { get; init; }
+        public Dictionary<Label, ITail> LabeledTails { get; init; }
 
-        public ProgC0(Dictionary<Var, SchemeType> localVars, Dictionary<string, ITail> labeledTails)
+        public ProgC0(Dictionary<Var, Type> localVars, Dictionary<Label, ITail> labeledTails)
         {
             LocalVariables = localVars;
             LabeledTails = labeledTails;
         }
 
         public ProgC0(ITail entry)
-            : this(new(), new Dictionary<string, ITail>() { { "start", entry } })
+            : this([], new Dictionary<Label, ITail>() { { new("start"), entry } })
         { }
 
         public bool CanBreak => true;

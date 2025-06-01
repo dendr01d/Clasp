@@ -1,8 +1,8 @@
 ﻿
 using ClaspCompiler.CompilerData;
-using ClaspCompiler.IntermediateVarLang.Abstract;
+using ClaspCompiler.IntermediateLocLang.Abstract;
 
-namespace ClaspCompiler.IntermediateVarLang
+namespace ClaspCompiler.IntermediateLocLang
 {
     internal sealed record VarDeref : ILocArg
     {
