@@ -1,87 +1,127 @@
-﻿using ClaspCompiler.IntermediateCLang;
-using ClaspCompiler.CompilerData;
-using ClaspCompiler.SchemeSemantics.Abstract;
-using ClaspCompiler.SchemeSemantics;
-using ClaspCompiler.IntermediateCLang.Abstract;
+﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.IntermediateCps;
+using ClaspCompiler.IntermediateCps.Abstract;
+using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeData.Abstract;
+using ClaspCompiler.SchemeSemantics;
+using ClaspCompiler.SchemeSemantics.Abstract;
+using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.CompilerPasses
 {
     internal static class ExplicateControl
     {
-        public static ProgC0 Execute(ProgR1 program)
+        public static Prog_Cps Execute(Prog_Sem program)
         {
-            ITail explicated = ExplicateTail(program.Body);
+            Dictionary<Label, ITail> blocks = [];
+            int blockCounter = 10;
 
-            return new(explicated);
+            ITail entry = ExplicateTail(program.Body, blocks, ref blockCounter);
+            blocks.Add(Prog_Cps.StartLabel, entry);
+
+            return new("()", blocks);
         }
 
-        private static ITail ExplicateTail(ISemanticExp exp)
+        private static ITail ExplicateTail(ISemExp input, Dictionary<Label, ITail> blocks, ref int blockCounter)
         {
-            return exp switch
+            switch (input)
             {
-                Let l => ExplicateAssignment(l.Variable, l.Argument, ExplicateTail(l.Body)),
-                _ => ExplicateReturning(exp)
-            };
-        }
+                case Let let:
+                    ITail body = ExplicateTail(let.Body, blocks, ref blockCounter);
+                    return ExplicateAssignment(let.Variable, let.Argument, body, blocks, ref blockCounter);
 
-        private static ITail ExplicateAssignment(Var var, ISemanticExp exp, ITail tail)
-        {
-            if (exp is Let l)
-            {
-                return ExplicateAssignment(l.Variable, l.Argument, ExplicateAssignment(var, l.Body, tail));
-            }
-            else
-            {
-                return new Sequence(
-                    new Assignment(var, TranslateExpression(exp)),
-                    tail);
-            }
-        }
+                case If branch:
+                    ITail br1 = ExplicateTail(branch.Consequent, blocks, ref blockCounter);
+                    ITail br2 = ExplicateTail(branch.Alternative, blocks, ref blockCounter);
+                    return ExplicatePredicate(branch.Condition, br1, br2, blocks, ref blockCounter);
 
-        private static INormExp TranslateExpression(ISemanticExp exp)
-        {
-            if (exp is SchemeSemantics.Application app)
-            {
-                return new IntermediateCLang.Application(
-                    app.Operator,
-                    app.Arguments.Select(TranslateArgument).ToArray());
-            }
-            else if (exp is INormExp lit)
-            {
-                return lit;
-            }
-            else
-            {
-                throw new Exception($"Can't translate expression: {exp}");
+                case ISemExp exp:
+                    return ExplicateReturning(exp);
+
+                default:
+                    throw new Exception($"Can't explicate control of unknown semantic form: {input}");
             }
         }
 
-        private static INormArg TranslateArgument(ISemanticExp exp)
+        private static ITail ExplicateAssignment(Var var, ISemExp bound, ITail tail, Dictionary<Label, ITail> blocks, ref int blockCounter)
         {
-            return exp switch
+            switch (bound)
             {
+                case Let let:
+                    ITail body = ExplicateAssignment(var, let.Body, tail, blocks, ref blockCounter);
+                    return ExplicateAssignment(let.Variable, let.Argument, body, blocks, ref blockCounter);
+
+                case If branch:
+                    ITail unbranch = CreateBlock(tail, blocks, ref blockCounter);
+                    ITail br1 = ExplicateAssignment(var, branch.Consequent, unbranch, blocks, ref blockCounter);
+                    ITail br2 = ExplicateAssignment(var, branch.Alternative, unbranch, blocks, ref blockCounter);
+                    return ExplicatePredicate(branch.Condition, br1, br2, blocks, ref blockCounter);
+
+                case ISemExp exp:
+                    return new Sequence(new Assignment(var, TranslateExpression(exp)), tail);
+
+                default:
+                    throw new Exception($"Can't explicate assignment of unknown semantic form: {bound}");
+
+            }
+        }
+
+        private static Conditional ExplicatePredicate(ISemExp cond, ITail branch1, ITail branch2, Dictionary<Label, ITail> blocks, ref int blockCounter)
+        {
+            //ICpsExp condition = TranslateBooleanCondition(cond);
+            GoTo br1 = CreateBlock(branch1, blocks, ref blockCounter);
+            GoTo br2 = CreateBlock(branch2, blocks, ref blockCounter);
+            return new Conditional(TranslateExpression(cond), br1, br2);
+        }
+
+        private static Return ExplicateReturning(ISemExp value)
+        {
+            return new Return(TranslateExpression(value));
+        }
+
+        private static GoTo CreateBlock(ITail tail, Dictionary<Label, ITail> blocks, ref int blockCounter)
+        {
+            Label label = new Label($"block{blockCounter++}");
+            blocks.Add(label, tail);
+            return new GoTo(label);
+        }
+
+
+
+        //private static ICpsExp TranslateBooleanCondition(ISemExp exp)
+        //{
+
+
+        //    ISemExp calc = exp.Type == AtomicType.Bool
+        //        ? exp
+        //        : new PrimitiveApplication(PrimitiveOperator.Not, new PrimitiveApplication(PrimitiveOperator.Eq, Bool.False, exp));
+
+        //    return TranslateExpression(calc);
+        //}
+
+        private static ICpsExp TranslateExpression(ISemExp value)
+        {
+            return value switch
+            {
+                ISemApp app => ExplicateApplication(app),
                 IAtom atm => atm,
                 Var v => v,
-                _ => throw new Exception($"Can't translate argument: {exp}")
+                _ => throw new Exception($"Can't translate non-calculable expression: {value}")
             };
         }
 
-        private static ITail ExplicateReturning(ISemanticExp exp)
+        private static ICpsExp ExplicateApplication(ISemApp app)
         {
-            if (exp is IAtom atm)
+            if (app is PrimitiveApplication primApp)
             {
-                return new Return(atm);
-            }
-            else
-            {
-                Var newVar = Var.Gen();
+                ICpsExp output = new Application(
+                    primApp.Operator,
+                    primApp.Arguments.Select(TranslateExpression).ToArray());
 
-                return new Sequence(
-                    new Assignment(newVar, TranslateExpression(exp)),
-                    new Return(newVar));
+                return output;
             }
+
+            throw new Exception($"Can't explicate control of unknown application form: {app}");
         }
-
     }
 }

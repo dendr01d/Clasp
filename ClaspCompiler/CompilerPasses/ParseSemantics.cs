@@ -10,52 +10,111 @@ namespace ClaspCompiler.CompilerPasses
 {
     internal static class ParseSemantics
     {
-        public static ProgR1 Execute(ProgS1 program)
+        public static Prog_Sem Execute(Prog_Stx program)
         {
-            ISemanticExp body = ParseSyntax(program.Body);
-            return new ProgR1("()", body);
+            ISemExp body = ParseSyntax(program.Body);
+            return new Prog_Sem(body);
         }
 
-        private static ISemanticExp ParseSyntax(ISyntax stx)
+        private static ISemExp ParseSyntax(ISyntax stx)
         {
             return stx switch
             {
                 StxPair stp => ParseApplication(stp),
                 StxDatum std => ParseDatum(std),
                 Identifier id => new Var(id.BindingSymbol.Name),
-                _ => throw new Exception($"Can't parse unknown syntax object: {stx}")
+                _ => throw new Exception($"Can't parse unknown syntax: {stx}")
             };
         }
 
-        private static ISemanticExp ParseApplication(StxPair stp)
+        private static ISemExp ParseDatum(StxDatum std)
         {
-            ISemanticExp op = ParseSyntax(stp.Car);
+            return std.Value switch
+            {
+                IAtom atm => atm,
+                _ => throw new Exception($"Cannot parse datum: {std}")
+            };
+        }
+
+        private static ISemExp ParseApplication(StxPair stp)
+        {
+            ISemExp op = ParseSyntax(stp.Car);
 
             if (op is Var v)
             {
                 return v.Name switch
                 {
-                    "let" => ParseLet(stp.Cdr),
+                    Keyword.LET => ParseLet(stp.Cdr),
+                    Keyword.IF => ParseIf(stp.Cdr),
                     _ => ParseGenericApplication(v, stp.Cdr)
                 };
             }
 
             //fill this in later...
 
-            throw new Exception($"Can't parse application: {stp}");
+            throw new Exception($"Can't (yet) parse compound application form: {stp}");
         }
 
-        private static ISemanticExp ParseGenericApplication(Var varOp, ISyntax args)
+        private static ISemExp ParseGenericApplication(Var varOp, ISyntax args)
         {
-            ISemanticExp[] pArgs = ParseArgs(args);
+            ISemExp[] pArgs = ParseArgs(args);
 
             return varOp.Name switch
             {
-                "read" when pArgs.Length == 0 => new Application("read"),
-                "-" when pArgs.Length == 1 => new Application("-", pArgs[0]),
-                "+" when pArgs.Length == 2 => new Application("+", pArgs[0], pArgs[1]),
+                Keyword.READ => new PrimitiveApplication(PrimitiveOperator.Read),
+
+                Keyword.MINUS when pArgs.Length == 1 => new PrimitiveApplication(PrimitiveOperator.Neg, pArgs[0]),
+                Keyword.MINUS when pArgs.Length == 2 => new PrimitiveApplication(PrimitiveOperator.Sub, pArgs[0]),
+
+                Keyword.PLUS when pArgs.Length == 0 => new Integer(0),
+                Keyword.PLUS when pArgs.Length == 1 => pArgs[0],
+                Keyword.PLUS when pArgs.Length >= 2 => ParseRecursiveApplication(PrimitiveOperator.Add, pArgs[0], pArgs[1], pArgs[2..]),
+
+                Keyword.EQ => new PrimitiveApplication(PrimitiveOperator.Eq, pArgs),
+
+                Keyword.LT => new PrimitiveApplication(PrimitiveOperator.Lt, pArgs),
+                Keyword.LTE => new PrimitiveApplication(PrimitiveOperator.LtE, pArgs),
+                Keyword.GT => new PrimitiveApplication(PrimitiveOperator.Gt, pArgs),
+                Keyword.GTE => new PrimitiveApplication(PrimitiveOperator.GtE, pArgs),
+
+                Keyword.NOT => new PrimitiveApplication(PrimitiveOperator.Not, pArgs),
+
                 _ => throw new Exception($"Can't parse application of '{varOp}' to args: {args}")
             };
+        }
+
+        private static ISemExp[] ParseArgs(ISyntax stx)
+        {
+            if (stx.IsNil)
+            {
+                return [];
+            }
+
+            if (stx is not StxPair stp)
+            {
+                throw new Exception($"Cannot parse syntax as arguments: {stx}");
+            }
+
+            ISyntax[] preArgs = stp.ToArray();
+
+            if (!preArgs[^1].IsNil)
+            {
+                throw new Exception($"Cannot parse dotted list as arguments: {stp}");
+            }
+
+            return preArgs[..^1].Select(ParseSyntax).ToArray();
+        }
+
+        private static PrimitiveApplication ParseRecursiveApplication(PrimitiveOperator op, ISemExp arg1, ISemExp arg2, ISemExp[] moreArgs)
+        {
+            if (moreArgs.Length > 0)
+            {
+                return new PrimitiveApplication(op, arg1, ParseRecursiveApplication(op, arg2, moreArgs[0], moreArgs[1..]));
+            }
+            else
+            {
+                return new PrimitiveApplication(op, arg1, arg2);
+            }
         }
 
         private static Let ParseLet(ISyntax args)
@@ -70,13 +129,13 @@ namespace ClaspCompiler.CompilerPasses
             else
             {
                 var pair = ParseLetBinding(binding);
-                ISemanticExp body = ParseSyntax(bodyCns.Car);
+                ISemExp body = ParseSyntax(bodyCns.Car);
 
                 return new Let(pair.Item1, pair.Item2, body);
             }
         }
 
-        private static Tuple<Var, ISemanticExp> ParseLetBinding(StxPair stp)
+        private static Tuple<Var, ISemExp> ParseLetBinding(StxPair stp)
         {
             if (!stp.Cdr.IsNil
                 || stp.Car is not StxPair pr2
@@ -88,36 +147,27 @@ namespace ClaspCompiler.CompilerPasses
             }
             else
             {
-                ISemanticExp argument = ParseSyntax(pr3.Car);
+                ISemExp argument = ParseSyntax(pr3.Car);
                 return new(new Var(id.BindingSymbol.Name), argument);
             }
         }
 
-        private static ISemanticExp ParseDatum(StxDatum std)
+        private static If ParseIf(ISyntax args)
         {
-            return std.Value;
-        }
+            ISemExp[] pArgs = ParseArgs(args);
 
-        private static ISemanticExp[] ParseArgs(ISyntax stx)
-        {
-            if (stx.IsNil)
+            if (pArgs.Length == 2)
             {
-                return Array.Empty<ISemanticExp>();
+                return new If(pArgs[0], pArgs[1], Boole.False);
             }
-
-            if (stx is not StxPair stp)
+            else if (pArgs.Length == 3)
             {
-                throw new Exception($"Can't parse syntax as args: {stx}");
+                return new If(pArgs[0], pArgs[1], pArgs[2]);
             }
-
-            ISyntax[] rawArgs = stp.ToArray();
-
-            if (!rawArgs[^1].IsNil)
+            else
             {
-                throw new Exception($"Can't parse dotted list as args: {stp}");
+                throw new Exception($"Cannot parse if form with args: {args}");
             }
-
-            return rawArgs[..^1].Select(ParseSyntax).ToArray();
         }
     }
 }

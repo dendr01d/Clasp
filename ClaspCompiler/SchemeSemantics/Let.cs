@@ -3,25 +3,23 @@ using ClaspCompiler.SchemeSemantics.Abstract;
 
 namespace ClaspCompiler.SchemeSemantics
 {
-    internal sealed class Let : ISpecialForm
+    internal sealed class Let : ISemSpec
     {
-        public readonly Var Variable;
-        public readonly ISemanticExp Argument;
-        public readonly ISemanticExp Body;
+        public SpecialKeyword Keyword => SpecialKeyword.Let;
 
-        public Let(Var var, ISemanticExp arg, ISemanticExp body)
+        public readonly Var Variable;
+        public readonly ISemExp Argument;
+        public readonly ISemExp Body;
+
+        public Let(Var var, ISemExp arg, ISemExp body)
         {
             Variable = var;
             Argument = arg;
             Body = body;
         }
 
-        public bool CanBreak => true;
-        public override string ToString()
-        {
-            return string.Format("(let ([{0} {1}]) {2})", Variable, Argument, Body);
-        }
-
+        public bool BreaksLine => true;
+        public string AsString => string.Format("(let ([{0} {1}]) {2})", Variable, Argument, Body);
         public void Print(TextWriter writer, int indent)
         {
             writer.WriteIndenting("(let ", ref indent);
@@ -38,5 +36,6 @@ namespace ClaspCompiler.SchemeSemantics
 
             writer.Write(')');
         }
+        public override string ToString() => AsString;
     }
 }

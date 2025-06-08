@@ -1,5 +1,12 @@
 ﻿namespace ClaspCompiler.SchemeData.Abstract
 {
+    /// <summary>
+    /// A structurally recursive scheme object containing two members of a certain expression type.
+    /// </summary>
+    /// <typeparam name="T">
+    /// The expression type held by the cons cell.
+    /// Practically speaking this must encapsulate a type that itself implements <see cref="ICons{T}"/>
+    /// </typeparam>
     internal interface ICons<T> : ISchemeExp, IEnumerable<T>
         where T : ISchemeExp
     {
@@ -24,13 +31,13 @@
             yield return current.Cdr;
         }
 
-        public static string ToString<T>(this ICons<T> cns)
+        public static string Stringify<T>(this ICons<T> cns)
             where T : ISchemeExp
         {
-            return string.Format("({0}{1})", cns.Car, ToCdrString(cns.Cdr));
+            return string.Format("({0}{1})", cns.Car, StringifyCdr(cns.Cdr));
         }
 
-        private static string ToCdrString<T>(T term)
+        private static string StringifyCdr<T>(T term)
             where T : ISchemeExp
         {
             if (term.IsNil)
@@ -39,7 +46,7 @@
             }
             else if (term is ICons<T> cns)
             {
-                return string.Format(" {0}{1}", cns.Car, ToCdrString(cns.Cdr));
+                return string.Format(" {0}{1}", cns.Car, StringifyCdr(cns.Cdr));
             }
             else
             {

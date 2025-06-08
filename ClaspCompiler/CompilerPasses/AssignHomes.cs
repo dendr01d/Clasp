@@ -1,10 +1,4 @@
-﻿using ClaspCompiler.CompilerData;
-using ClaspCompiler.IntermediateStackLang.Abstract;
-using ClaspCompiler.IntermediateStackLang;
-using ClaspCompiler.SchemeData.Abstract;
-using ClaspCompiler.IntermediateLocLang;
-
-namespace ClaspCompiler.CompilerPasses
+﻿namespace ClaspCompiler.CompilerPasses
 {
     //internal static class AssignHomes
     //{

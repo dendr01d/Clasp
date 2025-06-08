@@ -7,4 +7,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EditorConfigFiles Remove="C:\Users\Duncan\source\repos\Clasp\ClaspCompiler\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="C:\Users\Duncan\source\repos\Clasp\ClaspCompiler\.editorconfig" />
+  </ItemGroup>
+
 </Project>

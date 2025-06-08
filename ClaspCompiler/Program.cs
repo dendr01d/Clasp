@@ -1,81 +1,105 @@
-﻿using ClaspCompiler.IntermediateCLang;
-using ClaspCompiler.CompilerPasses;
+﻿using ClaspCompiler.CompilerPasses;
+using ClaspCompiler.IntermediateCps;
 using ClaspCompiler.SchemeData;
-using ClaspCompiler.IntermediateStackLang;
 using ClaspCompiler.SchemeSemantics;
-using ClaspCompiler.Tokens;
-using ClaspCompiler.SchemeSyntax.Abstract;
 using ClaspCompiler.SchemeSyntax;
-using ClaspCompiler.CompilerData;
-using ClaspCompiler.IntermediateLocLang;
+using ClaspCompiler.Tokens;
 
 namespace ClaspCompiler
 {
     internal class Program
     {
-        private static readonly string[] testPrograms = new string[]
-        {
+        private static readonly string[] _testPrograms =
+        [
+            "(+ (read) (- (+ 5 3)))",
             "(let ([x 32]) (+ (let ([x 10]) x) x))",
-            "(let ([x (+ 12 20)]) (+ 10 x))",
-            "(let ([x (read)]) (let ([y (read)]) (+ x (- y))))",
-            "(let ([x (let ([x 4]) (+ x 1))]) (+ x 2))",
+            "(let ([x (let ([x 4]) (+ x 1))]) (+x 2))",
             "(+ 52 (- 10))",
             "(let ([a 42]) (let ([b a]) b))",
-            "(let ([v 1]) (let ([w 46]) (let ([x (+ v 7)]) (let ([y (+ 4 x)]) (let ([z (+ x w)])(+ z (- y)))))))"
-        };
+            "(let ([y (let ([x 20]) (+ x (let ([x 22]) x)))]) y)",
 
-        private static void Main(string[] args)
+            "(let ([x (+ 12 20)]) (+ 10 x))",
+            "(let ([x (read)]) (let ([y (read)]) (+ x (- y))))",
+            "(let ([v 1]) (let ([w 46]) (let ([x (+ v 7)]) (let ([y (+ 4 x)]) (let ([z (+ x w)])(+ z (- y)))))))",
+
+            "(let ((x (read))) (let ((y (read))) (let ((z (+ x x))) (let ((w (- z))) (let ((a (+ z y))) (let ((b 5)) (let ((c y)) (+ x w))))))))",
+
+            "(let ((x (read))) (if (< x 0) (- x) (+ 10 x)))",
+
+            "(if (if (eq? (read) 1) (eq? (read) 0) (eq? (read) 2)) (+ 10 32) (+ 700 77))"
+
+            //"(vector-ref (vector-ref (vector (vector 42)) 0) 0)"
+        ];
+
+        private static void Main()
         {
-            foreach (string program in testPrograms)
+            Console.WriteLine();
+
+            int counter = 1;
+
+            foreach (string program in _testPrograms)
             {
-                Var.ResetGenerator();
-                
+                Symbol.ResetInterment();
+
                 Console.WriteLine(new string('=', 65));
                 Console.WriteLine();
 
                 AnnounceProgram("Raw Input", program);
 
-                TokenStream tokens = Tokenize.Execute("Test Program", program);
-                //AnnounceProgram("Token Stream", tokens);
+                TokenStream tokens = Tokenize.Execute($"Test Program #{counter}", program);
+                AnnounceProgram("Token Stream", tokens);
 
-                ProgS1 stx = ParseSyntax.Execute(tokens);
-                //AnnounceProgram("Syntax", stx.ToString());
+                Prog_Stx stxProg = ParseSyntax.Execute(tokens);
+                AnnounceProgram("Scheme Syntax", stxProg);
 
-                ProgR1 semProg = ParseSemantics.Execute(stx);
-                //AnnounceProgram("Semantics", semProg);
+                Prog_Stx stxPainted = PaintLexicalScopes.Execute(stxProg);
+                Prog_Stx stxScoped = UniquifyByScope.Execute(stxPainted);
+                AnnounceProgram("Scoped Identifiers", stxScoped);
 
-                ProgR1 semProgUniqueVars = Uniquify.Execute(semProg);
-                //AnnounceProgram("Unique Vars", semProgUniqueVars);
+                Prog_Sem semProg = ParseSemantics.Execute(stxScoped);
+                AnnounceProgram("Scheme Semantics", semProg);
 
-                ProgR1 semProgNoComplex = RemoveComplexOperants.Execute(semProgUniqueVars);
-                //AnnounceProgram("Removed Complex Operants", semProgNoComplex);
+                Prog_Sem semProgTypeChecked = TypeCheckSemantics.Execute(semProg);
+                AnnounceProgram("Type-Checked Semantics", semProgTypeChecked);
 
-                ProgC0 normProg = ExplicateControl.Execute(semProgNoComplex);
-                //AnnounceProgram("A-Normal Form", normProg);
+                Prog_Sem semProgSimpleArgs = RemoveComplexOpera.Execute(semProgTypeChecked);
+                AnnounceProgram("Simplified Opera*", semProgSimpleArgs);
 
-                ProgC0 normTyped = TypeCheckVars.Execute(normProg);
-                //AnnounceProgram("Checked Types", normTyped);
+                //Prog_Sem semProgSimpleMath = SimplifyMath.Execute(semProgSimpleArgs);
+                //AnnounceProgram("Simplified Math", semProgSimpleMath);
 
-                ProgLoc0 ilProg = SelectInstructions.Execute(normTyped);
-                //AnnounceProgram("Pseudo-IL", ilProg);
+                Prog_Cps cpsProg = ExplicateControl.Execute(semProgSimpleArgs);
+                AnnounceProgram("Explicated Control", cpsProg);
 
-                //ProgIl0 ilProgNoVars = AssignHomes.Execute(ilProg);
-                //AnnounceProgram("Assigned Local Variable Homes", ilProgNoVars);
+                //Prog_Cps cpsInlined = InlineAssignments.Execute(cpsProg);
+                //AnnounceProgram("Inlined Redundant Assignments", cpsInlined);
 
-                ProgLoc0 ilProgLiveMems = UncoverLive.Execute(ilProg);
-                //AnnounceProgram("Analyzed Liveness of Mems", ilProgLiveMems);
+                ////another math pass here
 
-                ProgLoc0 ilProgWithInterference = BuildInterferenceGraph.Execute(ilProgLiveMems);
-                //AnnounceProgram("Built Interference Graph", ilProgWithInterference);
+                //Prog_Cil cilProg = SelectInstructions.Execute(cpsInlined);
+                //AnnounceProgram("Selected CIL Instructions", cilProg);
 
-                ProgLoc0 ilProgHomedVars = AllocateRegisters.Execute(ilProgWithInterference);
-                //AnnounceProgram("Assigned Homes to Vars", ilProgHomedVars);
+                //Prog_Cil cilProgWithLiveness = UncoverLive.Execute(cilProg);
+                //Prog_Cil cilProgWithInterference = BuildInteferenceGraph.Execute(cilProgWithLiveness);
+                //Prog_Cil cilProgWithLocalHomes = AllocateRegisters.Execute(cilProgWithInterference);
+                //AnnounceProgram("Allocated Homes for Locals", cilProgWithLocalHomes);
 
-                ProgStack0 ilProgPatched = PatchInstructions.Execute(ilProgHomedVars);
-                AnnounceProgram("Patched weird instructions", ilProgPatched);
+                //Console.WriteLine();
+                //AnnounceProgram("CPS-Translated Program", cpsInlined);
+                //Console.WriteLine();
+
+                //Console.WriteLine("*** Running Interpreter ***");
+                //ICpsExp output = Interpreter.Interpret(cpsInlined, Prog_Cps.StartLabel);
+                //Console.WriteLine("--> {0}", output);
+
+
+                Console.WriteLine();
+
+                counter++;
             }
 
             Console.WriteLine();
+            Console.Write("Press any key to continue");
             Console.ReadKey(true);
         }
 

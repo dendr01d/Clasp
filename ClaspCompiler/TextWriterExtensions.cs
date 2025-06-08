@@ -1,5 +1,7 @@
 ﻿using System.Text;
 
+using ClaspCompiler.SchemeData.Abstract;
+
 namespace ClaspCompiler
 {
     internal static class TextWriterExtensions
@@ -11,87 +13,136 @@ namespace ClaspCompiler
         }
 
         public static void WriteIndenting(this TextWriter writer, char indentingChar, ref int indent)
-        {
-            writer.Write(indentingChar);
-            indent += 1;
-        }
-
-        public static void Indent(this TextWriter writer, int indent)
-        {
-            writer.Write(new string(' ', indent));
-        }
-
-        public static void WriteLineIndent(this TextWriter writer, string line, int indent)
-        {
-            writer.WriteLine(line);
-            Indent(writer, indent);
-        }
-
-        public static void WriteLineIndent(this TextWriter writer, int indent)
-            => WriteLineIndent(writer, string.Empty, indent);
-
-        public static void Write(this TextWriter writer, IPrintable term, int indent)
-        {
-            term.Print(writer, indent);
-        }
+            => writer.WriteIndenting(indentingChar.ToString(), ref indent);
 
         public static void WriteIndenting(this TextWriter writer, IPrintable term, ref int indent)
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
             TextWriter temp = new StringWriter(sb);
 
             term.Print(temp, indent);
 
             string output = sb.ToString();
-            indent += output.Split(Environment.NewLine).FirstOrDefault()?.Length ?? 0;
+            indent += output.TakeWhile(x => !char.IsWhiteSpace(x)).Count();
             writer.Write(output);
         }
 
-        public static void WriteWithComment(this TextWriter writer, IPrintable term, int paddedWidth, string comment)
+        public static void Indent(this TextWriter writer, int indentLength)
+            => writer.Write(new string(' ', indentLength));
+
+        public static void WriteLineIndent(this TextWriter writer, string line, int indentLength)
         {
-            if (string.IsNullOrWhiteSpace(comment))
+            writer.WriteLine(line);
+            writer.Indent(indentLength);
+        }
+
+        public static void WriteLineIndent(this TextWriter writer, IPrintable term, int indent)
+        {
+            Write(writer, term, indent);
+            WriteLineIndent(writer, indent);
+        }
+
+        public static void WriteLineIndent(this TextWriter writer, int indentLength)
+            => writer.WriteLineIndent(string.Empty, indentLength);
+
+        public static void Write(this TextWriter writer, IPrintable term, int indent)
+            => term.Print(writer, indent);
+
+        public static void WriteLineByLine<T>(this TextWriter writer, IEnumerable<T> items, Action<TextWriter, T, int> printer, int indent)
+        {
+            if (!items.Any()) return;
+
+            printer.Invoke(writer, items.First(), indent);
+
+            foreach (T item in items.Skip(1))
             {
-                writer.Write(term.ToString());
-            }
-            else
-            {
-                string format = $"{{0,{paddedWidth}}}{{1}}";
-                writer.Write(format, term.ToString(), comment);
+                writer.WriteLineIndent(indent);
+                printer.Invoke(writer, item, indent);
             }
         }
 
-        public static void WriteApplication(this TextWriter writer, string op, IPrintable[] args, int indent)
-        {
-            WriteIndenting(writer, '(', ref indent);
-            WriteIndenting(writer, op, ref indent);
+        public static void WriteLineByLine(this TextWriter writer, IEnumerable<IPrintable> items, int indent)
+            => WriteLineByLine(writer, items, Write, indent);
 
-            if (args.Length > 0)
+        #region Cons
+
+        public static void WriteCons<T>(this TextWriter writer, ICons<T> cns, int indent)
+            where T : ISchemeExp
+        {
+            writer.WriteIndenting('(', ref indent);
+            writer.Write(cns.Car, indent);
+            WriteCdr(writer, cns.Cdr, indent);
+            writer.Write(')');
+        }
+
+        private static void WriteCdr<T>(TextWriter writer, T term, int indent)
+            where T : ISchemeExp
+        {
+            if (!term.IsNil)
             {
-                if (args.All(x => !x.CanBreak))
+                writer.WriteLineIndent(indent);
+
+                if (term is ICons<T> cns)
                 {
-                    foreach (IPrintable arg in args)
-                    {
-                        writer.Write(' ');
-                        arg.Print(writer, indent);
-                    }
+                    writer.Write(cns.Car, indent);
+                    WriteCdr(writer, cns.Cdr, indent);
                 }
                 else
                 {
+                    writer.Write(term);
+                }
+            }
+        }
+
+        #endregion
+
+        #region Application Form
+
+        public static void WriteApplication(this TextWriter writer, string op, IEnumerable<IPrintable> args, int indent)
+        {
+            writer.WriteIndenting('(', ref indent);
+            writer.WriteIndenting(op, ref indent);
+            WriteArgs(writer, args, op.Contains(Environment.NewLine), indent);
+            writer.Write(')');
+        }
+
+        public static void WriteApplication(this TextWriter writer, IPrintable op, IEnumerable<IPrintable> args, int indent)
+        {
+            writer.WriteIndenting('(', ref indent);
+            writer.WriteIndenting(op, ref indent);
+            WriteArgs(writer, args, op.BreaksLine, indent);
+            writer.Write(')');
+        }
+
+        private static void WriteArgs(TextWriter writer, IEnumerable<IPrintable> args, bool opBreaksLine, int indent)
+        {
+            if (args.Any())
+            {
+                if (args.Any(x => x.BreaksLine))
+                {
+                    if (opBreaksLine)
+                    {
+                        indent += 2;
+                        writer.WriteLineIndent(indent);
+                    }
+
                     writer.WriteIndenting(' ', ref indent);
-                    args[0].Print(writer, indent);
+                    writer.Write(args.First(), indent);
 
                     foreach (IPrintable arg in args.Skip(1))
                     {
                         writer.WriteLineIndent(indent);
-                        arg.Print(writer, indent);
+                        writer.Write(arg, indent);
                     }
                 }
+                else
+                {
+                    writer.Write(' ');
+                    writer.Write(string.Join(' ', args));
+                }
             }
-
-            writer.Write(')');
         }
 
-        public static void WriteApplication(this TextWriter writer, IPrintable op, IPrintable[] args, int indent)
-            => WriteApplication(writer, op.ToString(), args, indent);
+        #endregion
     }
 }

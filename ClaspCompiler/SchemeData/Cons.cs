@@ -21,9 +21,10 @@ namespace ClaspCompiler.SchemeData
         public void SetCar(ISchemeExp car) => Car = car;
         public void SetCdr(ISchemeExp cdr) => Cdr = cdr;
 
-        public bool CanBreak => true;
-        public override string ToString() => IConsExtensions.ToString(this);
-        public void Print(TextWriter writer, int indent) => IConsExtensions.Print(this, writer, indent);
+        bool IPrintable.BreaksLine => Car.BreaksLine || Cdr is ICons<ISchemeExp>;
+        public string AsString => this.Stringify();
+        public void Print(TextWriter writer, int indent) => writer.WriteCons(this, indent);
+        public sealed override string ToString() => AsString;
 
         public IEnumerator<ISchemeExp> GetEnumerator() => this.Enumerate();
         IEnumerator IEnumerable.GetEnumerator() => this.Enumerate();

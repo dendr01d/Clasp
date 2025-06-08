@@ -2,17 +2,19 @@
 
 namespace ClaspCompiler.Tokens
 {
-    internal sealed class Token
+    internal sealed record Token
     {
-        public readonly TokenType Type;
-        public readonly SourceRef Source; 
+        public TokenType Type { get; init; }
+        public SourceRef Source { get; init; }
+        public string Text { get; init; }
 
-        public Token(TokenType tt, SourceRef source)
+        public Token(TokenType tt, SourceRef source, string text)
         {
             Type = tt;
             Source = source;
+            Text = text;
         }
 
-        public override string ToString() => Source.GetSnippet().ToString();
+        public override string ToString() => Text;
     }
 }

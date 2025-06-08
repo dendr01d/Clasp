@@ -1,6 +1,9 @@
 ﻿namespace ClaspCompiler.SchemeData.Abstract
 {
-    internal abstract record ValueBase<T> : IEquatable<ValueBase<T>>, IPrintable
+    /// <summary>
+    /// A base for specifying shared behavior of certain <see cref="IValue"/> types.
+    /// </summary>
+    internal abstract record ValueBase<T> : IEquatable<ValueBase<T>>, IValue
         where T : struct
     {
         public readonly T Value;
@@ -10,8 +13,9 @@
 
         protected ValueBase(T value) => Value = value;
 
-        public bool CanBreak => false;
-        public sealed override string ToString() => Value.ToString() ?? "<?>";
-        public void Print(TextWriter writer, int indent) => writer.Write(ToString());
+        public bool BreaksLine => false;
+        public string AsString => Value.ToString() ?? "<?>";
+        public void Print(TextWriter writer, int indent) => writer.Write(AsString);
+        public sealed override string ToString() => AsString;
     }
 }

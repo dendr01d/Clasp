@@ -5,6 +5,12 @@ namespace ClaspCompiler
     internal interface IPrintable
     {
         /// <summary>
+        /// Formats this object as a string.
+        /// </summary>
+        /// <remarks>Becuase there's no way of directly forcing a <see cref="ToString"/> override...</remarks>
+        public string AsString { get; }
+
+        /// <summary>
         /// Standard override of <see cref="object.ToString"/> that formats this object as text on a single line.
         /// </summary>
         [MemberNotNull]
@@ -18,8 +24,8 @@ namespace ClaspCompiler
         /// 
         public void Print(TextWriter writer, int indent);
         /// <summary>
-        /// Indicates whether or not the printed form of this object may contain line breaks.
+        /// Indicates whether or not the printed form of this object (possibly) contains line breaks.
         /// </summary>
-        public bool CanBreak { get; }
+        public bool BreaksLine { get; }
     }
 }

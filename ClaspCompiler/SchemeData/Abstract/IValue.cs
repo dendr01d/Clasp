@@ -1,7 +1,7 @@
-﻿using ClaspCompiler.IntermediateLocLang.Abstract;
-using ClaspCompiler.IntermediateStackLang.Abstract;
-
-namespace ClaspCompiler.SchemeData.Abstract
+﻿namespace ClaspCompiler.SchemeData.Abstract
 {
-    internal interface IValue : IAtom, ILocArg, IStackArg { }
+    /// <summary>
+    /// An atomic scheme datum that maps to a primitive type
+    /// </summary>
+    internal interface IValue : IAtom { }
 }

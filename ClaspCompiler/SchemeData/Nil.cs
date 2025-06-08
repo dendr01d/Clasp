@@ -2,7 +2,7 @@
 
 namespace ClaspCompiler.SchemeData
 {
-    internal sealed class Nil : IAtom, IEquatable<Nil>
+    internal sealed record Nil : IAtom
     {
         public static readonly Nil Instance = new();
 
@@ -11,17 +11,10 @@ namespace ClaspCompiler.SchemeData
 
         private Nil() { }
 
-        public override bool Equals(object? obj) => obj is Nil;
-        public bool Equals(ISchemeExp? other) => other is Nil;
-        public bool Equals(Nil? other) => other is not null;
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
-
-        public bool CanBreak => false;
-        public override string ToString() => "()";
-        public void Print(TextWriter writer, int indent) => writer.Write(ToString());
+        bool IPrintable.BreaksLine => false;
+        public string AsString => "()";
+        public void Print(TextWriter writer, int hanging = 0) => writer.Write(AsString);
+        public sealed override string ToString() => AsString;
 
     }
 }
