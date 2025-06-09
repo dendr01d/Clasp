@@ -15,12 +15,12 @@ namespace ClaspCompiler.IntermediateCps
         public string ControlCode => "IFF";
 
         public ICpsExp Condition { get; init; }
-        public GoTo Consequent { get; init; }
-        public GoTo Alternative { get; init; }
+        public ITail Consequent { get; init; }
+        public ITail Alternative { get; init; }
 
         public Dictionary<Var, int> FreeVariables { get; init; }
 
-        public Conditional(ICpsExp cond, GoTo consq, GoTo alt)
+        public Conditional(ICpsExp cond, ITail consq, ITail alt)
         {
             Condition = cond;
             Consequent = consq;

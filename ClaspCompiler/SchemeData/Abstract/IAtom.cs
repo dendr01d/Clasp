@@ -1,4 +1,5 @@
-﻿using ClaspCompiler.IntermediateCps.Abstract;
+﻿using ClaspCompiler.IntermediateCil.Abstract;
+using ClaspCompiler.IntermediateCps.Abstract;
 using ClaspCompiler.SchemeSemantics.Abstract;
 
 namespace ClaspCompiler.SchemeData.Abstract
@@ -6,6 +7,6 @@ namespace ClaspCompiler.SchemeData.Abstract
     /// <summary>
     /// A scheme datum of irreducible complexity
     /// </summary>
-    internal interface IAtom : ISchemeExp, ISemExp, ICpsArg
+    internal interface IAtom : ISchemeExp, ISemAtm, ICpsArg, ICilArg
     { }
 }

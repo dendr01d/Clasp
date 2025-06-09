@@ -1,4 +1,5 @@
 ﻿using ClaspCompiler.IntermediateCps.Abstract;
+using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeSemantics.Abstract;
 using ClaspCompiler.SchemeTypes;
 
@@ -24,5 +25,9 @@ namespace ClaspCompiler.IntermediateCps
         public string AsString => $"({Operator.Stringify()}{string.Concat(Arguments.Select(x => $" {x}"))})";
         public void Print(TextWriter writer, int indent) => writer.WriteApplication(Operator.Stringify(), Arguments, indent);
         public sealed override string ToString() => AsString;
+
+        public bool Equals(ICpsExp? other) => other is Application app
+            && Operator == app.Operator
+            && Arguments.SequenceEqual(app.Arguments);
     }
 }

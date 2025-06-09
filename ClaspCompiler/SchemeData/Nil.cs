@@ -1,4 +1,5 @@
-﻿using ClaspCompiler.SchemeData.Abstract;
+﻿using ClaspCompiler.IntermediateCps.Abstract;
+using ClaspCompiler.SchemeData.Abstract;
 
 namespace ClaspCompiler.SchemeData
 {
@@ -16,5 +17,6 @@ namespace ClaspCompiler.SchemeData
         public void Print(TextWriter writer, int hanging = 0) => writer.Write(AsString);
         public sealed override string ToString() => AsString;
 
+        public bool Equals(ICpsExp? other) => other is Nil;
     }
 }

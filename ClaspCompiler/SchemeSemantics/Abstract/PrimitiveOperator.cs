@@ -59,6 +59,16 @@ namespace ClaspCompiler.SchemeSemantics.Abstract
 
         public static bool HasSideEffect(this PrimitiveOperator op) => _impureOps.Contains(op);
 
+        private static readonly PrimitiveOperator[] _cmpOps =
+        [
+            PrimitiveOperator.Eq,
+            PrimitiveOperator.Lt,
+            PrimitiveOperator.LtE,
+            PrimitiveOperator.Gt,
+            PrimitiveOperator.GtE
+        ];
+
+        public static bool IsComparison(this PrimitiveOperator op) => _cmpOps.Contains(op);
         
         public static FunctionType GetSchemeType(this PrimitiveOperator op)
         {

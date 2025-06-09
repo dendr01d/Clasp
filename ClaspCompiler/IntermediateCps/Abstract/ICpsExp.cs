@@ -1,8 +1,9 @@
 ﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeSemantics.Abstract;
 
 namespace ClaspCompiler.IntermediateCps.Abstract
 {
-    internal interface ICpsExp : IPrintable { }
+    internal interface ICpsExp : IPrintable, IEquatable<ICpsExp> { }
 
     internal static class ICpsExpExtensions
     {
@@ -12,11 +13,14 @@ namespace ClaspCompiler.IntermediateCps.Abstract
 
             foreach (Var v in EnumerateFreeVariables(exp))
             {
-                if (!output.ContainsKey(v))
+                if (output.TryGetValue(v, out int value))
                 {
-                    output[v] = 0;
+                    output[v] = value + 1;
                 }
-                output[v]++;
+                else
+                {
+                    output[v] = 1;
+                }
             }
 
             return output;
@@ -55,7 +59,8 @@ namespace ClaspCompiler.IntermediateCps.Abstract
 
         public static bool IsIOBound(this ICpsExp exp)
         {
-            return exp is ICpsApp app && app.IsIOBound();
+            return exp is Application app
+                && (app.Operator.HasSideEffect() || app.Arguments.Any(IsIOBound));
         }
     }
 }

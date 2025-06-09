@@ -1,4 +1,5 @@
 ﻿using ClaspCompiler.CompilerPasses;
+using ClaspCompiler.IntermediateCil;
 using ClaspCompiler.IntermediateCps;
 using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeSemantics;
@@ -11,22 +12,24 @@ namespace ClaspCompiler
     {
         private static readonly string[] _testPrograms =
         [
-            "(+ (read) (- (+ 5 3)))",
-            "(let ([x 32]) (+ (let ([x 10]) x) x))",
-            "(let ([x (let ([x 4]) (+ x 1))]) (+x 2))",
-            "(+ 52 (- 10))",
-            "(let ([a 42]) (let ([b a]) b))",
-            "(let ([y (let ([x 20]) (+ x (let ([x 22]) x)))]) y)",
+            //"(+ (read) (- (+ 5 3)))",
+            //"(let ([x 32]) (+ (let ([x 10]) x) x))",
+            //"(let ([x (let ([x 4]) (+ x 1))]) (+x 2))",
+            //"(+ 52 (- 10))",
+            //"(let ([a 42]) (let ([b a]) b))",
+            //"(let ([y (let ([x 20]) (+ x (let ([x 22]) x)))]) y)",
 
-            "(let ([x (+ 12 20)]) (+ 10 x))",
-            "(let ([x (read)]) (let ([y (read)]) (+ x (- y))))",
-            "(let ([v 1]) (let ([w 46]) (let ([x (+ v 7)]) (let ([y (+ 4 x)]) (let ([z (+ x w)])(+ z (- y)))))))",
+            //"(let ([x (+ 12 20)]) (+ 10 x))",
+            //"(let ([x (read)]) (let ([y (read)]) (+ x (- y))))",
+            //"(let ([v 1]) (let ([w 46]) (let ([x (+ v 7)]) (let ([y (+ 4 x)]) (let ([z (+ x w)])(+ z (- y)))))))",
 
             "(let ((x (read))) (let ((y (read))) (let ((z (+ x x))) (let ((w (- z))) (let ((a (+ z y))) (let ((b 5)) (let ((c y)) (+ x w))))))))",
 
-            "(let ((x (read))) (if (< x 0) (- x) (+ 10 x)))",
+            //"(let ((x (read))) (if (< x 0) (- x) (+ 10 x)))",
 
-            "(if (if (eq? (read) 1) (eq? (read) 0) (eq? (read) 2)) (+ 10 32) (+ 700 77))"
+            //"(if (if (eq? (read) 1) (eq? (read) 0) (eq? (read) 2)) (+ 10 32) (+ 700 77))",
+
+            //"(let ([x (read)]) (let ([y (read)]) (if (if (< x 1) (eq? x 0) (eq? x 2)) (+ y 2) (+ y 10))))"
 
             //"(vector-ref (vector-ref (vector (vector 42)) 0) 0)"
         ];
@@ -71,13 +74,13 @@ namespace ClaspCompiler
                 Prog_Cps cpsProg = ExplicateControl.Execute(semProgSimpleArgs);
                 AnnounceProgram("Explicated Control", cpsProg);
 
-                //Prog_Cps cpsInlined = InlineAssignments.Execute(cpsProg);
-                //AnnounceProgram("Inlined Redundant Assignments", cpsInlined);
+                Prog_Cps cpsInlined = InlineAssignments.Execute(cpsProg);
+                AnnounceProgram("Inlined Redundant Assignments", cpsInlined);
 
                 ////another math pass here
 
-                //Prog_Cil cilProg = SelectInstructions.Execute(cpsInlined);
-                //AnnounceProgram("Selected CIL Instructions", cilProg);
+                Prog_Cil cilProg = SelectInstructions.Execute(cpsInlined);
+                AnnounceProgram("Selected CIL Instructions", cilProg);
 
                 //Prog_Cil cilProgWithLiveness = UncoverLive.Execute(cilProg);
                 //Prog_Cil cilProgWithInterference = BuildInteferenceGraph.Execute(cilProgWithLiveness);

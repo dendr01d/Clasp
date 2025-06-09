@@ -39,12 +39,12 @@ namespace ClaspCompiler.IntermediateCps
 
         private static void WriteLabeledTail(TextWriter writer, KeyValuePair<Label, ITail> labeledTail, int indent)
         {
-            writer.WriteIndenting('(', ref indent);
+            writer.WriteIndenting('[', ref indent);
             writer.WriteIndenting(labeledTail.Key, ref indent);
             writer.WriteIndenting(" . (", ref indent);
 
             writer.Write(labeledTail.Value, indent);
-            writer.Write("))");
+            writer.Write(")]");
         }
     }
 }

@@ -1,61 +1,60 @@
-﻿namespace ClaspCompiler.CompilerPasses
+﻿using ClaspCompiler.IntermediateCil;
+using ClaspCompiler.IntermediateCil.Abstract;
+
+namespace ClaspCompiler.CompilerPasses
 {
-    //internal class BuildInterferenceGraph
-    //{
-    //    public static ProgLoc0 Execute(ProgLoc0 program)
-    //    {
-    //        Dictionary<Var, HashSet<Var>> conflicts = [];
+    internal static class BuildInteferenceGraph
+    {
+        public static Prog_Cil Execute(Prog_Cil program)
+        {
+            var newBlocks = program.LabeledBlocks
+                .ToDictionary(x => x.Key, x => BuildInBlock(x.Value));
 
-    //        foreach (Var mem in program.LocalVariables.Keys)
-    //        {
-    //            conflicts.Add(mem, []);
-    //        }
+            return new Prog_Cil(newBlocks);
+        }
 
-    //        foreach (var pair in program.LabeledBlocks)
-    //        {
-    //            GraphBlock(pair.Value, conflicts);
-    //        }
+        private static Block BuildInBlock(Block block)
+        {
+            Dictionary<TempVar, HashSet<TempVar>> graph = new();
 
-    //        return new ProgLoc0(conflicts, program.LocalVariables, program.LabeledBlocks);
-    //    }
+            int i = 0;
 
-    //    // Siek, pg 43
-    //    private static void GraphBlock(BinaryBlock block, Dictionary<Var, HashSet<Var>> graph)
-    //    {
-    //        for (int i = 0; i < block.Instructions.Length; ++i)
-    //        {
-    //            BinaryInstruction instr = block.Instructions[i];
+            foreach (Instruction instr in block.Instructions)
+            {
+                if (instr.Operator == CilOp.Store
+                    && instr.Operand is TempVar v1)
+                {
+                    foreach (TempVar v2 in block.LivenessStatus[i + 1])
+                    {
+                        AddInterference(v1, v2, graph);
+                    }
+                }
 
-    //            if (instr.Destination is null) continue;
+                ++i;
+            }
 
-    //            if (instr.Operator == LocOp.MOVE)
-    //            {
-    //                foreach(Var liveVar in block.Liveness[i + 1])
-    //                {
-    //                    if (instr.Argument != (ILocArg)liveVar
-    //                        && instr.Destination != liveVar)
-    //                    {
-    //                        GraphInterference(instr.Destination, liveVar, graph);
-    //                    }
-    //                }
-    //            }
-    //            else
-    //            {
-    //                foreach(Var liveVar in block.Liveness[i + 1])
-    //                {
-    //                    if (instr.Destination != liveVar)
-    //                    {
-    //                        GraphInterference(instr.Destination, liveVar, graph);
-    //                    }
-    //                }
-    //            }
-    //        }
-    //    }
+            return new Block(block.Label, block.Instructions, block.LivenessStatus, graph);
+        }
 
-    //    private static void GraphInterference(Var nodeA, Var nodeB, Dictionary<Var, HashSet<Var>> graph)
-    //    {
-    //        graph[nodeA].Add(nodeB);
-    //        graph[nodeB].Add(nodeA);
-    //    }
-    //}
+        private static void AddInterference(TempVar v1, TempVar v2, Dictionary<TempVar, HashSet<TempVar>> graph)
+        {
+            if (!graph.TryGetValue(v1, out var g1))
+            {
+                g1 = new();
+                graph[v1] = g1;
+            }
+
+            if (!graph.TryGetValue(v2, out var g2))
+            {
+                g2 = new();
+                graph[v2] = g2;
+            }
+
+            if (v1 != v2)
+            {
+                g1.Add(v2);
+                g2.Add(v1);
+            }
+        }
+    }
 }

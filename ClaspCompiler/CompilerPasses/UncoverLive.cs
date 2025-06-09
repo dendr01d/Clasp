@@ -1,43 +1,53 @@
-﻿using System.Collections.Immutable;
-
-using ClaspCompiler.CompilerData;
+﻿using ClaspCompiler.IntermediateCil;
+using ClaspCompiler.IntermediateCil.Abstract;
 
 namespace ClaspCompiler.CompilerPasses
 {
-    //internal static class UncoverLive
-    //{
-    //    public static ProgLoc0 Execute(ProgLoc0 program)
-    //    {
+    internal static class UncoverLive
+    {
+        public static Prog_Cil Execute(Prog_Cil program)
+        {
+            var newBlocks = program.LabeledBlocks
+                .ToDictionary(x => x.Key, x => UncoverInBlock(x.Value));
 
-    //        var updatedBlocks = program.LabeledBlocks
-    //            .ToDictionary(x => x.Key, x => AnalyzeBlock(x.Value));
+            return new Prog_Cil(newBlocks);
+        }
 
-    //        return new ProgLoc0(program.LocalVariables, updatedBlocks);
-    //    }
+        private static Block UncoverInBlock(Block block)
+        {
+            IEnumerable<HashSet<TempVar>> liveness = UncoverInInstructions(block.Instructions).Reverse();
 
-    //    private static BinaryBlock AnalyzeBlock(BinaryBlock block)
-    //    {
-    //        List<ImmutableHashSet<Var>> livenessChain = [];
-    //        ImmutableHashSet<Var> liveSet = [];
+            return new Block(block.Label, block.Instructions, liveness);
+        }
 
-    //        livenessChain.Add(liveSet);
+        private static IEnumerable<HashSet<TempVar>> UncoverInInstructions(IEnumerable<Instruction> instrs)
+        {
+            HashSet<TempVar> liveVars = new();
 
-    //        foreach (BinaryInstruction instr in block.Instructions.Reverse())
-    //        {
-    //            if (instr.Destination is not null)
-    //            {
-    //                liveSet = liveSet.Remove(instr.Destination);
-    //            }
+            yield return liveVars;
 
-    //            if (instr.Argument is Var v)
-    //            {
-    //                liveSet = liveSet.Add(v);
-    //            }
+            foreach (Instruction instr in instrs.Reverse())
+            {
+                liveVars = (liveVars.Except(WriteSet(instr))).Union(ReadSet(instr)).ToHashSet();
 
-    //            livenessChain.Add(liveSet);
-    //        }
+                yield return liveVars;
+            }
+        }
 
-    //        return new BinaryBlock(livenessChain.AsEnumerable().Reverse(), block.Instructions);
-    //    }
-    //}
+        private static HashSet<TempVar> WriteSet(Instruction instr)
+        {
+            return instr.Operator == CilOp.Store
+                && instr.Operand is TempVar v
+                ? [v]
+                : [];
+        }
+
+        private static HashSet<TempVar> ReadSet(Instruction instr)
+        {
+            return instr.Operator == CilOp.Load
+                && instr.Operand is TempVar v
+                ? [v]
+                : [];
+        }
+    }
 }

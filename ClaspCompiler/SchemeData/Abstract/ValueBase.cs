@@ -1,4 +1,6 @@
-﻿namespace ClaspCompiler.SchemeData.Abstract
+﻿using ClaspCompiler.IntermediateCps.Abstract;
+
+namespace ClaspCompiler.SchemeData.Abstract
 {
     /// <summary>
     /// A base for specifying shared behavior of certain <see cref="IValue"/> types.
@@ -17,5 +19,7 @@
         public string AsString => Value.ToString() ?? "<?>";
         public void Print(TextWriter writer, int indent) => writer.Write(AsString);
         public sealed override string ToString() => AsString;
+
+        public bool Equals(ICpsExp? other) => other is ValueBase<T> vb && Value.Equals(vb.Value);
     }
 }

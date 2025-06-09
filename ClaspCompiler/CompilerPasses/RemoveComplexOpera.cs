@@ -42,8 +42,8 @@ namespace ClaspCompiler.CompilerPasses
         {
             return input switch
             {
-                Let let => new Let(let.Variable, RcoArg(let.Argument, bindings), RcoNewScope(let.Body)),
-                If branch => new If(RcoArg(branch.Condition, bindings), RcoExpression(branch.Consequent, bindings), RcoExpression(branch.Alternative, bindings)),
+                Let let => new Let(let.Variable, RcoExpression(let.Argument, bindings), RcoNewScope(let.Body)),
+                If branch => new If(RcoExpression(branch.Condition, bindings), RcoExpression(branch.Consequent, bindings), RcoExpression(branch.Alternative, bindings)),
                 PrimitiveApplication pApp => new PrimitiveApplication(pApp.Operator, pApp.Arguments.Select(x => RcoArg(x, bindings))),
                 _ => input
             };
