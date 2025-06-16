@@ -61,23 +61,23 @@ namespace ClaspCompiler.CompilerPasses
 
             return varOp.Name switch
             {
-                Keyword.READ => new PrimitiveApplication(PrimitiveOperator.Read),
+                Keyword.READ => new SemApp(PrimitiveOperator.Read),
 
-                Keyword.MINUS when pArgs.Length == 1 => new PrimitiveApplication(PrimitiveOperator.Neg, pArgs[0]),
-                Keyword.MINUS when pArgs.Length == 2 => new PrimitiveApplication(PrimitiveOperator.Sub, pArgs[0]),
+                Keyword.MINUS when pArgs.Length == 1 => new SemApp(PrimitiveOperator.Neg, pArgs[0]),
+                Keyword.MINUS when pArgs.Length == 2 => new SemApp(PrimitiveOperator.Sub, pArgs[0]),
 
                 Keyword.PLUS when pArgs.Length == 0 => new Integer(0),
                 Keyword.PLUS when pArgs.Length == 1 => pArgs[0],
                 Keyword.PLUS when pArgs.Length >= 2 => ParseRecursiveApplication(PrimitiveOperator.Add, pArgs[0], pArgs[1], pArgs[2..]),
 
-                Keyword.EQ => new PrimitiveApplication(PrimitiveOperator.Eq, pArgs),
+                Keyword.EQ => new SemApp(PrimitiveOperator.Eq, pArgs),
 
-                Keyword.LT => new PrimitiveApplication(PrimitiveOperator.Lt, pArgs),
-                Keyword.LTE => new PrimitiveApplication(PrimitiveOperator.LtE, pArgs),
-                Keyword.GT => new PrimitiveApplication(PrimitiveOperator.Gt, pArgs),
-                Keyword.GTE => new PrimitiveApplication(PrimitiveOperator.GtE, pArgs),
+                Keyword.LT => new SemApp(PrimitiveOperator.Lt, pArgs),
+                Keyword.LTE => new SemApp(PrimitiveOperator.LtE, pArgs),
+                Keyword.GT => new SemApp(PrimitiveOperator.Gt, pArgs),
+                Keyword.GTE => new SemApp(PrimitiveOperator.GtE, pArgs),
 
-                Keyword.NOT => new PrimitiveApplication(PrimitiveOperator.Not, pArgs),
+                Keyword.NOT => new SemApp(PrimitiveOperator.Not, pArgs),
 
                 _ => throw new Exception($"Can't parse application of '{varOp}' to args: {args}")
             };
@@ -105,7 +105,7 @@ namespace ClaspCompiler.CompilerPasses
             return preArgs[..^1].Select(ParseSyntax).ToArray();
         }
 
-        private static PrimitiveApplication ParseRecursiveApplication(PrimitiveOperator op, ISemExp arg1, ISemExp arg2, ISemExp[] moreArgs)
+        private static SemApp ParseRecursiveApplication(PrimitiveOperator op, ISemExp arg1, ISemExp arg2, ISemExp[] moreArgs)
         {
             if (moreArgs.Length > 0)
             {
@@ -113,7 +113,7 @@ namespace ClaspCompiler.CompilerPasses
             }
             else
             {
-                return new PrimitiveApplication(op, arg1, arg2);
+                return new SemApp(op, arg1, arg2);
             }
         }
 

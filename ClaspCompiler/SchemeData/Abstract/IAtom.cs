@@ -7,6 +7,6 @@ namespace ClaspCompiler.SchemeData.Abstract
     /// <summary>
     /// A scheme datum of irreducible complexity
     /// </summary>
-    internal interface IAtom : ISchemeExp, ISemAtm, ICpsArg, ICilArg
+    internal interface IAtom : ISchemeExp
     { }
 }

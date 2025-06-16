@@ -1,5 +1,6 @@
 ﻿using ClaspCompiler.IntermediateCps.Abstract;
 using ClaspCompiler.SchemeData.Abstract;
+using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.SchemeData
 {
@@ -7,16 +8,15 @@ namespace ClaspCompiler.SchemeData
     {
         public static readonly Nil Instance = new();
 
+        public SchemeType Type => AtomicType.Nil;
         public bool IsAtom => true;
         public bool IsNil => true;
 
         private Nil() { }
 
-        bool IPrintable.BreaksLine => false;
+        public bool BreaksLine => false;
         public string AsString => "()";
-        public void Print(TextWriter writer, int hanging = 0) => writer.Write(AsString);
+        public void Print(TextWriter writer, int indent) => writer.Write(AsString);
         public sealed override string ToString() => AsString;
-
-        public bool Equals(ICpsExp? other) => other is Nil;
     }
 }

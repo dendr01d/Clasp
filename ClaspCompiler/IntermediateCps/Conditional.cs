@@ -1,12 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using ClaspCompiler.CompilerData;
+﻿using ClaspCompiler.CompilerData;
 using ClaspCompiler.IntermediateCps.Abstract;
-using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.IntermediateCps
 {

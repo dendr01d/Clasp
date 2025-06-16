@@ -1,4 +1,5 @@
 ﻿using ClaspCompiler.IntermediateCps.Abstract;
+using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.SchemeData.Abstract
 {
@@ -10,13 +11,18 @@ namespace ClaspCompiler.SchemeData.Abstract
     {
         public readonly T Value;
 
+        public SchemeType Type { get; init; }
         public bool IsAtom => true;
         public bool IsNil => false;
 
-        protected ValueBase(T value) => Value = value;
+        protected ValueBase(T value, SchemeType type)
+        {
+            Value = value;
+            Type = type;
+        }
 
         public bool BreaksLine => false;
-        public string AsString => Value.ToString() ?? "<?>";
+        public virtual string AsString => Value.ToString() ?? "<?>";
         public void Print(TextWriter writer, int indent) => writer.Write(AsString);
         public sealed override string ToString() => AsString;
 

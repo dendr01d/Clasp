@@ -1,7 +1,6 @@
 ﻿using System.Collections.Immutable;
 
 using ClaspCompiler.CompilerData;
-using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.SchemeSemantics.Abstract
 {
@@ -69,29 +68,29 @@ namespace ClaspCompiler.SchemeSemantics.Abstract
         ];
 
         public static bool IsComparison(this PrimitiveOperator op) => _cmpOps.Contains(op);
-        
-        public static FunctionType GetSchemeType(this PrimitiveOperator op)
-        {
-            return op switch
-            {
-                PrimitiveOperator.Read => new(AtomicType.Integer),
 
-                PrimitiveOperator.Add => new(AtomicType.Integer, AtomicType.Integer, AtomicType.Integer),
-                PrimitiveOperator.Sub => new(AtomicType.Integer, AtomicType.Integer, AtomicType.Integer),
-                PrimitiveOperator.Neg => new(AtomicType.Integer, AtomicType.Integer),
+        //public static FunctionType GetSchemeType(this PrimitiveOperator op)
+        //{
+        //    return op switch
+        //    {
+        //        PrimitiveOperator.Read => new(AtomicType.Integer),
 
-                PrimitiveOperator.Lt => new(AtomicType.Boole, AtomicType.Integer, AtomicType.Integer),
-                PrimitiveOperator.LtE => new(AtomicType.Boole, AtomicType.Integer, AtomicType.Integer),
-                PrimitiveOperator.Gt => new(AtomicType.Boole, AtomicType.Integer, AtomicType.Integer),
-                PrimitiveOperator.GtE => new(AtomicType.Boole, AtomicType.Integer, AtomicType.Integer),
+        //        PrimitiveOperator.Add => new(AtomicType.Integer, AtomicType.Integer, AtomicType.Integer),
+        //        PrimitiveOperator.Sub => new(AtomicType.Integer, AtomicType.Integer, AtomicType.Integer),
+        //        PrimitiveOperator.Neg => new(AtomicType.Integer, AtomicType.Integer),
 
-                PrimitiveOperator.Not => new(AtomicType.Boole, AtomicType.Boole),
+        //        PrimitiveOperator.Lt => new(AtomicType.Boole, AtomicType.Integer, AtomicType.Integer),
+        //        PrimitiveOperator.LtE => new(AtomicType.Boole, AtomicType.Integer, AtomicType.Integer),
+        //        PrimitiveOperator.Gt => new(AtomicType.Boole, AtomicType.Integer, AtomicType.Integer),
+        //        PrimitiveOperator.GtE => new(AtomicType.Boole, AtomicType.Integer, AtomicType.Integer),
 
-                PrimitiveOperator.And => new(AtomicType.Boole, AtomicType.Boole, AtomicType.Boole),
-                PrimitiveOperator.Or => new(AtomicType.Boole, AtomicType.Boole, AtomicType.Boole),
+        //        PrimitiveOperator.Not => new(AtomicType.Boole, AtomicType.Boole),
 
-                _ => throw new Exception($"Can't automatically type operator: {op}")
-            };
-        }
+        //        PrimitiveOperator.And => new(AtomicType.Boole, AtomicType.Boole, AtomicType.Boole),
+        //        PrimitiveOperator.Or => new(AtomicType.Boole, AtomicType.Boole, AtomicType.Boole),
+
+        //        _ => throw new Exception($"Can't automatically type operator: {op}")
+        //    };
+        //}
     }
 }

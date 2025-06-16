@@ -1,11 +1,13 @@
 ﻿using System.Collections;
 
 using ClaspCompiler.SchemeData.Abstract;
+using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.SchemeData
 {
     internal sealed class Cons : ISchemeExp, ICons<ISchemeExp>
     {
+        public SchemeType Type => UnknownType.Type;
         public ISchemeExp Car { get; private set; }
         public ISchemeExp Cdr { get; private set; }
 

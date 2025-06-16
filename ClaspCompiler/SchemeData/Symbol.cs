@@ -1,5 +1,6 @@
 ﻿using ClaspCompiler.IntermediateCps.Abstract;
 using ClaspCompiler.SchemeData.Abstract;
+using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.SchemeData
 {
@@ -9,6 +10,7 @@ namespace ClaspCompiler.SchemeData
 
         public readonly string Name;
 
+        public SchemeType Type => AtomicType.Symbol;
         public bool IsAtom => true;
         public bool IsNil => false;
 

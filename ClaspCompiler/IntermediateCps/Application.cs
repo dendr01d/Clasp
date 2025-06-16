@@ -1,7 +1,5 @@
 ﻿using ClaspCompiler.IntermediateCps.Abstract;
-using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeSemantics.Abstract;
-using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.IntermediateCps
 {

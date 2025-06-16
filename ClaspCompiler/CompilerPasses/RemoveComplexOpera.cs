@@ -44,7 +44,7 @@ namespace ClaspCompiler.CompilerPasses
             {
                 Let let => new Let(let.Variable, RcoExpression(let.Argument, bindings), RcoNewScope(let.Body)),
                 If branch => new If(RcoExpression(branch.Condition, bindings), RcoExpression(branch.Consequent, bindings), RcoExpression(branch.Alternative, bindings)),
-                PrimitiveApplication pApp => new PrimitiveApplication(pApp.Operator, pApp.Arguments.Select(x => RcoArg(x, bindings))),
+                SemApp pApp => new SemApp(pApp.Operator, pApp.Arguments.Select(x => RcoArg(x, bindings))),
                 _ => input
             };
         }
@@ -71,7 +71,7 @@ namespace ClaspCompiler.CompilerPasses
                 bindings.Push(new(newVar, newBranch));
                 return newVar;
             }
-            else if (input is PrimitiveApplication pApp)
+            else if (input is SemApp pApp)
             {
                 if (pApp.Operator.HasSideEffect())
                 {
@@ -87,7 +87,7 @@ namespace ClaspCompiler.CompilerPasses
                 {
                     // Other application forms aren't inherently complex.
 
-                    return new PrimitiveApplication(pApp.Operator, pApp.Arguments.Select(x => RcoArg(x, bindings)));
+                    return new SemApp(pApp.Operator, pApp.Arguments.Select(x => RcoArg(x, bindings)));
                 }
             }
             else

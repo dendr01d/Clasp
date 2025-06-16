@@ -6,9 +6,21 @@
         private AtomicType(string typeName) => _typeName = typeName;
         public override string AsString => _typeName;
 
-        public static readonly AtomicType Integer = new("Integer");
-        public static readonly AtomicType Boole = new("Boolean");
+        //public static readonly AtomicType True = new("True");
+        //public static readonly AtomicType False = new("False");
 
+        public static readonly AtomicType Integer = new("Integer");
+        public static readonly AtomicType Boole = new("Boole");
+
+        public static readonly AtomicType Symbol = new("Symbol");
+        public static readonly AtomicType Nil = new("Nil");
+
+        public static readonly AtomicType Syntax = new("Syntax");
+
+        public static readonly AtomicType Any = new("Any");
         public static readonly AtomicType Void = new("Void");
+        public static readonly AtomicType Undefined = new("Undefined");
+
+        public static readonly AtomicType Unknown = new("Unknown");
     }
 }

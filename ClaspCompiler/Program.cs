@@ -1,4 +1,7 @@
-﻿using ClaspCompiler.CompilerPasses;
+﻿using System.ComponentModel;
+using System.Text;
+
+using ClaspCompiler.CompilerPasses;
 using ClaspCompiler.IntermediateCil;
 using ClaspCompiler.IntermediateCps;
 using ClaspCompiler.SchemeData;
@@ -23,7 +26,7 @@ namespace ClaspCompiler
             //"(let ([x (read)]) (let ([y (read)]) (+ x (- y))))",
             //"(let ([v 1]) (let ([w 46]) (let ([x (+ v 7)]) (let ([y (+ 4 x)]) (let ([z (+ x w)])(+ z (- y)))))))",
 
-            "(let ((x (read))) (let ((y (read))) (let ((z (+ x x))) (let ((w (- z))) (let ((a (+ z y))) (let ((b 5)) (let ((c y)) (+ x w))))))))",
+            //"(let ((x (read))) (let ((y (read))) (let ((z (+ x x))) (let ((w (- z))) (let ((a (+ z y))) (let ((b 5)) (let ((c y)) (+ x w))))))))",
 
             //"(let ((x (read))) (if (< x 0) (- x) (+ 10 x)))",
 
@@ -32,11 +35,16 @@ namespace ClaspCompiler
             //"(let ([x (read)]) (let ([y (read)]) (if (if (< x 1) (eq? x 0) (eq? x 2)) (+ y 2) (+ y 10))))"
 
             //"(vector-ref (vector-ref (vector (vector 42)) 0) 0)"
+
+            "((lambda (x) (+ x 2)) 3)"
         ];
 
         private static void Main()
         {
             Console.WriteLine();
+
+            //PrintAllCharacters();
+            //return;
 
             int counter = 1;
 
@@ -62,25 +70,25 @@ namespace ClaspCompiler
                 Prog_Sem semProg = ParseSemantics.Execute(stxScoped);
                 AnnounceProgram("Scheme Semantics", semProg);
 
-                Prog_Sem semProgTypeChecked = TypeCheckSemantics.Execute(semProg);
-                AnnounceProgram("Type-Checked Semantics", semProgTypeChecked);
+                //Prog_Sem semProgTypeChecked = TypeCheckSemantics.Execute(semProg);
+                //AnnounceProgram("Type-Checked Semantics", semProgTypeChecked);
 
-                Prog_Sem semProgSimpleArgs = RemoveComplexOpera.Execute(semProgTypeChecked);
-                AnnounceProgram("Simplified Opera*", semProgSimpleArgs);
+                //Prog_Sem semProgSimpleArgs = RemoveComplexOpera.Execute(semProgTypeChecked);
+                //AnnounceProgram("Simplified Opera*", semProgSimpleArgs);
 
-                //Prog_Sem semProgSimpleMath = SimplifyMath.Execute(semProgSimpleArgs);
-                //AnnounceProgram("Simplified Math", semProgSimpleMath);
+                ////Prog_Sem semProgSimpleMath = SimplifyMath.Execute(semProgSimpleArgs);
+                ////AnnounceProgram("Simplified Math", semProgSimpleMath);
 
-                Prog_Cps cpsProg = ExplicateControl.Execute(semProgSimpleArgs);
-                AnnounceProgram("Explicated Control", cpsProg);
+                //Prog_Cps cpsProg = ExplicateControl.Execute(semProgSimpleArgs);
+                //AnnounceProgram("Explicated Control", cpsProg);
 
-                Prog_Cps cpsInlined = InlineAssignments.Execute(cpsProg);
-                AnnounceProgram("Inlined Redundant Assignments", cpsInlined);
+                //Prog_Cps cpsInlined = InlineAssignments.Execute(cpsProg);
+                //AnnounceProgram("Inlined Redundant Assignments", cpsInlined);
 
-                ////another math pass here
+                //////another math pass here
 
-                Prog_Cil cilProg = SelectInstructions.Execute(cpsInlined);
-                AnnounceProgram("Selected CIL Instructions", cilProg);
+                //Prog_Cil cilProg = SelectInstructions.Execute(cpsInlined);
+                //AnnounceProgram("Selected CIL Instructions", cilProg);
 
                 //Prog_Cil cilProgWithLiveness = UncoverLive.Execute(cilProg);
                 //Prog_Cil cilProgWithInterference = BuildInteferenceGraph.Execute(cilProgWithLiveness);
@@ -120,6 +128,38 @@ namespace ClaspCompiler
             Console.Write(' ');
             prin.Print(Console.Out, 1);
             Console.WriteLine("\n\n");
+        }
+
+        private static void PrintAllCharacters()
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+
+            for (int i = 0; i < (1 << 14);)
+            {
+                Console.Write("{0,8}: ", i);
+                Console.BackgroundColor = ConsoleColor.DarkCyan;
+                Console.Write("0x{0:X5}:", i);
+                Console.ResetColor();
+
+                for (int j = 0; j < 8; ++j)
+                {
+                    Console.Write(' ');
+
+                    for (int k = 0; k < 8; ++k)
+                    {
+                        char c = char.IsControl((char)i)
+                            ? '?'
+                            : Convert.ToChar(i);
+                        Console.Write(c);
+                        ++i;
+                    }
+                }
+
+                Console.WriteLine();
+            }
+
+            Console.WriteLine("\n\nDone!");
+            Console.ReadKey(true);
         }
     }
 }

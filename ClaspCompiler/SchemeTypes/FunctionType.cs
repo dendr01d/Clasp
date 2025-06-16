@@ -1,26 +1,16 @@
-﻿using System.Collections.Immutable;
-
-namespace ClaspCompiler.SchemeTypes
+﻿namespace ClaspCompiler.SchemeTypes
 {
     internal sealed record FunctionType : SchemeType
     {
-        public ImmutableArray<SchemeType> ArgumentTypes { get; init; }
-        public SchemeType ResultType { get; init; }
+        public SchemeType ArgumentType { get; init; }
+        public SchemeType OutputType { get; init; }
 
-        public FunctionType(SchemeType outType, params SchemeType[] inTypes)
+        public FunctionType(SchemeType argType, SchemeType outType)
         {
-            ArgumentTypes = inTypes.ToImmutableArray();
-            ResultType = outType;
+            ArgumentType = argType;
+            OutputType = outType;
         }
 
-        public bool Equals(FunctionType? other)
-        {
-            return other is not null
-                && other.ResultType == ResultType
-                && other.ArgumentTypes.SequenceEqual(ArgumentTypes);
-        }
-        public override int GetHashCode() => HashCode.Combine(ArgumentTypes, ResultType);
-
-        public override string AsString => $"(({string.Join(' ', ArgumentTypes)}) . {ResultType})";
+        public override string AsString => $"({ArgumentType} → {OutputType})";
     }
 }

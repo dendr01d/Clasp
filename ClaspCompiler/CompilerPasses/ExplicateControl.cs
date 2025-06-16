@@ -73,7 +73,7 @@ namespace ClaspCompiler.CompilerPasses
                     Lazy<ITail> br2 = CreateBlock(ExplicatePredicate(branch.Alternative, mkBr1, mkBr2, blocks, idGen), blocks, idGen);
                     return ExplicatePredicate(branch.Condition, br1, br2, blocks, idGen);
 
-                case PrimitiveApplication pApp:
+                case SchemeSemantics.SemApp pApp:
                     return pApp.Operator == PrimitiveOperator.Not
                         ? ExplicatePredicate(pApp.Arguments[0], mkBr2, mkBr1, blocks, idGen)
                         : new(new Conditional(TranslateExpression(cond), mkBr1.Value, mkBr2.Value));
@@ -85,7 +85,7 @@ namespace ClaspCompiler.CompilerPasses
 
                 default:
                     ICpsExp exp = TranslateExpression(cond);
-                    ICpsApp newCond = new Application(PrimitiveOperator.Eq, exp, Boole.False);
+                    ICpsApp newCond = new IntermediateCps.Application(PrimitiveOperator.Eq, exp, Boole.False);
                     return new(new Conditional(newCond, mkBr2.Value, mkBr1.Value));
             }
         }
@@ -118,9 +118,9 @@ namespace ClaspCompiler.CompilerPasses
 
         private static ICpsExp ExplicateApplication(ISemApp app)
         {
-            if (app is PrimitiveApplication primApp)
+            if (app is SchemeSemantics.SemApp primApp)
             {
-                ICpsExp output = new Application(
+                ICpsExp output = new IntermediateCps.Application(
                     primApp.Operator,
                     primApp.Arguments.Select(TranslateExpression).ToArray());
 

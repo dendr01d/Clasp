@@ -1,21 +1,19 @@
-﻿using ClaspCompiler.CompilerData;
-using ClaspCompiler.SchemeSemantics.Abstract;
+﻿using ClaspCompiler.SchemeSemantics.Abstract;
+using ClaspCompiler.SchemeSemantics.Abstract.TypeConstraints;
 using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.SchemeSemantics
 {
     internal sealed class Prog_Sem : IPrintable
     {
-        public Dictionary<Var, SchemeType> VariableTypes { get; init; }
+        public Dictionary<SemVar, SchemeType> VariableTypes { get; init; } = [];
+        public HashSet<TypeConstraint> TypeConstraints { get; init; } = [];
         public ISemExp Body { get; private set; }
 
-        public Prog_Sem(Dictionary<Var, SchemeType> varTypes, ISemExp body)
+        public Prog_Sem(ISemExp body)
         {
-            VariableTypes = varTypes;
             Body = body;
         }
-
-        public Prog_Sem(ISemExp body) : this([], body) { }
 
         public bool BreaksLine => true;
         public string AsString => $"(program (...) {Body})";
@@ -23,9 +21,9 @@ namespace ClaspCompiler.SchemeSemantics
         {
             writer.WriteIndenting("(program ", ref indent);
 
-            writer.Write('(');
-            writer.WriteLineByLine(VariableTypes, WriteVarType, indent + 1);
-            writer.Write(')');
+            PrintVariableTypes(writer, indent);
+
+            PrintTypeConstraints(writer, indent);
 
             writer.WriteLineIndent(indent);
             writer.Write(Body, indent);
@@ -34,9 +32,28 @@ namespace ClaspCompiler.SchemeSemantics
         }
         public override string ToString() => AsString;
 
-        private static void WriteVarType(TextWriter writer, KeyValuePair<Var, SchemeType> def, int indent)
+        private void PrintVariableTypes(TextWriter writer, int indent)
+        {
+            writer.WriteIndenting("(with ", ref indent);
+            writer.WriteLineByLine(VariableTypes, WriteVarType, indent);
+            writer.Write(')');
+        }
+
+        private static void WriteVarType(TextWriter writer, KeyValuePair<SemVar, SchemeType> def, int indent)
         {
             writer.Write("[{0} . {1}]", def.Key, def.Value);
+        }
+
+        private void PrintTypeConstraints(TextWriter writer, int indent)
+        {
+            writer.WriteIndenting("(where ", ref indent);
+            writer.WriteLineByLine(TypeConstraints, WriteTypeConstraint, indent);
+            writer.Write(')');
+        }
+
+        private static void WriteTypeConstraint(TextWriter writer, TypeConstraint constraint, int indent)
+        {
+            writer.Write(constraint, indent);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 
+using ClaspCompiler.SchemeTypes;
 using ClaspCompiler.Textual;
 
 namespace ClaspCompiler.SchemeSyntax.Abstract
@@ -9,6 +10,7 @@ namespace ClaspCompiler.SchemeSyntax.Abstract
         public SourceRef Source { get; init; }
         public ImmutableHashSet<uint> ScopeSet { get; init; }
 
+        public SchemeType Type => AtomicType.Syntax;
         public abstract bool IsAtom { get; }
         public abstract bool IsNil { get; }
 
