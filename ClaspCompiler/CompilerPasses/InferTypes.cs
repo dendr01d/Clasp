@@ -13,7 +13,7 @@ namespace ClaspCompiler.CompilerPasses
             Dictionary<SemVar, SchemeType> variableTypes = [];
             HashSet<TypeConstraint> typeConstraints = [];
 
-            ISemExp inferredBody = InferExpressionType(program.Body, variableTypes, typeConstraints);
+            ISemExp inferredBody = InferExpressionType(program.TopLevelForms, variableTypes, typeConstraints);
 
             return new Prog_Sem(inferredBody)
             {

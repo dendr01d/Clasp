@@ -8,23 +8,23 @@ namespace ClaspCompiler.SchemeSyntax
     internal sealed class Prog_Stx : IPrintable
     {
         public readonly ScopeSetMap LexicalScopes;
-        public readonly ISyntax Body;
+        public readonly ISyntax[] TopLevelForms;
 
-        public Prog_Stx(ScopeSetMap lexScope, ISyntax body)
+        public Prog_Stx(ScopeSetMap lexScope, ISyntax[] topLevelForms)
         {
             LexicalScopes = lexScope;
-            Body = body;
+            TopLevelForms = topLevelForms;
         }
 
-        public bool BreaksLine => Body.BreaksLine;
-        public string AsString => $"(program {LexicalScopes} {Body})";
+        public bool BreaksLine => TopLevelForms.Length > 1 || TopLevelForms[0].BreaksLine;
+        public string AsString => $"(program {LexicalScopes} {TopLevelForms})";
         public void Print(TextWriter writer, int indent)
         {
             writer.WriteIndenting('(', ref indent);
             writer.WriteLineIndent("program", indent);
             writer.Write(LexicalScopes, indent);
             writer.WriteLineIndent(indent);
-            writer.Write(Body.ToString(), indent);
+            writer.WriteLineByLine(TopLevelForms, indent);
             writer.Write(')');
         }
         public sealed override string ToString() => AsString;

@@ -1,40 +1,28 @@
-﻿using ClaspCompiler.CompilerData;
-using ClaspCompiler.SchemeSemantics.Abstract;
-using ClaspCompiler.SchemeTypes;
+﻿using ClaspCompiler.SchemeSemantics.Abstract;
 
 namespace ClaspCompiler.SchemeSemantics
 {
-    /// <summary>
-    /// Represents the evaluation of a form after binding an argument to a variable
-    /// </summary>
-    internal sealed class Lambda : ISemExp
+    internal sealed record Lambda(ParamsForm Parameters, BodyForm Body) : ISemExp
     {
-        public SemVar Variable { get; init; }
-        public ISemExp Body { get; init; }
-        public MetaData MetaData { get; init; }
-
-        public Lambda(SemVar var, ISemExp body, MetaData? meta = null)
-        {
-            Variable = var;
-            Body = body;
-            MetaData = meta ?? new();
-        }
-
-        public bool BreaksLine => true;
-        public string AsString => string.Format("(lambda ({0}) {1})", Variable, Body);
+        public bool BreaksLine => Body.BreaksLine;
+        public string AsString => $"(lambda {Parameters.AsStandalone} {Body})";
         public void Print(TextWriter writer, int indent)
         {
-            writer.WriteIndenting("(lambda ", ref indent);
-            int restIndent = indent;
+            writer.WriteIndenting($"(lambda ", ref indent);
+            Parameters.PrintStandalone(writer, indent);
 
-            writer.Write('(');
-            writer.Write(Variable, indent);
-            writer.WriteLineIndent(")", indent);
+            if (Body.BreaksLine)
+            {
+                writer.WriteLineIndent(indent);
+            }
+            else
+            {
+                writer.Write(' ');
+            }
 
-            writer.Write(Body, restIndent);
-
+            writer.Write(Body);
             writer.Write(')');
         }
-        public override string ToString() => AsString;
+        public sealed override string ToString() => AsString;
     }
 }

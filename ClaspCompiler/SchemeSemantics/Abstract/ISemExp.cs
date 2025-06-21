@@ -1,7 +1,7 @@
-﻿namespace ClaspCompiler.SchemeSemantics.Abstract
+﻿using ClaspCompiler.SchemeTypes;
+
+namespace ClaspCompiler.SchemeSemantics.Abstract
 {
-    internal interface ISemExp : IPrintable
-    {
-        public MetaData MetaData { get; }
-    }
+    internal interface ISemExp : ISemTop
+    { }
 }

@@ -12,15 +12,28 @@ namespace ClaspCompiler.CompilerPasses
     {
         public static Prog_Sem Execute(Prog_Stx program)
         {
-            ISemExp body = ParseSyntax(program.Body);
-            return new Prog_Sem(body);
+            ISemTop[] topForms = [.. program.TopLevelForms.Select(ParseTopExpression)];
+
+            return new Prog_Sem(topForms);
         }
 
-        private static ISemExp ParseSyntax(ISyntax stx)
+        private static ISemTop ParseTopExpression(ISyntax stx)
+        {
+            if (stx is StxPair stp
+                && stp.Car is Identifier id)
+            {
+                if ()
+            }
+
+            return ParseExpression(stx);
+        }
+
+
+        private static ISemExp ParseExpression(ISyntax stx)
         {
             return stx switch
             {
-                StxPair stp => ParseApplication(stp),
+                StxPair stp => ParseCompoundForm(stp),
                 StxDatum std => ParseDatum(std),
                 Identifier id => new Var(id.BindingSymbol.Name),
                 _ => throw new Exception($"Can't parse unknown syntax: {stx}")
@@ -36,9 +49,9 @@ namespace ClaspCompiler.CompilerPasses
             };
         }
 
-        private static ISemExp ParseApplication(StxPair stp)
+        private static ISemExp ParseCompoundForm(StxPair stp)
         {
-            ISemExp op = ParseSyntax(stp.Car);
+            ISemExp op = ParseExpression(stp.Car);
 
             if (op is Var v)
             {
@@ -102,7 +115,7 @@ namespace ClaspCompiler.CompilerPasses
                 throw new Exception($"Cannot parse dotted list as arguments: {stp}");
             }
 
-            return preArgs[..^1].Select(ParseSyntax).ToArray();
+            return preArgs[..^1].Select(ParseExpression).ToArray();
         }
 
         private static SemApp ParseRecursiveApplication(PrimitiveOperator op, ISemExp arg1, ISemExp arg2, ISemExp[] moreArgs)
@@ -129,7 +142,7 @@ namespace ClaspCompiler.CompilerPasses
             else
             {
                 var pair = ParseLetBinding(binding);
-                ISemExp body = ParseSyntax(bodyCns.Car);
+                ISemExp body = ParseExpression(bodyCns.Car);
 
                 return new Let(pair.Item1, pair.Item2, body);
             }
@@ -147,7 +160,7 @@ namespace ClaspCompiler.CompilerPasses
             }
             else
             {
-                ISemExp argument = ParseSyntax(pr3.Car);
+                ISemExp argument = ParseExpression(pr3.Car);
                 return new(new Var(id.BindingSymbol.Name), argument);
             }
         }

@@ -2,15 +2,27 @@
 {
     internal sealed record FunctionType : SchemeType
     {
-        public SchemeType ArgumentType { get; init; }
-        public SchemeType OutputType { get; init; }
+        public SchemeType ParametersType { get; init; }
+        public SchemeType ResultType { get; init; }
 
-        public FunctionType(SchemeType argType, SchemeType outType)
+        public FunctionType(SchemeType resultType, SchemeType paramsType)
         {
-            ArgumentType = argType;
-            OutputType = outType;
+            ParametersType = paramsType;
+            ResultType = resultType;
         }
 
-        public override string AsString => $"({ArgumentType} → {OutputType})";
+        public FunctionType(SchemeType resultType, params SchemeType[] paramsTypes)
+            : this(resultType, new IntersectionType(paramsTypes))
+        { }
+
+        public bool Equals(FunctionType? other)
+        {
+            return other is not null
+                && other.ResultType == ResultType
+                && other.ParametersType == ParametersType;
+        }
+        public override int GetHashCode() => HashCode.Combine(ParametersType, ResultType);
+
+        public override string AsString => $"(({string.Join(' ', ParametersType)}) -> {ResultType})";
     }
 }

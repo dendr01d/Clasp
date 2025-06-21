@@ -15,7 +15,7 @@ namespace ClaspCompiler.CompilerPasses
             Dictionary<Label, ITail> blocks = [];
             Counter idGen = new(10);
 
-            ITail entry = ExplicateTail(program.Body, blocks, idGen).Value;
+            ITail entry = ExplicateTail(program.TopLevelForms, blocks, idGen).Value;
             blocks.Add(Prog_Cps.StartLabel, entry);
 
             return new("()", blocks);

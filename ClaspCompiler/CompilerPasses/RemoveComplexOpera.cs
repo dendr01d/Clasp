@@ -11,7 +11,7 @@ namespace ClaspCompiler.CompilerPasses
     {
         public static Prog_Sem Execute(Prog_Sem program)
         {
-            ISemExp newBody = RcoNewScope(program.Body);
+            ISemExp newBody = RcoNewScope(program.TopLevelForms);
 
             return new Prog_Sem(program.VariableTypes, newBody);
         }

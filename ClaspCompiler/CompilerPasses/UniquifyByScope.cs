@@ -10,7 +10,7 @@ namespace ClaspCompiler.CompilerPasses
         public static Prog_Stx Execute(Prog_Stx program)
         {
             ScopeSetMap map = ScopeSetMap.BuildDefault();
-            ISyntax newBody = UniquifyExpression(program.Body, map);
+            ISyntax newBody = UniquifyExpression(program.TopLevelForms, map);
 
             return new Prog_Stx(map, newBody);
         }

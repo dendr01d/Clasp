@@ -9,7 +9,7 @@ namespace ClaspCompiler.CompilerPasses
         public static Prog_Stx Execute(Prog_Stx program)
         {
             uint scopeCounter = 0;
-            ISyntax newBody = program.Body.AddScopes(scopeCounter++);
+            ISyntax newBody = program.TopLevelForms.AddScopes(scopeCounter++);
 
             newBody = PaintExpression(newBody, ref scopeCounter);
 
