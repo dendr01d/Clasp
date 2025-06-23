@@ -3,11 +3,14 @@
     internal enum TokenType
     {
         LeftParen, RightParen,
-        LeftBracket, RightBracket,
+        LeftBrack, RightBrack,
+        OpenVec,
 
         Integer, Symbol,
+        True, False,
+
         Malformed,
 
-        NewLine, Whitespace
+        NewLine, Whitespace, EoF
     }
 }

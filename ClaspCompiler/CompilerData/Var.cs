@@ -1,34 +1,25 @@
-﻿using ClaspCompiler.IntermediateCLang.Abstract;
-using ClaspCompiler.IntermediateStackLang.Abstract;
-using ClaspCompiler.IntermediateLocLang.Abstract;
+﻿using ClaspCompiler.IntermediateCps.Abstract;
+using ClaspCompiler.SchemeCore.Abstract;
 using ClaspCompiler.SchemeSemantics.Abstract;
+using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.CompilerData
 {
-    internal sealed record Var : IPrintable,
-        ISemanticExp,
-        INormArg,
-        ILocArg,
-        IStackArg
+    /// <summary>
+    /// Represents a semantic variable -- a memory location in which data is stored.
+    /// </summary>
+    internal sealed record Var : IPrintable, ICpsArg, ISemVar, ICoreVar
     {
-        public static readonly Var NullVar = new("()");
-
         public string Name { get; init; }
+        public SchemeType Type => throw new NotSupportedException("Can't determine type of compile-time variable.");
 
         public Var(string name) => Name = name;
 
+        public bool BreaksLine => false;
+        public string AsString => Name;
+        public void Print(TextWriter writer, int indent) => writer.Write(Name);
+        public sealed override string ToString() => Name;
 
-        private static uint _counter = 0;
-        public static void ResetGenerator() => _counter = 0;
-        private const string DEFAULT_NAME = "$";
-        public static Var Gen(string? name = null)
-        {
-            return new Var($"{name ?? DEFAULT_NAME}.{++_counter}");
-        }
-
-
-        public bool CanBreak => false;
-        public override string ToString() => string.Format("({0} {1})", "var", Name);
-        public void Print(TextWriter writer, int indent) => writer.Write(ToString());
+        public bool Equals(ICpsExp? other) => other is Var v && Name == v.Name;
     }
 }

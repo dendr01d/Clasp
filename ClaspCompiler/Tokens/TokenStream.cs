@@ -7,17 +7,14 @@ namespace ClaspCompiler.Tokens
     {
         private readonly IEnumerable<Token> _stream;
 
-        public TokenStream(IEnumerable<Token> stream)
-        {
-            _stream = stream;
-        }
+        public TokenStream(IEnumerable<Token> stream) => _stream = stream;
 
-        public bool CanBreak => false;
-        public override string ToString() => string.Join(' ', _stream);
+        public bool BreaksLine => false;
+        public string AsString => string.Join(' ', _stream);
         public void Print(TextWriter writer, int indent) => writer.Write(ToString());
+        public override string ToString() => AsString;
 
         public IEnumerator<Token> GetEnumerator() => _stream.GetEnumerator();
-
-        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_stream).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => _stream.GetEnumerator();
     }
 }

@@ -1,4 +1,6 @@
-﻿using ClaspCompiler.SchemeData;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeSyntax.Abstract;
 using ClaspCompiler.Textual;
 
@@ -6,30 +8,31 @@ namespace ClaspCompiler.SchemeSyntax
 {
     internal sealed class Identifier : SyntaxBase
     {
-        public readonly Symbol FreeSymbol;
-        public readonly Symbol BindingSymbol;
-
-        public Identifier(Symbol value, SourceRef? source = null) : base(source)
-        {
-            FreeSymbol = value;
-            BindingSymbol = value;
-        }
-
-        public Identifier(Identifier id, Symbol bindingName) : base(id.Source)
-        {
-            FreeSymbol = id.FreeSymbol;
-            BindingSymbol = bindingName;
-        }
+        public required Symbol FreeSymbol { get; init; }
+        public required Symbol BindingSymbol { get; init; }
 
         public override bool IsAtom => true;
         public override bool IsNil => false;
 
-        public override bool Equals(object? obj) => obj is Identifier id
-            && FreeSymbol.Equals(id.FreeSymbol);
-        public override int GetHashCode() => FreeSymbol.GetHashCode();
+        public Identifier(SourceRef src, IEnumerable<uint>? scopeSet = null)
+            : base(src, scopeSet ?? [])
+        { }
 
-        public override bool CanBreak => false;
-        public override string ToString() => FreeSymbol.ToString();
-        public override void Print(TextWriter writer, int indent) => writer.Write(ToString());
+        [SetsRequiredMembers]
+        public Identifier(Symbol freeSym, Symbol? bindingSym, SourceRef src, IEnumerable<uint>? scopeSet = null) 
+            : this(src, scopeSet)
+        {
+            FreeSymbol = freeSym;
+            BindingSymbol = bindingSym ?? freeSym;
+        }
+
+        public override Identifier AddScopes(params uint[] ids) => new(FreeSymbol, BindingSymbol, Source, ScopeSet.Union(ids));
+        public override Identifier RemoveScopes(params uint[] ids) => new(FreeSymbol, BindingSymbol, Source, ScopeSet.Except(ids));
+        public override Identifier FlipScopes(params uint[] ids) => new(FreeSymbol, BindingSymbol, Source, ScopeSet.SymmetricExcept(ids));
+        public override Identifier ClearScopes() => new(FreeSymbol, BindingSymbol, Source);
+
+        public override bool BreaksLine => false;
+        public override string AsString => BindingSymbol.ToString();
+        public override void Print(TextWriter writer, int indent) => writer.Write(AsString);
     }
 }

@@ -1,16 +1,19 @@
-﻿using ClaspCompiler.IntermediateStackLang.Abstract;
+﻿using ClaspCompiler.IntermediateCil.Abstract;
 
 namespace ClaspCompiler.CompilerData
 {
-    internal sealed record Label : IStackArg
+    /// <summary>
+    /// Represents an indexed location within a collection of sequential executable instructions.
+    /// </summary>
+    internal sealed record Label : IPrintable, ICilArg
     {
         public string Name { get; init; }
 
         public Label(string name) => Name = name;
 
-
-        public bool CanBreak => false;
-        public override string ToString() => string.Format("@{0}", Name);
-        public void Print(TextWriter writer, int indent) => writer.Write(ToString());
+        public bool BreaksLine => false;
+        public string AsString => Name;
+        public void Print(TextWriter writer, int indent) => writer.Write(Name);
+        public sealed override string ToString() => Name;
     }
 }

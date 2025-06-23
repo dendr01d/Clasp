@@ -14,11 +14,19 @@ namespace ClaspCompiler.CompilerPasses
 
             { TokenType.LeftParen   , @"\(" },
             { TokenType.RightParen  , @"\)" },
-            { TokenType.LeftBracket , @"\[" },
-            { TokenType.RightBracket, @"\]" },
 
-            { TokenType.Integer     , @"-?[1-9]\d*" },
-            { TokenType.Symbol      , @"(?:\+|\-|[a-zA-Z]+)" },
+            { TokenType.LeftBrack , @"\[" },
+            { TokenType.RightBrack, @"\]" },
+
+            { TokenType.OpenVec   , @"#\(" },
+
+            { TokenType.True, @"#[Tt](?:[Rr][Uu][Ee])?" },
+            { TokenType.False, @"#[Ff](?:[Aa][Ll][Ss][Ee])?" },
+
+            { TokenType.Integer   , @"-?(0|[1-9]\d*)" },
+            //{ TokenType.Symbol    , @"(?:\+|\-|[a-zA-Z][a-zA-Z0-9\-]*)" },
+            { TokenType.Symbol    , @"(?>([a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^_\~][a-zA-Z0-9\!\$\%\&\*\/\:\<\=\>\?\^_\~\+\-\.\@]*)|\+|\-|\.\.\.)" },
+
             { TokenType.Malformed   , @".*" }
 
             /*
@@ -60,9 +68,7 @@ namespace ClaspCompiler.CompilerPasses
             */
         };
 
-        private static readonly string _productions = string.Join('|', _regexes.Select(FormatRule));
-        private static readonly string _grammar = @"(" + _productions + ")";
-
+        private static readonly string _grammar = @"(" + string.Join('|', _regexes.Select(FormatRule)) + ")";
         private static readonly Regex _masterRegex = new(_grammar);
 
         public static TokenStream Execute(string sourceName, string text)
@@ -72,40 +78,43 @@ namespace ClaspCompiler.CompilerPasses
 
         private static IEnumerable<Token> ParseTokens(string sourceName, string text)
         {
-            IEnumerable<MatchCollection> matchesByLine = text
-                .Split(Environment.NewLine)
-                .Select(x => _masterRegex.Matches(x));
+            MatchCollection matches = _masterRegex.Matches(text);
 
-            int lineNumber = 1; // line numbers in text files start at one
-            int columnNumber = 0;
+            int line = 1; // line numbers in text files start at one
+            int col = 0;
 
-            foreach (MatchCollection matchColl in matchesByLine)
+            foreach (Match match in matches)
             {
-                foreach (Match match in matchColl)
+                TokenType type = _regexes.Keys.First(x => match.Groups[x.ToString()].Success);
+                Group group = match.Groups[type.ToString()];
+
+                SourceRef source = new SourceRef(sourceName, line, col, match.Index, match.Length);
+
+                if (type == TokenType.Malformed)
                 {
-                    TokenType type = _regexes.Keys.First(x => match.Groups[x.ToString()].Success);
+                    throw new Exception($"Malformed token @ {source}: {match.Value}");
+                }
 
-                    Group group = match.Groups[type.ToString()];
+                if (type == TokenType.NewLine)
+                {
+                    line++;
+                    col = 0;
+                    continue;
+                }
+                else
+                {
+                    col += match.Length;
+                }
 
-                    SourceRef source = new SourceRef(sourceName, text,
-                        lineNumber, columnNumber, match.Index, match.Length);
-
-                    if (type == TokenType.NewLine)
-                    {
-                        lineNumber++;
-                        columnNumber = 0;
-                    }
-                    else
-                    {
-                        columnNumber += match.Length;
-                    }
-
-                    if (type != TokenType.Whitespace)
-                    {
-                        yield return new Token(type, source);
-                    }
+                if (type != TokenType.Whitespace)
+                {
+                    yield return new Token(type, source, match.Value);
                 }
             }
+
+            SourceRef final = new(sourceName, line, col, text.Length, 0);
+
+            yield return new Token(TokenType.EoF, final, "■");
         }
 
         private static string FormatRule(KeyValuePair<TokenType, string> pair)

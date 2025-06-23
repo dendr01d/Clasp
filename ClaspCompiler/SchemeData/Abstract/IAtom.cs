@@ -1,9 +1,12 @@
-﻿using ClaspCompiler.IntermediateCLang.Abstract;
-using ClaspCompiler.IntermediateLocLang.Abstract;
+﻿using ClaspCompiler.IntermediateCil.Abstract;
+using ClaspCompiler.IntermediateCps.Abstract;
 using ClaspCompiler.SchemeSemantics.Abstract;
 
 namespace ClaspCompiler.SchemeData.Abstract
 {
-    internal interface IAtom : ISchemeExp, ISemanticExp, INormArg
+    /// <summary>
+    /// A scheme datum of irreducible complexity
+    /// </summary>
+    internal interface IAtom : ISchemeExp
     { }
 }
