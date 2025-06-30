@@ -1,38 +1,35 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Immutable;
 
+using ClaspCompiler.LexicalScope;
 using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeSyntax.Abstract;
-using ClaspCompiler.Textual;
+using ClaspCompiler.SchemeTypes;
+using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSyntax
 {
-    internal sealed class Identifier : SyntaxBase
+    internal sealed record Identifier(Symbol Symbol, ImmutableHashSet<uint> SurroundingScope, SourceRef Source) : SyntaxBase(SurroundingScope, Source)
     {
-        public required Symbol FreeSymbol { get; init; }
-        public required Symbol BindingSymbol { get; init; }
+        public Binding? BindingInfo { get; init; } = null;
+        public Symbol ExpandedSymbol => BindingInfo?.UniqueName ?? Symbol;
 
         public override bool IsAtom => true;
         public override bool IsNil => false;
+        public override SchemeType Type => AtomicType.Identifier;
 
-        public Identifier(SourceRef src, IEnumerable<uint>? scopeSet = null)
-            : base(src, scopeSet ?? [])
-        { }
+        public Identifier(Symbol sym, SourceRef src) : this(sym, [], src) { }
 
-        [SetsRequiredMembers]
-        public Identifier(Symbol freeSym, Symbol? bindingSym, SourceRef src, IEnumerable<uint>? scopeSet = null) 
-            : this(src, scopeSet)
-        {
-            FreeSymbol = freeSym;
-            BindingSymbol = bindingSym ?? freeSym;
-        }
-
-        public override Identifier AddScopes(params uint[] ids) => new(FreeSymbol, BindingSymbol, Source, ScopeSet.Union(ids));
-        public override Identifier RemoveScopes(params uint[] ids) => new(FreeSymbol, BindingSymbol, Source, ScopeSet.Except(ids));
-        public override Identifier FlipScopes(params uint[] ids) => new(FreeSymbol, BindingSymbol, Source, ScopeSet.SymmetricExcept(ids));
-        public override Identifier ClearScopes() => new(FreeSymbol, BindingSymbol, Source);
+        public override Symbol Expose() => Symbol;
+        public override Identifier AddScopes(IEnumerable<uint> scopeTokens)
+            => this with { SurroundingScope = SurroundingScope.Union(scopeTokens) };
+        public override Identifier RemoveScopes(IEnumerable<uint> scopeTokens)
+            => this with { SurroundingScope = SurroundingScope.Except(scopeTokens) };
+        public override Identifier FlipScopes(IEnumerable<uint> scopeTokens)
+            => this with { SurroundingScope = SurroundingScope.SymmetricExcept(scopeTokens) };
+        public override Identifier ClearScopes() => this with { SurroundingScope = [] };
 
         public override bool BreaksLine => false;
-        public override string AsString => BindingSymbol.ToString();
+        public override string AsString => Symbol.AsString;
         public override void Print(TextWriter writer, int indent) => writer.Write(AsString);
     }
 }

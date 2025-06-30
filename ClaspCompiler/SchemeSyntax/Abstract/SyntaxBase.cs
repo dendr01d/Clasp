@@ -1,28 +1,21 @@
 ﻿using System.Collections.Immutable;
 
+using ClaspCompiler.SchemeData.Abstract;
 using ClaspCompiler.SchemeTypes;
-using ClaspCompiler.Textual;
+using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSyntax.Abstract
 {
-    internal abstract class SyntaxBase : ISyntax
+    internal abstract record SyntaxBase(ImmutableHashSet<uint> SurroundingScope, SourceRef Source) : ISyntax
     {
-        public SourceRef Source { get; init; }
-        public ImmutableHashSet<uint> ScopeSet { get; init; }
-
-        public SchemeType Type => AtomicType.Syntax;
         public abstract bool IsAtom { get; }
         public abstract bool IsNil { get; }
+        public abstract SchemeType Type { get; }
 
-        protected SyntaxBase(SourceRef src, IEnumerable<uint> scopeSet)
-        {
-            Source = src;
-            ScopeSet = [.. scopeSet];
-        }
-
-        public abstract ISyntax AddScopes(params uint[] ids);
-        public abstract ISyntax RemoveScopes(params uint[] ids);
-        public abstract ISyntax FlipScopes(params uint[] ids);
+        public abstract ISchemeExp Expose();
+        public abstract ISyntax AddScopes(IEnumerable<uint> scopeTokens);
+        public abstract ISyntax RemoveScopes(IEnumerable<uint> scopeTokens);
+        public abstract ISyntax FlipScopes(IEnumerable<uint> scopeTokens);
         public abstract ISyntax ClearScopes();
 
         public abstract bool BreaksLine { get; }

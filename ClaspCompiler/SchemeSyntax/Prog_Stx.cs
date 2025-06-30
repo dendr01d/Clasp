@@ -1,30 +1,16 @@
-﻿using ClaspCompiler.SchemeSyntax.Abstract;
+﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeSyntax.Abstract;
 
 namespace ClaspCompiler.SchemeSyntax
 {
-    /// <summary>
-    /// A syntactic program.
-    /// </summary>
-    internal sealed class Prog_Stx : IPrintable
+    internal sealed record Prog_Stx(ISyntax Body, SymbolFactory SymFactory) : IPrintable
     {
-        public readonly ScopeSetMap LexicalScopes;
-        public readonly ISyntax[] TopLevelForms;
-
-        public Prog_Stx(ScopeSetMap lexScope, ISyntax[] topLevelForms)
-        {
-            LexicalScopes = lexScope;
-            TopLevelForms = topLevelForms;
-        }
-
-        public bool BreaksLine => TopLevelForms.Length > 1 || TopLevelForms[0].BreaksLine;
-        public string AsString => $"(program {LexicalScopes} {TopLevelForms})";
+        public bool BreaksLine => Body.BreaksLine;
+        public string AsString => $"(program {Body})";
         public void Print(TextWriter writer, int indent)
         {
-            writer.WriteIndenting('(', ref indent);
-            writer.WriteLineIndent("program", indent);
-            writer.Write(LexicalScopes, indent);
-            writer.WriteLineIndent(indent);
-            writer.WriteLineByLine(TopLevelForms, indent);
+            writer.WriteIndenting("(program ", ref indent);
+            writer.Write(Body.AsString, indent);
             writer.Write(')');
         }
         public sealed override string ToString() => AsString;

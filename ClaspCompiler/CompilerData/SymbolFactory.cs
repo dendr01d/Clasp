@@ -61,11 +61,6 @@ namespace ClaspCompiler.CompilerData
 
         public Symbol GenSym(string? nameBasis = null)
         {
-            if (nameBasis is not null && IsInterned(nameBasis))
-            {
-                return Intern(nameBasis);
-            }
-
             uint counter = 1;
             string newName;
 

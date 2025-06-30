@@ -9,7 +9,7 @@ namespace ClaspCompiler.IntermediateCps
 
         public Label Label { get; init; }
 
-        public Dictionary<Var, int> FreeVariables => [];
+        public Dictionary<VarBase, int> FreeVariables => [];
 
         public GoTo(Label label)
         {

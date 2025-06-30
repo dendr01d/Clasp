@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ClaspCompiler.SchemeSemantics.Abstract
+﻿namespace ClaspCompiler.SchemeSemantics.Abstract
 {
-    internal interface ISemDef : ISemTop
+    internal interface ISemDef : ISemAstNode
     {
         public ISemVar Variable { get; }
         public ISemExp Value { get; }

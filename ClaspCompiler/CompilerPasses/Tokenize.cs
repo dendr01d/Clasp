@@ -1,31 +1,58 @@
 ﻿using System.Text.RegularExpressions;
 
-using ClaspCompiler.Textual;
+using ClaspCompiler.Text;
 using ClaspCompiler.Tokens;
 
 namespace ClaspCompiler.CompilerPasses
 {
     internal static class Tokenize
     {
+
+        private const string PECULIAR_SYM = @"\+|\-|\.\.\.";
+
+        private const string LETTER = @"[a-zA-Z]";
+        private const string SPECIAL_INITIAL = @"\!|\$|\%|\&|\*|\/|\:|\<|\=|\>|\?|\^|_|\~";
+        private const string INITIAL = $"{LETTER}|{SPECIAL_INITIAL}";
+
+        private const string DIGIT = "[0-9]";
+        private const string SPECIAL_SUBSEQUENT = @"\+|\-|\.|\@";
+
+        private const string SUBSEQUENT = $"{INITIAL}|{DIGIT}|{SPECIAL_SUBSEQUENT}";
+
+        private const string SYMBOL = $"(?:((?:{INITIAL})(?:{SUBSEQUENT})*)|{PECULIAR_SYM})";
+
+
         private static readonly Dictionary<TokenType, string> _regexes = new()
         {
             { TokenType.NewLine     , @"$" },
             { TokenType.Whitespace  , @"\s+" },
+            { TokenType.Comment     , @"(?>\;.*$)" },
 
             { TokenType.LeftParen   , @"\(" },
             { TokenType.RightParen  , @"\)" },
 
-            { TokenType.LeftBrack , @"\[" },
-            { TokenType.RightBrack, @"\]" },
+            { TokenType.LeftBrack   , @"\[" },
+            { TokenType.RightBrack  , @"\]" },
 
-            { TokenType.OpenVec   , @"#\(" },
+            { TokenType.OpenVec     , @"#\(" },
 
-            { TokenType.True, @"#[Tt](?:[Rr][Uu][Ee])?" },
-            { TokenType.False, @"#[Ff](?:[Aa][Ll][Ss][Ee])?" },
+            { TokenType.DotOp    , @"\." },
 
-            { TokenType.Integer   , @"-?(0|[1-9]\d*)" },
-            //{ TokenType.Symbol    , @"(?:\+|\-|[a-zA-Z][a-zA-Z0-9\-]*)" },
-            { TokenType.Symbol    , @"(?>([a-zA-Z\!\$\%\&\*\/\:\<\=\>\?\^_\~][a-zA-Z0-9\!\$\%\&\*\/\:\<\=\>\?\^_\~\+\-\.\@]*)|\+|\-|\.\.\.)" },
+            { TokenType.True        , @"#[Tt](?:[Rr][Uu][Ee])?" },
+            { TokenType.False       , @"#[Ff](?:[Aa][Ll][Ss][Ee])?" },
+
+            { TokenType.Quote            , @"\'" },
+            { TokenType.Quasiquote       , @"\`" },
+            { TokenType.Unquote          , @"\," },
+            { TokenType.UnquoteSplice  , @"\@\," },
+
+            { TokenType.Syntax         , @"\#\'" },
+            { TokenType.Quasisyntax    , @"\#\`" },
+            { TokenType.Unsyntax       , @"\#\," },
+            { TokenType.UnsyntaxSplice , @"\#\@\," },
+
+            { TokenType.Integer     , @"-?(0|[1-9]\d*)" },
+            { TokenType.Symbol      , SYMBOL },
 
             { TokenType.Malformed   , @".*" }
 
@@ -83,16 +110,18 @@ namespace ClaspCompiler.CompilerPasses
             int line = 1; // line numbers in text files start at one
             int col = 0;
 
+            Stack<Token> parenCounter = new();
+
             foreach (Match match in matches)
             {
                 TokenType type = _regexes.Keys.First(x => match.Groups[x.ToString()].Success);
                 Group group = match.Groups[type.ToString()];
 
-                SourceRef source = new SourceRef(sourceName, line, col, match.Index, match.Length);
+                SourceRef src = new(new ReadFromFile(sourceName), line, col, match.Index, match.Length);
 
                 if (type == TokenType.Malformed)
                 {
-                    throw new Exception($"Malformed token @ {source}: {match.Value}");
+                    throw new Exception($"Malformed token @ {src}: {match.Value}");
                 }
 
                 if (type == TokenType.NewLine)
@@ -106,15 +135,60 @@ namespace ClaspCompiler.CompilerPasses
                     col += match.Length;
                 }
 
-                if (type != TokenType.Whitespace)
+                if (type == TokenType.Whitespace || type == TokenType.Comment)
                 {
-                    yield return new Token(type, source, match.Value);
+                    continue;
                 }
+
+                Token nextToken = new Token(type, src, match.Value);
+
+                if (type == TokenType.LeftParen
+                    || type == TokenType.LeftBrack
+                    || type == TokenType.OpenVec)
+                {
+                    parenCounter.Push(nextToken);
+                }
+                else if (type == TokenType.RightParen)
+                {
+                    if (parenCounter.Count == 0)
+                    {
+                        throw new Exception($"Extra {type} token @ {src}.");
+                    }
+                    else if (parenCounter.Peek().Type != TokenType.LeftParen
+                        && parenCounter.Peek().Type != TokenType.OpenVec)
+                    {
+                        throw new Exception($"Parenthesis/Bracket mismatch @ {parenCounter.Peek().Source} vs {src}.");
+                    }
+                    else
+                    {
+                        parenCounter.Pop();
+                    }
+                }
+                else if (type == TokenType.RightBrack)
+                {
+                    if (parenCounter.Count == 0)
+                    {
+                        throw new Exception($"Extra {type} token @ {src}.");
+                    }
+                    else if (parenCounter.Peek().Type != TokenType.LeftBrack)
+                    {
+                        throw new Exception($"Parenthesis/Bracket mismatch @ {parenCounter.Peek().Source} vs {src}.");
+                    }
+                    else
+                    {
+                        parenCounter.Pop();
+                    }
+                }
+
+                yield return nextToken;
             }
 
-            SourceRef final = new(sourceName, line, col, text.Length, 0);
+            if (parenCounter.Count != 0)
+            {
+                throw new AggregateException(parenCounter.Select(x => new Exception($"Extra {x.Type} token @ {x.Source}.")));
+            }
 
-            yield return new Token(TokenType.EoF, final, "■");
+            yield return new Token(TokenType.EoF, new(new ReadFromFile(sourceName), line, col, text.Length, 0), "■");
         }
 
         private static string FormatRule(KeyValuePair<TokenType, string> pair)

@@ -2,16 +2,16 @@
 
 namespace ClaspCompiler.SchemeSemantics
 {
-    internal sealed record Lambda(ParamsForm Parameters, BodyForm Body) : ISemExp
+    internal sealed record Lambda(ISemFormals Formals, ISemBody Body, uint AstId) : ISemExp
     {
         public bool BreaksLine => Body.BreaksLine;
-        public string AsString => $"(lambda {Parameters.AsStandalone} {Body})";
+        public string AsString => $"(lambda {Formals} {Body})";
         public void Print(TextWriter writer, int indent)
         {
             writer.WriteIndenting($"(lambda ", ref indent);
-            Parameters.PrintStandalone(writer, indent);
+            writer.Write(Formals, indent);
 
-            if (Body.BreaksLine)
+            if (BreaksLine)
             {
                 writer.WriteLineIndent(indent);
             }
@@ -19,8 +19,8 @@ namespace ClaspCompiler.SchemeSemantics
             {
                 writer.Write(' ');
             }
+            writer.Write(Body, indent);
 
-            writer.Write(Body);
             writer.Write(')');
         }
         public sealed override string ToString() => AsString;

@@ -1,28 +1,16 @@
-﻿namespace ClaspCompiler.SchemeTypes
+﻿using System.Collections.Immutable;
+
+namespace ClaspCompiler.SchemeTypes
 {
-    internal sealed record FunctionType : SchemeType
+    internal sealed record FunctionType(SchemeType OutputType, ImmutableArray<SchemeType> InputTypes) : SchemeType
     {
-        public SchemeType ParametersType { get; init; }
-        public SchemeType ResultType { get; init; }
-
-        public FunctionType(SchemeType resultType, SchemeType paramsType)
-        {
-            ParametersType = paramsType;
-            ResultType = resultType;
-        }
-
-        public FunctionType(SchemeType resultType, params SchemeType[] paramsTypes)
-            : this(resultType, new IntersectionType(paramsTypes))
+        public FunctionType(SchemeType outputType, params SchemeType[] inputTypes)
+            : this(outputType, inputTypes.ToImmutableArray())
         { }
 
-        public bool Equals(FunctionType? other)
-        {
-            return other is not null
-                && other.ResultType == ResultType
-                && other.ParametersType == ParametersType;
-        }
-        public override int GetHashCode() => HashCode.Combine(ParametersType, ResultType);
+        public bool Equals(FunctionType? other) => OutputType == other?.OutputType && InputTypes.SequenceEqual(other.InputTypes);
+        public override int GetHashCode() => HashCode.Combine(OutputType, InputTypes);
 
-        public override string AsString => $"(({string.Join(' ', ParametersType)}) -> {ResultType})";
+        public override string AsString => $"Fun<{OutputType}; {string.Join(", ", InputTypes)}>";
     }
 }

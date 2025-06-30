@@ -5,12 +5,21 @@
         LeftParen, RightParen,
         LeftBrack, RightBrack,
         OpenVec,
+        DotOp,
 
         Integer, Symbol,
         True, False,
 
+        Quote, Quasiquote,
+        Unquote, UnquoteSplice,
+
+        Syntax, Quasisyntax,
+        Unsyntax, UnsyntaxSplice,
+
         Malformed,
 
-        NewLine, Whitespace, EoF
+        NewLine, Whitespace, Comment,
+
+        EoF
     }
 }

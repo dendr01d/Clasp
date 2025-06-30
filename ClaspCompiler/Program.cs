@@ -16,6 +16,8 @@ namespace ClaspCompiler
         private static readonly string[] _testPrograms =
         [
             //"(+ (read) (- (+ 5 3)))",
+            //"(+ . ((read . ()) . ((- . ((+ . (5 . (3 . ()))) . ())) . ())))",
+
             //"(let ([x 32]) (+ (let ([x 10]) x) x))",
             //"(let ([x (let ([x 4]) (+ x 1))]) (+x 2))",
             //"(+ 52 (- 10))",
@@ -36,7 +38,13 @@ namespace ClaspCompiler
 
             //"(vector-ref (vector-ref (vector (vector 42)) 0) 0)"
 
-            "((lambda (x) (+ x 2)) 3)"
+            //"((lambda (x) (+ x 2)) 3)"
+
+            @"
+(define add
+        (lambda (x y)
+                (+ x y) ) )
+(add 1 (add 2 3))"
         ];
 
         private static void Main()
@@ -50,8 +58,6 @@ namespace ClaspCompiler
 
             foreach (string program in _testPrograms)
             {
-                Symbol.ResetInterment();
-
                 Console.WriteLine(new string('=', 65));
                 Console.WriteLine();
 
@@ -63,11 +69,10 @@ namespace ClaspCompiler
                 Prog_Stx stxProg = ParseSyntax.Execute(tokens);
                 AnnounceProgram("Scheme Syntax", stxProg);
 
-                Prog_Stx stxPainted = PaintLexicalScopes.Execute(stxProg);
-                Prog_Stx stxScoped = UniquifyByScope.Execute(stxPainted);
-                AnnounceProgram("Scoped Identifiers", stxScoped);
+                Prog_Stx stxExpanded = ExpandSyntax.Execute(stxProg);
+                AnnounceProgram("Expanded Scheme Syntax", stxExpanded);
 
-                Prog_Sem semProg = ParseSemantics.Execute(stxScoped);
+                Prog_Sem semProg = ParseSemantics.Execute(stxExpanded);
                 AnnounceProgram("Scheme Semantics", semProg);
 
                 //Prog_Sem semProgTypeChecked = TypeCheckSemantics.Execute(semProg);

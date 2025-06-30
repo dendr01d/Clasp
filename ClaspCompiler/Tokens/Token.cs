@@ -1,4 +1,4 @@
-﻿using ClaspCompiler.Textual;
+﻿using ClaspCompiler.Text;
 
 namespace ClaspCompiler.Tokens
 {

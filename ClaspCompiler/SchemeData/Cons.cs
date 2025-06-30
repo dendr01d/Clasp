@@ -7,9 +7,9 @@ namespace ClaspCompiler.SchemeData
 {
     internal sealed class Cons : ISchemeExp, ICons<ISchemeExp>
     {
-        public SchemeType Type => UnknownType.Type;
         public ISchemeExp Car { get; private set; }
         public ISchemeExp Cdr { get; private set; }
+        public SchemeType Type { get; }
 
         public bool IsAtom => false;
         public bool IsNil => false;
@@ -18,6 +18,7 @@ namespace ClaspCompiler.SchemeData
         {
             Car = car;
             Cdr = cdr;
+            Type = new ConsType(car.Type, cdr.Type);
         }
 
         public void SetCar(ISchemeExp car) => Car = car;

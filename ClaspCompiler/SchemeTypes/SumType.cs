@@ -2,14 +2,9 @@
 
 namespace ClaspCompiler.SchemeTypes
 {
-    internal sealed record SumType : SchemeType
+    internal sealed record SumType(ImmutableHashSet<SchemeType> Types) : SchemeType
     {
-        public readonly ImmutableHashSet<SchemeType> Types;
-
-        public SumType(IEnumerable<SchemeType> types) => Types = types.ToImmutableHashSet();
-        public SumType(params SchemeType[] types) => Types = types.ToImmutableHashSet();
-
-        public bool Equals(ProductType? other) => Types.SetEquals(other?.Types ?? []);
+        public bool Equals(SumType? other) => Types.SetEquals(other?.Types ?? []);
         public override int GetHashCode() => Types.GetHashCode();
 
         public override string AsString => $"({string.Join(" + ", Types)})";
@@ -27,5 +22,10 @@ namespace ClaspCompiler.SchemeTypes
                 return new SumType([.. uniqueTypes]);
             }
         }
+
+        public static readonly SumType Numeric = new([AtomicType.Integer]);
+        public static readonly SumType Syntax = new([AtomicType.Identifier, AtomicType.SyntaxPair, AtomicType.SyntaxData]);
+        public static readonly SumType List = new([AtomicType.Nil, new ConsType(AtomicType.Any, AtomicType.Any)]);
+
     }
 }
