@@ -1,4 +1,6 @@
-﻿namespace MetallicScheme.SchemeTypes
+﻿using ClaspCompiler.SchemeTypes;
+
+namespace MetallicScheme.SchemeTypes
 {
     internal sealed record VectorType(CompoundType InnerTypes) : SchemeType
     {

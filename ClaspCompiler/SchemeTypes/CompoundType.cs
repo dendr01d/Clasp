@@ -2,6 +2,8 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 
+using ClaspCompiler.SchemeTypes;
+
 namespace MetallicScheme.SchemeTypes
 {
     [CollectionBuilder(typeof(CompoundType), nameof(Create))]

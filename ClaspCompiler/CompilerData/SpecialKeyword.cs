@@ -1,6 +1,4 @@
-﻿using ClaspCompiler.SchemeData;
-
-namespace ClaspCompiler.CompilerData
+﻿namespace ClaspCompiler.CompilerData
 {
     internal static class SpecialKeyword
     {

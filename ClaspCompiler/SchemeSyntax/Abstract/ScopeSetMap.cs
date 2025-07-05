@@ -17,8 +17,7 @@ namespace ClaspCompiler.SchemeSyntax.Abstract
 
         public static ScopeSetMap BuildDefault()
         {
-            ScopeSetMap output = new();
-            output._mapsByScopeSet.Add([0], Keyword.DefaultBindings);
+            ScopeSetMap output = SpecialKeyword.Keywords.ToDictionary()
 
             return output;
         }

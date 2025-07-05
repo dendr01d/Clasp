@@ -1,7 +1,6 @@
 ﻿using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeSemantics;
 using ClaspCompiler.SchemeSemantics.Abstract;
-using ClaspCompiler.SchemeSemantics.Abstract.TypeConstraints;
 using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.CompilerPasses
