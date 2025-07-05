@@ -39,7 +39,7 @@ namespace ClaspCompiler.CompilerPasses
     //        }
     //    }
 
-    //    private static Lazy<ITail> ExplicateAssignment(Var var, ISemExp bound, Lazy<ITail> tail, Dictionary<Label, ITail> blocks, Counter idGen)
+    //    private static Lazy<ITail> ExplicateAssignment(VarBase var, ISemExp bound, Lazy<ITail> tail, Dictionary<Label, ITail> blocks, Counter idGen)
     //    {
     //        switch (bound)
     //        {
@@ -111,7 +111,7 @@ namespace ClaspCompiler.CompilerPasses
     //        {
     //            ISemApp app => ExplicateApplication(app),
     //            IAtom atm => atm,
-    //            Var v => v,
+    //            VarBase v => v,
     //            _ => throw new Exception($"Can't translate non-calculable expression: {value}")
     //        };
     //    }
@@ -130,5 +130,4 @@ namespace ClaspCompiler.CompilerPasses
     //        throw new Exception($"Can't explicate control of unknown application form: {app}");
     //    }
     //}
-
 }

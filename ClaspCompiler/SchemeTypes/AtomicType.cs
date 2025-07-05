@@ -13,6 +13,10 @@
         public static readonly AtomicType Nil = new("Nil");
         public static readonly AtomicType Symbol = new("Symbol");
 
+        public static readonly AtomicType Identifier = new("Identifier");
+        public static readonly AtomicType SyntaxPair = new("Stx-Pair");
+        public static readonly AtomicType SyntaxData = new("Stx-Datum");
+
         public static readonly AtomicType Any = new("Any");
 
         public static readonly AtomicType Void = new("Void");

@@ -1,9 +1,9 @@
-﻿using ClaspCompiler.SchemeData;
-using ClaspCompiler.SchemeSyntax.Abstract;
+﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeSyntax;
+using ClaspCompiler.SchemeSyntax.Abstract;
+using ClaspCompiler.Text;
 using ClaspCompiler.Tokens;
-using ClaspCompiler.Textual;
-using ClaspCompiler.CompilerData;
 
 namespace ClaspCompiler.CompilerPasses
 {
@@ -14,84 +14,119 @@ namespace ClaspCompiler.CompilerPasses
             IEnumerator<Token> tokens = stream.GetEnumerator();
             tokens.MoveNext();
 
-            ISyntax body = ParseOneOrMoreExpressions(tokens);
+            SymbolFactory symGen = new();
 
-            return new Prog_Stx(new(), body);
+            StxPair body = ParseOneOrMoreExpressions(tokens, symGen);
+
+            body = new StxPair(body)
+            {
+                Car = SpecialKeyword.Begin.Identifier,
+                Cdr = body
+            };
+
+            return new Prog_Stx(body, symGen);
+
         }
 
-        private static ISyntax ParseOneOrMoreExpressions(IEnumerator<Token> tokens)
+        private static StxPair ParseOneOrMoreExpressions(IEnumerator<Token> tokens, SymbolFactory symGen)
         {
-            ISyntax parsed = ParseNextExpression(tokens);
+            StxPair output;
+            ISyntax nextExpression = ParseNextExpression(tokens, symGen);
 
-            if (tokens.MoveNext())
+            if (tokens.Current.Type != TokenType.EoF)
             {
-                ISyntax more = ParseOneOrMoreExpressions(tokens);
-
-                parsed = new StxPair(parsed.Source)
+                output = new StxPair(nextExpression)
                 {
-                    Car = parsed,
-                    Cdr = more
+                    Car = nextExpression,
+                    Cdr = ParseOneOrMoreExpressions(tokens, symGen)
+                };
+            }
+            else
+            {
+                output = new StxPair(nextExpression)
+                {
+                    Car = nextExpression,
+                    Cdr = new StxDatum(Nil.Instance, nextExpression.Source)
                 };
             }
 
-            return parsed;
+            return output;
         }
 
-        private static ISyntax ParseNextExpression(IEnumerator<Token> tokens)
+        private static ISyntax ParseNextExpression(IEnumerator<Token> tokens, SymbolFactory symGen)
         {
             Token nextToken = tokens.Current;
             tokens.MoveNext();
 
             return nextToken.Type switch
             {
-                TokenType.RightParen => throw new Exception("Unexpected right parenthesis."),
-                TokenType.LeftParen => ParseList(tokens, false),
+                TokenType.EoF => throw new Exception("Unexpectedly reached end of input."),
 
-                TokenType.RightBrack => throw new Exception("Unexpected right bracket."),
-                TokenType.LeftBrack => ParseList(tokens, true),
+                TokenType.RightParen or TokenType.RightBrack => throw new Exception($"Unexpected {nextToken.Type} token @ {nextToken.Source}."),
 
-                TokenType.OpenVec => ParseVector(tokens, nextToken.Source),
+                TokenType.LeftParen => ParseList(tokens, symGen, nextToken.Source, false),
+                TokenType.LeftBrack => ParseList(tokens, symGen, nextToken.Source, true),
+
+                //TokenType.OpenVec => ParseVector(tokens, symGen, nextToken.Source),
+
+                TokenType.Quote => ParseGlyphicAppl(SpecialKeyword.Quote.Symbol, nextToken.Source, tokens, symGen),
+                TokenType.Quasiquote => ParseGlyphicAppl(SpecialKeyword.Quote.Symbol, nextToken.Source, tokens, symGen),
+                TokenType.Unquote => ParseGlyphicAppl(SpecialKeyword.Quote.Symbol, nextToken.Source, tokens, symGen),
+                TokenType.UnquoteSplice => ParseGlyphicAppl(SpecialKeyword.Quote.Symbol, nextToken.Source, tokens, symGen),
 
                 TokenType.Integer => ParseInteger(nextToken),
-                TokenType.Symbol => ParseSymbol(nextToken),
-                TokenType.True => ParseBoole(nextToken),
-                TokenType.False => ParseBoole(nextToken),
+                TokenType.Symbol => ParseSymbol(nextToken, symGen),
+                TokenType.True => ParseBoolean(nextToken),
+                TokenType.False => ParseBoolean(nextToken),
 
-                _ => throw new Exception($"Can't parse token of type {nextToken.Type}: {nextToken}")
+                _ => throw new Exception($"Can't parse {nextToken.Type} token: {nextToken}")
             };
         }
 
-        private static ISyntax ParseList(IEnumerator<Token> tokens, bool bracketed, SourceRef? listSrc = null)
+        private static ISyntax ParseList(IEnumerator<Token> tokens, SymbolFactory symGen, SourceRef listSource, bool bracketed)
         {
             if (tokens.Current.Type == TokenType.RightParen
                 || tokens.Current.Type == TokenType.RightBrack)
             {
                 if (tokens.Current.Type == TokenType.RightParen && bracketed)
                 {
-                    throw new Exception("Unexpected closing bracket in parenthetical list.");
+                    throw new Exception("Unexpected right parenthesis.");
                 }
 
                 if (tokens.Current.Type == TokenType.RightBrack && !bracketed)
                 {
-                    if (!bracketed) throw new Exception("Unexpected closing parenthesis in bracketed list.");
+                    throw new Exception("Unexpected right bracket.");
                 }
 
-                tokens.MoveNext(); //pop off closing paren/bracket
-                return new StxDatum(tokens.Current.Source)
+                tokens.MoveNext(); // pop off the closing paren/bracket
+                return new StxDatum(Nil.Instance, listSource);
+            }
+            else if (tokens.Current.Type == TokenType.DotOp)
+            {
+                tokens.MoveNext(); // pop the dot
+
+                ISyntax finale = ParseNextExpression(tokens, symGen);
+
+                // assert that the list is closed immediately afterward
+                if (ParseList(tokens, symGen, listSource, bracketed).IsNil)
                 {
-                    Value = Nil.Instance
-                };
+                    return finale;
+                }
+                else
+                {
+                    throw new Exception("Expected dotted item to terminate list.");
+                }
             }
             else
             {
-                ISyntax car = ParseNextExpression(tokens);
-                ISyntax cdr = ParseList(tokens, bracketed);
+                ISyntax car = ParseNextExpression(tokens, symGen);
+                ISyntax cdr = ParseList(tokens, symGen, listSource, bracketed);
 
-                SourceRef mergedSrc = listSrc is null
-                    ? car.Source.Merge(cdr.Source)
-                    : listSrc.Merge(cdr.Source);
+                SourceRef mergedSource = listSource is null
+                    ? car.Source.MergeWith(cdr.Source)
+                    : listSource.MergeWith(cdr.Source);
 
-                return new StxPair(mergedSrc)
+                return new StxPair(mergedSource)
                 {
                     Car = car,
                     Cdr = cdr
@@ -99,22 +134,30 @@ namespace ClaspCompiler.CompilerPasses
             }
         }
 
-        private static StxPair ParseVector(IEnumerator<Token> tokens, SourceRef listSource)
-        {
-            ISyntax contents = ParseList(tokens, false, listSource);
+        //private static StxPair ParseVector(IEnumerator<Token> tokens, SymbolFactory symGen, SourceRef listSource)
+        //{
+        //    ISyntax args = ParseList(tokens, symGen, listSource, false);
+        //    return new StxPair(listSource)
+        //    {
+        //        Car = new Identifier(Operator.Vector.Symbol, listSource),
+        //        Cdr = args
+        //    };
+        //}
 
-            if (contents.IsNil)
+        private static StxPair ParseGlyphicAppl(Symbol opSym, SourceRef src, IEnumerator<Token> tokens, SymbolFactory symGen)
+        {
+            Identifier keyword = new(opSym, src);
+            ISyntax operand = ParseNextExpression(tokens, symGen);
+
+            return new StxPair(src)
             {
-                throw new Exception($"Vector form @ {listSource} has zero elements.");
-            }
-            else
-            {
-                return new StxPair(listSource)
+                Car = keyword,
+                Cdr = new StxPair(src)
                 {
-                    Car = new Identifier(Symbol.Intern(Keyword.VECTOR), null, listSource),
-                    Cdr = contents
-                };
-            }
+                    Car = operand,
+                    Cdr = new StxDatum(Nil.Instance, src)
+                }
+            };
         }
 
         private static StxDatum ParseInteger(Token token)
@@ -122,17 +165,14 @@ namespace ClaspCompiler.CompilerPasses
             return new StxDatum(new Integer(int.Parse(token.Text)), token.Source);
         }
 
-        private static Identifier ParseSymbol(Token token)
+        private static Identifier ParseSymbol(Token token, SymbolFactory symGen)
         {
-            return new Identifier(Symbol.Intern(token.Text), null, token.Source);
+            return new Identifier(symGen.Intern(token.Text), token.Source);
         }
 
-        private static StxDatum ParseBoole(Token token)
+        private static StxDatum ParseBoolean(Token token)
         {
-            return new StxDatum(token.Source)
-            {
-                Value = token.Type == TokenType.True ? Boole.True : Boole.False
-            };
+            return new StxDatum(token.Type == TokenType.True ? Boole.True : Boole.False, token.Source);
         }
     }
 }

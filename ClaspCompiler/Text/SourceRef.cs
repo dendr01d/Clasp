@@ -1,55 +1,29 @@
-﻿
-using ClaspCompiler.SchemeData.Abstract;
-
-namespace ClaspCompiler.Textual
+﻿namespace ClaspCompiler.Text
 {
-    internal sealed record SourceRef : IPrintable
+    internal sealed record SourceRef(AcquisitionMethod Acquisition, int Line, int Column, int Index, int Length) : IPrintable
     {
-        /// <summary>Source of the text (file path or otherwise)</summary>
-        public string SourceName { get; init; }
+        public static SourceRef DefaultSyntax = new(CoreDefinition.Instance, 0, 0, 0, 0);
 
-        /// <summary>Line number of position within the source</summary>
-        public int Line { get; init; }
-        /// <summary>Position within line in the source</summary>
-        public int Column { get; init; }
+        public readonly bool Original = Acquisition is ReadFromFile;
 
-        /// <summary>Character index within the source</summary>
-        public int Index { get; init; }
-        /// <summary>Character span within the source</summary>
-        public int Length { get; init; }
-
-        public SourceRef(string name = "?",
-            int line = -1, int column = -1, int index = 0, int length = 0)
+        public SourceRef MergeWith(SourceRef other)
         {
-            SourceName = name;
-            Line = line;
-            Column = column;
-            Index = index;
-            Length = length;
-        }
-
-        public SourceRef Merge(SourceRef other)
-        {
-            if (SourceName != other.SourceName)
+            if (Acquisition != other.Acquisition)
             {
-                throw new Exception("Can't merge source references to different sources.");
+                throw new Exception($"Can't merge source references from different acquisition methods.");
             }
 
-            bool thisSourceLeads = Index >= other.Index;
+            Tuple<SourceRef, SourceRef> range = Index <= other.Index
+                ? new(this, other)
+                : new(other, this);
 
-            return new SourceRef(SourceName)
-            {
-                Line = thisSourceLeads ? Line : other.Line,
-                Column = thisSourceLeads ? Column : other.Column,
-                Index = thisSourceLeads ? Index : other.Index,
-                Length = thisSourceLeads
-                    ? other.Index + other.Length - Index
-                    : Index + Length - other.Index
-            };
+            int length = (range.Item2.Index + range.Item2.Length) - range.Item1.Index;
+
+            return new SourceRef(Acquisition, range.Item1.Line, range.Item1.Column, range.Item1.Index, length);
         }
 
         public bool BreaksLine => false;
-        public string AsString => $"({SourceName}: Line {Line}, Col {Column} (Index {Index}) Length = {Length})";
+        public string AsString => $"{Acquisition} @ line {Line}, col {Column}";
         public void Print(TextWriter writer, int indent) => writer.Write(AsString);
         public sealed override string ToString() => AsString;
     }

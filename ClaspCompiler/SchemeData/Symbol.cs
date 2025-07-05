@@ -1,20 +1,13 @@
-﻿using ClaspCompiler.IntermediateCps.Abstract;
-using ClaspCompiler.SchemeData.Abstract;
+﻿using ClaspCompiler.SchemeData.Abstract;
 using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.SchemeData
 {
-    internal sealed record Symbol : IAtom
+    internal sealed record Symbol(string Name) : IAtom
     {
-        private static Dictionary<string, Symbol> _interned = new();
-
-        public readonly string Name;
-
-        public SchemeType Type => AtomicType.Symbol;
         public bool IsAtom => true;
         public bool IsNil => false;
-
-        public Symbol(string name) => Name = name;
+        public SchemeType Type => AtomicType.Symbol;
 
         bool IPrintable.BreaksLine => false;
         public string AsString => Name;

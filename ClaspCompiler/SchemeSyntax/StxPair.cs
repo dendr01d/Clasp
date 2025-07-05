@@ -1,51 +1,70 @@
 ﻿using System.Collections;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
+using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeData.Abstract;
 using ClaspCompiler.SchemeSyntax.Abstract;
-using ClaspCompiler.Textual;
+using ClaspCompiler.SchemeTypes;
+using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSyntax
 {
-    internal sealed class StxPair : SyntaxBase, ICons<ISyntax>
+    internal sealed record StxPair(ImmutableHashSet<uint> SurroundingScope, SourceRef Source)
+        : SyntaxBase(SurroundingScope, Source), ICons<ISyntax>
     {
-        public required ISyntax Car { get; init; }
-        public required ISyntax Cdr { get; init; }
+        private Lazy<ISyntax> _lazyCar { get; [MemberNotNull(nameof(Car))] set; }
+        private Lazy<ISyntax> _lazyCdr { get; [MemberNotNull(nameof(Cdr))] set; }
+        private Lazy<ISchemeExp> _lazyCons => new(() => new Cons(_lazyCar.Value, _lazyCdr.Value));
+
+        public required ISyntax Car
+        {
+            get => _lazyCar.Value;
+            [MemberNotNull(nameof(_lazyCar))]
+            init => _lazyCar = new(value);
+        }
+        public required ISyntax Cdr
+        {
+            get => _lazyCdr.Value;
+            [MemberNotNull(nameof(_lazyCdr))]
+            init => _lazyCdr = new(value);
+        }
 
         public override bool IsAtom => false;
         public override bool IsNil => false;
+        public override SchemeType Type => AtomicType.SyntaxPair;
 
-        public StxPair(SourceRef src, IEnumerable<uint>? scopeSet = null)
-            : base(src, scopeSet ?? [])
+        public StxPair(ISyntax basis)
+            : this(basis.SurroundingScope, basis.Source) { }
+
+        public StxPair(SourceRef src)
+            : this([], src)
         { }
 
-        [SetsRequiredMembers]
-        public StxPair(ISyntax car, ISyntax cdr, SourceRef src, IEnumerable<uint>? scopeSet = null) 
-            : this(src, scopeSet)
+        public override ISchemeExp Expose() => _lazyCons.Value;
+        public override StxPair AddScopes(IEnumerable<uint> scopeTokens) => this with
         {
-            Car = car;
-            Cdr = cdr;
-        }
-
-        public override StxPair AddScopes(params uint[] ids) => new(Source, ScopeSet.Union(ids))
-        {
-            Car = Car.AddScopes(ids),
-            Cdr = Cdr.AddScopes(ids)
+            SurroundingScope = SurroundingScope.Union(scopeTokens),
+            _lazyCar = new(() => Car.AddScopes(scopeTokens)),
+            _lazyCdr = new(() => Cdr.AddScopes(scopeTokens))
         };
-        public override StxPair RemoveScopes(params uint[] ids) => new(Source, ScopeSet.Except(ids))
+        public override StxPair RemoveScopes(IEnumerable<uint> scopeTokens) => this with
         {
-            Car = Car.RemoveScopes(ids),
-            Cdr = Cdr.RemoveScopes(ids)
+            SurroundingScope = SurroundingScope.Except(scopeTokens),
+            _lazyCar = new(() => Car.RemoveScopes(scopeTokens)),
+            _lazyCdr = new(() => Cdr.RemoveScopes(scopeTokens))
         };
-        public override StxPair FlipScopes(params uint[] ids) => new(Source, ScopeSet.SymmetricExcept(ids))
+        public override StxPair FlipScopes(IEnumerable<uint> scopeTokens) => this with
         {
-            Car = Car.FlipScopes(ids),
-            Cdr = Cdr.FlipScopes(ids)
+            SurroundingScope = SurroundingScope.Except(scopeTokens),
+            _lazyCar = new(() => Car.RemoveScopes(scopeTokens)),
+            _lazyCdr = new(() => Cdr.RemoveScopes(scopeTokens))
         };
-        public override StxPair ClearScopes() => new(Car, Cdr, Source)
+        public override StxPair ClearScopes() => this with
         {
-            Car = Car.ClearScopes(),
-            Cdr = Cdr.ClearScopes()
+            SurroundingScope = [],
+            _lazyCar = new(Car.ClearScopes),
+            _lazyCdr = new(Cdr.ClearScopes)
         };
 
         public override bool BreaksLine => Car.BreaksLine || Cdr is ICons<ISyntax>;

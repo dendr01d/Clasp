@@ -2,7 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 
 using ClaspCompiler.SchemeData.Abstract;
-using ClaspCompiler.Textual;
+using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSyntax.Abstract
 {
@@ -11,37 +11,50 @@ namespace ClaspCompiler.SchemeSyntax.Abstract
     /// </summary>
     internal interface ISyntax : ISchemeExp
     {
+        public ImmutableHashSet<uint> SurroundingScope { get; }
         public SourceRef Source { get; }
-        public ImmutableHashSet<uint> ScopeSet { get; }
 
-        public ISyntax AddScopes(params uint[] ids);
-        public ISyntax RemoveScopes(params uint[] ids);
-        public ISyntax FlipScopes(params uint[] ids);
+        public ISchemeExp Expose();
+        public ISyntax AddScopes(IEnumerable<uint> scopeTokens);
+        public ISyntax RemoveScopes(IEnumerable<uint> scopeTokens);
+        public ISyntax FlipScopes(IEnumerable<uint> scopeTokens);
         public ISyntax ClearScopes();
     }
 
     internal static class ISyntaxExtensions
     {
-        private static bool TryCast<T>(this ISyntax stx, [NotNullWhen(true)] out T? result)
+        private static bool TryCast<T>(ISyntax stx, out T? typedStx)
             where T : class, ISyntax
         {
             if (stx is T casted)
             {
-                result = casted;
+                typedStx = casted;
                 return true;
             }
             else
             {
-                result = null;
+                typedStx = null;
                 return false;
             }
         }
 
-        private static bool TryCastNil(this ISyntax stx)
-        {
-            return stx is StxDatum std
-                && std.IsNil;
-        }
+        //public static bool TryGetCar<T>(this ISyntax stx, out T? car)
+        //    where T : class, ISyntax
+        //{
+        //    car = null;
+
+        //    return stx is StxPair stp
+        //        && TryCast(stp.Car, out car);
+        //}
+
+        //public static bool TryGetCdr<T>(this ISyntax stx, out T? cdr)
+        //    where T : class, ISyntax
+        //{
+        //    cdr = null;
+
+        //    return stx is StxPair stp
+        //        && TryCast(stp.Cdr, out cdr);
+        //}
 
         public static bool TryDestruct<A, B>(this ISyntax stx,
             [NotNullWhen(true)] out A? car,
@@ -52,69 +65,9 @@ namespace ClaspCompiler.SchemeSyntax.Abstract
             car = null;
             cdr = null;
 
-            return stx.TryCast(out StxPair? stp)
-                && stp.Car.TryCast(out car)
-                && stp.Cdr.TryCast(out cdr);
-        }
-
-        public static bool TryDestructLast<T>(this ISyntax stx,
-            [NotNullWhen(true)] out T? last)
-            where T : class, ISyntax
-        {
-            return stx.TryDestruct(out last, out ISyntax? maybeTerminator)
-                && maybeTerminator.TryCastNil();
-        }
-
-        public static StxPair Rebuild<A, B>(this ISyntax stx,
-            Func<A, ISyntax> rebuildCar,
-            Func<B, ISyntax> rebuildCdr)
-            where A : class, ISyntax
-            where B : class, ISyntax
-        {
-            if (stx is StxPair pair
-                && pair.Car is A car
-                && pair.Cdr is B cdr)
-            {
-                return new StxPair(pair.Source, pair.ScopeSet)
-                {
-                    Car = rebuildCar(car),
-                    Cdr = rebuildCdr(cdr)
-                };
-            }
-            else
-            {
-                string msg = string.Format("Failed to deconstruct {0} into {1} and {2}: {3}",
-                    nameof(StxPair),
-                    nameof(A),
-                    nameof(B),
-                    stx);
-                throw new Exception(msg);
-            }
-        }
-
-        public static StxPair RebuildLast<A>(this ISyntax stx,
-            Func<A, ISyntax> rebuildCar)
-            where A : class, ISyntax
-        {
-            if (stx is StxPair pair
-                && pair.Car is A car
-                && pair.Cdr is ISyntax cdr
-                && cdr.IsNil)
-            {
-                return new StxPair(pair.Source, pair.ScopeSet)
-                {
-                    Car = rebuildCar(car),
-                    Cdr = cdr
-                };
-            }
-            else
-            {
-                string msg = string.Format("Failed to deconstruct {0} into {1} and nil-terminator: {2}",
-                    nameof(StxPair),
-                    nameof(A),
-                    stx);
-                throw new Exception(msg);
-            }
+            return stx is StxPair stp
+                && TryCast(stp.Car, out car)
+                && TryCast(stp.Cdr, out cdr);
         }
     }
 }

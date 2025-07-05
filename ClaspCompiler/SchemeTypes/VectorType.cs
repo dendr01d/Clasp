@@ -1,9 +1,9 @@
-﻿using ClaspCompiler.SchemeTypes;
+﻿using System.Collections.Immutable;
 
-namespace MetallicScheme.SchemeTypes
+namespace ClaspCompiler.SchemeTypes
 {
-    internal sealed record VectorType(CompoundType InnerTypes) : SchemeType
+    internal sealed record VectorType(ImmutableArray<SchemeType> InnerTypes) : SchemeType
     {
-        public override string AsString => $"(Vector {string.Join(' ', InnerTypes)})";
+        public override string AsString => $"Vector<{string.Join(", ", InnerTypes)}>";
     }
 }

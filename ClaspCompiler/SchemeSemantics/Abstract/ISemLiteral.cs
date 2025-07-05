@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using ClaspCompiler.SchemeTypes;
 
 namespace ClaspCompiler.SchemeSemantics.Abstract
 {
-    internal interface ISemLiteral : ISemExp, ISemQQ
-    { }
+    internal interface ISemLiteral : ISemExp
+    {
+        public SchemeType Type { get; }
+    }
 }

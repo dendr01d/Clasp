@@ -10,7 +10,7 @@ namespace ClaspCompiler.IntermediateCps
         public IStatement Statement { get; init; }
         public ITail Tail { get; init; }
 
-        public Dictionary<Var, int> FreeVariables { get; }
+        public Dictionary<VarBase, int> FreeVariables { get; }
 
         public Sequence(IStatement stmt, ITail tail)
         {

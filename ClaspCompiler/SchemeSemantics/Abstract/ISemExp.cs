@@ -1,7 +1,6 @@
-﻿using ClaspCompiler.SchemeTypes;
-
-namespace ClaspCompiler.SchemeSemantics.Abstract
+﻿namespace ClaspCompiler.SchemeSemantics.Abstract
 {
-    internal interface ISemExp : ISemTop
-    { }
+    internal interface ISemExp : ISemCmd
+    {
+    }
 }

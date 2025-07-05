@@ -9,7 +9,7 @@ namespace ClaspCompiler.IntermediateCil
         public string Name { get; init; }
 
         public TempVar(string name) => Name = name;
-        public TempVar(Var v) : this(v.Name) { }
+        public TempVar(VarBase v) : this(v.Name) { }
 
         public bool BreaksLine => false;
         public string AsString => $"V_{Name}";

@@ -1,11 +1,4 @@
-﻿using ClaspCompiler.CompilerData;
-using ClaspCompiler.SchemeData;
-using ClaspCompiler.SchemeData.Abstract;
-using ClaspCompiler.SchemeData.Types;
-using ClaspCompiler.SchemeSemantics;
-using ClaspCompiler.SchemeSemantics.Abstract;
-
-namespace ClaspCompiler.CompilerPasses
+﻿namespace ClaspCompiler.CompilerPasses
 {
     //internal static class TypeCheckSemantics
     //{
