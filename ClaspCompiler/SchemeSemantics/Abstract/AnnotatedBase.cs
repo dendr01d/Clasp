@@ -3,7 +3,7 @@ using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics.Abstract
 {
-    internal abstract record AnnotatedBase<T>(T Expression, SchemeType Type) : ISemExp
+    internal abstract record AnnotatedBase<T>(T Expression, SchemeType Type) : ISemAnnotated
         where T : ISemExp
     {
         public SourceRef Source => Expression.Source;

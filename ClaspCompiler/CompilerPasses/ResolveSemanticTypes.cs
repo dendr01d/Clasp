@@ -29,7 +29,7 @@ namespace ClaspCompiler.CompilerPasses
         {
             return constraint switch
             {
-                EqualType eq => UnifyTypes(eq.TypeA, eq.TypeB, unifier),
+                TypeEquality eq => UnifyTypes(eq.TypeA, eq.TypeB, unifier),
                 _ => throw new Exception($"Can't resolve unknown constraint type: {constraint}"),
             };
         }

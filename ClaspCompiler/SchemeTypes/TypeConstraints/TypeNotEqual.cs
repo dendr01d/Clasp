@@ -1,7 +1,9 @@
-﻿namespace ClaspCompiler.SchemeTypes.TypeConstraints
+﻿using ClaspCompiler.SchemeSemantics.Abstract;
+
+namespace ClaspCompiler.SchemeTypes.TypeConstraints
 {
-    internal sealed record TypeNotEqual(uint SourceAstId, SchemeType TypeA, SchemeType TypeB) : TypeConstraint(SourceAstId)
+    internal sealed record TypeNotEqual(ISemAstNode Node, SchemeType TypeA, SchemeType TypeB) : TypeConstraint(Node)
     {
-        public override string AsString => $"{TypeA} ╪ {TypeB}";
+        public override string AsString => $"{TypeA} ≠: {TypeB}";
     }
 }

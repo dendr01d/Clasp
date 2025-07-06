@@ -121,7 +121,7 @@ namespace ClaspCompiler.CompilerPasses
         {            
             if (!varMap.TryGetValue(id.ExpandedSymbol, out ISemVar? extantVar))
             {
-                extantVar = new(id.ExpandedSymbol.Name, id.Source);
+                extantVar = new Variable(id.ExpandedSymbol.Name, id.Source);
                 varMap[id.ExpandedSymbol] = extantVar;
             }
             return extantVar;
@@ -194,7 +194,7 @@ namespace ClaspCompiler.CompilerPasses
                 throw new Exception($"Expected to parse operator term of explicit {SpecialKeyword.Apply} form as expression: {stx}");
             }
 
-            FormalArguments args = ParseArgumentList(tail, varMap);
+            FormalArguments? args = ParseArgumentList(tail, varMap);
             return new(op, args, stx.Source);
         }
 
@@ -210,7 +210,7 @@ namespace ClaspCompiler.CompilerPasses
                 throw new Exception($"Expected to parse operator term of implicit {SpecialKeyword.Apply} form as expression: {stx}");
             }
 
-            FormalArguments args = ParseArgumentList(tail, varMap);
+            FormalArguments? args = ParseArgumentList(tail, varMap);
             return new(op, args, stx.Source);
         }
 
@@ -276,7 +276,7 @@ namespace ClaspCompiler.CompilerPasses
                     }
                     else if (rest2.IsNil)
                     {
-                        Constant implicitAlt = new(Boole.False, stx.Source);
+                        Constant implicitAlt = new(SchemeData.Boolean.False, stx.Source);
                         return new Conditional(cond, consq, implicitAlt, stx.Source);
                     }
                     else if (rest2.TryDestruct(out ISyntax? arg3, out ISyntax? rest3))

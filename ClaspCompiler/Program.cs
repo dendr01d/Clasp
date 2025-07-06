@@ -82,8 +82,8 @@ namespace ClaspCompiler
                 Prog_Sem semConstrainedTypes = ConstrainSemanticTypes.Execute(semProg);
                 AnnounceProgram("Scheme Semantics w/ Type Constraints", semConstrainedTypes);
 
-                Prog_Sem semProgTypeChecked = ResolveSemanticTypes.Execute(semConstrainedTypes);
-                AnnounceProgram("Scheme Semantics w/ Checked Types", semProgTypeChecked);
+                //Prog_Sem semProgTypeChecked = ResolveSemanticTypes.Execute(semConstrainedTypes);
+                //AnnounceProgram("Scheme Semantics w/ Checked Types", semProgTypeChecked);
 
                 //Prog_Sem semProgSimpleArgs = RemoveComplexOpera.Execute(semProgTypeChecked);
                 //AnnounceProgram("Simplified Opera*", semProgSimpleArgs);

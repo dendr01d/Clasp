@@ -172,7 +172,7 @@ namespace ClaspCompiler.CompilerPasses
 
         private static StxDatum ParseBoolean(Token token)
         {
-            return new StxDatum(token.Type == TokenType.True ? Boole.True : Boole.False, token.Source);
+            return new StxDatum(token.Type == TokenType.True ? SchemeData.Boolean.True : SchemeData.Boolean.False, token.Source);
         }
     }
 }

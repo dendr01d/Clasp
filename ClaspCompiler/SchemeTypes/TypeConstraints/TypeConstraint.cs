@@ -1,8 +1,9 @@
-﻿namespace ClaspCompiler.SchemeTypes.TypeConstraints
+﻿using ClaspCompiler.SchemeSemantics.Abstract;
+
+namespace ClaspCompiler.SchemeTypes.TypeConstraints
 {
-    internal abstract record TypeConstraint(uint SourceAstId) : IPrintable
+    internal abstract record TypeConstraint(ISemAstNode Node) : IPrintable
     {
-        public int StructuralDepth => 0;
         public virtual bool BreaksLine => false;
         public abstract string AsString { get; }
         public void Print(TextWriter writer, int indent) => writer.Write(AsString);

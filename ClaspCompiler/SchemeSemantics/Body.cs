@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 
 using ClaspCompiler.SchemeSemantics.Abstract;
-using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics
 {

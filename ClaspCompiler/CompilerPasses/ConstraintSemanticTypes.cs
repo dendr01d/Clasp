@@ -26,7 +26,7 @@ namespace ClaspCompiler.CompilerPasses
         {
             Context ctx = new();
 
-            Body bod = InferTypedBody(program.AbstractSyntaxTree, ctx);
+            Body bod = InferThroughBody(program.AbstractSyntaxTree, ctx);
 
             return new Prog_Sem(bod)
             {
@@ -37,67 +37,53 @@ namespace ClaspCompiler.CompilerPasses
             };
         }
 
-        #region General Dispatch
+        #region Inference
 
-        private static ISemAstNode InferTypedNode(ISemAstNode node, Context ctx)
+        private static ISemAnnotated InferExpressionType(ISemExp expr, Context ctx)
         {
-            return node switch
+            switch (expr)
             {
-                Definition def => InferTypedDefinition(def, ctx),
-                FormalArguments args => InferTypedArguments(args, ctx),
-                FormalParameters parms => InferTypedParameters(parms, ctx),
-                ISemCmd cmd => InferTypedCommand(cmd, ctx),
-                _ => throw new Exception($"Can't infer type of unknown AST node: {node}")
+                case ISemAnnotated typed:
+                    return typed;
+
+                case Application app:
+                    break;
+
+                case Conditional cond:
+                    break;
+
+                case Lambda lam:
+                    break;
+
+                case Sequence seq:
+                    Body typedBod = InferThroughBody(seq.Body, ctx);
+                    Sequence typedSeq = seq with { Body = typedBod };
+                    return new AnnotatedExpression(typedSeq, ((ISemAnnotated)typedBod.Value).Type); // blech
+
+                case Variable v:
+                    return InferVariableType(v, ctx);
+
+                default:
+                    throw new Exception($"Can't infer type of unknown expression: {expr}");
+            }
+        }
+
+        private static TypedVariable InferVariableType(ISemVar sv, Context ctx)
+        {
+            return sv switch
+            {
+                TypedVariable tv => tv,
+                Variable v when ctx.Env.TryGetValue(sv, out SchemeType? varType) => new TypedVariable(v, varType),
+                Variable => throw new Exception($"Can't infer type of free variable: {sv}"),
+                _ => throw new Exception($"Can't infer type of unknown variable: {sv}")
             };
         }
 
-        private static ISemCmd InferTypedCommand(ISemCmd cmd, Context ctx)
+        private static Body InferThroughBody(Body bod, Context ctx)
         {
-            return cmd switch
-            {
-                Assignment set => InferTypedAssignment(set, ctx),
-                ISemExp exp => InferTypedExpression(exp, ctx),
-                _ => throw new Exception($"Can't infer type of unknown command node: {cmd}")
-            };
-        }
-
-        private static ISemExp InferTypedExpression(ISemExp exp, Context ctx)
-        {
-            return exp switch
-            {
-                Application app => InferTypedApplication(app, ctx),
-                Conditional iff => InferTypedConditional(iff, ctx),
-                Lambda lam => InferTypedFunction(lam, ctx),
-                SemVar var => InferTypedFreeVariable(var, ctx),
-                Constant or Primitive or Quotation => exp,
-                Sequence seq => seq with { Body = InferTypedBody(seq.Body, ctx) },
-                _ => throw new Exception($"Can't infer type of unknown expression node: {exp}")
-            };
-        }
-
-        #endregion
-
-        #region Implicitly-Typed Forms
-        // in the sense that their types are automatically derived from their composite parts
-        // type inference for these forms simply involves recurring through their subforms
-
-        private static Assignment InferTypedAssignment(Assignment set, Context ctx)
-        {
-            SemVar var = InferTypedBindingVariable(set.Variable, ctx);
-            ISemExp checkedValue = CheckExpressionTypeEquality(set.AstId, set.Value, var.Type, ctx);
-
-            return set with
-            {
-                Variable = var,
-                Value = checkedValue
-            };
-        }
-
-        private static Body InferTypedBody(Body bod, Context ctx)
-        {
-            Definition[] defs = [.. bod.Definitions.Select(x => InferTypedDefinition(x, ctx))];
-            ISemCmd[] cmds = [.. bod.Commands.Select(x => InferTypedCommand(x, ctx))];
-            ISemExp val = InferTypedExpression(bod.Value, ctx);
+            Definition[] defs = [.. bod.Definitions.Select(x => InferThroughDefinition(x, ctx))];
+            ISemCmd[] cmds = [.. bod.Commands.Select(x => InferThroughCommand(x, ctx))];
+            ISemExp val = InferExpressionType(bod.Value, ctx);
 
             return bod with
             {
@@ -107,292 +93,111 @@ namespace ClaspCompiler.CompilerPasses
             };
         }
 
-        private static Conditional InferTypedConditional(Conditional iff, Context ctx)
+        private static Definition InferThroughDefinition(Definition def, Context ctx)
         {
-            ISemExp cond = InferTypedExpression(iff.Condition, ctx);
-            ISemExp consq = InferTypedExpression(iff.Consequent, ctx);
-            ISemExp alt = InferTypedExpression(iff.Alternative, ctx);
-
-            SchemeType ty = consq.Type == alt.Type
-                ? consq.Type
-                : new UnionType(consq.Type, alt.Type);
-
-            return iff with
-            {
-                Condition = cond,
-                Consequent = consq,
-                Alternative = alt
-            };
-        }
-
-        private static Definition InferTypedDefinition(Definition def, Context ctx)
-        {
-            SemVar var = InferTypedBindingVariable(def.Variable, ctx);
-            ISemExp checkedValue = CheckExpressionTypeEquality(def.AstId, def.Value, var.Type, ctx);
+            ISemAnnotated val = InferExpressionType(def.Value, ctx);
+            TypedVariable tv = CheckVariableType(def.Variable, val.Type, ctx);
 
             return def with
             {
-                Variable = var,
-                Value = checkedValue
+                Variable = tv,
+                Value = val
             };
         }
 
-        private static FormalArguments InferTypedArguments(FormalArguments args, Context ctx)
+        private static Assignment InferThroughAssignment(Assignment set, Context ctx)
         {
-            ISemExp[] typedArgs = [.. args.Values.Select(x => InferTypedExpression(x, ctx))];
+            ISemAnnotated val = InferExpressionType(set.Value, ctx);
+            TypedVariable tv = CheckVariableType(set.Variable, val.Type, ctx);
 
-            return args with
+            return set with
             {
-                Values = typedArgs
+                Variable = tv,
+                Value = val
             };
         }
 
-        private static FormalParameters InferTypedParameters(FormalParameters parms, Context ctx)
+        private static ISemCmd InferThroughCommand(ISemCmd cmd, Context ctx)
         {
-            List<SemVar> typedVars = [];
-
-            IEnumerable<SemVar> normalVars = parms.Variadic
-                ? parms.Values.SkipLast(1)
-                : parms.Values;
-
-            foreach(SemVar sv in normalVars)
+            return cmd switch
             {
-                typedVars.Add(InferTypedBindingVariable(sv, ctx));
-            }
-
-            if (parms.Variadic)
-            {
-                SemVar varParam = parms.Values.Last();
-                typedVars.Add(InferTypedVariadicBindingVariable(varParam, ctx));
-            }
-
-            return parms with
-            {
-                Values = [.. typedVars]
-            };
-        }
-
-        private static Lambda InferTypedFunction(Lambda lam, Context ctx)
-        {
-            FormalParameters parms = InferTypedParameters(lam.Parameters, ctx);
-            Body bod = InferTypedBody(lam.Body, ctx);
-
-            return lam with
-            {
-                Parameters = parms,
-                Body = bod,
+                Assignment set => InferThroughAssignment(set, ctx),
+                ISemExp exp => InferExpressionType(exp, ctx),
+                _ => throw new Exception($"Can't infer type of unknown command: {cmd}")
             };
         }
 
         #endregion
 
-        #region Explicit Type Inference
+        #region Checking
 
-        private static Application InferTypedApplication(Application app, Context ctx)
+        private static ISemAnnotated CheckExpressionType(ISemExp expr, SchemeType ty, Context ctx)
         {
-            FormalArguments args = InferTypedArguments(app.Arguments, ctx);
-            SchemeType outputType = ctx.NewVarType();
-            FunctionType assumedFunType = new(outputType, args.Type);
-
-            ISemExp checkedProc = CheckExpressionTypeEquality(app.AstId, app.Procedure, assumedFunType, ctx);
-
-            return app with
+            switch (expr)
             {
-                Procedure = checkedProc,
-                Arguments = args,
-                Type = outputType
-            };
-        }
+                case ISemVar sv:
+                    return CheckVariableType(sv, ty, ctx);
 
-        private static SemVar InferTypedBindingVariable(SemVar variable, Context ctx)
-        {
-            VarType outType = ctx.NewVarType();
-            ctx.Env[variable] = outType;
+                case ISemAnnotated typed:
+                    ctx.TypeConstraints.Add(new TypeEquality(expr, typed.Type, ty));
+                    return typed;
 
-            return variable with
-            {
-                Type = outType
-            };
-        }
+                case Application app:
 
-        private static SemVar InferTypedVariadicBindingVariable(SemVar variable, Context ctx)
-        {
-            VarType recurring = ctx.NewVarType();
-            ListOfType variadicType = new(recurring);
-            ctx.Env[variable] = variadicType;
+                    break;
 
-            return variable with
-            {
-                Type = variadicType
-            };
-        }
+                case Conditional cond:
+                    break;
 
-        private static SemVar InferTypedFreeVariable(SemVar variable, Context ctx)
-        {
-            // the semantics should be arranged in such a way that bindings/uses happen in order
-            if (!ctx.Env.TryGetValue(variable, out SchemeType? outType))
-            {
-                throw new Exception($"Can't infer type of unbound variable: {variable}");
-            }
+                case Lambda lam when ty is FunctionType fty:
 
-            return variable with
-            {
-                Type = outType
-            };
-        }
+                    break;
 
+                case Sequence seq:
+                    Body typedBod = CheckThroughBody(seq.Body, ty, ctx);
+                    Sequence typedSeq = seq with { Body = typedBod };
+                    return new AnnotatedExpression(typedSeq, ty); // is this okay, vs extracting the resulting type directly from the body?
 
-
-        #endregion
-
-        #region Checking Equality
-
-        /// <summary>
-        /// Constrains the type of <paramref name="exp"/> to be equal to <paramref name="expectedType"/>, then returns
-        /// the inferred type of <paramref name="exp"/>.
-        /// </summary>
-        private static ISemExp CheckExpressionTypeEquality(uint astId, ISemExp exp, SchemeType expectedType, Context ctx)
-        {
-            switch (exp)
-            {
-                case Constant lit when lit.Value.Type == expectedType:
-                case Quotation quo when quo.Value.Type == expectedType:
-                case Primitive prim when prim.Operator.Type == expectedType:
-                    return exp;
-
-                case Lambda lam when expectedType is FunctionType ft:
-                    FormalParameters parms = CheckParameterTypeEquality(astId, lam.Parameters, ft.InputType, ctx);
-                    Body bod = CheckBodyTypeEquality(astId, lam.Body, ft.OutputType, ctx);
-                    return lam with
-                    {
-                        Parameters = parms,
-                        Body = bod
-                    };
-
-                    default:
-                ISemExp inferred = InferTypedExpression(exp, ctx);
-                ctx.TypeConstraints.Add(new EqualType(astId, inferred.Type, expectedType));
-                return inferred;
+                default:
+                    ISemAnnotated inferred = InferExpressionType(expr, ctx);
+                    ctx.TypeConstraints.Add(new TypeEquality(expr, inferred.Type, ty));
+                    return inferred;
             }
         }
 
-        private static Body CheckBodyTypeEquality(uint astId, Body bod, SchemeType expectedType, Context ctx)
+        private static TypedVariable CheckVariableType(ISemVar sv, SchemeType ty, Context ctx)
         {
-            Body inferred = InferTypedBody(bod, ctx);
-            ctx.TypeConstraints.Add(new EqualType(astId, inferred.Type, expectedType));
-            return inferred;
+            if (sv is Variable v)
+            {
+                ctx.Env[v] = ty;
+                return new(v, ty);
+            }
+            else if (sv is TypedVariable tv)
+            {
+                ctx.TypeConstraints.Add(new TypeEquality(sv, tv.Type, ty));
+                ctx.Env[tv.Variable] = ty;
+                return new(tv.Variable, ty);
+            }
+            else
+            {
+                throw new Exception($"Can't check type of unknown variable: {sv}");
+            }
         }
 
-        //private static FormalArguments CheckArgumentTypeEquality(uint astId, FormalArguments args, ProductType prodType, Context ctx)
-        //{
-        //    List<ISemExp> checkedArgs = [];
+        private static Body CheckThroughBody(Body bod, SchemeType ty, Context ctx)
+        {
+            Definition[] defs = [.. bod.Definitions.Select(x => InferThroughDefinition(x, ctx))];
+            ISemCmd[] cmds = [.. bod.Commands.Select(x => InferThroughCommand(x, ctx))];
+            ISemAnnotated val = CheckExpressionType(bod.Value, ty, ctx);
 
-        //    int i = 0;
-        //    for (; i < int.Min(args.Values.Length, prodType.Types.Length); ++i)
-        //    {
-        //        if (prodType.Types[i] is HomogenousListType hlt)
-        //        {
-        //            while (i < args.Values.Length)
-        //            {
-        //                ISemExp checkedArg = InferTypedExpression(args.Values[i], ctx);
-        //                ctx.TypeConstraints.Add(new SubType(astId, checkedArg.Type, hlt.RepeatingType));
-        //                checkedArgs.Add(checkedArg);
-        //            }
-        //        }
-        //        else
-        //        {
-        //            ISemExp checkedArg = InferTypedExpression(args.Values[i], ctx);
-        //            ctx.TypeConstraints.Add(new SubType(astId, checkedArg.Type, prodType.Types[i]));
-        //            checkedArgs.Add(checkedArg);
-        //        }
-        //    }
-
-        //    return args with
-        //    {
-        //        Values = [.. checkedArgs]
-        //    };
-        //}
-
-        //private static FormalParameters CheckParameterTypeEquality(uint astId, FormalParameters parms, SchemeType prodType, Context ctx)
-        //{
-        //    List<SemVar> checkedParms = [];
-
-        //    int i = 0;
-        //    for (; i < int.Min(parms.Values.Length, prodType.Types.Length); ++i)
-        //    {
-        //        if (prodType.Types[i] is HomogenousListType hlt)
-        //        {
-        //            while (i < parms.Values.Length)
-        //            {
-        //                SemVar checkedParm = InferTypedBindingVariable(parms.Values[i], ctx);
-        //                ctx.TypeConstraints.Add(new SubType(astId, checkedParm.Type, hlt.RepeatingType));
-        //                checkedParms.Add(checkedParm);
-        //            }
-        //        }
-        //        else
-        //        {
-        //            SemVar checkedParm = InferTypedBindingVariable(parms.Values[i], ctx);
-        //            ctx.TypeConstraints.Add(new SubType(astId, checkedParm.Type, prodType.Types[i]));
-        //            checkedParms.Add(checkedParm);
-        //        }
-        //    }
-
-        //    return parms with
-        //    {
-        //        Values = [.. checkedParms]
-        //    };
-        //}
-
-        //private static Lambda CheckFunctionTypeEquality(uint astId, Lambda lam, FunctionType funType, Context ctx)
-        //{
-        //    List<SemVar> checkedParameters = [];
-        //    SemVar? checkedVariad = null;
-
-        //    int i = 0;
-
-        //    // consume all parameters up to the point at which the inputs differ in length
-        //    for (; i < int.Min(lam.Parameters.Length, funType.InputTypes.Length); ++i)
-        //    {
-        //        SemVar inferredVar = InferTypedBindingVariable(lam.Parameters[i], ctx);
-        //        checkedParameters.Add(inferredVar);
-        //        ctx.TypeConstraints.Add(new EqualType(astId, inferredVar.Type, funType.InputTypes[i]));
-        //    }
-
-        //    // are there more parameters presented than types for them to hold?
-        //    if (i < lam.Parameters.Length
-        //        && lam.Variad is not null)
-        //    {
-        //        //maybe they're just variadic??
-        //        foreach (SemVar extra in lam.Parameters.Skip(i))
-        //        {
-        //            SemVar checkedExtra = InferTypedBindingVariable(extra, ctx);
-        //            ctx.TypeConstraints.Add(new EqualType(astId, checkedExtra.Type, funType.VariadicType));
-        //        }
-        //    }
-
-        //    // are there more types than parameters that can hold them all?
-        //    if (i < funType.InputTypes.Length
-        //        && lam.Variad is not null)
-        //    {
-        //        //try cramming them into the variad if we can
-        //        SchemeType variadType = new UnionType(funType.InputTypes.Skip(i));
-        //        checkedVariad = InferTypedBindingVariable(lam.Variad, ctx);
-        //        ctx.TypeConstraints.Add(new EqualType(astId, checkedVariad.Type, variadType));
-        //    }
-
-        //    Body bod = InferTypedBody(lam.Body, ctx);
-
-        //    ctx.TypeConstraints.Add(new EqualType(astId, bod.Type, funType.OutputType));
-
-        //    return lam with
-        //    {
-        //        Parameters = [.. checkedParameters],
-        //        Variad = checkedVariad,
-        //        Body = bod
-        //    };
-        //}
+            return bod with
+            {
+                Definitions = defs,
+                Commands = cmds,
+                Value = val
+            };
+        }
 
         #endregion
-
     }
 }
