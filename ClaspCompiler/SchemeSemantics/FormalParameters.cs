@@ -2,7 +2,7 @@
 
 namespace ClaspCompiler.SchemeSemantics
 {
-    internal sealed record FormalParameters(SemVar Parameter, ISemParameters? Next) : ISemParameters
+    internal sealed record FormalParameters(ISemVar Parameter, ISemParameters? Next) : ISemParameters
     {
         public bool BreaksLine => false;
         public string AsString => Parameter.ToString() + (Next is null ? string.Empty : $" {Next}");

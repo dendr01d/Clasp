@@ -1,10 +1,10 @@
-﻿using ClaspCompiler.SchemeSemantics.Abstract;
-using ClaspCompiler.SchemeTypes;
+﻿using ClaspCompiler.SchemeTypes;
 using ClaspCompiler.Text;
 
-namespace ClaspCompiler.SchemeSemantics
+namespace ClaspCompiler.SchemeSemantics.Abstract
 {
-    internal sealed record Annotation(ISemExp Expression, SchemeType Type) : ISemExp
+    internal abstract record AnnotatedBase<T>(T Expression, SchemeType Type) : ISemExp
+        where T : ISemExp
     {
         public SourceRef Source => Expression.Source;
 

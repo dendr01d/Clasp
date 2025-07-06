@@ -13,7 +13,7 @@ namespace ClaspCompiler.CompilerPasses
     {
         public static Prog_Sem Execute(Prog_Stx program)
         {
-            Dictionary<Symbol, SemVar> varMap = [];
+            Dictionary<Symbol, ISemVar> varMap = [];
 
             Body bod = ParseBody(program.TopLevelForms, varMap);
 
@@ -22,7 +22,7 @@ namespace ClaspCompiler.CompilerPasses
 
         #region Body-Parsing
 
-        private static Body ParseBody(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static Body ParseBody(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             if (stx is not StxPair stp)
             {
@@ -72,7 +72,7 @@ namespace ClaspCompiler.CompilerPasses
 
         #region General Dispatch
 
-        private static ISemForm ParseSemanticForm(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static ISemForm ParseSemanticForm(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             return stx switch
             {
@@ -84,9 +84,9 @@ namespace ClaspCompiler.CompilerPasses
                 _ => throw new Exception($"Can't parse unknown syntax form: {stx}")
             };
         }
-        private static IEnumerable<ISemForm> ParseSerialForms(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static IEnumerable<ISemForm> ParseSerialForms(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
-            static IEnumerable<ISemForm> Helper(ISyntax _stx, Dictionary<Symbol, SemVar> _varMap, List<ISemForm> _acc)
+            static IEnumerable<ISemForm> Helper(ISyntax _stx, Dictionary<Symbol, ISemVar> _varMap, List<ISemForm> _acc)
             {
                 if (_stx.IsNil)
                 {
@@ -117,9 +117,9 @@ namespace ClaspCompiler.CompilerPasses
         #endregion
 
         #region Basic Syntax Types
-        private static SemVar ParseIdentifier(Identifier id, Dictionary<Symbol, SemVar> varMap)
+        private static ISemVar ParseIdentifier(Identifier id, Dictionary<Symbol, ISemVar> varMap)
         {            
-            if (!varMap.TryGetValue(id.ExpandedSymbol, out SemVar? extantVar))
+            if (!varMap.TryGetValue(id.ExpandedSymbol, out ISemVar? extantVar))
             {
                 extantVar = new(id.ExpandedSymbol.Name, id.Source);
                 varMap[id.ExpandedSymbol] = extantVar;
@@ -127,7 +127,7 @@ namespace ClaspCompiler.CompilerPasses
             return extantVar;
         }
 
-        private static ISemExp ParseDatum(ISyntax exp, SourceRef src, Dictionary<Symbol, SemVar> varMap)
+        private static ISemExp ParseDatum(ISyntax exp, SourceRef src, Dictionary<Symbol, ISemVar> varMap)
         {
             static ISchemeExp StripSyntax(ISyntax stx)
             {
@@ -144,7 +144,7 @@ namespace ClaspCompiler.CompilerPasses
 
             if (stripped is IValue val)
             {
-                return new SemValue(val, exp.Source);
+                return new Constant(val, exp.Source);
             }
             else
             {
@@ -152,7 +152,7 @@ namespace ClaspCompiler.CompilerPasses
             }
         }
 
-        private static ISemForm ParseCompoundForm(StxPair stp, Dictionary<Symbol, SemVar> varMap)
+        private static ISemForm ParseCompoundForm(StxPair stp, Dictionary<Symbol, ISemVar> varMap)
         {
             // TODO review transitivity of special bindings
             if (stp.Car is Identifier id
@@ -181,7 +181,7 @@ namespace ClaspCompiler.CompilerPasses
 
         #endregion
 
-        private static Application ParseExplicitApplication(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static Application ParseExplicitApplication(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             if (!stx.TryDestruct(out ISyntax? opTerm, out StxPair? tail)
                 || !tail.Cdr.IsNil)
@@ -198,7 +198,7 @@ namespace ClaspCompiler.CompilerPasses
             return new(op, args, stx.Source);
         }
 
-        private static Application ParseImplicitApplication(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static Application ParseImplicitApplication(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             if (!stx.TryDestruct(out ISyntax? opTerm, out ISyntax? tail))
             {
@@ -214,7 +214,7 @@ namespace ClaspCompiler.CompilerPasses
             return new(op, args, stx.Source);
         }
 
-        private static Definition ParseDefinition(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static Definition ParseDefinition(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             if (!stx.TryDestruct(out Identifier? id, out StxPair? tail)
                 || !tail.Cdr.IsNil)
@@ -227,11 +227,11 @@ namespace ClaspCompiler.CompilerPasses
                 throw new Exception($"Expected to parse value term of {SpecialKeyword.Define} form as expression: {stx}");
             }
 
-            SemVar sv = ParseIdentifier(id, varMap);
+            ISemVar sv = ParseIdentifier(id, varMap);
             return new(sv, val, stx.Source);
         }
 
-        private static Assignment ParseAssignment(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static Assignment ParseAssignment(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             if (!stx.TryDestruct(out Identifier? id, out StxPair? tail)
                 || !tail.Cdr.IsNil)
@@ -244,11 +244,11 @@ namespace ClaspCompiler.CompilerPasses
                 throw new Exception($"Expected to parse value term of {SpecialKeyword.SetBang} form as expression: {stx}");
             }
 
-            SemVar sv = ParseIdentifier(id, varMap);
+            ISemVar sv = ParseIdentifier(id, varMap);
             return new(sv, val, stx.Source);
         }
 
-        private static Lambda ParseLambda(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static Lambda ParseLambda(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             if (!stx.TryDestruct(out ISyntax? formals, out ISyntax? tail))
             {
@@ -260,7 +260,7 @@ namespace ClaspCompiler.CompilerPasses
             return new(parms, bod, stx.Source);
         }
 
-        private static Conditional ParseConditional(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static Conditional ParseConditional(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             if (stx.TryDestruct(out ISyntax? arg1, out ISyntax? rest1))
             {
@@ -276,7 +276,7 @@ namespace ClaspCompiler.CompilerPasses
                     }
                     else if (rest2.IsNil)
                     {
-                        SemValue implicitAlt = new(Boole.False, stx.Source);
+                        Constant implicitAlt = new(Boole.False, stx.Source);
                         return new Conditional(cond, consq, implicitAlt, stx.Source);
                     }
                     else if (rest2.TryDestruct(out ISyntax? arg3, out ISyntax? rest3))
@@ -296,7 +296,7 @@ namespace ClaspCompiler.CompilerPasses
             throw new Exception($"Arguments to {SpecialKeyword.If} form don't match expected shape: {stx}");
         }
 
-        private static Sequence ParseExplicitSequence(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static Sequence ParseExplicitSequence(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             try
             {
@@ -309,7 +309,7 @@ namespace ClaspCompiler.CompilerPasses
             }
         }
 
-        private static FormalArguments? ParseArgumentList(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static FormalArguments? ParseArgumentList(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             if (stx.IsNil)
             {
@@ -327,7 +327,7 @@ namespace ClaspCompiler.CompilerPasses
             }
         }
 
-        private static ISemParameters? ParseParameterList(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        private static ISemParameters? ParseParameterList(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
             if (stx.IsNil)
             {
@@ -339,7 +339,7 @@ namespace ClaspCompiler.CompilerPasses
             }
             else if (stx.TryDestruct(out Identifier? param, out ISyntax? rest))
             {
-                SemVar parsedParam = ParseIdentifier(param, varMap);
+                ISemVar parsedParam = ParseIdentifier(param, varMap);
                 ISemParameters? next = ParseParameterList(rest, varMap);
                 return new FormalParameters(parsedParam, next);
             }

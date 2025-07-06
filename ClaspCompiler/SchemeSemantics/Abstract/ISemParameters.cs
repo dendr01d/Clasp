@@ -2,7 +2,7 @@
 {
     internal interface ISemParameters : ISemSubForm
     {
-        SemVar Parameter { get; }
+        ISemVar Parameter { get; }
         ISemParameters? Next { get; }
     }
 }

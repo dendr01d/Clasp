@@ -10,7 +10,7 @@ namespace ClaspCompiler.CompilerPasses
     {
         private sealed record Context
         {
-            public Dictionary<SemVar, SchemeType> Env { get; } = [];
+            public Dictionary<ISemVar, SchemeType> Env { get; } = [];
             public HashSet<TypeConstraint> TypeConstraints { get; } = [];
             public DisjointTypeSet TypeUnifier { get; } = new();
 
@@ -69,7 +69,7 @@ namespace ClaspCompiler.CompilerPasses
                 Conditional iff => InferTypedConditional(iff, ctx),
                 Lambda lam => InferTypedFunction(lam, ctx),
                 SemVar var => InferTypedFreeVariable(var, ctx),
-                SemValue or Primitive or Quotation => exp,
+                Constant or Primitive or Quotation => exp,
                 Sequence seq => seq with { Body = InferTypedBody(seq.Body, ctx) },
                 _ => throw new Exception($"Can't infer type of unknown expression node: {exp}")
             };
@@ -255,7 +255,7 @@ namespace ClaspCompiler.CompilerPasses
         {
             switch (exp)
             {
-                case SemValue lit when lit.Value.Type == expectedType:
+                case Constant lit when lit.Value.Type == expectedType:
                 case Quotation quo when quo.Value.Type == expectedType:
                 case Primitive prim when prim.Operator.Type == expectedType:
                     return exp;

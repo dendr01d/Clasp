@@ -28,13 +28,13 @@ namespace ClaspCompiler.SchemeSemantics
 
         private static string FormatParameters(ISemParameters? parms) => parms switch
         {
-            SemVar sv => sv.ToString(),
+            ISemVar sv => sv.ToString(),
             FormalParameters fp => $"({fp.Parameter}{FormatRemainingParameters(fp.Next)})",
             _ => "()"
         };
         private static string FormatRemainingParameters(ISemParameters? parms) => parms switch
         {
-            SemVar sv => $" . {sv}",
+            ISemVar sv => $" . {sv}",
             FormalParameters fp => $" {fp.Parameter}{FormatRemainingParameters(fp.Next)}",
             _ => string.Empty
         };

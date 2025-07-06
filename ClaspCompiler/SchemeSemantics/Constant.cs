@@ -5,7 +5,7 @@ using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics
 {
-    internal sealed record SemValue(IValue Value, SourceRef Source) : ISemLiteral
+    internal sealed record Constant(IValue Value, SourceRef Source) : ISemLiteral
     {
         public SchemeType Type => Value.Type;
 

@@ -4,7 +4,7 @@ using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics
 {
-    internal sealed record Definition(SemVar Variable, ISemExp Value, SourceRef Source) : ISemForm
+    internal sealed record Definition(ISemVar Variable, ISemExp Value, SourceRef Source) : ISemForm
     {
         public bool BreaksLine => true;
         public string AsString => $"({SpecialKeyword.Define.Name} {Variable} {Value})";

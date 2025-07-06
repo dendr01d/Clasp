@@ -5,7 +5,7 @@ using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics
 {
-    internal sealed record Assignment(SemVar Variable, ISemExp Value, SourceRef Source) : ISemCmd
+    internal sealed record Assignment(ISemVar Variable, ISemExp Value, SourceRef Source) : ISemCmd
     {
         public bool BreaksLine => Value.BreaksLine;
         public string AsString => $"({SpecialKeyword.SetBang.Name} {Variable} {Value})";
