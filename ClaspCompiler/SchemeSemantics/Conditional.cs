@@ -1,9 +1,10 @@
 ﻿using ClaspCompiler.CompilerData;
 using ClaspCompiler.SchemeSemantics.Abstract;
+using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics
 {
-    internal sealed record Conditional(ISemExp Condition, ISemExp Consequent, ISemExp Alternative, uint AstId) : ISemExp
+    internal sealed record Conditional(ISemExp Condition, ISemExp Consequent, ISemExp Alternative, SourceRef Source) : ISemExp
     {
         public bool BreaksLine => true;
         public string AsString => $"({SpecialKeyword.If.Name} {Condition} {Consequent} {Alternative})";

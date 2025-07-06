@@ -1,50 +1,71 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics.Abstract
 {
     internal interface ISemAstNode : IPrintable
-    {
-        public uint AstId { get; }
-    }
+    { }
 
-    /*
-    
-    AST := BOD
-         | DEF
-         | CMD
+    /**
 
-    BOD := (DEF* CMD* EXP)
+    Program := [Body]
 
-    DEF := (define VAR EXP)
-    
-    CMD := (set! VAR EXP)
-         | EXP
+    AST-Node := [Definition]
+              | [Command]
+              | [Sub-Form]
 
-    EXP := APP
-         | IFF
-         | LAM
-         | LIT
-         | VAR
+    Command := [Assignment]
+             | [Expression]
 
-    APP := (EXP EXP*)
-         | (apply EXP EXP*)
+    Definition := (define [Var] [Expression])
 
-    IFF := (if EXP EXP EXP)
+    Assignment := (set! [Var] [Expression])
 
-    LAM := (lambda FRM BOD)
+    Expression := [Application]
+                | [Conditional]
+                | [Lambda]
+                | [Literal]
+                | [Var]
+                | [Sequence]
+                | [Annotated-Expression]
 
-    FRM := VAR
-         | (VAR*)
-         | (VAR* . VAR)
+    Annotated-Expression := [Expression]
 
-    LIT := <value>
-         | (quote <exp>)
+    Application := (apply [Expression] [Formal-Arguments])
 
-    VAR := <var>
+    Conditional := (if [Expression] [Expression] [Expression])
 
-    */
+    Lambda := (lambda [Formal-Parameters] [Body])
+
+    Literal := [Value]
+             | [Quotation]
+             | [Primitive]
+
+    Value := int|bool|etc...
+
+    Quotation := (quote [Expression])
+
+    Primitive := +|-|=|etc...
+               | [TypePredicate]
+
+    Type-Predicate := integer?
+                    | boolean?
+                    | number?
+                    | etc...
+
+    Sequence := (begin [Body])
+
+    Sub-Form := [Body]
+              | [Formal-Arguments]
+              | [Formal-Parameters]
+
+    Body := [Definition]* [Command]* [Expression]
+
+    Formal-Arguments := ()
+                      | ([Expression] . [Formal-Arguments])
+
+    Formal-Parameters := ()
+                       | [Var]
+                       | ([Var] . [Formal-Parameters])
+
+    **/
 }

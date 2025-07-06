@@ -11,330 +11,342 @@ namespace ClaspCompiler.CompilerPasses
 {
     internal static class ParseSemantics
     {
-        private sealed record Context
-        {
-            private uint _idCounter = 0;
-
-            public Dictionary<uint, SourceRef> SourceLookup { get; } = [];
-            public Dictionary<Symbol, SemVar> VarLookup { get; } = [];
-
-            public uint GetFreshId() => _idCounter++;
-        }
-
         public static Prog_Sem Execute(Prog_Stx program)
         {
-            Context ctx = new();
-            ISemAstNode prog = ParseAstNode(program.Body, ctx);
+            Dictionary<Symbol, SemVar> varMap = [];
 
-            if (prog is not Body body)
-            {
-                throw new Exception($"Parsed semantic program content as non-body expression: {prog}");
-            }
+            Body bod = ParseBody(program.TopLevelForms, varMap);
 
-            return new Prog_Sem(body)
-            {
-                VariablePool = [.. ctx.VarLookup.Values],
-                SourceLookup = ctx.SourceLookup
-            };
+            return new Prog_Sem(bod);
         }
 
-        private static Body ParseBody(ISyntax stx, Context ctx)
+        #region Body-Parsing
+
+        private static Body ParseBody(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
         {
             if (stx is not StxPair stp)
             {
                 throw new Exception($"Can't parse syntax as form body: {stx}");
             }
 
-            ISemAstNode[] nodeList = [.. ParseAstNodeSeries(stp, ctx)];
+            IEnumerable<ISemForm> forms = ParseSerialForms(stp, varMap);
 
-            ISemDef[] defs = [.. nodeList.OfType<ISemDef>()];
-            ISemCmd[] exprs = [.. nodeList.OfType<ISemCmd>()];
+            IEnumerable<ISemAstNode> flattenedNodeList = FlattenBody(forms);
 
-            if (exprs.Length == 0 || exprs[^1] is not ISemExp finalExp)
+            Definition[] defs = [.. flattenedNodeList.OfType<Definition>()];
+            ISemCmd[] cmds = [.. flattenedNodeList.OfType<ISemCmd>()];
+
+            if (cmds.Length == 0 || cmds[^1] is not ISemExp lastExp)
             {
-                throw new Exception($"Expected form body to conclude with expression: {exprs[^1]}");
+                throw new Exception($"Expected form body to conclude with expression: {stx}");
             }
 
-            return MakeBody(defs, exprs[..^1], finalExp, stx.Source, ctx);
+            return new Body(defs, cmds[..^1], lastExp);
         }
 
-        private static ISemAstNode ParseAstNode(ISyntax stx, Context ctx)
+        private static IEnumerable<ISemAstNode> FlattenBody(IEnumerable<ISemForm> seq)
         {
-            return stx switch
-            {
-                StxPair stp => ParseCompoundForm(stp, ctx),
-                Identifier id => ParseFreeIdentifier(id, ctx),
-                StxDatum std => ParseDatum(std.Datum, std.Source, ctx),
-                _ => throw new Exception($"Can't parse unknown syntax form: {stx}")
-            };
-        }
-        private static IEnumerable<ISemAstNode> ParseAstNodeSeries(StxPair stp, Context ctx)
-        {
-            return stp.SkipLast(1).Select(x => ParseAstNode(x, ctx));
-        }
+            Stack<Queue<ISemAstNode>> remainingSeqs = new();
+            remainingSeqs.Push(new(seq));
 
-        private static ISemExp ParseExpression(ISyntax stx, Context ctx)
-        {
-            ISemAstNode node = ParseAstNode(stx, ctx);
+            while (remainingSeqs.Count > 0)
+            {
+                Queue<ISemAstNode> nextSeq = remainingSeqs.Pop();
 
-            if (node is ISemExp exp)
-            {
-                return exp;
-            }
-            else
-            {
-                throw new Exception($"Expected to parse expression: {node}");
-            }
-        }
-        private static IEnumerable<ISemExp> ParseExpressionSeries(StxPair stp, Context ctx)
-        {
-            return stp.SkipLast(1).Select(x => ParseExpression(x, ctx));
-        }
-
-        private static SemVar ParseFreeIdentifier(Identifier id, Context ctx)
-        {
-            if (ctx.VarLookup.TryGetValue(id.ExpandedSymbol, out SemVar? extantVar))
-            {
-                return extantVar;
-            }
-            else
-            {
-                // if it wasn't bound in the context of the program, and the expander didn't complain about it
-                // it must be a special keyword or primitive operator
-
-                SemVar output = MakeVariable(id.ExpandedSymbol, SourceRef.DefaultSyntax, ctx);
-                ctx.VarLookup[id.ExpandedSymbol] = output;
-                return output;
-            }
-
-            throw new Exception($"Tried to parse unknown identifier as bound variable: {id}");
-        }
-
-        private static SemVar ParseBindingIdentifier(Identifier id, Context ctx)
-        {
-            if (ctx.VarLookup.TryGetValue(id.ExpandedSymbol, out SemVar? extantVar))
-            {
-                throw new Exception($"Tried to re-parse binding variable that already exists: {extantVar} <--> {id}");
-            }
-            else
-            {
-                SemVar output = MakeVariable(id.ExpandedSymbol, id.Source, ctx);
-                ctx.VarLookup[id.ExpandedSymbol] = output;
-                return output;
-            }
-        }
-
-        private static ISemExp ParseDatum(ISchemeExp exp, SourceRef src, Context ctx)
-        {
-            if (exp is IValue val)
-            {
-                return MakeLiteral(val, src, ctx);
-            }
-            else
-            {
-                return MakeQuotation(exp, src, ctx);
-            }
-        }
-
-        private static ISemAstNode ParseCompoundForm(StxPair stp, Context ctx)
-        {
-            ISemAstNode opNode = ParseAstNode(stp.Car, ctx);
-
-            if (opNode is SemVar opVar
-                && SpecialKeyword.IsKeyword(opVar.Name))
-            {
-                if (opVar.Name == SpecialKeyword.Apply.Name)
+                while (nextSeq.TryDequeue(out ISemAstNode? nextItem))
                 {
-                    if (stp.Cdr is StxPair applyArgs)
+                    if (nextItem is Body bod)
                     {
-                        ISemAstNode subOp = ParseAstNode(applyArgs.Car, ctx);
-                        return ParseAppForm(subOp, applyArgs.Cdr, stp.Source, ctx);
+                        remainingSeqs.Push(new(nextSeq));
+                        nextSeq = new(bod);
                     }
                     else
                     {
-                        throw new Exception($"Can't parse explicit application form: {stp}");
+                        yield return nextItem;
                     }
                 }
-                else if (opVar.Name == SpecialKeyword.SetBang.Name) return ParseAssignment(stp.Cdr, ctx);
-                else if (opVar.Name == SpecialKeyword.Begin.Name) return ParseBody(stp.Cdr, ctx);
-                else if (opVar.Name == SpecialKeyword.Define.Name) return ParseDefinition(stp.Cdr, ctx);
-                else if (opVar.Name == SpecialKeyword.If.Name) return ParseConditional(stp.Cdr, ctx);
-                else if (opVar.Name == SpecialKeyword.Lambda.Name) return ParseLambda(stp.Cdr, ctx);
-                else if (opVar.Name == SpecialKeyword.Quote.Name) return ParseDatum(StripSyntax(stp.Cdr), stp.Source, ctx);
-                else
-                {
-                    throw new NotImplementedException($"Parser doesn't know how to parse special form: {stp}");
-                }
-            }
-            else
-            {
-                return ParseAppForm(opNode, stp.Cdr, stp.Source, ctx);
             }
         }
 
-        private static Application ParseAppForm(ISemAstNode opNode, ISyntax args, SourceRef src, Context ctx)
-        {
-            if (opNode is not ISemExp op)
-            {
-                throw new Exception($"Expected expression in operator position of application form: {opNode}");
-            }
+        #endregion
 
-            IEnumerable<ISemExp> parsedArgs = args switch
+        #region General Dispatch
+
+        private static ISemForm ParseSemanticForm(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        {
+            return stx switch
             {
-                StxPair stp => ParseExpressionSeries(stp, ctx),
-                _ when args.IsNil => [],
-                _ => throw new Exception($"Expected argument list in application: {args}")
+                StxPair stp => ParseCompoundForm(stp, varMap),
+                Identifier id when DefaultBindings.TryLookupPrimitive(id.ExpandedSymbol, out PrimitiveOperator? op)
+                    => new Primitive(op),
+                Identifier id => ParseIdentifier(id, varMap),
+                StxDatum std => ParseDatum(std, std.Source, varMap),
+                _ => throw new Exception($"Can't parse unknown syntax form: {stx}")
             };
-
-            return MakeApplication(op, parsedArgs.OfType<ISemExp>(), src, ctx);
         }
-
-        private static Definition ParseDefinition(ISyntax stx, Context ctx)
+        private static IEnumerable<ISemForm> ParseSerialForms(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
         {
-            if (stx.TryDestruct(out Identifier? vari, out StxPair? tail)
-                && tail.Cdr.IsNil)
-            {
-                SemVar defVar = ParseBindingIdentifier(vari, ctx);
-                ISemExp defValue = ParseExpression(tail.Car, ctx);
-
-                return MakeDefinition(defVar, defValue, stx.Source, ctx);
-            }
-            throw new Exception($"Can't parse operands of {SpecialKeyword.Define.Name} special form: {stx}");
-        }
-
-        private static Assignment ParseAssignment(ISyntax stx, Context ctx)
-        {
-            if (stx.TryDestruct(out Identifier? vari, out StxPair? tail)
-                && tail.Cdr.IsNil)
-            {
-                SemVar defVar = ParseFreeIdentifier(vari, ctx);
-                ISemExp defValue = ParseExpression(tail.Car, ctx);
-
-                return MakeAssignment(defVar, defValue, stx.Source, ctx);
-            }
-            throw new Exception($"Can't parse operands of {SpecialKeyword.SetBang.Name} special form: {stx}");
-        }
-
-        private static Lambda ParseLambda(ISyntax stx, Context ctx)
-        {
-            if (stx.TryDestruct(out ISyntax? formalsTerm, out ISyntax? tail))
-            {
-                Formals formals = ParseFormals(formalsTerm, ctx);
-                Body body = ParseBody(tail, ctx);
-
-                return MakeLambda(formals, body, stx.Source, ctx);
-            }
-            throw new Exception($"Can't parse operands of {SpecialKeyword.Lambda.Name} special form: {stx}");
-        }
-
-        private static Formals ParseFormals(ISyntax stx, Context ctx)
-        {
-            static Formals ParseFormalsHelper(ISyntax _stx, Context _ctx, List<ISemVar> _acc)
+            static IEnumerable<ISemForm> Helper(ISyntax _stx, Dictionary<Symbol, SemVar> _varMap, List<ISemForm> _acc)
             {
                 if (_stx.IsNil)
                 {
-                    return new Formals([.. _acc], null);
+                    return _acc;
                 }
-                else if (_stx is Identifier varPar)
+                else if (_stx.TryDestruct(out ISyntax? next, out ISyntax? rest))
                 {
-                    return new Formals([.. _acc], ParseBindingIdentifier(varPar, _ctx));
-                }
-                else if (_stx.TryDestruct(out Identifier? next, out ISyntax? rest))
-                {
-                    _acc.Add(ParseBindingIdentifier(next, _ctx));
-                    return ParseFormalsHelper(rest, _ctx, _acc);
+                    ISemForm newNode = ParseSemanticForm(next, _varMap);
+                    _acc.Add(newNode);
+                    return Helper(rest, _varMap, _acc);
                 }
                 else
                 {
-                    throw new Exception($"Expected variable list in formals term of {SpecialKeyword.Lambda.Name} form: {_stx}");
+                    throw new Exception($"Expected {nameof(StxPair)} or {nameof(Nil)}-terminator: {_stx}");
                 }
             }
 
-            return ParseFormalsHelper(stx, ctx, []);
+            try
+            {
+                return Helper(stx, varMap, []);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Expected list of syntax objects: {stx}", ex);
+            }
         }
 
-        private static ISemExp ParseConditional(ISyntax args, Context ctx)
+        #endregion
+
+        #region Basic Syntax Types
+        private static SemVar ParseIdentifier(Identifier id, Dictionary<Symbol, SemVar> varMap)
+        {            
+            if (!varMap.TryGetValue(id.ExpandedSymbol, out SemVar? extantVar))
+            {
+                extantVar = new(id.ExpandedSymbol.Name, id.Source);
+                varMap[id.ExpandedSymbol] = extantVar;
+            }
+            return extantVar;
+        }
+
+        private static ISemExp ParseDatum(ISyntax exp, SourceRef src, Dictionary<Symbol, SemVar> varMap)
         {
-            if (args is not StxPair stp)
+            static ISchemeExp StripSyntax(ISyntax stx)
             {
-                throw new Exception($"Expected (at least) condition argument to {SpecialKeyword.If.Name} form: {args}");
+                return stx switch
+                {
+                    StxDatum std => std.Datum,
+                    Identifier id => id.ExpandedSymbol,
+                    StxPair stp => new Cons(StripSyntax(stp.Car), StripSyntax(stp.Cdr)),
+                    _ => throw new Exception($"Can't strip unknown syntax form: {stx}")
+                };
             }
 
-            ISemExp[] pArgs = [.. ParseExpressionSeries(stp, ctx)];
+            ISchemeExp stripped = StripSyntax(exp);
 
-            if (pArgs.Length == 1)
+            if (stripped is IValue val)
             {
-                return pArgs[0];
-            }
-            else if (pArgs.Length == 2)
-            {
-                Literal implicitAlt = MakeLiteral(Boole.False, args.Source, ctx);
-                return MakeConditional(pArgs[0], pArgs[1], implicitAlt, args.Source, ctx);
-            }
-            else if (pArgs.Length == 3)
-            {
-                return MakeConditional(pArgs[0], pArgs[1], pArgs[2], args.Source, ctx);
+                return new SemValue(val, exp.Source);
             }
             else
             {
-                throw new Exception($"Cannot parse arguments to {SpecialKeyword.If.Name} form: {args}");
+                return new Quotation(exp, exp.Source);
             }
         }
 
-        private static ISchemeExp StripSyntax(ISyntax stx)
+        private static ISemForm ParseCompoundForm(StxPair stp, Dictionary<Symbol, SemVar> varMap)
         {
-            if (stx is StxDatum std)
+            // TODO review transitivity of special bindings
+            if (stp.Car is Identifier id
+                && id.BindingInfo?.BoundType == LexicalScope.BindingType.Special
+                && id.ExpandedSymbol is Symbol specSym)
             {
-                return std.Datum;
+                if (specSym == SpecialKeyword.Apply.Symbol) return ParseExplicitApplication(stp.Cdr, varMap);
+                else if (specSym == SpecialKeyword.Begin.Symbol) return ParseExplicitSequence(stp.Cdr, varMap);
+                else if (specSym == SpecialKeyword.BeginMeta.Symbol) return new Discard(stp.Source);
+                else if (specSym == SpecialKeyword.Define.Symbol) return ParseDefinition(stp.Cdr, varMap);
+                else if (specSym == SpecialKeyword.If.Symbol) return ParseConditional(stp.Cdr, varMap);
+                else if (specSym == SpecialKeyword.Lambda.Symbol) return ParseLambda(stp.Cdr, varMap);
+                else if (specSym == SpecialKeyword.Quote.Symbol) return ParseDatum(stp.Cdr, stp.Source, varMap);
+                else if (specSym == SpecialKeyword.SetBang.Symbol) return ParseAssignment(stp.Cdr, varMap);
+                //else if (specSym == SpecialKeyword.Values.Symbol) return ParseMultipleValues(stp.Cdr, varMap);
+                else
+                {
+                    throw new NotImplementedException($"Can't parse unknown special form: {stp}");
+                }
+            }
+            else
+            {
+                return ParseImplicitApplication(stp, varMap);
+            }
+        }
+
+        #endregion
+
+        private static Application ParseExplicitApplication(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        {
+            if (!stx.TryDestruct(out ISyntax? opTerm, out StxPair? tail)
+                || !tail.Cdr.IsNil)
+            {
+                throw new Exception($"Arguments to explicit {SpecialKeyword.Apply} form don't match expected shape: {stx}");
+            }
+
+            if (ParseSemanticForm(opTerm, varMap) is not ISemExp op)
+            {
+                throw new Exception($"Expected to parse operator term of explicit {SpecialKeyword.Apply} form as expression: {stx}");
+            }
+
+            FormalArguments args = ParseArgumentList(tail, varMap);
+            return new(op, args, stx.Source);
+        }
+
+        private static Application ParseImplicitApplication(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        {
+            if (!stx.TryDestruct(out ISyntax? opTerm, out ISyntax? tail))
+            {
+                throw new Exception($"Arguments to implicit {SpecialKeyword.Apply} form don't match expected shape: {stx}");
+            }
+
+            if (ParseSemanticForm(opTerm, varMap) is not ISemExp op)
+            {
+                throw new Exception($"Expected to parse operator term of implicit {SpecialKeyword.Apply} form as expression: {stx}");
+            }
+
+            FormalArguments args = ParseArgumentList(tail, varMap);
+            return new(op, args, stx.Source);
+        }
+
+        private static Definition ParseDefinition(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        {
+            if (!stx.TryDestruct(out Identifier? id, out StxPair? tail)
+                || !tail.Cdr.IsNil)
+            {
+                throw new Exception($"Arguments to {SpecialKeyword.Define} form don't match expected shape: {stx}");
+            }
+
+            if (ParseSemanticForm(tail.Car, varMap) is not ISemExp val)
+            {
+                throw new Exception($"Expected to parse value term of {SpecialKeyword.Define} form as expression: {stx}");
+            }
+
+            SemVar sv = ParseIdentifier(id, varMap);
+            return new(sv, val, stx.Source);
+        }
+
+        private static Assignment ParseAssignment(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        {
+            if (!stx.TryDestruct(out Identifier? id, out StxPair? tail)
+                || !tail.Cdr.IsNil)
+            {
+                throw new Exception($"Arguments to {SpecialKeyword.SetBang} form don't match expected shape: {stx}");
+            }
+
+            if (ParseSemanticForm(tail.Car, varMap) is not ISemExp val)
+            {
+                throw new Exception($"Expected to parse value term of {SpecialKeyword.SetBang} form as expression: {stx}");
+            }
+
+            SemVar sv = ParseIdentifier(id, varMap);
+            return new(sv, val, stx.Source);
+        }
+
+        private static Lambda ParseLambda(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        {
+            if (!stx.TryDestruct(out ISyntax? formals, out ISyntax? tail))
+            {
+                throw new Exception($"Arguments to {SpecialKeyword.Lambda} form don't match expected shape: {stx}");
+            }
+
+            ISemParameters? parms = ParseParameterList(formals, varMap);
+            Body bod = ParseBody(tail, varMap);
+            return new(parms, bod, stx.Source);
+        }
+
+        private static Conditional ParseConditional(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        {
+            if (stx.TryDestruct(out ISyntax? arg1, out ISyntax? rest1))
+            {
+                if (ParseSemanticForm(arg1, varMap) is not ISemExp cond)
+                {
+                    throw new Exception($"Expected to parse 'condition' term of {SpecialKeyword.If} form as expression: {arg1}");
+                }
+                else if (rest1.TryDestruct(out ISyntax? arg2, out ISyntax? rest2))
+                {
+                    if (ParseSemanticForm(arg2, varMap) is not ISemExp consq)
+                    {
+                        throw new Exception($"Expected to parse 'consequent' term of {SpecialKeyword.If} form as expression: {arg2}");
+                    }
+                    else if (rest2.IsNil)
+                    {
+                        SemValue implicitAlt = new(Boole.False, stx.Source);
+                        return new Conditional(cond, consq, implicitAlt, stx.Source);
+                    }
+                    else if (rest2.TryDestruct(out ISyntax? arg3, out ISyntax? rest3))
+                    {
+                        if (ParseSemanticForm(arg3, varMap) is not ISemExp alt)
+                        {
+                            throw new Exception($"Expected to parse 'alternative' term of {SpecialKeyword.If} form as expression: {arg3}");
+                        }
+                        else if (rest3.IsNil)
+                        {
+                            return new Conditional(cond, consq, alt, stx.Source);
+                        }
+                    }
+                }
+            }
+
+            throw new Exception($"Arguments to {SpecialKeyword.If} form don't match expected shape: {stx}");
+        }
+
+        private static Sequence ParseExplicitSequence(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        {
+            try
+            {
+                Body bod = ParseBody(stx, varMap);
+                return new Sequence(bod, stx.Source);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to parse body of {SpecialKeyword.Begin} form: {stx}", ex);
+            }
+        }
+
+        private static FormalArguments? ParseArgumentList(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        {
+            if (stx.IsNil)
+            {
+                return null;
+            }
+            else if (stx.TryDestruct(out ISyntax? arg, out ISyntax? rest)
+                && ParseSemanticForm(arg, varMap) is ISemExp parsedArg)
+            {
+                FormalArguments? next = ParseArgumentList(rest, varMap);
+                return new FormalArguments(parsedArg, next);
+            }
+            else
+            {
+                throw new Exception($"Arguments to {SpecialKeyword.Apply} form don't match expected shape: {stx}");
+            }
+        }
+
+        private static ISemParameters? ParseParameterList(ISyntax stx, Dictionary<Symbol, SemVar> varMap)
+        {
+            if (stx.IsNil)
+            {
+                return null;
             }
             else if (stx is Identifier id)
             {
-                return id.ExpandedSymbol;
+                return ParseIdentifier(id, varMap);
             }
-            else if (stx is StxPair stp)
+            else if (stx.TryDestruct(out Identifier? param, out ISyntax? rest))
             {
-                return new Cons(StripSyntax(stp.Car), StripSyntax(stp.Cdr));
+                SemVar parsedParam = ParseIdentifier(param, varMap);
+                ISemParameters? next = ParseParameterList(rest, varMap);
+                return new FormalParameters(parsedParam, next);
             }
-            throw new Exception($"Can't strip unknown syntax form: {stx}");
+            else
+            {
+                throw new Exception($"Parameters of {SpecialKeyword.Lambda} form don't match expected shape: {stx}");
+            }
         }
-
-
-        #region Semantic Factorization
-
-        private static uint IndexNewSource(SourceRef src, Context ctx)
-        {
-            uint newId = ctx.GetFreshId();
-            ctx.SourceLookup[newId] = src;
-            return newId;
-        }
-
-        private static Application MakeApplication(ISemExp op, IEnumerable<ISemExp> args, SourceRef src, Context ctx)
-            => new(op, [.. args], IndexNewSource(src, ctx));
-
-        private static Assignment MakeAssignment(ISemVar vari, ISemExp value, SourceRef src, Context ctx)
-            => new(vari, value, IndexNewSource(src, ctx));
-
-        private static Body MakeBody(IEnumerable<ISemDef> defs, IEnumerable<ISemCmd> cmds, ISemExp val, SourceRef src, Context ctx)
-            => new([.. defs], [.. cmds], val, IndexNewSource(src, ctx));
-
-        private static Conditional MakeConditional(ISemExp cond, ISemExp consq, ISemExp alt, SourceRef src, Context ctx)
-            => new(cond, consq, alt, IndexNewSource(src, ctx));
-
-        private static Definition MakeDefinition(ISemVar vari, ISemExp value, SourceRef src, Context ctx)
-            => new(vari, value, IndexNewSource(src, ctx));
-
-        private static Lambda MakeLambda(ISemFormals formals, ISemBody body, SourceRef src, Context ctx)
-            => new(formals, body, IndexNewSource(src, ctx));
-
-        private static Literal MakeLiteral(IValue value, SourceRef src, Context ctx)
-            => new(value, IndexNewSource(src, ctx));
-
-        private static Quotation MakeQuotation(ISchemeExp exp, SourceRef src, Context ctx)
-            => new(exp, IndexNewSource(src, ctx));
-
-        private static SemVar MakeVariable(Symbol sym, SourceRef src, Context ctx)
-            => new(sym.Name, IndexNewSource(src, ctx));
-
-        #endregion
     }
 }

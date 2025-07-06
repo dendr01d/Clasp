@@ -68,7 +68,7 @@ namespace ClaspCompiler.SchemeSyntax
         };
 
         public override bool BreaksLine => Car.BreaksLine || Cdr is ICons<ISyntax>;
-        public override string AsString => this.Stringify();
+        public override string AsString => this.Stringify(x => x.IsNil);
         public override void Print(TextWriter writer, int indent) => writer.WriteCons(this, indent);
 
         public IEnumerator<ISyntax> GetEnumerator() => this.Enumerate();

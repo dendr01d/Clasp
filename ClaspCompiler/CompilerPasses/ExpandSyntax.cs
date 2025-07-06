@@ -11,7 +11,7 @@ namespace ClaspCompiler.CompilerPasses
         public static Prog_Stx Execute(Prog_Stx program)
         {
             var ctx = ExpansionContext.NewTopLevelContext(program.SymFactory);
-            ISyntax newBody = ExpandExpression(program.Body, ctx);
+            ISyntax newBody = ExpandExpression(program.TopLevelForms, ctx);
 
             return new Prog_Stx(newBody, program.SymFactory);
         }

@@ -1,13 +1,12 @@
 ﻿namespace ClaspCompiler.SchemeTypes
 {
-    internal sealed record VarType : SchemeType
+    // A variable representing an unknown (but consistent) type value
+    internal sealed record VarType() : SchemeType
     {
-        private static uint _counter = 0;
+        private static uint _idCounter = 1;
 
-        public readonly uint Id;
+        public uint Id { get; } = _idCounter++;
 
-        public VarType() => Id = ++_counter;
-
-        public override string AsString => $"T<{Id}>";
+        public override string AsString => $"T{Id}";
     }
 }

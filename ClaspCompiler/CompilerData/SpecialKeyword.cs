@@ -25,9 +25,11 @@ namespace ClaspCompiler.CompilerData
 
             Symbol sym = SymbolFactory.InternGlobal(name);
 
-            DefaultBindings.AddSpecial(sym);
+            SpecialKeyword output = new(name, sym);
 
-            return new SpecialKeyword(name, sym);
+            DefaultBindings.AddSpecial(output);
+
+            return output;
         }
 
         public static bool IsKeyword(string name) => _names.Contains(name);
@@ -36,21 +38,18 @@ namespace ClaspCompiler.CompilerData
 
         public static readonly SpecialKeyword Apply = Init("apply");
         public static readonly SpecialKeyword Begin = Init("begin");
-        //public static readonly SpecialKeyword Cond = new("cond");
+        public static readonly SpecialKeyword BeginMeta = Init("begin-meta");
         public static readonly SpecialKeyword Define = Init("define");
         public static readonly SpecialKeyword If = Init("if");
         public static readonly SpecialKeyword Lambda = Init("lambda");
-        //public static readonly SpecialKeyword Let = new("let");
-        //public static readonly SpecialKeyword Letrec = new("letrec");
-        //public static readonly SpecialKeyword LogicalAnd = new("and");
-        //public static readonly SpecialKeyword LogicalOr = new("or");
         public static readonly SpecialKeyword SetBang = Init("set!");
         public static readonly SpecialKeyword Quote = Init("quote");
+        public static readonly SpecialKeyword Values = Init("values");
+
         public static readonly SpecialKeyword Quasiquote = Init("quasiquote");
         public static readonly SpecialKeyword Unquote = Init("unquote");
         public static readonly SpecialKeyword UnquoteSplicing = Init("unquote-splicing");
 
-        public static readonly SpecialKeyword MetaBegin = Init("meta-begin");
         //public static readonly SpecialKeyword DefineSyntax = Init("define-syntax");
         //public static readonly SpecialKeyword QuoteSyntax = Init("quote-syntax");
 
@@ -63,8 +62,9 @@ namespace ClaspCompiler.CompilerData
 
         #endregion
 
+        public int StructuralDepth => 0;
         public bool BreaksLine => false;
-        public string AsString => Name;
+        public string AsString => Name.ToUpper();
         public void Print(TextWriter writer, int indent) => writer.Write(AsString);
         public sealed override string ToString() => AsString;
     }

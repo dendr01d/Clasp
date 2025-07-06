@@ -1,5 +1,5 @@
 ﻿namespace ClaspCompiler.SchemeSemantics.Abstract
 {
-    internal interface ISemCmd : ISemAstNode
+    internal interface ISemCmd : ISemForm
     { }
 }

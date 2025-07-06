@@ -2,10 +2,11 @@
 using ClaspCompiler.SchemeData.Abstract;
 using ClaspCompiler.SchemeSemantics.Abstract;
 using ClaspCompiler.SchemeTypes;
+using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics
 {
-    internal sealed record Quotation(ISchemeExp Value, uint AstId) : ISemLiteral
+    internal sealed record Quotation(ISchemeExp Value, SourceRef Source) : ISemLiteral
     {
         public SchemeType Type => Value.Type;
 

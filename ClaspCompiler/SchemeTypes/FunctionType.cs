@@ -1,16 +1,11 @@
-﻿using System.Collections.Immutable;
-
-namespace ClaspCompiler.SchemeTypes
+﻿namespace ClaspCompiler.SchemeTypes
 {
-    internal sealed record FunctionType(SchemeType OutputType, ImmutableArray<SchemeType> InputTypes) : SchemeType
+    internal sealed record FunctionType(SchemeType OutputType, SchemeType InputType) : SchemeType
     {
-        public FunctionType(SchemeType outputType, params SchemeType[] inputTypes)
-            : this(outputType, inputTypes.ToImmutableArray())
+        public FunctionType(SchemeType outputType, IEnumerable<SchemeType> inputTypes)
+            : this(outputType, TypeList.List([.. inputTypes]))
         { }
 
-        public bool Equals(FunctionType? other) => OutputType == other?.OutputType && InputTypes.SequenceEqual(other.InputTypes);
-        public override int GetHashCode() => HashCode.Combine(OutputType, InputTypes);
-
-        public override string AsString => $"Fun<{OutputType}; {string.Join(", ", InputTypes)}>";
+        public override string AsString => $"({InputType} → {OutputType})";
     }
 }

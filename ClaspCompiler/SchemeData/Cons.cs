@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-
 using ClaspCompiler.SchemeData.Abstract;
 using ClaspCompiler.SchemeTypes;
 
@@ -18,14 +17,14 @@ namespace ClaspCompiler.SchemeData
         {
             Car = car;
             Cdr = cdr;
-            Type = new ConsType(car.Type, cdr.Type);
+            Type = new PairType(car.Type, cdr.Type);
         }
 
         public void SetCar(ISchemeExp car) => Car = car;
         public void SetCdr(ISchemeExp cdr) => Cdr = cdr;
 
         bool IPrintable.BreaksLine => Car.BreaksLine || Cdr is ICons<ISchemeExp>;
-        public string AsString => this.Stringify();
+        public string AsString => this.Stringify(x => x.IsNil);
         public void Print(TextWriter writer, int indent) => writer.WriteCons(this, indent);
         public sealed override string ToString() => AsString;
 

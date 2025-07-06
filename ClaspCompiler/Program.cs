@@ -1,10 +1,4 @@
-﻿using System.ComponentModel;
-using System.Text;
-
-using ClaspCompiler.CompilerPasses;
-using ClaspCompiler.IntermediateCil;
-using ClaspCompiler.IntermediateCps;
-using ClaspCompiler.SchemeData;
+﻿using ClaspCompiler.CompilerPasses;
 using ClaspCompiler.SchemeSemantics;
 using ClaspCompiler.SchemeSyntax;
 using ClaspCompiler.Tokens;
@@ -16,7 +10,7 @@ namespace ClaspCompiler
         private static readonly string[] _testPrograms =
         [
             //"(+ (read) (- (+ 5 3)))",
-            //"(+ . ((read . ()) . ((- . ((+ . (5 . (3 . ()))) . ())) . ())))",
+            //"(+ . ((read . ()) . ((- . ((+ . (5 . (3 . ()))) . ())) . ()))))",
 
             //"(let ([x 32]) (+ (let ([x 10]) x) x))",
             //"(let ([x (let ([x 4]) (+ x 1))]) (+x 2))",
@@ -38,21 +32,31 @@ namespace ClaspCompiler
 
             //"(vector-ref (vector-ref (vector (vector 42)) 0) 0)"
 
-            //"((lambda (x) (+ x 2)) 3)"
+            //"`(lambda ((,x ',v)) ,body)",
+            //"(list 'let (list (list x (list 'quote v))) body)",
 
-            @"
-(define add
-        (lambda (x y)
-                (+ x y) ) )
-(add 1 (add 2 3))"
+            //"((lambda (x) (set-values! (y) (values (+ y x))) (define-values (y) (values x)) y) 5)",
+
+            //@"
+            //  (define var-add +)
+            //  (set! var-add
+            //        (lambda x
+            //                (if (null? x)
+            //                    0
+            //                    (+ (car x)
+            //                       (var-add (cdr x))))))
+            //  (var-add 1 2 3 4)
+            //  (var-add)
+            //  (var-add 1 2)
+            //  (var-add 1 2 3 4 5)",
+
+            @"(define four (+ 2 2))
+              four"
         ];
 
         private static void Main()
         {
             Console.WriteLine();
-
-            //PrintAllCharacters();
-            //return;
 
             int counter = 1;
 
@@ -70,13 +74,16 @@ namespace ClaspCompiler
                 AnnounceProgram("Scheme Syntax", stxProg);
 
                 Prog_Stx stxExpanded = ExpandSyntax.Execute(stxProg);
-                AnnounceProgram("Expanded Scheme Syntax", stxExpanded);
+                AnnounceProgram("Expanded Syntax", stxExpanded);
 
                 Prog_Sem semProg = ParseSemantics.Execute(stxExpanded);
                 AnnounceProgram("Scheme Semantics", semProg);
 
-                //Prog_Sem semProgTypeChecked = TypeCheckSemantics.Execute(semProg);
-                //AnnounceProgram("Type-Checked Semantics", semProgTypeChecked);
+                Prog_Sem semConstrainedTypes = ConstrainSemanticTypes.Execute(semProg);
+                AnnounceProgram("Scheme Semantics w/ Type Constraints", semConstrainedTypes);
+
+                Prog_Sem semProgTypeChecked = ResolveSemanticTypes.Execute(semConstrainedTypes);
+                AnnounceProgram("Scheme Semantics w/ Checked Types", semProgTypeChecked);
 
                 //Prog_Sem semProgSimpleArgs = RemoveComplexOpera.Execute(semProgTypeChecked);
                 //AnnounceProgram("Simplified Opera*", semProgSimpleArgs);
@@ -100,13 +107,16 @@ namespace ClaspCompiler
                 //Prog_Cil cilProgWithLocalHomes = AllocateRegisters.Execute(cilProgWithInterference);
                 //AnnounceProgram("Allocated Homes for Locals", cilProgWithLocalHomes);
 
-                //Console.WriteLine();
-                //AnnounceProgram("CPS-Translated Program", cpsInlined);
-                //Console.WriteLine();
+                //Prog_Cil cilProgPrunedJumps = RemoveJumps.Execute(cilProgWithLocalHomes);
+                //AnnounceProgram("Removed Extraneous Jumps", cilProgPrunedJumps);
 
-                //Console.WriteLine("*** Running Interpreter ***");
-                //ICpsExp output = Interpreter.Interpret(cpsInlined, Prog_Cps.StartLabel);
-                //Console.WriteLine("--> {0}", output);
+                ////Console.WriteLine();
+                ////AnnounceProgram("CPS-Translated Program", cpsInlined);
+                ////Console.WriteLine();
+
+                ////Console.WriteLine("*** Running Interpreter ***");
+                ////ICpsExp output = Interpreter.Interpret(cpsInlined, Prog_Cps.StartLabel);
+                ////Console.WriteLine("--> {0}", output);
 
 
                 Console.WriteLine();
@@ -117,6 +127,7 @@ namespace ClaspCompiler
             Console.WriteLine();
             Console.Write("Press any key to continue");
             Console.ReadKey(true);
+            System.Console.ReadKey(true);
         }
 
         private static void AnnounceProgram(string title, string text)
@@ -133,38 +144,6 @@ namespace ClaspCompiler
             Console.Write(' ');
             prin.Print(Console.Out, 1);
             Console.WriteLine("\n\n");
-        }
-
-        private static void PrintAllCharacters()
-        {
-            Console.OutputEncoding = Encoding.UTF8;
-
-            for (int i = 0; i < (1 << 14);)
-            {
-                Console.Write("{0,8}: ", i);
-                Console.BackgroundColor = ConsoleColor.DarkCyan;
-                Console.Write("0x{0:X5}:", i);
-                Console.ResetColor();
-
-                for (int j = 0; j < 8; ++j)
-                {
-                    Console.Write(' ');
-
-                    for (int k = 0; k < 8; ++k)
-                    {
-                        char c = char.IsControl((char)i)
-                            ? '?'
-                            : Convert.ToChar(i);
-                        Console.Write(c);
-                        ++i;
-                    }
-                }
-
-                Console.WriteLine();
-            }
-
-            Console.WriteLine("\n\nDone!");
-            Console.ReadKey(true);
         }
     }
 }

@@ -8,7 +8,8 @@
 
 
         public static readonly AtomicType Integer = new("Integer");
-        public static readonly AtomicType Boole = new("Boolean");
+        public static readonly AtomicType True = new("True");
+        public static readonly AtomicType False = new("False");
 
         public static readonly AtomicType Nil = new("Nil");
         public static readonly AtomicType Symbol = new("Symbol");
