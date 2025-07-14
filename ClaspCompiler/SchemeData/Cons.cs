@@ -12,6 +12,7 @@ namespace ClaspCompiler.SchemeData
 
         public bool IsAtom => false;
         public bool IsNil => false;
+        public bool IsFalse => false;
 
         public Cons(ISchemeExp car, ISchemeExp cdr)
         {

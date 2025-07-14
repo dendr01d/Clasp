@@ -1,4 +1,6 @@
-﻿using ClaspCompiler.CompilerPasses;
+﻿using System.Text;
+
+using ClaspCompiler.CompilerPasses;
 using ClaspCompiler.SchemeSemantics;
 using ClaspCompiler.SchemeSyntax;
 using ClaspCompiler.Tokens;
@@ -56,6 +58,11 @@ namespace ClaspCompiler
 
         private static void Main()
         {
+            Console.OutputEncoding = Encoding.UTF8;
+
+            //TestSpecialCharacters();
+            //Console.ReadKey(true);
+
             Console.WriteLine();
 
             int counter = 1;
@@ -144,6 +151,84 @@ namespace ClaspCompiler
             Console.Write(' ');
             prin.Print(Console.Out, 1);
             Console.WriteLine("\n\n");
+        }
+
+        private static void TestSpecialCharacters()
+        {
+            //Console.WriteLine(" Punctuation: {0}", "¡ ‼ ‽ … ¶ ");
+            //Console.WriteLine(" Greek Lower: {0}", "α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω");
+            //Console.WriteLine(" Greek Upper: {0}", "Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω");
+            //Console.WriteLine("Super-Script: {0}", "⁰ ¹ ² ³ ⁴ ⁵ ⁶ ⁷ ⁸ ⁹ ");
+            //Console.WriteLine("  Sub-Script: {0}", "₀ ₁ ₂ ₃ ₄ ₅ ₆ ₇ ₈ ₉ ");
+            //Console.WriteLine(" Prime Marks: {0}", "′ ″ ‴ ");
+            //Console.WriteLine("  Mult & Div: {0}", "× ÷ " ) ; 
+            //Console.WriteLine(" Quantifiers: {0}", "Ɐ Ǝ ∄" ) ;
+            //Console.WriteLine("   Logic Ops: {0}", "∧ ∨ ⊕" ) ;
+            //Console.WriteLine("   Misc Math: {0}", "∂ ∆ ∇ ∑ ∏ ∐ √ ∞ ∫ ");
+            //Console.WriteLine("   Type Info: {0}", "⊤ ⊥ ⊣ ⊢ ⊳ ⊲");
+            //Console.WriteLine("    Eq & Neg: {0}", "≠ ≡ ≢ ≈ ¬ ");
+            //Console.WriteLine("     Set Ops: {0}", "⋃ ⋂ ⊃ ⊂ ∅ ∈ ∋");
+            //Console.WriteLine("    Arrows 1: {0}", "← ↑ → ↓ ↔ ↕");
+            //Console.WriteLine("    Arrows 2: {0}", "⇐ ⇑ ⇒ ⇓ ⇔ ⇕");
+            //Console.WriteLine("Round Things: {0}", "• ✶ ° ∘");
+            //Console.WriteLine("     Symbols: {0}", "♀ ♂ ♠ ♣ ♥ ♦");
+
+            static void PrintBlock(int firstRowBegin, int lastRowBegin)
+            {
+                for (int i = firstRowBegin; i < lastRowBegin + 0x10; i += 0x10)
+                {
+                    for (int j = 0; j < 0x10; ++j)
+                    {
+                        Console.Write(' ');
+                        Console.Write((char)(i + j));
+                    }
+                    Console.WriteLine();
+                }
+                Console.WriteLine();
+            }
+
+            Console.WriteLine("Basic Latin");
+            PrintBlock(0x0020, 0x0070);
+
+            Console.WriteLine("Latin-1 Supp:");
+            PrintBlock(0x00A0, 0x00F0);
+
+            Console.WriteLine("Greek:");
+            PrintBlock(0x0390, 0x03D0);
+
+            Console.WriteLine("General Punctuation:");
+            PrintBlock(0x2010, 0x2050);
+
+            Console.WriteLine("Superscript & Subscript:");
+            Console.WriteLine("  (\u00B9 \u00B2 \u00B3)");
+            PrintBlock(0x2070, 0x2090);
+
+            Console.WriteLine("Letter-Like Symbols:");
+            PrintBlock(0x2100, 0x2140);
+
+            Console.WriteLine("Arrows:");
+            PrintBlock(0x2190, 0x21F0);
+
+            Console.WriteLine("Math:");
+            PrintBlock(0x2200, 0x22F0);
+
+            Console.WriteLine("Geometric Shapes:");
+            PrintBlock(0x25A0, 0x25F0);
+
+            Console.WriteLine("Misc Symbols:");
+            PrintBlock(0x2600, 0x26F0);
+
+            Console.WriteLine("Dingbats:");
+            PrintBlock(0x2700, 0x27B0);
+
+            Console.WriteLine("Misc Math Symbols A:");
+            PrintBlock(0x27C0, 0x27E0);
+
+            Console.WriteLine("Misc Math Symbols B:");
+            PrintBlock(0x2980, 0x29F0);
+
+            Console.WriteLine("Supp Math Ops:");
+            PrintBlock(0x2A00, 0x2AF0);
         }
     }
 }

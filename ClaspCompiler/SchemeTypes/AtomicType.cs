@@ -1,6 +1,4 @@
-﻿using ClaspCompiler.CompilerData;
-
-namespace ClaspCompiler.SchemeTypes
+﻿namespace ClaspCompiler.SchemeTypes
 {
     internal sealed record AtomicType : SchemeType
     {

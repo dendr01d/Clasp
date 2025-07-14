@@ -80,7 +80,7 @@ namespace ClaspCompiler.CompilerPasses
                 Identifier id when DefaultBindings.TryLookupPrimitive(id.ExpandedSymbol, out PrimitiveOperator? op)
                     => new Primitive(op),
                 Identifier id => ParseIdentifier(id, varMap),
-                StxDatum std => ParseDatum(std, std.Source, varMap),
+                StxDatum std => ParseDatum(std),
                 _ => throw new Exception($"Can't parse unknown syntax form: {stx}")
             };
         }
@@ -118,7 +118,7 @@ namespace ClaspCompiler.CompilerPasses
 
         #region Basic Syntax Types
         private static ISemVar ParseIdentifier(Identifier id, Dictionary<Symbol, ISemVar> varMap)
-        {            
+        {
             if (!varMap.TryGetValue(id.ExpandedSymbol, out ISemVar? extantVar))
             {
                 extantVar = new Variable(id.ExpandedSymbol.Name, id.Source);
@@ -127,7 +127,7 @@ namespace ClaspCompiler.CompilerPasses
             return extantVar;
         }
 
-        private static ISemExp ParseDatum(ISyntax exp, SourceRef src, Dictionary<Symbol, ISemVar> varMap)
+        private static ISemExp ParseDatum(ISyntax exp)
         {
             static ISchemeExp StripSyntax(ISyntax stx)
             {
@@ -165,7 +165,7 @@ namespace ClaspCompiler.CompilerPasses
                 else if (specSym == SpecialKeyword.Define.Symbol) return ParseDefinition(stp.Cdr, varMap);
                 else if (specSym == SpecialKeyword.If.Symbol) return ParseConditional(stp.Cdr, varMap);
                 else if (specSym == SpecialKeyword.Lambda.Symbol) return ParseLambda(stp.Cdr, varMap);
-                else if (specSym == SpecialKeyword.Quote.Symbol) return ParseDatum(stp.Cdr, stp.Source, varMap);
+                else if (specSym == SpecialKeyword.Quote.Symbol) return ParseDatum(stp.Cdr);
                 else if (specSym == SpecialKeyword.SetBang.Symbol) return ParseAssignment(stp.Cdr, varMap);
                 //else if (specSym == SpecialKeyword.Values.Symbol) return ParseMultipleValues(stp.Cdr, varMap);
                 else
@@ -194,11 +194,11 @@ namespace ClaspCompiler.CompilerPasses
                 throw new Exception($"Expected to parse operator term of explicit {SpecialKeyword.Apply} form as expression: {stx}");
             }
 
-            FormalArguments? args = ParseArgumentList(tail, varMap);
+            ISemExp[] args = ParseArgumentList(tail, varMap);
             return new(op, args, stx.Source);
         }
 
-        private static Application ParseImplicitApplication(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
+        private static Application ParseImplicitApplication(StxPair stx, Dictionary<Symbol, ISemVar> varMap)
         {
             if (!stx.TryDestruct(out ISyntax? opTerm, out ISyntax? tail))
             {
@@ -210,7 +210,7 @@ namespace ClaspCompiler.CompilerPasses
                 throw new Exception($"Expected to parse operator term of implicit {SpecialKeyword.Apply} form as expression: {stx}");
             }
 
-            FormalArguments? args = ParseArgumentList(tail, varMap);
+            ISemExp[] args = ParseArgumentList(tail, varMap);
             return new(op, args, stx.Source);
         }
 
@@ -255,9 +255,9 @@ namespace ClaspCompiler.CompilerPasses
                 throw new Exception($"Arguments to {SpecialKeyword.Lambda} form don't match expected shape: {stx}");
             }
 
-            ISemParameters? parms = ParseParameterList(formals, varMap);
+            var parms = ParseParameterList(formals, varMap);
             Body bod = ParseBody(tail, varMap);
-            return new(parms, bod, stx.Source);
+            return new(parms.Item1, parms.Item2, bod, stx.Source);
         }
 
         private static Conditional ParseConditional(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
@@ -309,44 +309,53 @@ namespace ClaspCompiler.CompilerPasses
             }
         }
 
-        private static FormalArguments? ParseArgumentList(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
+        private static ISemExp[] ParseArgumentList(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
-            if (stx.IsNil)
+            static ISemExp[] Unroll(ISyntax _stx, Dictionary<Symbol, ISemVar> _varMap, List<ISemExp> acc)
             {
-                return null;
+                if (_stx.IsNil)
+                {
+                    return [.. acc];
+                }
+                else if (_stx.TryDestruct(out ISyntax? arg, out ISyntax? rest)
+                    && ParseSemanticForm(arg, _varMap) is ISemExp parsedArg)
+                {
+                    acc.Add(parsedArg);
+                    return Unroll(rest, _varMap, acc);
+                }
+                else
+                {
+                    throw new Exception($"Arguments to {SpecialKeyword.Apply} form don't match expected shape: {_stx}");
+                }
             }
-            else if (stx.TryDestruct(out ISyntax? arg, out ISyntax? rest)
-                && ParseSemanticForm(arg, varMap) is ISemExp parsedArg)
-            {
-                FormalArguments? next = ParseArgumentList(rest, varMap);
-                return new FormalArguments(parsedArg, next);
-            }
-            else
-            {
-                throw new Exception($"Arguments to {SpecialKeyword.Apply} form don't match expected shape: {stx}");
-            }
+            return Unroll(stx, varMap, []);
         }
 
-        private static ISemParameters? ParseParameterList(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
+        private static (ISemVar[], ISemVar?) ParseParameterList(ISyntax stx, Dictionary<Symbol, ISemVar> varMap)
         {
-            if (stx.IsNil)
+            static (ISemVar[], ISemVar?) Unroll(ISyntax _stx, Dictionary<Symbol, ISemVar> _varMap, List<ISemVar> acc)
             {
-                return null;
+                if (_stx.IsNil)
+                {
+                    return ([.. acc], null);
+                }
+                else if (_stx is Identifier id)
+                {
+                    ISemVar v = ParseIdentifier(id, _varMap);
+                    return ([.. acc], v);
+                }
+                else if (_stx.TryDestruct(out Identifier? param, out ISyntax? rest))
+                {
+                    ISemVar v = ParseIdentifier(param, _varMap);
+                    acc.Add(v);
+                    return Unroll(rest, _varMap, acc);
+                }
+                else
+                {
+                    throw new Exception($"Parameters of {SpecialKeyword.Lambda} form don't match expected shape: {_stx}");
+                }
             }
-            else if (stx is Identifier id)
-            {
-                return ParseIdentifier(id, varMap);
-            }
-            else if (stx.TryDestruct(out Identifier? param, out ISyntax? rest))
-            {
-                ISemVar parsedParam = ParseIdentifier(param, varMap);
-                ISemParameters? next = ParseParameterList(rest, varMap);
-                return new FormalParameters(parsedParam, next);
-            }
-            else
-            {
-                throw new Exception($"Parameters of {SpecialKeyword.Lambda} form don't match expected shape: {stx}");
-            }
+            return Unroll(stx, varMap, []);
         }
     }
 }

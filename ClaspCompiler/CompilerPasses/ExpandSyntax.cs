@@ -53,7 +53,7 @@ namespace ClaspCompiler.CompilerPasses
             // now we construct a new name for the identifier, record the binding info in the store,
             // and return an identifier updated to hold information about the binding
 
-            Symbol renamedSymbol = ctx.SymFactory.GenSym(id.Symbol);
+            Symbol renamedSymbol = ctx.SymFactory.GenerateUnique(id.Symbol);
             Binding newBinding = new(renamedSymbol, boundType);
 
             ctx.BindingStore.RecordBinding(id, newBinding);

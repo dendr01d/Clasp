@@ -4,10 +4,9 @@ using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics
 {
-    internal sealed record Variable(string Name, SourceRef Source) : VarBase(Name), ISemVar
+    internal sealed record Variable(string Name, SourceRef Source) : VarBase(Name), ISemVar, IVisibleTypePredicate
     {
         public ISemVar Parameter => this;
-        public ISemParameters? Next => null;
 
     }
 }

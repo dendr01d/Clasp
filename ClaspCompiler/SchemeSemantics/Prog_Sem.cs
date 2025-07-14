@@ -1,18 +1,14 @@
-﻿using ClaspCompiler.CompilerData;
-using ClaspCompiler.SchemeSemantics.Abstract;
+﻿using ClaspCompiler.SchemeSemantics.Abstract;
 using ClaspCompiler.SchemeTypes;
 using ClaspCompiler.SchemeTypes.TypeConstraints;
-using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics
 {
     internal sealed record Prog_Sem(Body AbstractSyntaxTree) : IPrintable
     {
-        public Dictionary<uint, SourceRef> SourceLookup { get; init; } = [];
         public Dictionary<ISemVar, SchemeType> VariableTypes { get; init; } = [];
-        public Dictionary<uint, SchemeType> NodeTypes { get; init; } = [];
         public List<TypeConstraint> TypeConstraints { get; init; } = [];
-        public DisjointTypeSet TypeUnification { get; init; } = new();
+        public SchemeType ProgramType { get; init; } = SchemeType.Any;
 
         public IEnumerable<ISemVar> VariablePool => VariableTypes.Keys;
 
@@ -30,11 +26,11 @@ namespace ClaspCompiler.SchemeSemantics
                 writer.WriteLineIndent(indent);
             }
 
-            if (TypeUnification.Count > 0)
-            {
-                writer.Write(TypeUnification, indent);
-                writer.WriteLineIndent(indent);
-            }
+            //if (TypeUnification.Count > 0)
+            //{
+            //    writer.Write(TypeUnification, indent);
+            //    writer.WriteLineIndent(indent);
+            //}
 
             writer.Write(AbstractSyntaxTree, indent);
 

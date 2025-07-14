@@ -10,6 +10,7 @@ namespace ClaspCompiler.SchemeSyntax.Abstract
     {
         public abstract bool IsAtom { get; }
         public abstract bool IsNil { get; }
+        public bool IsFalse => false;
         public abstract SchemeType Type { get; }
 
         public abstract ISchemeExp Expose();

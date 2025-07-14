@@ -1,11 +1,14 @@
-﻿using ClaspCompiler.SchemeTypes;
+﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeTypes;
 using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics.Abstract
 {
-    internal abstract record AnnotatedBase<T>(T Expression, SchemeType Type) : ISemAnnotated
+    internal abstract record AnnotatedBase<T>(T Expression, SchemeType Type)
+        : ISemAnnotated
         where T : ISemExp
     {
+        public abstract IVisibleTypePredicate? VisiblePredicate { get; }
         public SourceRef Source => Expression.Source;
 
         public bool BreaksLine => Expression.BreaksLine;

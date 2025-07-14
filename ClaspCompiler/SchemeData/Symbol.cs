@@ -7,7 +7,8 @@ namespace ClaspCompiler.SchemeData
     {
         public bool IsAtom => true;
         public bool IsNil => false;
-        public SchemeType Type => AtomicType.Symbol;
+        public bool IsFalse => false;
+        public SchemeType Type => SchemeType.Symbol;
 
         bool IPrintable.BreaksLine => false;
         public string AsString => Name;

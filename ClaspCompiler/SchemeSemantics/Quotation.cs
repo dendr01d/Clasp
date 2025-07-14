@@ -1,4 +1,5 @@
 ﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeData.Abstract;
 using ClaspCompiler.SchemeSemantics.Abstract;
 using ClaspCompiler.SchemeTypes;
@@ -8,6 +9,7 @@ namespace ClaspCompiler.SchemeSemantics
 {
     internal sealed record Quotation(ISchemeExp Value, SourceRef Source) : ISemLiteral
     {
+        public IVisibleTypePredicate? VisiblePredicate => Value.AsBoolean();
         public SchemeType Type => Value.Type;
 
         public bool BreaksLine => Value.BreaksLine;

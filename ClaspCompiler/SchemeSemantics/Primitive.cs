@@ -1,4 +1,5 @@
 ﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeSemantics.Abstract;
 using ClaspCompiler.SchemeTypes;
 using ClaspCompiler.Text;
@@ -7,6 +8,7 @@ namespace ClaspCompiler.SchemeSemantics
 {
     internal sealed record Primitive(PrimitiveOperator Operator) : ISemLiteral
     {
+        public IVisibleTypePredicate? VisiblePredicate => SchemeData.Boolean.True;
         public SourceRef Source => SourceRef.DefaultSyntax;
         public SchemeType Type => Operator.Type;
 

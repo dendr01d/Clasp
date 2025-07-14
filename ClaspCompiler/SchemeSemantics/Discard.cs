@@ -1,5 +1,4 @@
 ﻿using ClaspCompiler.SchemeSemantics.Abstract;
-using ClaspCompiler.SchemeTypes;
 using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics

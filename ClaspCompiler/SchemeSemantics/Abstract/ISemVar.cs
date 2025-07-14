@@ -1,6 +1,6 @@
 ﻿namespace ClaspCompiler.SchemeSemantics.Abstract
 {
-    internal interface ISemVar : ISemExp, ISemParameters
+    internal interface ISemVar : ISemExp
     {
         string Name { get; }
     }

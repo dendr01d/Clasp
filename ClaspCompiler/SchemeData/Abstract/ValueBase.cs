@@ -14,6 +14,7 @@ namespace ClaspCompiler.SchemeData.Abstract
         public SchemeType Type { get; init; }
         public bool IsAtom => true;
         public bool IsNil => false;
+        public virtual bool IsFalse => false;
 
         protected ValueBase(T value, SchemeType type)
         {

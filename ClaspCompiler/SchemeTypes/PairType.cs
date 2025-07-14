@@ -10,7 +10,7 @@ namespace ClaspCompiler.SchemeTypes
         public bool Equals(PairType? other) => other is not null && Car.Equals(other.Car) && Cdr.Equals(other.Cdr);
         public override int GetHashCode() => _lazyHash.Value;
 
-        public override string AsString => this.Stringify(t => t == AtomicType.Nil);
+        public override string AsString => $"(Pair {Car} {Cdr})";
 
         public IEnumerator<SchemeType> GetEnumerator() => this.Enumerate();
         IEnumerator IEnumerable.GetEnumerator() => this.Enumerate();

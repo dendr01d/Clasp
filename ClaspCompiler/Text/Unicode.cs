@@ -38,6 +38,7 @@ namespace ClaspCompiler.Text
         public const char Tau = 'τ';
         public const char Upsilon = 'υ';
         public const char Phi = 'φ';
+        public const char PhiAlt = 'ϕ';
         public const char Chi = 'χ';
         public const char Psi = 'ψ';
         public const char Omega = 'ω';
@@ -75,11 +76,11 @@ namespace ClaspCompiler.Text
         public const char ExistentialQuantifier = 'Ǝ';
         public const char InexistentialQuantifier = '∄';
 
-        public const char Union = '⋃';
-        public const char Intersection = '⋂';
+        public const char Union = '∪';
+        public const char Intersection = '∩';
 
-        public const char LogicalAnd = '⋀';
-        public const char LogicalOr = '⋁';
+        public const char LogicalAnd = '∧';
+        public const char LogicalOr = '∨';
         public const char LogicalXor = '⊕';
 
         public const char PartialDifferential = '∂';
@@ -99,8 +100,8 @@ namespace ClaspCompiler.Text
         public const char Adjoint = '⊣';
         public const char Turnstile = '⊢';
 
-        public const char TriRight = '⊳';
-        public const char TriLeft = '⊲';
+        public const char TriRight = '‣';
+        public const char TriLeft = '◁';
 
         public const char NotEqual = '≠';
         public const char Equivalent = '≡';
@@ -114,7 +115,9 @@ namespace ClaspCompiler.Text
         public const char PlusOrMinus = '±';
 
         public const char SuperSet = '⊃';
+        public const char ProperSuperSet = '⊇';
         public const char SubSet = '⊂';
+        public const char ProperSubSet = '⊆';
         public const char EmptySet = '∅';
 
         public const char Contains = '∈';
@@ -127,12 +130,14 @@ namespace ClaspCompiler.Text
         public const char ArrowBiHorizontal = '↔';
         public const char ArrowBiVertical = '↕';
 
-        public const char ArrowBarLeft = '⇐';
-        public const char ArrowBarUp = '⇑';
-        public const char ArrowBarRight = '⇒';
-        public const char ArrowBarDown = '⇓';
-        public const char ArrowBiBarHorizontal = '⇔';
-        public const char ArrowBiBarVertical = '⇕';
+        public const char NaturalNumbers = 'ℕ';
+        public const char Integers = 'ℤ';
+        public const char Rationalnumbers = 'ℚ';
+        public const char RealNumbers = 'ℝ';
+        public const char Complexnumbers = 'ℂ';
+        public const char Quaternions = 'ℍ';
+        public const char Primes = 'ℙ';
+        public const char ImaginaryUnit = 'ⅈ';
 
         public const char Bullet = '•';
         public const char Starburst = '✶';

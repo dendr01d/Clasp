@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 
 using ClaspCompiler.SchemeSemantics.Abstract;
+using ClaspCompiler.Text;
 
 namespace ClaspCompiler.SchemeSemantics
 {
@@ -8,6 +9,7 @@ namespace ClaspCompiler.SchemeSemantics
     {
         public bool BreaksLine => Definitions.Length > 0 || Commands.Length > 0 || Value.BreaksLine;
         public string AsString => string.Join(' ', Enumerate());
+
         public void Print(TextWriter writer, int indent) => writer.WriteLineByLine(Enumerate(), indent);
         public sealed override string ToString() => AsString;
 

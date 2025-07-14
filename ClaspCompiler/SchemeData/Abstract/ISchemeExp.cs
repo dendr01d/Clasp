@@ -9,6 +9,15 @@ namespace ClaspCompiler.SchemeData.Abstract
     {
         public SchemeType Type { get; }
         public bool IsAtom { get; }
-        bool IsNil { get; }
+        public bool IsNil { get; }
+        public bool IsFalse { get; }
+    }
+
+    internal static class ISchemeExpExtensions
+    {
+        public static SchemeData.Boolean AsBoolean(this ISchemeExp exp)
+        {
+            return exp.IsFalse ? SchemeData.Boolean.False : SchemeData.Boolean.True;
+        }
     }
 }

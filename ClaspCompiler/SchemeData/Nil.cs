@@ -11,6 +11,7 @@ namespace ClaspCompiler.SchemeData
         public SchemeType Type => AtomicType.Nil;
         public bool IsAtom => true;
         public bool IsNil => true;
+        public bool IsFalse => false;
 
         private Nil() { }
 

@@ -7,6 +7,6 @@
 
         public uint Id { get; } = _idCounter++;
 
-        public override string AsString => $"T{Id}";
+        public override string AsString => $"τ{Id}";
     }
 }

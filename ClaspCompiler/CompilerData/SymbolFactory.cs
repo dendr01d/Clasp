@@ -1,4 +1,5 @@
 ﻿using ClaspCompiler.SchemeData;
+using ClaspCompiler.Text;
 
 namespace ClaspCompiler.CompilerData
 {
@@ -11,7 +12,7 @@ namespace ClaspCompiler.CompilerData
         private static readonly Dictionary<string, Symbol> _globalInternment = [];
         private readonly Dictionary<string, Symbol> _localInternment;
 
-        private const string DEFAULT_PREFIX = "σ";
+        private const string DEFAULT_PREFIX = "$";
 
         public SymbolFactory()
         {
@@ -54,12 +55,28 @@ namespace ClaspCompiler.CompilerData
 
         private bool IsInterned(string name) => _globalInternment.ContainsKey(name) || _localInternment.ContainsKey(name);
 
+
+        private static readonly char[] _superscript = [
+            Unicode.Sup0,
+            Unicode.Sup1,
+            Unicode.Sup2,
+            Unicode.Sup3,
+            Unicode.Sup4,
+            Unicode.Sup5,
+            Unicode.Sup6,
+            Unicode.Sup7,
+            Unicode.Sup8,
+            Unicode.Sup9
+        ];
+
         private static string FormatGenName(string? name, uint id)
         {
-            return string.Format("{0}{1}", name ?? DEFAULT_PREFIX, id);
+            return string.Format("{0}{1}",
+                name ?? DEFAULT_PREFIX, 
+                new string([.. id.ToString().Select(c => _superscript[((int)c - (int)'0')])]));
         }
 
-        public Symbol GenSym(string? nameBasis = null)
+        public Symbol GenerateUnique(string? nameBasis = null)
         {
             uint counter = 1;
             string newName;
@@ -73,6 +90,6 @@ namespace ClaspCompiler.CompilerData
             return Intern(newName);
         }
 
-        public Symbol GenSym(Symbol sym) => GenSym(sym.Name);
+        public Symbol GenerateUnique(Symbol sym) => GenerateUnique(sym.Name);
     }
 }

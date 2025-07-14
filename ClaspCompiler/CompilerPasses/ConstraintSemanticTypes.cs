@@ -1,4 +1,5 @@
 ﻿using ClaspCompiler.CompilerData;
+using ClaspCompiler.SchemeData;
 using ClaspCompiler.SchemeSemantics;
 using ClaspCompiler.SchemeSemantics.Abstract;
 using ClaspCompiler.SchemeTypes;
@@ -10,15 +11,103 @@ namespace ClaspCompiler.CompilerPasses
     {
         private sealed record Context
         {
-            public Dictionary<ISemVar, SchemeType> Env { get; } = [];
-            public HashSet<TypeConstraint> TypeConstraints { get; } = [];
-            public DisjointTypeSet TypeUnifier { get; } = new();
+            public Dictionary<ISemVar, SchemeType> Gamma { get; init; } = [];
+            public HashSet<VarType> Delta { get; init; } = [];
+            public Dictionary<ISemVar, DottedPreType> Sigma { get; init; } = [];
+            public HashSet<TypeConstraint> TypeConstraints { get; init; } = [];
 
-            public VarType NewVarType()
+            public Context WithVisiblePredicate(IVisibleTypePredicate? pred)
             {
-                VarType vt = new();
-                TypeUnifier.Add(vt);
-                return vt;
+                if (pred is ISemVar sv && Gamma.TryGetValue(sv, out SchemeType? sigma))
+                {
+                    if (sv is TypedVariable tv)
+                    {
+                        return this with
+                        {
+                            Gamma = new(Gamma)
+                            {
+                                { sv, Restrict(sigma, tv.Type) }
+                            }
+                        };
+                    }
+                    else
+                    {
+                        return this with
+                        {
+                            Gamma = new(Gamma)
+                            {
+                                { sv, Remove(sigma, SchemeType.False) }
+                            }
+                        };
+                    }
+                }
+                else
+                {
+                    return this;
+                }
+            }
+
+            public Context WithoutVisiblePredicate(IVisibleTypePredicate? pred)
+            {
+                if (pred is ISemVar sv && Gamma.TryGetValue(sv, out SchemeType? sigma))
+                {
+                    if (sv is TypedVariable tv)
+                    {
+                        return this with
+                        {
+                            Gamma = new(Gamma)
+                            {
+                                { sv, Remove(sigma, tv.Type) }
+                            }
+                        };
+                    }
+                    else
+                    {
+                        return this with
+                        {
+                            Gamma = new(Gamma)
+                            {
+                                { sv, SchemeType.False }
+                            }
+                        };
+                    }
+                }
+                else
+                {
+                    return this;
+                }
+            }
+
+            private static SchemeType Restrict(SchemeType sigma, SchemeType tau)
+            {
+                if (sigma < tau)
+                {
+                    return sigma;
+                }
+                else if (tau is UnionType ut)
+                {
+                    return UnionType.Join(ut.Types.Select(x => Restrict(sigma, x)));
+                }
+                else
+                {
+                    return tau;
+                }
+            }
+
+            private static SchemeType Remove(SchemeType sigma, SchemeType tau)
+            {
+                if (sigma < tau)
+                {
+                    return SchemeType.Bottom;
+                }
+                else if (tau is UnionType ut)
+                {
+                    return UnionType.Join(ut.Types.Select(x => Remove(sigma, x)));
+                }
+                else
+                {
+                    return sigma;
+                }
             }
         }
 
@@ -26,14 +115,13 @@ namespace ClaspCompiler.CompilerPasses
         {
             Context ctx = new();
 
-            Body bod = InferThroughBody(program.AbstractSyntaxTree, ctx);
+            var output = InferThroughBody(program.AbstractSyntaxTree, ctx);
 
-            return new Prog_Sem(bod)
+            return new Prog_Sem(output.Item1)
             {
-                SourceLookup = program.SourceLookup,
-                VariableTypes = ctx.Env.ToDictionary(),
+                VariableTypes = ctx.Gamma.ToDictionary(),
                 TypeConstraints = [.. ctx.TypeConstraints],
-                TypeUnification = ctx.TypeUnifier
+                ProgramType = output.Item2.Type
             };
         }
 
@@ -47,18 +135,75 @@ namespace ClaspCompiler.CompilerPasses
                     return typed;
 
                 case Application app:
-                    break;
+                    // We know there's SOME kind of procedure, but we can't know exactly what kind
+                    // So we constrain it based on what we know from the arguments
+                    ISemAnnotated[] typedArgs = [.. app.Arguments.Select(x => InferExpressionType(x, ctx))];
+                    VarType funOut = new();
+                    FunctionType presumedFunType = new(funOut, typedArgs.Select(x => x.Type));
+                    ISemAnnotated typedProc = CheckEquivalentType(app.Procedure, presumedFunType, ctx);
+                    Application typedApp = app with
+                    {
+                        Arguments = typedArgs,
+                        Procedure = typedProc
+                    };
+                    return new AnnotatedExpression(typedApp, funOut);
 
                 case Conditional cond:
-                    break;
+                    ISemAnnotated annoCond = InferExpressionType(cond.Condition, ctx);
+                    ISemAnnotated annoConsq = InferExpressionType(cond.Consequent, ctx.WithVisiblePredicate(annoCond.VisiblePredicate));
+                    ISemAnnotated annoAlt = InferExpressionType(cond.Alternative, ctx.WithoutVisiblePredicate(annoCond.VisiblePredicate));
+                    //if (Boole.True.Equals(annoCond.VisiblePredicate))
+                    //{
+                    //    return annoConsq;
+                    //}
+                    //else if (Boole.False.Equals(annoCond.VisiblePredicate))
+                    //{
+                    //    return annoAlt;
+                    //}
+                    //else
+                    //{
+                        IVisibleTypePredicate? combPred = CombinePredicates(annoCond, annoConsq, annoAlt);
+                        SchemeType combinedType = UnionType.Join(annoConsq.Type, annoAlt.Type);
+                        Conditional typedCond = cond with
+                        {
+                            Condition = annoCond,
+                            Consequent = annoConsq,
+                            Alternative = annoAlt
+                        };
+                        return new AnnotatedExpression(typedCond, combinedType, combPred);
+                    //}
 
                 case Lambda lam:
-                    break;
+                    TypedVariable[] typedParams = [.. lam.Parameters.Select(x => InferNewVariableType(x, ctx))];
+                    TypedVariable? typedDotParam = lam.DottedParameter is null ? null : InferNewVariableType(lam.DottedParameter, ctx);
+                    var typedBody = InferThroughBody(lam.Body, ctx);
+                    Lambda typedFun = lam with
+                    {
+                        Parameters = typedParams,
+                        DottedParameter = typedDotParam,
+                        Body = typedBody.Item1
+                    };
+                    if (typedParams.Length == 1
+                        && typedDotParam is null
+                        && typedBody.Item2.VisiblePredicate is TypedVariable tv
+                        && tv.Equals(typedParams[0]))
+                    {
+                        FunctionType funType = new(typedBody.Item2.Type, typedParams.Select(x => x.Type), typedDotParam?.Type)
+                        {
+                            LatentPredicate = tv.Type
+                        };
+                        return new AnnotatedExpression(typedFun, funType, tv);
+                    }
+                    else
+                    {
+                        FunctionType funType = new(typedBody.Item2.Type, typedParams.Select(x => x.Type), typedDotParam?.Type);
+                        return new AnnotatedExpression(typedFun, funType);
+                    }
 
                 case Sequence seq:
-                    Body typedBod = InferThroughBody(seq.Body, ctx);
-                    Sequence typedSeq = seq with { Body = typedBod };
-                    return new AnnotatedExpression(typedSeq, ((ISemAnnotated)typedBod.Value).Type); // blech
+                    var annotatedBody = InferThroughBody(seq.Body, ctx);
+                    Sequence typedSeq = seq with { Body = annotatedBody.Item1 };
+                    return new AnnotatedExpression(typedSeq, annotatedBody.Item2.Type);
 
                 case Variable v:
                     return InferVariableType(v, ctx);
@@ -68,29 +213,36 @@ namespace ClaspCompiler.CompilerPasses
             }
         }
 
+        private static TypedVariable InferNewVariableType(ISemVar sv, Context ctx)
+        {
+            return CheckVariableType(sv, new VarType(), ctx);
+        }
+
         private static TypedVariable InferVariableType(ISemVar sv, Context ctx)
         {
             return sv switch
             {
                 TypedVariable tv => tv,
-                Variable v when ctx.Env.TryGetValue(sv, out SchemeType? varType) => new TypedVariable(v, varType),
+                Variable v when ctx.Gamma.TryGetValue(sv, out SchemeType? varType) => new TypedVariable(v, varType),
                 Variable => throw new Exception($"Can't infer type of free variable: {sv}"),
                 _ => throw new Exception($"Can't infer type of unknown variable: {sv}")
             };
         }
 
-        private static Body InferThroughBody(Body bod, Context ctx)
+        private static (Body, ISemAnnotated) InferThroughBody(Body bod, Context ctx)
         {
             Definition[] defs = [.. bod.Definitions.Select(x => InferThroughDefinition(x, ctx))];
             ISemCmd[] cmds = [.. bod.Commands.Select(x => InferThroughCommand(x, ctx))];
-            ISemExp val = InferExpressionType(bod.Value, ctx);
+            ISemAnnotated val = InferExpressionType(bod.Value, ctx);
 
-            return bod with
+            Body output = bod with
             {
                 Definitions = defs,
                 Commands = cmds,
                 Value = val
             };
+
+            return (output, val);
         }
 
         private static Definition InferThroughDefinition(Definition def, Context ctx)
@@ -129,29 +281,84 @@ namespace ClaspCompiler.CompilerPasses
 
         #endregion
 
+        private static IVisibleTypePredicate? CombinePredicates(ISemAnnotated anno1, ISemAnnotated anno2, ISemAnnotated anno3)
+        {
+            return (anno1.VisiblePredicate, anno2.VisiblePredicate, anno3.VisiblePredicate) switch
+            {
+                (_, var a, var b) when a == b => a,
+                (TypedVariable t, SchemeData.Boolean b, TypedVariable s) when b.Value && t.Variable == s.Variable => new TypedVariable(t.Variable, UnionType.Join(t.Type, s.Type)),
+                (SchemeData.Boolean b, var consq, _) when b.Value => consq,
+                (SchemeData.Boolean b, _, var alt) when !b.Value => alt,
+                (var cond, SchemeData.Boolean b1, SchemeData.Boolean b2) when b1.Value && !b2.Value => cond,
+                _ => null,
+            };
+        }
+
+
         #region Checking
 
-        private static ISemAnnotated CheckExpressionType(ISemExp expr, SchemeType ty, Context ctx)
+        private static ISemAnnotated CheckEquivalentType(ISemExp expr, SchemeType ty, Context ctx)
         {
             switch (expr)
             {
-                case ISemVar sv:
-                    return CheckVariableType(sv, ty, ctx);
+                //case ISemVar sv:
+                //    return CheckVariableType(sv, ty, ctx);
 
-                case ISemAnnotated typed:
-                    ctx.TypeConstraints.Add(new TypeEquality(expr, typed.Type, ty));
+                case ISemAnnotated typed when typed.Type == ty:
                     return typed;
 
-                case Application app:
+                //case ISemAnnotated typed:
+                //    ctx.TypeConstraints.Add(new TypeEqualsType(typed.Type, ty, expr));
+                //    return typed;
 
-                    break;
+                //case Application app:
 
-                case Conditional cond:
-                    break;
+                //    break;
+
+                //case Conditional cond:
+                //    break;
 
                 case Lambda lam when ty is FunctionType fty:
+                    {
+                        List<TypedVariable> typedParams = [];
+                        TypedVariable? typedDotted = null;
 
-                    break;
+                        int i = 0;
+                        for (; i < int.Min(lam.Parameters.Length, fty.InputTypes.Length); ++i)
+                        {
+                            typedParams.Add(CheckVariableType(lam.Parameters[i], fty.InputTypes[i], ctx));
+                        }
+
+                        for (; i < lam.Parameters.Length; ++i)
+                        {
+                            typedParams.Add(CheckVariableType(lam.Parameters[i], SchemeType.Bottom, ctx));
+                        }
+
+                        if (i < fty.InputTypes.Length && lam.DottedParameter is not null)
+                        {
+                            if (lam.DottedParameter is null)
+                            {
+                                for(; i < fty.InputTypes.Length; ++i)
+                                {
+                                    ctx.TypeConstraints.Add(new TypeEqualsType(fty.InputTypes[i], SchemeType.Bottom, lam));
+                                }
+                            }
+                            else
+                            {
+                                typedDotted = CheckVariableType(lam.DottedParameter, new DottedPreType(fty.InputTypes[i..^1]), ctx);
+                            }
+                        }
+
+                        Body typedBody = CheckThroughBody(lam.Body, fty.OutputType, ctx);
+
+                        Lambda typedFun = lam with
+                        {
+                            Parameters = [.. typedParams],
+                            DottedParameter = typedDotted,
+                            Body = typedBody
+                        };
+                        return new AnnotatedExpression(typedFun, fty);
+                    }
 
                 case Sequence seq:
                     Body typedBod = CheckThroughBody(seq.Body, ty, ctx);
@@ -160,7 +367,7 @@ namespace ClaspCompiler.CompilerPasses
 
                 default:
                     ISemAnnotated inferred = InferExpressionType(expr, ctx);
-                    ctx.TypeConstraints.Add(new TypeEquality(expr, inferred.Type, ty));
+                    ctx.TypeConstraints.Add(new TypeEqualsType(inferred.Type, ty, expr));
                     return inferred;
             }
         }
@@ -169,13 +376,13 @@ namespace ClaspCompiler.CompilerPasses
         {
             if (sv is Variable v)
             {
-                ctx.Env[v] = ty;
+                ctx.Gamma[v] = ty;
                 return new(v, ty);
             }
             else if (sv is TypedVariable tv)
             {
-                ctx.TypeConstraints.Add(new TypeEquality(sv, tv.Type, ty));
-                ctx.Env[tv.Variable] = ty;
+                ctx.TypeConstraints.Add(new TypeEqualsType(tv.Type, ty, sv));
+                ctx.Gamma[tv.Variable] = ty;
                 return new(tv.Variable, ty);
             }
             else
@@ -188,7 +395,7 @@ namespace ClaspCompiler.CompilerPasses
         {
             Definition[] defs = [.. bod.Definitions.Select(x => InferThroughDefinition(x, ctx))];
             ISemCmd[] cmds = [.. bod.Commands.Select(x => InferThroughCommand(x, ctx))];
-            ISemAnnotated val = CheckExpressionType(bod.Value, ty, ctx);
+            ISemAnnotated val = CheckEquivalentType(bod.Value, ty, ctx);
 
             return bod with
             {
@@ -197,6 +404,8 @@ namespace ClaspCompiler.CompilerPasses
                 Value = val
             };
         }
+
+
 
         #endregion
     }
